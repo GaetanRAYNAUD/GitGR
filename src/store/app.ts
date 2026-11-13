@@ -42,6 +42,10 @@ function persistSession(tabs: string[], active: string | null) {
   api.setSession({ openTabs: tabs, active }).catch(() => {});
 }
 
+/** Dernière requête de résumé lancée par dépôt : une réponse plus ancienne qui
+ *  arriverait après une plus récente est ignorée. */
+const summaryRequest: Record<string, number> = {};
+
 export const useApp = create<AppStore>((set, get) => ({
   ready: false,
   git: null,
@@ -53,7 +57,14 @@ export const useApp = create<AppStore>((set, get) => ({
   error: null,
 
   async init() {
-    const [state, git] = await Promise.all([api.getState(), api.gitInfo()]);
+    let state, git;
+    try {
+      [state, git] = await Promise.all([api.getState(), api.gitInfo()]);
+    } catch (e) {
+      // Ne jamais laisser une fenêtre vide : on démarre sur l'accueil avec l'erreur affichée.
+      set({ ready: true, error: errorCode(e) });
+      return;
+    }
     const known = new Set(state.repos.map((r) => r.path));
     const tabs = state.session.openTabs.filter((p) => known.has(p));
     const active = state.session.active && tabs.includes(state.session.active) ? state.session.active : null;
@@ -84,7 +95,13 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   async pickAndOpen(title) {
-    const path = await api.pickFolder(title);
+    let path: string | null;
+    try {
+      path = await api.pickFolder(title);
+    } catch (e) {
+      set({ error: errorCode(e) });
+      return;
+    }
     if (path) await get().openPath(path);
   },
 
@@ -126,7 +143,12 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   async forget(path) {
-    await api.forgetRepo(path);
+    try {
+      await api.forgetRepo(path);
+    } catch (e) {
+      set({ error: errorCode(e) });
+      return;
+    }
     const { repos, tabs, active } = get();
     const nextTabs = tabs.filter((p) => p !== path);
     set({
@@ -143,12 +165,17 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   async refreshSummary(path) {
+    const req = (summaryRequest[path] ?? 0) + 1;
+    summaryRequest[path] = req;
+    const apply = (next: SummaryState) => {
+      if (summaryRequest[path] !== req) return; // une requête plus récente a été lancée
+      set((s) => ({ summaries: { ...s.summaries, [path]: next } }));
+    };
     set((s) => ({ summaries: { ...s.summaries, [path]: { ...s.summaries[path], loading: true } } }));
     try {
-      const data = await api.repoSummary(path);
-      set((s) => ({ summaries: { ...s.summaries, [path]: { loading: false, data } } }));
+      apply({ loading: false, data: await api.repoSummary(path) });
     } catch (e) {
-      set((s) => ({ summaries: { ...s.summaries, [path]: { loading: false, error: errorCode(e) } } }));
+      apply({ loading: false, error: errorCode(e) });
     }
   },
 

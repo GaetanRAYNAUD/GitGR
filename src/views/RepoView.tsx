@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "../components/Icon";
+import { errorMessage } from "../lib/errors";
 import { remoteHost } from "../lib/format";
 import { useApp } from "../store/app";
 
@@ -54,7 +55,7 @@ export function RepoView({ path }: { path: string }) {
         {summary?.error ? (
           <div className="notice error" role="alert">
             <Icon name="alert" />
-            {t(`errors.${summary.error}`, { defaultValue: summary.error })}
+            {errorMessage(t, summary.error)}
           </div>
         ) : !data ? (
           <p className="muted">{t("repo.loading")}</p>

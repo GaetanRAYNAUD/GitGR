@@ -19,9 +19,13 @@ fn git_command() -> Command {
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
     // Sortie stable, non traduite, sans pager ni invite interactive.
+    // GIT_OPTIONAL_LOCKS=0 : nos lectures en arrière-plan (status…) ne prennent pas
+    // `.git/index.lock`, sinon elles feraient échouer les commandes git lancées en parallèle
+    // par l'utilisateur dans un terminal.
     cmd.env("LC_ALL", "C")
         .env("GIT_PAGER", "cat")
-        .env("GIT_TERMINAL_PROMPT", "0");
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0");
     cmd
 }
 
@@ -71,8 +75,22 @@ pub fn toplevel(path: &Path) -> Result<PathBuf, String> {
     }
     match run(Some(path), &["rev-parse", "--show-toplevel"]) {
         Ok(top) => Ok(PathBuf::from(top)),
-        Err(e) if e == "git_not_found" => Err(e),
-        Err(_) => Err("not_a_repo".into()),
+        Err(e) => Err(match classify_error(&e) {
+            Some(code) => code.to_string(),
+            None => "not_a_repo".to_string(),
+        }),
+    }
+}
+
+/// Reconnaît les erreurs git qui ont un code dédié (traduit côté interface).
+fn classify_error(stderr: &str) -> Option<&'static str> {
+    if stderr == "git_not_found" {
+        Some("git_not_found")
+    } else if stderr.contains("dubious ownership") {
+        // Dépôt appartenant à un autre utilisateur : git exige `safe.directory`.
+        Some("dubious_ownership")
+    } else {
+        None
     }
 }
 
@@ -96,7 +114,8 @@ pub fn summary(path: &Path) -> Result<RepoSummary, String> {
     if !path.is_dir() {
         return Err("path_not_found".into());
     }
-    let out = run(Some(path), &["status", "--porcelain=v2", "--branch"])?;
+    let out = run(Some(path), &["status", "--porcelain=v2", "--branch"])
+        .map_err(|e| classify_error(&e).map(str::to_string).unwrap_or(e))?;
     let mut s = parse_status(&out);
     s.remote_url = run(Some(path), &["remote", "get-url", "origin"]).ok();
     Ok(s)
@@ -157,6 +176,14 @@ mod tests {
         let s = parse_status("# branch.oid abc\n# branch.head main\n# branch.upstream origin/gone");
         assert_eq!(s.upstream.as_deref(), Some("origin/gone"));
         assert_eq!((s.ahead, s.behind), (0, 0));
+    }
+
+    #[test]
+    fn classifies_known_errors() {
+        let dubious = "fatal: detected dubious ownership in repository at 'D:/x'\nTo add an exception...";
+        assert_eq!(classify_error(dubious), Some("dubious_ownership"));
+        assert_eq!(classify_error("git_not_found"), Some("git_not_found"));
+        assert_eq!(classify_error("fatal: not a git repository"), None);
     }
 
     // --- Tests sur un vrai dépôt (nécessitent `git` dans le PATH) ---------

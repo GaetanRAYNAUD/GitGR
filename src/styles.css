@@ -438,6 +438,7 @@ h2 {
 }
 
 .seg {
+  position: relative;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -449,10 +450,6 @@ h2 {
   background: transparent;
   color: var(--muted);
   font-weight: 500;
-}
-
-.seg {
-  position: relative;
 }
 
 /* Séparateur vertical entre deux options (centré dans l'espace de 3px). */

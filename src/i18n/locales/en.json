@@ -74,7 +74,7 @@
     "not_a_repo": "This folder is not a Git repository.",
     "path_not_found": "This folder no longer exists.",
     "git_not_found": "Git was not found on this machine.",
-    "dismiss": "Dismiss"
+    "dubious_ownership": "Git refuses this repository because it belongs to another user. Allow it with: git config --global --add safe.directory <path>",    "dismiss": "Dismiss"
   },
   "time": {
     "justNow": "just now",

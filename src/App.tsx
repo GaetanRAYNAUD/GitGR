@@ -4,6 +4,7 @@ import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
 import { resolveLanguage } from "./i18n";
+import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
 import { RepoView } from "./views/RepoView";
 import { Welcome } from "./views/Welcome";
@@ -103,7 +104,7 @@ export default function App() {
       {error && (
         <div className="toast error" role="alert">
           <Icon name="alert" />
-          <span>{t(`errors.${error}`, { defaultValue: error })}</span>
+          <span>{errorMessage(t, error)}</span>
           <button className="link" onClick={dismissError}>
             {t("errors.dismiss")}
           </button>

@@ -74,7 +74,7 @@
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
     "path_not_found": "Ce dossier n’existe plus.",
     "git_not_found": "Git est introuvable sur cette machine.",
-    "dismiss": "Fermer"
+    "dubious_ownership": "Git refuse ce dépôt car il appartient à un autre utilisateur. Autorisez-le avec : git config --global --add safe.directory <chemin>",    "dismiss": "Fermer"
   },
   "time": {
     "justNow": "à l’instant",

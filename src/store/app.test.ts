@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { api } from "../lib/api";
 import { NOT_A_REPO, REPO_A, REPO_B, REPO_C } from "../test/utils";
 import { repoColor, useApp } from "./app";
@@ -35,6 +35,40 @@ describe("store : ouverture de dépôts", () => {
     await s().refreshSummary(REPO_A);
     expect(s().summaries[REPO_A].data?.branch).toBeTruthy();
     expect(s().summaries[REPO_A].loading).toBe(false);
+  });
+});
+
+describe("store : robustesse", () => {
+  it("une réponse de résumé plus ancienne n'écrase pas la plus récente", async () => {
+    let resolveOld!: (v: Awaited<ReturnType<typeof api.repoSummary>>) => void;
+    const base = await api.repoSummary(REPO_A);
+    const spy = vi
+      .spyOn(api, "repoSummary")
+      .mockImplementationOnce(() => new Promise((r) => (resolveOld = r)))
+      .mockResolvedValueOnce({ ...base, changes: 0 });
+
+    const old = s().refreshSummary(REPO_A);
+    await s().refreshSummary(REPO_A); // la plus récente répond d'abord
+    resolveOld({ ...base, changes: 7 }); // puis l'ancienne, en retard
+    await old;
+
+    expect(s().summaries[REPO_A].data?.changes).toBe(0);
+    spy.mockRestore();
+  });
+
+  it("un échec au démarrage affiche l'erreur au lieu d'une fenêtre vide", async () => {
+    const spy = vi.spyOn(api, "getState").mockRejectedValueOnce("boom");
+    await s().init();
+    expect(s().ready).toBe(true);
+    expect(s().error).toBe("boom");
+    spy.mockRestore();
+  });
+
+  it("un échec du sélecteur de dossier est affiché", async () => {
+    const spy = vi.spyOn(api, "pickFolder").mockRejectedValueOnce("dialog cassé");
+    await s().pickAndOpen("titre");
+    expect(s().error).toBe("dialog cassé");
+    spy.mockRestore();
   });
 });
 

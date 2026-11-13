@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { repoColor, useApp } from "../store/app";
@@ -13,9 +13,13 @@ const DRAG_THRESHOLD = 5;
  *  par Tauri sous Windows (dépôt de fichiers), et ceci donne un réordonnancement en direct. */
 function useTabDrag(container: React.RefObject<HTMLDivElement | null>) {
   const [dragging, setDragging] = useState<string | null>(null);
+  /** Retire les écouteurs du glisser en cours (aussi appelé au démontage). */
+  const stop = useRef<(() => void) | null>(null);
+  useEffect(() => () => stop.current?.(), []);
 
   const onPointerDown = (e: ReactPointerEvent, path: string) => {
     if (e.button !== 0) return;
+    stop.current?.();
     const startX = e.clientX;
     let moved = false;
 
@@ -40,9 +44,11 @@ function useTabDrag(container: React.RefObject<HTMLDivElement | null>) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      stop.current = null;
       setDragging(null);
     };
 
+    stop.current = onUp;
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
