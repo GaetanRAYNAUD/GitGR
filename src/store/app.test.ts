@@ -69,6 +69,31 @@ describe("store : onglets", () => {
     expect(s().active).toBeNull();
   });
 
+  it("déplace un onglet, sans changer l'onglet actif", async () => {
+    await openAll(REPO_A, REPO_B, REPO_C);
+    s().moveTab(REPO_C, 0);
+    expect(s().tabs).toEqual([REPO_C, REPO_A, REPO_B]);
+    s().moveTab(REPO_C, 2);
+    expect(s().tabs).toEqual([REPO_A, REPO_B, REPO_C]);
+    expect(s().active).toBe(REPO_C);
+  });
+
+  it("borne la position cible et ignore un onglet inconnu", async () => {
+    await openAll(REPO_A, REPO_B);
+    s().moveTab(REPO_A, 99);
+    expect(s().tabs).toEqual([REPO_B, REPO_A]);
+    s().moveTab(REPO_A, -5);
+    expect(s().tabs).toEqual([REPO_A, REPO_B]);
+    s().moveTab("C:/inconnu", 0);
+    expect(s().tabs).toEqual([REPO_A, REPO_B]);
+  });
+
+  it("le nouvel ordre est persisté", async () => {
+    await openAll(REPO_A, REPO_B);
+    s().moveTab(REPO_B, 0);
+    expect((await api.getState()).session.openTabs).toEqual([REPO_B, REPO_A]);
+  });
+
   it("retirer un dépôt de la liste ferme aussi son onglet", async () => {
     await openAll(REPO_A, REPO_B);
     await s().forget(REPO_B);

@@ -33,14 +33,17 @@ function useLanguage() {
   }, [language, i18n]);
 }
 
-/** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5. */
+/** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
+ *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useApp.getState();
       const ctrl = e.ctrlKey || e.metaKey;
-      if (ctrl && e.key === "Tab") {
+      if (ctrl && e.shiftKey && (e.key === "PageUp" || e.key === "PageDown")) {
+        if (s.active) s.moveTab(s.active, s.tabs.indexOf(s.active) + (e.key === "PageUp" ? -1 : 1));
+      } else if (ctrl && e.key === "Tab") {
         s.cycleTab(e.shiftKey ? -1 : 1);
       } else if (ctrl && e.key.toLowerCase() === "w") {
         if (s.active) s.closeTab(s.active);

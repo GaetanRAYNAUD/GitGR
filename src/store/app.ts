@@ -30,6 +30,8 @@ interface AppStore {
   activate(path: string | null): void;
   closeTab(path: string): void;
   cycleTab(delta: number): void;
+  /** Déplace l'onglet `path` à la position `index` (bornée). */
+  moveTab(path: string, index: number): void;
   forget(path: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): void;
   refreshSummary(path: string): Promise<void>;
@@ -109,6 +111,18 @@ export const useApp = create<AppStore>((set, get) => ({
     const ring: (string | null)[] = [...tabs, null];
     const i = ring.indexOf(active);
     get().activate(ring[(i + delta + ring.length) % ring.length]);
+  },
+
+  moveTab(path, index) {
+    const { tabs, active } = get();
+    const from = tabs.indexOf(path);
+    const to = Math.max(0, Math.min(index, tabs.length - 1));
+    if (from < 0 || from === to) return;
+    const next = [...tabs];
+    next.splice(from, 1);
+    next.splice(to, 0, path);
+    set({ tabs: next });
+    persistSession(next, active);
   },
 
   async forget(path) {

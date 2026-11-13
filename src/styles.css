@@ -290,6 +290,19 @@ h2 {
   color: var(--text);
 }
 
+.tabs.dragging,
+.tabs.dragging * {
+  cursor: grabbing;
+}
+
+.tab.dragged {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  position: relative;
+  z-index: 1;
+}
+
 .tab-main {
   display: flex;
   align-items: center;
