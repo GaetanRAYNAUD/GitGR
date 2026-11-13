@@ -150,4 +150,118 @@ mod tests {
         let s = parse_status("# branch.oid (initial)\n# branch.head (detached)");
         assert!(s.branch.is_none() && s.head.is_none());
     }
+
+    #[test]
+    fn parses_upstream_without_ahead_behind() {
+        // Branche distante supprimée : git donne l'upstream mais pas de ligne `branch.ab`.
+        let s = parse_status("# branch.oid abc\n# branch.head main\n# branch.upstream origin/gone");
+        assert_eq!(s.upstream.as_deref(), Some("origin/gone"));
+        assert_eq!((s.ahead, s.behind), (0, 0));
+    }
+
+    // --- Tests sur un vrai dépôt (nécessitent `git` dans le PATH) ---------
+
+    /// Crée un dépôt vide dans un dossier temporaire, avec une identité locale.
+    fn temp_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        run(Some(p), &["init", "-q", "-b", "main"]).unwrap();
+        run(Some(p), &["config", "user.name", "Test"]).unwrap();
+        run(Some(p), &["config", "user.email", "test@exemple.fr"]).unwrap();
+        run(Some(p), &["config", "commit.gpgsign", "false"]).unwrap();
+        dir
+    }
+
+    fn commit_file(repo: &Path, name: &str, content: &str) {
+        std::fs::write(repo.join(name), content).unwrap();
+        run(Some(repo), &["add", name]).unwrap();
+        run(Some(repo), &["commit", "-q", "-m", "test"]).unwrap();
+    }
+
+    #[test]
+    fn detects_git() {
+        let i = info();
+        assert!(i.found, "git doit être installé pour lancer les tests");
+        assert!(i.version.unwrap().chars().next().unwrap().is_ascii_digit());
+    }
+
+    #[test]
+    fn toplevel_from_a_subfolder() {
+        let repo = temp_repo();
+        let sub = repo.path().join("a").join("b");
+        std::fs::create_dir_all(&sub).unwrap();
+        let top = toplevel(&sub).unwrap();
+        // Comparaison sur des chemins canoniques (git renvoie des `/` sous Windows).
+        assert_eq!(
+            std::fs::canonicalize(top).unwrap(),
+            std::fs::canonicalize(repo.path()).unwrap()
+        );
+    }
+
+    #[test]
+    fn toplevel_errors() {
+        let plain = tempfile::tempdir().unwrap();
+        assert_eq!(toplevel(plain.path()).unwrap_err(), "not_a_repo");
+        assert_eq!(
+            toplevel(&plain.path().join("absent")).unwrap_err(),
+            "path_not_found"
+        );
+    }
+
+    #[test]
+    fn summary_of_empty_repo() {
+        let repo = temp_repo();
+        let s = summary(repo.path()).unwrap();
+        assert_eq!(s.branch.as_deref(), Some("main"));
+        assert!(s.head.is_none());
+        assert_eq!(s.changes, 0);
+        assert!(s.remote_url.is_none());
+    }
+
+    #[test]
+    fn summary_counts_changes_and_reads_remote() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1");
+        std::fs::write(p.join("a.txt"), "2").unwrap(); // modifié
+        std::fs::write(p.join("b.txt"), "x").unwrap(); // non suivi
+        run(Some(p), &["remote", "add", "origin", "git@gitlab.exemple.fr:g/r.git"]).unwrap();
+
+        let s = summary(p).unwrap();
+        assert_eq!(s.head.as_ref().map(|h| h.len()), Some(40));
+        assert_eq!(s.changes, 2);
+        assert_eq!(s.remote_url.as_deref(), Some("git@gitlab.exemple.fr:g/r.git"));
+        assert!(s.upstream.is_none());
+    }
+
+    #[test]
+    fn summary_reports_ahead_and_behind() {
+        // Un dépôt « distant » nu, un clone, puis des commits de chaque côté.
+        let remote = tempfile::tempdir().unwrap();
+        run(Some(remote.path()), &["init", "-q", "--bare", "-b", "main"]).unwrap();
+
+        let a = temp_repo();
+        let url = remote.path().to_string_lossy().to_string();
+        run(Some(a.path()), &["remote", "add", "origin", &url]).unwrap();
+        commit_file(a.path(), "f.txt", "1");
+        run(Some(a.path()), &["push", "-q", "-u", "origin", "main"]).unwrap();
+
+        // Un autre clone pousse un commit : `a` aura 1 commit de retard...
+        let b = tempfile::tempdir().unwrap();
+        run(Some(b.path()), &["clone", "-q", &url, "."]).unwrap();
+        run(Some(b.path()), &["config", "user.name", "B"]).unwrap();
+        run(Some(b.path()), &["config", "user.email", "b@exemple.fr"]).unwrap();
+        run(Some(b.path()), &["config", "commit.gpgsign", "false"]).unwrap();
+        commit_file(b.path(), "g.txt", "1");
+        run(Some(b.path()), &["push", "-q"]).unwrap();
+
+        // ... et 2 commits d'avance.
+        commit_file(a.path(), "h.txt", "1");
+        commit_file(a.path(), "i.txt", "1");
+        run(Some(a.path()), &["fetch", "-q"]).unwrap();
+
+        let s = summary(a.path()).unwrap();
+        assert_eq!(s.upstream.as_deref(), Some("origin/main"));
+        assert_eq!((s.ahead, s.behind), (2, 1));
+    }
 }

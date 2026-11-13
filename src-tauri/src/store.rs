@@ -77,3 +77,58 @@ impl Store {
         fs::rename(&tmp, &self.file).map_err(|e| e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_file_gives_default_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::load(dir.path().join("absent"));
+        assert!(store.state.repos.is_empty());
+        assert_eq!(store.state.settings.theme, "system");
+        assert_eq!(store.state.settings.language, "system");
+    }
+
+    #[test]
+    fn save_then_load_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::load(dir.path().join("cfg"));
+        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42 });
+        store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
+        store.state.settings.theme = "dark".into();
+        store.save().unwrap();
+
+        let again = Store::load(dir.path().join("cfg"));
+        assert_eq!(again.state.repos.len(), 1);
+        assert_eq!(again.state.repos[0].last_opened, 42);
+        assert_eq!(again.state.session.active.as_deref(), Some("/r"));
+        assert_eq!(again.state.settings.theme, "dark");
+        // Le fichier temporaire ne doit pas traîner.
+        assert!(!dir.path().join("cfg").join("state.json.tmp").exists());
+    }
+
+    #[test]
+    fn corrupted_file_falls_back_to_default() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("state.json"), "{ pas du json").unwrap();
+        let store = Store::load(dir.path().to_path_buf());
+        assert!(store.state.repos.is_empty());
+    }
+
+    #[test]
+    fn partial_file_keeps_known_fields_and_defaults_the_rest() {
+        // Un fichier écrit par une version plus ancienne (sans `settings`) reste lisible.
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join("state.json"),
+            r#"{"repos":[{"path":"/r","name":"r","lastOpened":1}]}"#,
+        )
+        .unwrap();
+        let store = Store::load(dir.path().to_path_buf());
+        assert_eq!(store.state.repos.len(), 1);
+        assert_eq!(store.state.settings.theme, "system");
+        assert!(store.state.session.open_tabs.is_empty());
+    }
+}

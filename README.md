@@ -26,11 +26,22 @@ npm run tauri dev     # application complète (Rust + interface)
 npm run dev           # interface seule dans le navigateur, avec un backend simulé
 ```
 
-Tests Rust :
+## Tests
+
+| Commande | Quoi | Outil |
+|---|---|---|
+| `npm test` | tests unitaires de l'interface (store, utilitaires, composants) | Vitest + Testing Library |
+| `npm run test:rust` | tests unitaires du backend, dont des tests sur de vrais dépôts Git temporaires | `cargo test` |
+| `npm run test:e2e` | parcours utilisateur dans un vrai navigateur, backend simulé | Playwright |
+| `npm run test:all` | typage + les trois suites | |
+
+Avant le premier `test:e2e`, installer le navigateur de Playwright :
 
 ```bash
-cd src-tauri && cargo test
+npx playwright install chromium
 ```
+
+Les tests Rust ont besoin de `git` dans le PATH. Les tests E2E démarrent Vite eux-mêmes, ou réutilisent celui de `npm run tauri dev` s'il tourne déjà.
 
 ## Structure
 
@@ -41,7 +52,9 @@ src/                 interface React
   store/             état global (zustand)
   lib/api.ts         façade vers le backend (Tauri ou simulé)
   i18n/              traductions
-src-tauri/src/       backend Rust
+  **/*.test.ts(x)    tests unitaires, à côté du code testé
+e2e/                 tests E2E Playwright
+src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque fichier)
   git.rs             appels au binaire git
   store.rs           état persistant (dépôts, onglets, réglages)
   commands.rs        commandes exposées à l'interface

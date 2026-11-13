@@ -1,17 +1,14 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "../components/Icon";
+import { relativeTime } from "../lib/format";
 import { repoColor, useApp } from "../store/app";
 
 function useRelativeTime() {
   const { t } = useTranslation();
   return (ms: number) => {
-    const min = Math.floor((Date.now() - ms) / 60000);
-    if (min < 1) return t("time.justNow");
-    if (min < 60) return t("time.minutes", { count: min });
-    const h = Math.floor(min / 60);
-    if (h < 24) return t("time.hours", { count: h });
-    return t("time.days", { count: Math.floor(h / 24) });
+    const r = relativeTime(ms);
+    return t(`time.${r.key}`, { count: r.count });
   };
 }
 

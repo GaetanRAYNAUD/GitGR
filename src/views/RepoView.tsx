@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "../components/Icon";
+import { remoteHost } from "../lib/format";
 import { useApp } from "../store/app";
 
 const TOOLS: { key: string; icon: IconName; sep?: boolean }[] = [
@@ -10,12 +11,6 @@ const TOOLS: { key: string; icon: IconName; sep?: boolean }[] = [
   { key: "stash", icon: "stash" },
   { key: "pop", icon: "pop" },
 ];
-
-/** Hôte lisible d'une URL de remote (https://host/... ou git@host:...). */
-function remoteHost(url: string): string {
-  const m = url.match(/^[a-z+]+:\/\/(?:[^@/]+@)?([^/:]+)/i) ?? url.match(/^[^@]+@([^:]+):/);
-  return m ? m[1] : url;
-}
 
 /** Vue d'un dépôt ouvert. Étape 1 : barre d'outils + résumé ; le graphe arrive à l'étape 2. */
 export function RepoView({ path }: { path: string }) {

@@ -1,0 +1,65 @@
+import { expect, test } from "@playwright/test";
+import { homeButton, openNextRepo, openRepos, tab } from "./fixtures";
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+});
+
+test("accueil vide au premier lancement", async ({ page }) => {
+  await expect(page.getByRole("heading", { name: "Dépôts" })).toBeVisible();
+  await expect(page.getByText(/Aucun dépôt pour l’instant/)).toBeVisible();
+  await expect(page.getByText(/Git .* détecté/)).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+});
+
+test("ouvrir un dépôt l'affiche dans un onglet avec son résumé", async ({ page }) => {
+  await openNextRepo(page, "GitGR");
+  await expect(page.getByRole("term").filter({ hasText: "Branche" })).toBeVisible();
+  await expect(page.getByText("C:/Users/demo/Projects/GitGR").first()).toBeVisible();
+  await expect(page.getByText("Le graphe des commits arrive à l’étape 2.")).toBeVisible();
+  // Les actions Git ne sont pas encore branchées.
+  await expect(page.getByRole("button", { name: "Push" })).toBeDisabled();
+});
+
+test("un dossier qui n'est pas un dépôt affiche une erreur", async ({ page }) => {
+  await openRepos(page, 3);
+  await homeButton(page).click();
+  await page.getByRole("button", { name: /Ouvrir un dépôt/ }).click();
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("Ce dossier n’est pas un dépôt Git.");
+  await expect(page.getByRole("tab")).toHaveCount(3);
+
+  await alert.getByRole("button", { name: "Fermer" }).click();
+  await expect(alert).toHaveCount(0);
+});
+
+test("les dépôts ouverts apparaissent dans les récents, filtrables", async ({ page }) => {
+  await openRepos(page, 3);
+  await homeButton(page).click();
+
+  const list = page.locator(".repo-list");
+  await expect(list.locator(".repo-name")).toHaveText(["dotfiles", "api-backend", "GitGR"]);
+
+  await page.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("api");
+  await expect(list.locator(".repo-name")).toHaveText(["api-backend"]);
+});
+
+test("retirer un dépôt des récents ferme aussi son onglet", async ({ page }) => {
+  await openRepos(page, 2);
+  await homeButton(page).click();
+
+  await page.locator(".repo-row", { hasText: "GitGR" }).hover();
+  await page.getByRole("button", { name: "Retirer GitGR de la liste" }).click();
+
+  await expect(page.locator(".repo-name")).toHaveText(["api-backend"]);
+  await expect(tab(page, "GitGR")).toHaveCount(0);
+});
+
+test("cliquer sur un récent rouvre son onglet", async ({ page }) => {
+  await openRepos(page, 2);
+  await homeButton(page).click();
+  await page.locator(".repo-open", { hasText: "GitGR" }).click();
+  await expect(tab(page, "GitGR")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+});

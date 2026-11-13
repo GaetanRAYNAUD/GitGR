@@ -25,7 +25,8 @@
 - **Maquettes** (Claude Design) : vue dépôt (graphe + staging), accueil, réglages des profils — https://claude.ai/artifact/3jzWnmWw6aSMV3ivp6KsGz
 - **Étape 1 — squelette** : terminée. Barre de titre personnalisée avec onglets de dépôts, accueil (ouvrir un dossier, récents, recherche, retirer), vue dépôt avec résumé (branche, suivi, ↑↓, modifs, remote), détection de Git + fenêtre si absent, thème clair/sombre/système, FR/EN, raccourcis (Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5). État persisté en JSON (`state.json` dans le dossier de config) ; passage à SQLite prévu avec les profils.
   - Clic sur le logo = retour à l'accueil. Drapeaux dans le choix de langue.
-  - Vérifiée dans l'app Tauri sous Windows (ouverture, erreurs, onglets, fenêtre, restauration au redémarrage). Tests Rust : `cargo test`.
+  - Vérifiée dans l'app Tauri sous Windows (ouverture, erreurs, onglets, fenêtre, restauration au redémarrage).
+  - Tests : 34 unitaires front, 13 unitaires Rust, 14 E2E Playwright (cf. §8).
   - Retours sur les maquettes à reporter dans l'app aux étapes 2-4 : sections repliables / masquables par dépôt dans la barre latérale, bouton « tout annuler » avec confirmation (et option stash), case « push après le commit » mémorisée par dépôt, profil discret dans la zone de commit.
 
 ## 1. Vision
@@ -159,7 +160,26 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 7. **Distribution** : installeurs, updater, CI de release.
 8. Merge/rebase/cherry-pick, undo/redo, palette de commandes, puis v2.
 
-## 8. Questions ouvertes
+## 8. Tests
+
+Règle : **chaque étape livre ses tests**, et `npm run test:all` doit passer avant un commit.
+
+| Niveau | Outil | Ce qu'on y teste |
+|---|---|---|
+| Unitaires front | Vitest + Testing Library (jsdom) | store (onglets, persistance, erreurs), fonctions pures (`lib/format.ts`), composants, cohérence des traductions FR/EN |
+| Unitaires Rust | `cargo test` + `tempfile` | parsing de la sortie git, persistance de l'état, **opérations git sur de vrais dépôts temporaires** (remote nu + clones pour ahead/behind, conflits, stash…) |
+| E2E interface | Playwright (Chromium), sur Vite avec le backend simulé | parcours utilisateur : ouvrir, onglets et raccourcis, erreurs, réglages, restauration au redémarrage |
+
+Pourquoi Playwright sur le backend simulé : rapide, stable, identique sous Windows et Linux, et ça couvre toute la logique d'interface. La partie Rust est couverte par ses propres tests sur de vrais dépôts.
+
+Plus tard (avant la première release) : quelques E2E **sur l'app Tauri compilée** via WebDriver (`tauri-driver` + WebdriverIO ; supporté sous Windows et Linux, pas macOS), pour les parcours critiques de bout en bout (commit, push, auto-stash). Et une CI GitHub Actions Windows + Linux qui lance `test:all`.
+
+Conventions :
+- Front : `*.test.ts(x)` à côté du fichier testé ; état remis à zéro entre deux tests (`src/test/setup.ts`).
+- Rust : module `#[cfg(test)] mod tests` en bas de chaque fichier ; un dépôt temporaire par test (`temp_repo()` dans `git.rs`).
+- E2E : un fichier par domaine dans `e2e/`, sélecteurs par rôle et libellé accessibles (pas de sélecteurs CSS quand c'est évitable).
+
+## 9. Questions ouvertes
 
 - [x] ~~Rust / framework front~~ → Tauri 2 + React (cf. §0)
 - [x] ~~Nature du projet~~ → perso, open source, sans signature (cf. §0)
