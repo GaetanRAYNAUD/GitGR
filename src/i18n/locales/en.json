@@ -1,0 +1,85 @@
+{
+  "app": { "name": "GitGR" },
+  "tabs": {
+    "home": "Home",
+    "new": "New tab",
+    "close": "Close tab {{name}}"
+  },
+  "window": { "minimize": "Minimize", "maximize": "Maximize", "close": "Close" },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "languageSystem": "System"
+  },
+  "welcome": {
+    "title": "Repositories",
+    "subtitle": "Open, clone or create a repository. It will open in a new tab.",
+    "open": "Open a repository",
+    "openHint": "Existing local folder · Ctrl O",
+    "clone": "Clone",
+    "cloneHint": "From a URL, GitHub or GitLab",
+    "init": "Initialize",
+    "initHint": "New empty repository",
+    "soon": "Soon",
+    "recent": "Recent",
+    "search": "Search repositories",
+    "empty": "No repositories yet. Open a folder to get started.",
+    "noMatch": "No repository matches “{{q}}”.",
+    "forget": "Remove {{name}} from the list",
+    "openedAt": "Opened {{when}}",
+    "pickTitle": "Choose a Git repository folder",
+    "gitDetected": "Git {{version}} detected"
+  },
+  "repo": {
+    "pull": "Pull",
+    "push": "Push",
+    "fetch": "Fetch",
+    "branch": "Branch",
+    "stash": "Stash",
+    "pop": "Pop",
+    "refresh": "Refresh",
+    "comingSoon": "Available in an upcoming step",
+    "detached": "Detached HEAD",
+    "noCommit": "No commits",
+    "branchLabel": "Branch",
+    "upstream": "Tracks",
+    "noUpstream": "No upstream branch",
+    "changes_one": "{{count}} changed file",
+    "changes_other": "{{count}} changed files",
+    "workingTree": "Working tree",
+    "clean": "Clean, no changes",
+    "ahead": "{{count}} to push",
+    "behind": "{{count}} to pull",
+    "upToDate": "Up to date",
+    "head": "Current commit",
+    "remote": "Remote origin",
+    "noRemote": "No origin remote",
+    "path": "Folder",
+    "graphSoon": "The commit graph arrives in step 2.",
+    "loading": "Reading repository…"
+  },
+  "gitMissing": {
+    "title": "Git was not found",
+    "body": "GitGR relies on Git for every operation. Install it, or use the bundled version.",
+    "download": "Download Git",
+    "embedded": "Use bundled Git",
+    "linuxHint": "On Linux: install the “git” package with your package manager (e.g. sudo apt install git).",
+    "retry": "Retry"
+  },
+  "errors": {
+    "not_a_repo": "This folder is not a Git repository.",
+    "path_not_found": "This folder no longer exists.",
+    "git_not_found": "Git was not found on this machine.",
+    "dismiss": "Dismiss"
+  },
+  "time": {
+    "justNow": "just now",
+    "minutes": "{{count}} min ago",
+    "hours": "{{count}} h ago",
+    "days": "{{count}} d ago"
+  }
+}

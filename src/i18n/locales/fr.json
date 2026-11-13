@@ -1,0 +1,85 @@
+{
+  "app": { "name": "GitGR" },
+  "tabs": {
+    "home": "Accueil",
+    "new": "Nouvel onglet",
+    "close": "Fermer l’onglet {{name}}"
+  },
+  "window": { "minimize": "Réduire", "maximize": "Agrandir", "close": "Fermer" },
+  "settings": {
+    "title": "Réglages",
+    "theme": "Thème",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "language": "Langue",
+    "languageSystem": "Système"
+  },
+  "welcome": {
+    "title": "Dépôts",
+    "subtitle": "Ouvrez, clonez ou créez un dépôt. Il s’ouvrira dans un nouvel onglet.",
+    "open": "Ouvrir un dépôt",
+    "openHint": "Dossier local existant · Ctrl O",
+    "clone": "Cloner",
+    "cloneHint": "Depuis une URL, GitHub ou GitLab",
+    "init": "Initialiser",
+    "initHint": "Nouveau dépôt vide",
+    "soon": "Bientôt",
+    "recent": "Récents",
+    "search": "Rechercher un dépôt",
+    "empty": "Aucun dépôt pour l’instant. Ouvrez un dossier pour commencer.",
+    "noMatch": "Aucun dépôt ne correspond à « {{q}} ».",
+    "forget": "Retirer {{name}} de la liste",
+    "openedAt": "Ouvert {{when}}",
+    "pickTitle": "Choisir le dossier d’un dépôt Git",
+    "gitDetected": "Git {{version}} détecté"
+  },
+  "repo": {
+    "pull": "Pull",
+    "push": "Push",
+    "fetch": "Fetch",
+    "branch": "Branche",
+    "stash": "Stash",
+    "pop": "Pop",
+    "refresh": "Actualiser",
+    "comingSoon": "Disponible dans une prochaine étape",
+    "detached": "HEAD détachée",
+    "noCommit": "Aucun commit",
+    "branchLabel": "Branche",
+    "upstream": "Suit",
+    "noUpstream": "Aucune branche distante suivie",
+    "changes_one": "{{count}} fichier modifié",
+    "changes_other": "{{count}} fichiers modifiés",
+    "workingTree": "Copie de travail",
+    "clean": "Propre, aucune modification",
+    "ahead": "{{count}} à pousser",
+    "behind": "{{count}} à tirer",
+    "upToDate": "À jour",
+    "head": "Commit courant",
+    "remote": "Remote origin",
+    "noRemote": "Aucun remote origin",
+    "path": "Dossier",
+    "graphSoon": "Le graphe des commits arrive à l’étape 2.",
+    "loading": "Lecture du dépôt…"
+  },
+  "gitMissing": {
+    "title": "Git est introuvable",
+    "body": "GitGR s’appuie sur Git pour toutes les opérations. Installez-le, ou utilisez la version embarquée.",
+    "download": "Télécharger Git",
+    "embedded": "Utiliser le Git embarqué",
+    "linuxHint": "Sous Linux : installez le paquet « git » avec votre gestionnaire de paquets (ex. sudo apt install git).",
+    "retry": "Réessayer"
+  },
+  "errors": {
+    "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
+    "path_not_found": "Ce dossier n’existe plus.",
+    "git_not_found": "Git est introuvable sur cette machine.",
+    "dismiss": "Fermer"
+  },
+  "time": {
+    "justNow": "à l’instant",
+    "minutes": "il y a {{count}} min",
+    "hours": "il y a {{count}} h",
+    "days": "il y a {{count}} j"
+  }
+}
