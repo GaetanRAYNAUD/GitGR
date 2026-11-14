@@ -107,18 +107,28 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
       WEBVIEW2_USER_DATA_FOLDER: join(sandbox.root, "webview2"),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     },
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  // Sortie de l'app, jointe à l'erreur si elle ne démarre pas (diagnostic en CI).
+  let output = "";
+  const keep = (d: Buffer) => (output = (output + d.toString()).slice(-4000));
+  proc.stdout?.on("data", keep);
+  proc.stderr?.on("data", keep);
+  const failed = (why: string) => new Error(`${why}\n--- sortie de l'app ---\n${output || "(vide)"}`);
 
   let browser: Browser | undefined;
-  const deadline = Date.now() + 30_000;
+  // Premier démarrage de WebView2 lent sur une machine froide (CI).
+  const deadline = Date.now() + (process.env.CI ? 90_000 : 30_000);
   while (!browser) {
-    if (proc.exitCode !== null) throw new Error(`L'app s'est arrêtée au démarrage (code ${proc.exitCode})`);
+    if (proc.exitCode !== null) throw failed(`L'app s'est arrêtée au démarrage (code ${proc.exitCode})`);
     try {
       browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     } catch (e) {
-      if (Date.now() > deadline) throw e;
-      await new Promise((r) => setTimeout(r, 300));
+      if (Date.now() > deadline) {
+        proc.kill();
+        throw failed(`CDP injoignable sur le port ${port} : ${(e as Error).message.split("\n")[0]}`);
+      }
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
   const context = browser.contexts()[0];

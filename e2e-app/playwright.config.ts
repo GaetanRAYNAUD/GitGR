@@ -7,7 +7,7 @@ export default defineConfig({
   testDir: ".",
   // Une seule app à la fois : chaque test lance la sienne, sur son propre port CDP.
   workers: 1,
-  timeout: 60_000,
+  timeout: process.env.CI ? 150_000 : 60_000,
   // En CI, les échecs deviennent aussi des annotations de la PR (lisibles sans connexion).
   reporter: process.env.CI ? [["github"], ["list"]] : "list",
   use: { trace: "off" },

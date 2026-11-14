@@ -97,6 +97,13 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Version de WebView2 installée
+        shell: pwsh
+        run: |
+          $keys = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $v = $keys | ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Select-Object -First 1
+          if ($v) { "WebView2 Runtime $v" } else { "WebView2 Runtime introuvable" }
       # Compile le binaire de debug, puis lance l'app pour chaque test (cf. e2e-app/app.ts).
       - run: npm run test:app
       - name: Rapport Playwright (en cas d'échec)
