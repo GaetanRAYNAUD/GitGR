@@ -8,7 +8,7 @@
 
 import { test as base, chromium, expect, type Browser, type Page } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -79,6 +79,26 @@ export class Sandbox {
   }
 }
 
+/** État de la machine quand l'app ne répond pas en CDP : processus WebView2, profil créé ou
+ *  non, session Windows (une session sans bureau empêche WebView2 de démarrer). */
+function diagnose(sandbox: Sandbox): string {
+  const run = (cmd: string, args: string[]) => {
+    try {
+      return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    } catch (e) {
+      return `(échec : ${(e as Error).message.split("\n")[0]})`;
+    }
+  };
+  const profile = join(sandbox.root, "webview2");
+  return [
+    "--- diagnostic ---",
+    `processus WebView2 : ${run("tasklist", ["/FI", "IMAGENAME eq msedgewebview2.exe", "/NH"])}`,
+    `processus gitgr : ${run("tasklist", ["/FI", "IMAGENAME eq gitgr.exe", "/NH"])}`,
+    `profil WebView2 : ${existsSync(profile) ? readdirSync(profile).join(", ") || "(vide)" : "(absent)"}`,
+    `session : ${run("powershell", ["-NoProfile", "-Command", "[System.Diagnostics.Process]::GetCurrentProcess().SessionId; [Environment]::UserInteractive"])}`,
+  ].join("\n");
+}
+
 export interface App {
   page: Page;
   /** Arrête l'app (fin de test, ou pour la relancer). */
@@ -114,7 +134,7 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
   const keep = (d: Buffer) => (output = (output + d.toString()).slice(-4000));
   proc.stdout?.on("data", keep);
   proc.stderr?.on("data", keep);
-  const failed = (why: string) => new Error(`${why}\n--- sortie de l'app ---\n${output || "(vide)"}`);
+  const failed = (why: string) => new Error(`${why}\n--- sortie de l'app ---\n${output || "(vide)"}\n${diagnose(sandbox)}`);
 
   let browser: Browser | undefined;
   // Premier démarrage de WebView2 lent sur une machine froide (CI).
