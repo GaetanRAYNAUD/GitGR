@@ -1,0 +1,48 @@
+# Paquets Linux de GitGR (AppImage, .deb, .rpm), à la demande ou sur un tag `v*`.
+#
+# Lancer : onglet Actions → « Build » → Run workflow. Les paquets sont joints au run
+# (artefact `gitgr-linux`). Compilé sur Ubuntu 22.04 : la glibc la plus ancienne qu'on vise,
+# pour que l'AppImage tourne aussi sur des distributions moins récentes.
+# Binaires non signés, pas de mise à jour automatique pour l'instant (étape 7).
+
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (AppImage, deb, rpm)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - name: Dépendances système de Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # `tauri build` lance aussi `npm run build` (interface) avant de compiler le Rust.
+      - run: npx tauri build --bundles appimage,deb,rpm
+      - uses: actions/upload-artifact@v5
+        with:
+          name: gitgr-linux
+          path: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+          retention-days: 30
