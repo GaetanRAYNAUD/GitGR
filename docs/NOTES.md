@@ -87,6 +87,7 @@ Retours d'utilisation, à caser dans une prochaine étape :
   - **Plage qui traverse un merge** : comme GitKraken, la plage suit les commits du graphe jusqu'à la sélection ; on peut donc sélectionner un commit au milieu d'une branche fusionnée et obtenir le cumul de cette portion.
   - **Clavier** : Maj+↑ / Maj+↓ étendent la sélection.
   - **Actions groupées** : oui, en commençant par le cherry-pick des commits choisis (dans l'ordre de l'historique) ; squash, revert… ensuite.
+- [ ] **Résolution de conflits : composer le résultat librement** (défaut de GitKraken à ne pas reproduire). Pour prendre des morceaux de chaque côté, GitKraken ajoute les lignes choisies une par une **à la suite**, dans l'ordre des clics, sans pouvoir ensuite en remonter ou en descendre une. Dans GitGR : chaque ligne (ou bloc) choisie arrive à sa place logique dans le résultat, que l'on peut réordonner (glisser-déposer, Alt+↑ / Alt+↓), et le panneau du résultat reste **éditable directement** (taper, corriger, supprimer). Choix rapides en plus : « tout le côté A », « tout le côté B », « A puis B », « B puis A » pour un bloc. À faire avec la vue 3 panneaux (§2.3).
 - [ ] **Renommer un onglet** : nom affiché propre à l'app, sans toucher au dossier ni au dépôt (double-clic ou clic droit sur l'onglet ; « nom d'origine » pour revenir au nom du dossier). Visible aussi dans les récents de l'accueil.
 - [ ] **Personnaliser un onglet** : choisir la couleur du rond (palette, au minimum), voire une image / icône à la place (fichier local, ou avatar du dépôt / de l'organisation une fois les providers en place, cf. plus bas).
 - [ ] **Couleurs fixes par nom de branche** (réglage global de l'app) : ex. `main` / `master` toujours en bleu, `develop` en vert, `release/*` en orange, avec des motifs (`feature/*`, `hotfix/*`). Appliquées aux lanes et aux étiquettes du graphe à la place de la couleur attribuée par colonne ; les autres branches gardent la palette actuelle.
@@ -137,7 +138,7 @@ Cibles : **Windows + Linux** (macOS non exclu plus tard **[?]**).
 - Pull avec stratégie configurable (ff-only / merge / rebase), « pull = fetch + fast-forward si possible ».
 
 ### 2.3 Plus tard (v2+)
-- Résolution de conflits intégrée (vue 3 panneaux).
+- Résolution de conflits intégrée (vue 3 panneaux), avec un résultat réordonnable et éditable (cf. « À faire »).
 - Rebase interactif visuel (réordonner / squash / fixup par drag & drop).
 - Blame, historique d'un fichier.
 - Submodules, Git LFS, worktrees.
