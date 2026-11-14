@@ -8,7 +8,8 @@ export default defineConfig({
   // Une seule app à la fois : chaque test lance la sienne, sur son propre port CDP.
   workers: 1,
   timeout: 60_000,
-  reporter: "list",
+  // En CI, les échecs deviennent aussi des annotations de la PR (lisibles sans connexion).
+  reporter: process.env.CI ? [["github"], ["list"]] : "list",
   use: { trace: "off" },
   webServer: {
     command: "npm run dev",

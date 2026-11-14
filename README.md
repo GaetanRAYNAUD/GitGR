@@ -46,6 +46,18 @@ npx playwright install chromium
 
 Les tests Rust ont besoin de `git` dans le PATH. Les tests E2E démarrent Vite eux-mêmes, ou réutilisent celui de `npm run tauri dev` s'il tourne déjà.
 
+### Intégration continue
+
+[GitHub Actions](.github/workflows/ci.yml) lance tous les tests à chaque push sur `main` et sur chaque pull request :
+
+| Job | Machine | Contenu |
+|---|---|---|
+| Interface | Ubuntu | typage, `npm test`, `npm run test:e2e` |
+| Backend Rust | Ubuntu et Windows | `cargo test` (dont la surveillance du dépôt : inotify sous Linux) |
+| App compilée | Windows | `npm run test:app` |
+
+En cas d'échec, les traces Playwright sont jointes au run (artefacts `playwright-*`).
+
 ## Structure
 
 ```

@@ -28,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -41,7 +41,7 @@ jobs:
       - run: npm run test:e2e
       - name: Rapport Playwright (en cas d'échec)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-interface
           path: test-results/
@@ -56,7 +56,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Dépendances système de Tauri (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -66,15 +66,29 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: cargo test
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tee cargo-test.log
+      # Chaque test en échec devient une annotation de la PR (message de panique compris) :
+      # lisible sans être connecté à GitHub, contrairement aux logs du job.
+      - name: Échecs en annotations
+        if: failure()
+        shell: bash
+        run: |
+          awk '/^---- .* stdout ----$/ { if (b) print b; b = $0; n = 0; next }
+               /^(failures:|test result:)/ { if (b) print b; b = ""; next }
+               b && n < 20 { b = b "%0A" $0; n++ }
+               END { if (b) print b }' cargo-test.log | sed 's/^/::error title=cargo test::/'
 
   app:
     name: App compilée (Windows, WebView2)
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -87,7 +101,7 @@ jobs:
       - run: npm run test:app
       - name: Rapport Playwright (en cas d'échec)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-app
           path: test-results/
