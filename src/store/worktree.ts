@@ -37,6 +37,8 @@ interface WorkStore {
   refresh(path: string): Promise<void>;
   openDiff(path: string, file: StatusFile, area: DiffArea): Promise<void>;
   closeDiff(path: string): void;
+  /** Relit le diff ouvert (fichier modifié ailleurs) ; le ferme s'il n'y a plus rien. */
+  reloadDiff(path: string): Promise<void>;
   stage(path: string, files: StatusFile[]): Promise<void>;
   unstage(path: string, files: StatusFile[]): Promise<void>;
   stageAll(path: string): Promise<void>;
@@ -158,6 +160,8 @@ export const useWork = create<WorkStore>((set, get) => {
     closeDiff(path) {
       patch(path, { diff: undefined });
     },
+
+    reloadDiff,
 
     stage: (path, files) => act(path, () => api.stageFiles(path, files.map((f) => f.path))).then(() => {}),
 

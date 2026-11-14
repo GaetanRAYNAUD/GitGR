@@ -3,6 +3,7 @@
 //! - `git`      : appels au binaire `git` et lecture de son résultat.
 //! - `history`  : historique (log, refs, détails, diff) pour le graphe.
 //! - `worktree` : copie de travail (status, indexation, commit).
+//! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
@@ -10,6 +11,7 @@ mod commands;
 mod git;
 mod history;
 mod store;
+mod watch;
 mod worktree;
 
 use std::sync::Mutex;
@@ -25,6 +27,7 @@ pub fn run() {
             // ~/.config/fr.gitgr.app/state.json sous Linux.
             let dir = app.path().app_config_dir()?;
             app.manage(Mutex::new(store::Store::load(dir)));
+            app.manage(Mutex::new(watch::RepoWatcher::default()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -53,6 +56,7 @@ pub fn run() {
             commands::discard_lines,
             commands::commit,
             commands::head_message,
+            commands::watch_repo,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

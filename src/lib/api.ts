@@ -65,6 +65,10 @@ export interface Api {
   /** Renvoie le SHA du commit créé. */
   commit(path: string, message: string, amend: boolean): Promise<string>;
   headMessage(path: string): Promise<string>;
+  /** Surveille ce dépôt sur disque (un seul à la fois ; `null` : aucun). */
+  watchRepo(path: string | null): Promise<void>;
+  /** Appelé quand le dépôt surveillé change sur disque ; renvoie de quoi se désabonner. */
+  onRepoChanged(cb: (path: string) => void): Promise<() => void>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
@@ -114,6 +118,11 @@ const tauriApi: Api = {
   discardLines: (path, file, lines, fingerprint) => invoke("discard_lines", { path, file, lines, fingerprint }),
   commit: (path, message, amend) => invoke("commit", { path, message, amend }),
   headMessage: (path) => invoke("head_message", { path }),
+  watchRepo: (path) => invoke("watch_repo", { path }),
+  async onRepoChanged(cb) {
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<string>("repo-changed", (e) => cb(e.payload));
+  },
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -142,6 +151,14 @@ const MOCK_FOLDERS = [
   "C:/Users/demo/Documents/pas-un-depot",
 ];
 let mockPick = 0;
+
+/** Backend simulé : abonnés à « dépôt modifié sur disque » (cf. `emitMockRepoChanged`). */
+const mockRepoListeners = new Set<(path: string) => void>();
+
+/** Simule une modification du dépôt faite en dehors de l'app (tests). */
+export function emitMockRepoChanged(path: string) {
+  for (const cb of mockRepoListeners) cb(path);
+}
 
 function mockLoad(): AppState {
   try {
@@ -262,6 +279,11 @@ const mockApi: Api = {
   },
   async headMessage(path) {
     return mockHeadMessage(path);
+  },
+  async watchRepo() {},
+  async onRepoChanged(cb) {
+    mockRepoListeners.add(cb);
+    return () => mockRepoListeners.delete(cb);
   },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];

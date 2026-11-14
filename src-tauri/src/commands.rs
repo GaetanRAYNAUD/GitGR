@@ -6,11 +6,12 @@
 use crate::git::{self, GitInfo, RepoSummary};
 use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
 use crate::worktree::{self, LineRef, WorkStatus};
+use crate::watch::RepoWatcher;
 use crate::store::{AppState, RepoEntry, RepoUi, Session, Settings, Store};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 type StoreState<'a> = State<'a, Mutex<Store>>;
 
@@ -194,4 +195,13 @@ pub async fn commit(path: String, message: String, amend: bool) -> Result<String
 #[tauri::command]
 pub async fn head_message(path: String) -> Result<String, String> {
     worktree::head_message(Path::new(&path)).map_err(classify)
+}
+
+/// Surveille le dépôt de l'onglet actif (`None` : aucun) ; l'interface reçoit l'événement
+/// `repo-changed` quand il change sur disque.
+#[tauri::command]
+pub async fn watch_repo(path: Option<String>, app: AppHandle, watcher: State<'_, Mutex<RepoWatcher>>) -> Result<(), String> {
+    watcher.lock().unwrap().watch(path, move |repo| {
+        let _ = app.emit("repo-changed", repo);
+    })
 }

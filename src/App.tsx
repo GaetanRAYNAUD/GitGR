@@ -4,6 +4,7 @@ import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
 import { resolveLanguage } from "./i18n";
+import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
 import { RepoView } from "./views/RepoView";
@@ -79,6 +80,30 @@ function useRefreshOnFocus() {
   }, []);
 }
 
+/** Surveille le dépôt de l'onglet actif : une modification faite ailleurs (terminal, éditeur,
+ *  autre outil git) le rafraîchit sans attendre le retour du focus. */
+function useWatchActiveRepo() {
+  const active = useApp((s) => s.active);
+  useEffect(() => {
+    api.watchRepo(active).catch(() => {});
+  }, [active]);
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let gone = false;
+    api
+      .onRepoChanged((path) => {
+        const { active: current, refreshRepo } = useApp.getState();
+        if (path === current) refreshRepo(path);
+      })
+      .then((u) => (gone ? u() : (unlisten = u)))
+      .catch(() => {});
+    return () => {
+      gone = true;
+      unlisten?.();
+    };
+  }, []);
+}
+
 export default function App() {
   const { t } = useTranslation();
   const ready = useApp((s) => s.ready);
@@ -95,6 +120,7 @@ export default function App() {
   useLanguage();
   useShortcuts();
   useRefreshOnFocus();
+  useWatchActiveRepo();
 
   return (
     <div className="app">

@@ -50,6 +50,12 @@
   - Détails d'un commit : auteur et date sur une ligne (e-mail et committer en infobulle), SHA court + parents sur une ligne.
   - Le logo est l'onglet Accueil (même style que les onglets, sans fermeture).
   - Tests : 151 unitaires front, 43 unitaires Rust, 33 E2E.
+- **Rafraîchissement automatique** (bug : après un commit fait en ligne de commande, le graphe montrait le commit mais le panneau gardait ses fichiers « en cours »).
+  - Cause : au retour du focus, refs et état de la copie de travail étaient lus en parallèle ; un commit fait entre les deux lectures donnait un état incohérent. Désormais refs/graphe puis état puis diff ouvert, et les demandes pendant un rafraîchissement en cours sont regroupées en un seul.
+  - Surveillance du dépôt actif (`watch.rs`, crate `notify`) : une modification faite ailleurs (terminal, éditeur, autre client git) rafraîchit l'app sans attendre le focus. Écartés : objets et verrous de `.git`, fichiers du démon fsmonitor (sinon boucle), fichiers ignorés (`git check-ignore`, sinon une compilation relancerait `git status` sans fin).
+  - Deux modes : **récursif** sous Windows / macOS (une seule veille, événements des dossiers ignorés écartés au tri) ; **dossier par dossier** sous Linux, où inotify coûte une veille par dossier (`max_user_watches`) : seuls les dossiers non ignorés sont surveillés (`git ls-files --ignored --directory`), sans `.git/objects`, et les dossiers créés ensuite sont ajoutés à la volée. Une veille refusée (limite atteinte) n'arrête pas les autres et déclenche un rafraîchissement.
+  - Limites connues : le mode par dossier est testé sous Windows (même code, backend `notify` différent) mais pas encore sur un vrai Linux / inotify (à valider avec la CI Linux, étape 7) ; un dossier qui *devient* ignoré après coup (`.gitignore` modifié) reste surveillé jusqu'au prochain changement d'onglet ; l'état attend la relecture du graphe (première page du log si les refs ont bougé).
+  - Tests : 154 unitaires front, 48 unitaires Rust, 33 E2E.
 
 ## À faire / plus tard
 

@@ -42,8 +42,9 @@ interface AppStore {
    *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
   setLayout(patch: Record<string, number | null>, persist?: boolean): void;
   refreshSummary(path: string): Promise<void>;
-  /** Résumé, graphe et copie de travail (F5, retour du focus). */
-  refreshRepo(path: string): void;
+  /** Résumé, graphe puis copie de travail (F5, retour du focus, modification sur disque).
+   *  Un appel pendant un rafraîchissement en cours en relance un seul à la fin. */
+  refreshRepo(path: string): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
 }
@@ -55,6 +56,9 @@ function persistSession(tabs: string[], active: string | null) {
 /** Dernière requête de résumé lancée par dépôt : une réponse plus ancienne qui
  *  arriverait après une plus récente est ignorée. */
 const summaryRequest: Record<string, number> = {};
+
+/** Rafraîchissement complet en cours par dépôt ; `again` : redemandé entre-temps. */
+const repoRefresh: Record<string, { again: boolean; done: Promise<void> }> = {};
 
 export const useApp = create<AppStore>((set, get) => ({
   ready: false,
@@ -210,9 +214,31 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   refreshRepo(path) {
-    get().refreshSummary(path);
-    useGraph.getState().refresh(path);
-    useWork.getState().refresh(path);
+    const running = repoRefresh[path];
+    if (running) {
+      running.again = true;
+      return running.done;
+    }
+    const run = { again: false, done: Promise.resolve() };
+    repoRefresh[path] = run;
+    run.done = (async () => {
+      try {
+        do {
+          run.again = false;
+          get().refreshSummary(path);
+          // Les refs avant l'état de la copie de travail : lus en parallèle, un commit fait
+          // ailleurs entre les deux lectures donnait le nouveau commit dans le graphe ET ses
+          // fichiers encore « en cours ». Dans cet ordre, l'état est toujours au moins aussi
+          // récent que le graphe (et la vue sélectionne le nouveau HEAD, cf. worktree.after).
+          await useGraph.getState().refresh(path);
+          await useWork.getState().refresh(path);
+          await useWork.getState().reloadDiff(path);
+        } while (run.again);
+      } finally {
+        delete repoRefresh[path];
+      }
+    })();
+    return run.done;
   },
 
   setRepoUi(path, ui) {
