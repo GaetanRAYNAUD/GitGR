@@ -26,7 +26,40 @@ fn git_command() -> Command {
         .env("GIT_PAGER", "cat")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0");
+    for (key, value) in appimage_env_fixes() {
+        match value {
+            Some(v) => cmd.env(key, v),
+            None => cmd.env_remove(key),
+        };
+    }
     cmd
+}
+
+/// Lancée depuis une AppImage, l'app reçoit un environnement qui pointe vers les
+/// bibliothèques embarquées (`LD_LIBRARY_PATH=$APPDIR/usr/lib…`, modules GTK…). Transmis
+/// tel quel, git (et `git-remote-https`, ssh, les gestionnaires d'identifiants) chargerait
+/// ces bibliothèques au lieu de celles du système : par exemple la libcurl du système avec
+/// la libnghttp2 de l'AppImage, plus ancienne → « symbol lookup error ». On retire donc
+/// des variables tout ce qui pointe dans l'AppImage. Vide hors AppImage.
+fn appimage_env_fixes() -> &'static [(String, Option<String>)] {
+    static FIXES: std::sync::OnceLock<Vec<(String, Option<String>)>> = std::sync::OnceLock::new();
+    FIXES.get_or_init(|| match std::env::var("APPDIR") {
+        Ok(appdir) if !appdir.is_empty() => env_without(std::env::vars(), &appdir),
+        _ => Vec::new(),
+    })
+}
+
+/// Variables à corriger : celles dont une entrée (liste séparée par `:`) est dans `appdir`.
+/// Les entrées concernées sont retirées ; une variable qui n'en garde aucune est supprimée.
+fn env_without(vars: impl Iterator<Item = (String, String)>, appdir: &str) -> Vec<(String, Option<String>)> {
+    let appdir = appdir.trim_end_matches('/');
+    let inside = |entry: &str| entry == appdir || entry.starts_with(&format!("{appdir}/"));
+    vars.filter(|(_, v)| v.split(':').any(inside))
+        .map(|(k, v)| {
+            let kept: Vec<&str> = v.split(':').filter(|e| !e.is_empty() && !inside(e)).collect();
+            (k, (!kept.is_empty()).then(|| kept.join(":")))
+        })
+        .collect()
 }
 
 /// Lance `git <args>` (dans `cwd` si fourni) et renvoie stdout, sans les blancs de fin.
@@ -199,6 +232,33 @@ pub(crate) mod tests {
         assert_eq!(s.head.as_deref(), Some("1234abcd"));
         assert_eq!(s.upstream.as_deref(), Some("origin/main"));
         assert_eq!((s.ahead, s.behind, s.changes), (2, 1, 2));
+    }
+
+    #[test]
+    fn appimage_environment_is_cleaned_for_git() {
+        let app = "/tmp/.mount_GitGRab12";
+        let vars = [
+            ("LD_LIBRARY_PATH", "/tmp/.mount_GitGRab12/usr/lib:/tmp/.mount_GitGRab12/usr/lib/x86_64-linux-gnu"),
+            ("PATH", "/tmp/.mount_GitGRab12/usr/bin:/usr/local/bin:/usr/bin"),
+            ("XDG_DATA_DIRS", "/tmp/.mount_GitGRab12/usr/share/:/usr/share"),
+            ("GDK_PIXBUF_MODULE_FILE", "/tmp/.mount_GitGRab12/usr/lib/loaders.cache"),
+            ("HOME", "/home/ami"),
+            // Même préfixe, autre dossier : pas concerné.
+            ("OTHER", "/tmp/.mount_GitGRab123/x"),
+        ]
+        .map(|(k, v)| (k.to_string(), v.to_string()));
+        let mut fixes = env_without(vars.into_iter(), app);
+        fixes.sort();
+        let s = |v: &str| Some(v.to_string());
+        assert_eq!(
+            fixes,
+            vec![
+                ("GDK_PIXBUF_MODULE_FILE".to_string(), None),
+                ("LD_LIBRARY_PATH".to_string(), None),
+                ("PATH".to_string(), s("/usr/local/bin:/usr/bin")),
+                ("XDG_DATA_DIRS".to_string(), s("/usr/share")),
+            ]
+        );
     }
 
     #[test]

@@ -88,6 +88,8 @@ Retours d'utilisation, à caser dans une prochaine étape :
   - **Clavier** : Maj+↑ / Maj+↓ étendent la sélection.
   - **Actions groupées** : oui, en commençant par le cherry-pick des commits choisis (dans l'ordre de l'historique) ; squash, revert… ensuite.
 - [ ] **Résolution de conflits : composer le résultat librement** (défaut de GitKraken à ne pas reproduire). Pour prendre des morceaux de chaque côté, GitKraken ajoute les lignes choisies une par une **à la suite**, dans l'ordre des clics, sans pouvoir ensuite en remonter ou en descendre une. Dans GitGR : chaque ligne (ou bloc) choisie arrive à sa place logique dans le résultat, que l'on peut réordonner (glisser-déposer, Alt+↑ / Alt+↓), et le panneau du résultat reste **éditable directement** (taper, corriger, supprimer). Choix rapides en plus : « tout le côté A », « tout le côté B », « A puis B », « B puis A » pour un bloc. À faire avec la vue 3 panneaux (§2.3).
+- [ ] **Gérer les remotes** (pas prévu jusqu'ici) : ajouter un remote (nom + URL, fetch immédiat proposé), renommer, changer l'URL (fetch / push séparées si besoin), supprimer (confirmation : ses branches distantes disparaissent de la barre latérale). Depuis la barre latérale (bouton « + » de la section des remotes, clic droit sur une section de remote) et les réglages du dépôt. Préparer le terrain des providers (étape 6) : reconnaître l'hôte (GitHub / GitLab / self-hosted) à l'ajout, et proposer le bon profil.
+- [ ] **Gérer les worktrees** : lister les worktrees du dépôt (section dédiée de la barre latérale : chemin, branche, verrouillé / à nettoyer), en créer un depuis une branche ou un commit (nouvelle branche ou existante, dossier proposé à côté du dépôt), l'ouvrir dans un onglet (même dépôt, autre copie de travail), le supprimer (`worktree remove`, confirmation si modifications) et nettoyer ceux dont le dossier a disparu (`worktree prune`). Dans le graphe, signaler les branches extraites dans un autre worktree (git refuse de les checkout ici : proposer d'ouvrir le worktree à la place). À vérifier : la surveillance (`watch.rs`) et `git_dir` gèrent déjà un `.git` hors de la racine, utile pour les worktrees liés.
 - [ ] **Renommer un onglet** : nom affiché propre à l'app, sans toucher au dossier ni au dépôt (double-clic ou clic droit sur l'onglet ; « nom d'origine » pour revenir au nom du dossier). Visible aussi dans les récents de l'accueil.
 - [ ] **Personnaliser un onglet** : choisir la couleur du rond (palette, au minimum), voire une image / icône à la place (fichier local, ou avatar du dépôt / de l'organisation une fois les providers en place, cf. plus bas).
 - [ ] **Couleurs fixes par nom de branche** (réglage global de l'app) : ex. `main` / `master` toujours en bleu, `develop` en vert, `release/*` en orange, avec des motifs (`feature/*`, `hotfix/*`). Appliquées aux lanes et aux étiquettes du graphe à la place de la couleur attribuée par colonne ; les autres branches gardent la palette actuelle.
@@ -141,7 +143,7 @@ Cibles : **Windows + Linux** (macOS non exclu plus tard **[?]**).
 - Résolution de conflits intégrée (vue 3 panneaux), avec un résultat réordonnable et éditable (cf. « À faire »).
 - Rebase interactif visuel (réordonner / squash / fixup par drag & drop).
 - Blame, historique d'un fichier.
-- Submodules, Git LFS, worktrees.
+- Submodules, Git LFS (worktrees : remontés dans « À faire »).
 - Signature des commits (GPG ou SSH) — s'intègre bien au système de profils.
 
 ## 3. Profils (multi-identités)
