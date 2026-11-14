@@ -2,6 +2,7 @@
 //!
 //! - `git`      : appels au binaire `git` et lecture de son résultat.
 //! - `history`  : historique (log, refs, détails, diff) pour le graphe.
+//! - `worktree` : copie de travail (status, indexation, commit).
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
@@ -9,6 +10,7 @@ mod commands;
 mod git;
 mod history;
 mod store;
+mod worktree;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -38,6 +40,19 @@ pub fn run() {
             commands::repo_refs,
             commands::commit_details,
             commands::commit_diff,
+            commands::work_status,
+            commands::work_diff,
+            commands::stage_files,
+            commands::unstage_files,
+            commands::stage_all,
+            commands::unstage_all,
+            commands::discard_files,
+            commands::discard_all,
+            commands::stash_all,
+            commands::stage_lines,
+            commands::discard_lines,
+            commands::commit,
+            commands::head_message,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

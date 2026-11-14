@@ -27,7 +27,7 @@
   - Clic sur le logo = retour à l'accueil. Drapeaux dans le choix de langue.
   - Vérifiée dans l'app Tauri sous Windows (ouverture, erreurs, onglets, fenêtre, restauration au redémarrage).
   - Tests à la fin de l'étape : 34 unitaires front, 13 unitaires Rust, 14 E2E Playwright (cf. §8).
-  - Retours sur les maquettes à reporter dans l'app aux étapes 3-4 : bouton « tout annuler » avec confirmation (et option stash), case « push après le commit » mémorisée par dépôt, profil discret dans la zone de commit.
+  - Retours sur les maquettes à reporter : case « push après le commit » mémorisée par dépôt (étape 4, avec le push), profil discret dans la zone de commit (étape 5).
 - **Étape 2 — graphe** : terminée (vérifiée dans le navigateur avec le backend simulé ; à valider dans l'app Tauri sur de vrais dépôts).
   - Backend (`history.rs`) : `git log --all --date-order` par pages de 1 000 (stash exclu), refs (`for-each-ref`, tags annotés déréférencés, ahead/behind), détails d'un commit (message complet, auteur/committer, fichiers via `diff-tree -M` contre le 1er parent ou l'arbre vide), diff d'un fichier parsé en hunks/lignes numérotées (binaire détecté, tronqué au-delà de 20 000 lignes, chemins littéraux). SHA validés avant d'être passés à git.
   - Lanes calculées côté front (`lib/graph.ts`, colonnes stables et réutilisées, 8 couleurs) ; liste virtualisée + canvas limité à la zone visible ; page suivante chargée en approchant du bas ; relecture du log seulement si les refs ont changé (F5 / retour du focus).
@@ -36,6 +36,13 @@
   - Barre latérale : Local, une section par remote, Tags ; branches à préfixe rangées en dossiers (`feature/…`) ; sections et dossiers repliables, sections masquables, choix mémorisés par dépôt (`repoUi` dans `state.json`) ; filtre ; clic = sélection du commit (charge les pages nécessaires).
   - Limites connues : `--date-order` + `--skip` relit tout l'historique à chaque page (à remplacer par un processus `git log` en flux ou un cache côté Rust si c'est lent sur 100k+ commits) ; diff unifié uniquement (vue côte à côte plus tard) ; pas encore de recherche dans le graphe ni d'avatars.
   - Tests : 97 unitaires front, 28 unitaires Rust, 25 E2E.
+- **Étape 3 — copie de travail** : terminée (vérifiée dans le navigateur avec le backend simulé ; à valider dans l'app Tauri sur de vrais dépôts).
+  - Backend (`worktree.rs`) : `status --porcelain=v2 -z` (indexés / non indexés / non suivis / conflits, renommages) ; indexer / retirer des fichiers (y compris avant le premier commit), tout indexer / tout retirer ; abandonner des fichiers (non suivis supprimés, liens jamais suivis) ; tout annuler (`reset --hard` + `clean -fd`, refusé sans commit) ou stasher à la place ; commit et amend (message par l'entrée standard, erreurs « identité manquante » / « rien à commiter » traduites).
+  - **Blocs et lignes** : indexer / retirer = patch partiel appliqué à l'index (`git apply --cached [-R] --recount`), en-tête réécrit pour une sélection partielle d'un fichier ajouté ou supprimé ; abandonner = réécriture directe du fichier de travail (fonctionne avec `core.autocrlf`, conserve les CRLF). Chaque action vérifie l'empreinte du diff affiché (`diff_changed` sinon) : jamais d'action sur un diff qui a changé entre-temps.
+  - Interface : ligne « modifications en cours » sélectionnée d'office quand le dépôt est sale ; panneau Conflits / Non indexés / Indexés (liste ou arborescence, actions au survol, double-clic = indexer/retirer, « tout annuler » avec confirmation et option stash) ; zone de commit (résumé avec compteur /72, description, amend qui reprend le dernier message, Ctrl+Entrée) ; diff de travail avec actions par fichier, par bloc et par lignes sélectionnées (clic, Maj+clic pour une plage), confirmation pour tout abandon.
+  - Diffs (commit et copie de travail) : vue **en ligne ou côte à côte**, choix mémorisé dans les réglages ; la sélection de lignes fonctionne dans les deux vues. Dans une ligne modifiée, **les mots réellement changés sont surlignés** (comparaison mot à mot, budget de calcul par diff pour ne jamais figer l'interface ; pas de surlignage si la ligne est presque entièrement réécrite).
+  - Limites connues : pas d'indexation partielle d'un fichier non suivi (fichier entier seulement) ; pas de résolution de conflits intégrée (v2) ; amend possible uniquement depuis la ligne « en cours » (donc avec des modifications).
+  - Tests : 139 unitaires front, 43 unitaires Rust, 30 E2E.
 
 ## À faire / plus tard
 

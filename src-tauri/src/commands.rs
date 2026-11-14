@@ -5,6 +5,7 @@
 
 use crate::git::{self, GitInfo, RepoSummary};
 use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
+use crate::worktree::{self, LineRef, WorkStatus};
 use crate::store::{AppState, RepoEntry, RepoUi, Session, Settings, Store};
 use std::path::Path;
 use std::sync::Mutex;
@@ -116,4 +117,81 @@ pub async fn commit_diff(
     old_file: Option<String>,
 ) -> Result<FileDiff, String> {
     history::diff(Path::new(&path), &sha, &file, old_file.as_deref()).map_err(classify)
+}
+
+// --- Copie de travail ------------------------------------------------------
+
+#[tauri::command]
+pub async fn work_status(path: String) -> Result<WorkStatus, String> {
+    worktree::status(Path::new(&path)).map_err(classify)
+}
+
+/// `area` : "unstaged" | "staged" | "untracked" | "conflicted".
+#[tauri::command]
+pub async fn work_diff(path: String, file: String, old_file: Option<String>, area: String) -> Result<FileDiff, String> {
+    worktree::file_diff(Path::new(&path), &file, old_file.as_deref(), &area).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String> {
+    worktree::stage_files(Path::new(&path), &files).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), String> {
+    worktree::unstage_files(Path::new(&path), &files).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn stage_all(path: String) -> Result<(), String> {
+    worktree::stage_all(Path::new(&path)).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn unstage_all(path: String) -> Result<(), String> {
+    worktree::unstage_all(Path::new(&path)).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<String>) -> Result<(), String> {
+    worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn discard_all(path: String) -> Result<(), String> {
+    worktree::discard_all(Path::new(&path)).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn stash_all(path: String, message: String) -> Result<(), String> {
+    worktree::stash_all(Path::new(&path), &message).map_err(classify)
+}
+
+/// Indexe (`unstage = false`) ou retire de l'index les lignes choisies d'un fichier.
+#[tauri::command]
+pub async fn stage_lines(
+    path: String,
+    file: String,
+    old_file: Option<String>,
+    lines: Vec<LineRef>,
+    fingerprint: String,
+    unstage: bool,
+) -> Result<(), String> {
+    worktree::stage_lines(Path::new(&path), &file, old_file.as_deref(), &lines, &fingerprint, unstage)
+        .map_err(classify)
+}
+
+#[tauri::command]
+pub async fn discard_lines(path: String, file: String, lines: Vec<LineRef>, fingerprint: String) -> Result<(), String> {
+    worktree::discard_lines(Path::new(&path), &file, &lines, &fingerprint).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn commit(path: String, message: String, amend: bool) -> Result<String, String> {
+    worktree::commit(Path::new(&path), &message, amend).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn head_message(path: String) -> Result<String, String> {
+    worktree::head_message(Path::new(&path)).map_err(classify)
 }

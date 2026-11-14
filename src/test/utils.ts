@@ -1,13 +1,16 @@
 import { useApp } from "../store/app";
 import { useGraph } from "../store/graph";
+import { useWork } from "../store/worktree";
 
 const initial = useApp.getState();
 const initialGraph = useGraph.getState();
+const initialWork = useWork.getState();
 
 /** Remet les stores zustand dans leur état de départ (entre deux tests). */
 export function resetStore() {
   useApp.setState(initial, true);
   useGraph.setState(initialGraph, true);
+  useWork.setState(initialWork, true);
 }
 
 /** Chemins acceptés par le backend simulé (voir lib/api.ts). */

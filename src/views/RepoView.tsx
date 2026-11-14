@@ -3,12 +3,14 @@ import { useTranslation } from "react-i18next";
 import { CommitGraph } from "../components/graph/CommitGraph";
 import { CommitPanel } from "../components/graph/CommitPanel";
 import { DiffView } from "../components/graph/DiffView";
+import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
 import { Icon, type IconName } from "../components/Icon";
 import { errorMessage } from "../lib/errors";
 import { remoteHost } from "../lib/format";
 import { useApp } from "../store/app";
-import { useGraph } from "../store/graph";
+import { useGraph, WIP } from "../store/graph";
+import { changedCount, useWork } from "../store/worktree";
 
 const TOOLS: { key: string; icon: IconName; sep?: boolean }[] = [
   { key: "pull", icon: "pull" },
@@ -31,11 +33,32 @@ export function RepoView({ path }: { path: string }) {
   const diff = useGraph((s) => s.diffs[path]);
   const loadGraph = useGraph((s) => s.refresh);
   const data = summary?.data;
-  const changes = data?.changes ?? 0;
+  const work = useWork((s) => s.repos[path]);
+  const loadWork = useWork((s) => s.refresh);
+  const closeWorkDiff = useWork((s) => s.closeDiff);
+  const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
+  const head = useGraph((s) => s.graphs[path]?.refs?.head ?? null);
+  const select = useGraph((s) => s.select);
+  // L'état détaillé de la copie de travail fait foi ; le résumé sert en attendant.
+  const changes = work?.status ? changedCount(work.status) : (data?.changes ?? 0);
+  const workDiff = selected === WIP ? work?.diff : undefined;
 
   useEffect(() => {
     loadGraph(path);
-  }, [loadGraph, path]);
+    loadWork(path);
+  }, [loadGraph, loadWork, path]);
+
+  // Copie de travail sale et rien de sélectionné : on montre les modifications en cours.
+  // Plus rien à commiter (après un commit, un abandon…) : on passe au commit courant.
+  useEffect(() => {
+    if (changes > 0 && selected === null) select(path, WIP);
+    else if (changes === 0 && selected === WIP && work?.status) select(path, head);
+  }, [changes, selected, head, work?.status, select, path]);
+
+  // Le diff de travail n'a de sens que tant que la ligne « en cours » est sélectionnée.
+  useEffect(() => {
+    if (selected !== WIP && work?.diff) closeWorkDiff(path);
+  }, [selected, work?.diff, closeWorkDiff, path]);
 
   const branchLabel = data ? (data.branch ?? t("repo.detached")) : "…";
   const tracking = data?.upstream
@@ -88,11 +111,13 @@ export function RepoView({ path }: { path: string }) {
             </div>
           ) : diff ? (
             <DiffView path={path} diff={diff} />
+          ) : workDiff ? (
+            <WorkDiffView path={path} diff={workDiff} />
           ) : (
             <CommitGraph path={path} changes={changes} />
           )}
         </div>
-        <CommitPanel path={path} changes={changes} />
+        <CommitPanel path={path} />
       </div>
 
       <footer className="statusbar">

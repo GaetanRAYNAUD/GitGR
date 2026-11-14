@@ -149,12 +149,13 @@ export function mockDetails(path: string, sha: string): CommitDetails {
 }
 
 export function mockDiff(sha: string, file: string): FileDiff {
-  if (file.endsWith(".png")) return { binary: true, truncated: false, hunks: [] };
+  if (file.endsWith(".png")) return { binary: true, truncated: false, hunks: [], fingerprint: "bin" };
   const rand = rng(hash(sha + file));
   const start = 1 + Math.floor(rand() * 40);
   return {
     binary: false,
     truncated: false,
+    fingerprint: `${sha}:${file}`,
     hunks: [
       {
         header: `@@ -${start},6 +${start},7 @@ export function exemple()`,
@@ -171,4 +172,43 @@ export function mockDiff(sha: string, file: string): FileDiff {
       },
     ],
   };
+}
+
+/** Commit simulé (backend factice) : nouveau commit sur la branche courante, ou
+ *  remplacement du dernier (`amend`). Renvoie le SHA créé. */
+export function mockCommit(path: string, message: string, amend: boolean): string {
+  const h = mockHistory(path);
+  const head = h.refs.head;
+  const old = h.commits.find((c) => c.sha === head);
+  const [subject] = message.trim().split("\n");
+  const sha = fakeSha(`${path}:commit:${Date.now()}:${Math.random()}`);
+  const parents = amend ? (old?.parents ?? []) : head ? [head] : [];
+  const [author, email] = AUTHORS[0];
+  const commit: Commit = { sha, parents, author, email, time: Math.floor(Date.now() / 1000), subject };
+  h.commits = [commit, ...h.commits.filter((c) => !(amend && c.sha === head))];
+  mockMessages.set(sha, message.trim());
+  // Nouvel objet refs : l'empreinte change, le graphe se recharge.
+  h.refs = {
+    ...h.refs,
+    head: sha,
+    refs: h.refs.refs.map((r) =>
+      r.kind === "local" && r.short === h.refs.headBranch ? { ...r, target: sha, ahead: r.ahead + (amend ? 0 : 1) } : r,
+    ),
+  };
+  return sha;
+}
+
+/** Messages complets des commits simulés créés pendant la session. */
+const mockMessages = new Map<string, string>();
+
+export function mockHeadMessage(path: string): string {
+  const h = mockHistory(path);
+  const c = h.commits.find((x) => x.sha === h.refs.head);
+  return (h.refs.head && mockMessages.get(h.refs.head)) ?? c?.subject ?? "";
+}
+
+/** Tests : repart des historiques générés (oublie les commits simulés). */
+export function resetMockHistory() {
+  cache.clear();
+  mockMessages.clear();
 }

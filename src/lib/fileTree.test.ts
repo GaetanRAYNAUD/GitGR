@@ -3,7 +3,7 @@ import { fileTree, type FileNode } from "./fileTree";
 import type { FileChange } from "./types";
 
 const f = (path: string): FileChange => ({ status: "M", path, oldPath: null });
-const shape = (nodes: FileNode[]): unknown[] =>
+const shape = (nodes: FileNode<FileChange>[]): unknown[] =>
   nodes.map((n) => (n.type === "dir" ? { [n.name]: shape(n.children), count: n.count } : n.name));
 
 describe("fileTree", () => {

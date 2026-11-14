@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
+import { useWork } from "./worktree";
 
 export interface SummaryState {
   loading: boolean;
@@ -38,7 +39,7 @@ interface AppStore {
   forget(path: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): void;
   refreshSummary(path: string): Promise<void>;
-  /** Résumé + graphe (F5, retour du focus). */
+  /** Résumé, graphe et copie de travail (F5, retour du focus). */
   refreshRepo(path: string): void;
   setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
@@ -128,6 +129,7 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ tabs: nextTabs, active: nextActive });
     persistSession(nextTabs, nextActive);
     useGraph.getState().drop(path);
+    useWork.getState().drop(path);
   },
 
   cycleTab(delta) {
@@ -168,6 +170,7 @@ export const useApp = create<AppStore>((set, get) => ({
       repoUi: nextUi,
     });
     useGraph.getState().drop(path);
+    useWork.getState().drop(path);
   },
 
   updateSettings(patch) {
@@ -194,6 +197,7 @@ export const useApp = create<AppStore>((set, get) => ({
   refreshRepo(path) {
     get().refreshSummary(path);
     useGraph.getState().refresh(path);
+    useWork.getState().refresh(path);
   },
 
   setRepoUi(path, ui) {

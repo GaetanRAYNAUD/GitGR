@@ -134,7 +134,7 @@ describe("graphe : sélection, détails, diff", () => {
     vi.spyOn(api, "commitDiff").mockImplementationOnce(() => new Promise((r) => (resolve = r)));
     const first = g().openDiff(REPO_A, sha, { status: "M", path: "a", oldPath: null });
     await g().openDiff(REPO_A, sha, { status: "M", path: "b", oldPath: null });
-    resolve({ binary: true, truncated: false, hunks: [] });
+    resolve({ binary: true, truncated: false, hunks: [], fingerprint: "" });
     await first;
     expect(g().diffs[REPO_A]?.file.path).toBe("b");
     expect(g().diffs[REPO_A]?.data?.binary).toBe(false);

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mockHistory } from "../../lib/mockHistory";
 import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
+import { useWork } from "../../store/worktree";
 import { REPO_A } from "../../test/utils";
 import { CommitGraph } from "./CommitGraph";
 import { CommitPanel } from "./CommitPanel";
@@ -58,12 +59,12 @@ describe("<CommitGraph />", () => {
 describe("<CommitPanel />", () => {
   it("invite à choisir un commit, puis affiche ses détails et ouvre un diff", async () => {
     await loaded();
-    const { rerender } = render(<CommitPanel path={REPO_A} changes={0} />);
+    const { rerender } = render(<CommitPanel path={REPO_A} />);
     expect(screen.getByText(/Sélectionnez un commit/)).toBeInTheDocument();
 
     const c = history().commits[0];
     g().select(REPO_A, c.sha);
-    rerender(<CommitPanel path={REPO_A} changes={0} />);
+    rerender(<CommitPanel path={REPO_A} />);
     expect(await screen.findByRole("heading", { name: c.subject })).toBeInTheDocument();
     expect(screen.getByText(c.sha)).toBeInTheDocument();
 
@@ -76,7 +77,7 @@ describe("<CommitPanel />", () => {
     await loaded();
     const c = history().commits[0];
     g().select(REPO_A, c.sha);
-    render(<CommitPanel path={REPO_A} changes={0} />);
+    render(<CommitPanel path={REPO_A} />);
     await userEvent.click(await screen.findByRole("button", { name: c.parents[0].slice(0, 7) }));
     expect(g().graphs[REPO_A].selected).toBe(c.parents[0]);
   });
@@ -85,7 +86,7 @@ describe("<CommitPanel />", () => {
     await loaded();
     const c = history().commits[0];
     g().select(REPO_A, c.sha);
-    render(<CommitPanel path={REPO_A} changes={0} />);
+    render(<CommitPanel path={REPO_A} />);
     const listBtn = await screen.findByRole("button", { name: "Liste" });
     expect(listBtn).toHaveAttribute("aria-pressed", "true");
 
@@ -102,11 +103,13 @@ describe("<CommitPanel />", () => {
     expect(within(files).getAllByRole("button").length).toBeLessThan(before);
   });
 
-  it("ligne WIP : résumé de la copie de travail", async () => {
+  it("ligne WIP : panneau des modifications en cours", async () => {
     await loaded();
+    await useWork.getState().refresh(REPO_A);
     g().select(REPO_A, WIP);
-    render(<CommitPanel path={REPO_A} changes={2} />);
-    expect(screen.getByText("2 fichiers modifiés dans la copie de travail.")).toBeInTheDocument();
+    render(<CommitPanel path={REPO_A} />);
+    expect(screen.getByRole("complementary", { name: "Modifications en cours" })).toBeInTheDocument();
+    expect(screen.getByText(/la copie de travail est propre/)).toBeInTheDocument();
   });
 });
 

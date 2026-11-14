@@ -36,12 +36,34 @@ pub fn run(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
 
 /// Comme [`run`], mais renvoie stdout tel quel (diffs : les blancs de fin comptent).
 pub fn run_raw(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
+    run_with_input(cwd, args, None)
+}
+
+/// Lance git en lui passant `input` sur l'entrée standard (message de commit, patch…).
+pub fn run_input(cwd: Option<&Path>, args: &[&str], input: &str) -> Result<String, String> {
+    run_with_input(cwd, args, Some(input)).map(|s| s.trim_end().to_string())
+}
+
+fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>) -> Result<String, String> {
+    use std::io::Write;
+    use std::process::Stdio;
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
     cmd.args(args);
-    let out = cmd.output().map_err(|e| {
+    // Comme `Command::output()` : sorties capturées, pas d'entrée héritée (sauf `input`).
+    cmd.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let spawned = cmd.spawn().and_then(|mut child| {
+        if let Some(text) = input {
+            // Écrit puis ferme l'entrée (drop) pour que git voie la fin du flux.
+            child.stdin.take().expect("stdin").write_all(text.as_bytes())?;
+        }
+        child.wait_with_output()
+    });
+    let out = spawned.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             "git_not_found".to_string()
         } else {
@@ -51,7 +73,9 @@ pub fn run_raw(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
-        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+        // Certaines erreurs ne sont écrites que sur stdout (« nothing to commit »…).
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        Err(if err.is_empty() { String::from_utf8_lossy(&out.stdout).trim().to_string() } else { err })
     }
 }
 
@@ -201,6 +225,8 @@ pub(crate) mod tests {
         run(Some(p), &["config", "user.name", "Test"]).unwrap();
         run(Some(p), &["config", "user.email", "test@exemple.fr"]).unwrap();
         run(Some(p), &["config", "commit.gpgsign", "false"]).unwrap();
+        // Indépendant de la config système (Git pour Windows active autocrlf par défaut).
+        run(Some(p), &["config", "core.autocrlf", "false"]).unwrap();
         dir
     }
 

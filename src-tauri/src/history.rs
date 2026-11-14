@@ -23,7 +23,7 @@ fn check_sha(sha: &str) -> Result<(), String> {
     }
 }
 
-fn check_dir(path: &Path) -> Result<(), String> {
+pub(crate) fn check_dir(path: &Path) -> Result<(), String> {
     if path.is_dir() { Ok(()) } else { Err("path_not_found".into()) }
 }
 
@@ -292,6 +292,9 @@ pub struct FileDiff {
     pub binary: bool,
     pub truncated: bool,
     pub hunks: Vec<Hunk>,
+    /// Empreinte de la sortie brute de git : renvoyée avec une sélection de lignes, elle
+    /// garantit que le diff n'a pas changé entre l'affichage et l'action.
+    pub fingerprint: String,
 }
 
 /// Diff d'un fichier entre `sha` et son premier parent (ou l'arbre vide).
@@ -314,8 +317,18 @@ pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>) -> Resul
     Ok(parse_diff(&out))
 }
 
-fn parse_diff(out: &str) -> FileDiff {
-    let mut d = FileDiff::default();
+/// Empreinte stable d'un texte (pour détecter qu'un diff a changé).
+pub(crate) fn fingerprint(text: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+/// Les numéros de ligne (`DiffLine` d'indice i dans un hunk) servent aussi à désigner une
+/// sélection : `worktree::select_lines` parcourt la sortie brute avec les mêmes règles.
+pub(crate) fn parse_diff(out: &str) -> FileDiff {
+    let mut d = FileDiff { fingerprint: fingerprint(out), ..FileDiff::default() };
     let (mut old, mut new) = (0u32, 0u32);
     let mut count = 0usize;
     for line in out.lines() {
@@ -363,7 +376,7 @@ fn parse_diff(out: &str) -> FileDiff {
 }
 
 /// ` -12,5 +14,6 @@ ...` → (12, 14)
-fn parse_hunk_header(rest: &str) -> (u32, u32) {
+pub(crate) fn parse_hunk_header(rest: &str) -> (u32, u32) {
     let mut old = 1;
     let mut new = 1;
     for part in rest.split_whitespace() {

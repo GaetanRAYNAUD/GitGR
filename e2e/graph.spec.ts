@@ -22,8 +22,9 @@ test("le graphe liste les commits avec leurs branches et le chargement se poursu
   // Fin de la liste : la page suivante arrive, l'historique est alors complet.
   await rows.first().click();
   await page.keyboard.press("End");
-  await page.keyboard.press("End");
+  // La page suivante arrive en approchant du bas ; Fin une fois l'historique complet.
   await expect(page.getByText("1200 commits", { exact: true })).toBeVisible();
+  await page.keyboard.press("End");
   await expect(graph(page).getByRole("option", { selected: true })).toContainText("chore: initialisation du dépôt");
 });
 
@@ -88,7 +89,8 @@ test("chaque onglet garde sa sélection", async ({ page }) => {
   await page.getByRole("button", { name: "Accueil" }).click();
   await page.getByRole("button", { name: /Ouvrir un dépôt/ }).click();
   await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
-  await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(0);
+  // api-backend a des modifications : la ligne « en cours » y est sélectionnée d'office.
+  await expect(graph(page).getByRole("option", { selected: true })).toContainText("Modifications en cours");
 
   await tab(page, "GitGR").click();
   await expect(graph(page).getByRole("option", { selected: true })).toContainText(subject);

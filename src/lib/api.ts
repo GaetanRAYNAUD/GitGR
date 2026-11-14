@@ -4,19 +4,33 @@
 // Dans un simple navigateur (`npm run dev` sans Tauri), une implémentation
 // factice en mémoire prend le relais : pratique pour travailler l'interface.
 
-import { mockDetails, mockDiff, mockHistory } from "./mockHistory";
+import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
+import {
+  mockChangeCount,
+  mockCommitIndex,
+  mockDiscard,
+  mockDiscardAll,
+  mockStage,
+  mockStageAll,
+  mockStageLines,
+  mockStatus,
+  mockWorkDiff,
+} from "./mockWorktree";
 import type {
   AppState,
   Commit,
   CommitDetails,
+  DiffArea,
   FileDiff,
   GitInfo,
+  LineRef,
   RefsInfo,
   RepoEntry,
   RepoSummary,
   RepoUi,
   Session,
   Settings,
+  WorkStatus,
 } from "./types";
 
 export interface Api {
@@ -34,6 +48,23 @@ export interface Api {
   commitDetails(path: string, sha: string): Promise<CommitDetails>;
   /** Diff d'un fichier d'un commit par rapport à son premier parent. */
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
+  // Copie de travail
+  workStatus(path: string): Promise<WorkStatus>;
+  workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
+  stageFiles(path: string, files: string[]): Promise<void>;
+  unstageFiles(path: string, files: string[]): Promise<void>;
+  stageAll(path: string): Promise<void>;
+  unstageAll(path: string): Promise<void>;
+  /** Abandonne les modifications non indexées ; les fichiers non suivis sont supprimés. */
+  discardFiles(path: string, tracked: string[], untracked: string[]): Promise<void>;
+  discardAll(path: string): Promise<void>;
+  stashAll(path: string, message: string): Promise<void>;
+  /** Indexe (ou retire de l'index si `unstage`) des lignes ; `fingerprint` = celle du diff affiché. */
+  stageLines(path: string, file: string, oldFile: string | null, lines: LineRef[], fingerprint: string, unstage: boolean): Promise<void>;
+  discardLines(path: string, file: string, lines: LineRef[], fingerprint: string): Promise<void>;
+  /** Renvoie le SHA du commit créé. */
+  commit(path: string, message: string, amend: boolean): Promise<string>;
+  headMessage(path: string): Promise<string>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
@@ -69,6 +100,20 @@ const tauriApi: Api = {
   repoRefs: (path) => invoke("repo_refs", { path }),
   commitDetails: (path, sha) => invoke("commit_details", { path, sha }),
   commitDiff: (path, sha, file, oldFile) => invoke("commit_diff", { path, sha, file, oldFile }),
+  workStatus: (path) => invoke("work_status", { path }),
+  workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
+  stageFiles: (path, files) => invoke("stage_files", { path, files }),
+  unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
+  stageAll: (path) => invoke("stage_all", { path }),
+  unstageAll: (path) => invoke("unstage_all", { path }),
+  discardFiles: (path, tracked, untracked) => invoke("discard_files", { path, tracked, untracked }),
+  discardAll: (path) => invoke("discard_all", { path }),
+  stashAll: (path, message) => invoke("stash_all", { path, message }),
+  stageLines: (path, file, oldFile, lines, fingerprint, unstage) =>
+    invoke("stage_lines", { path, file, oldFile, lines, fingerprint, unstage }),
+  discardLines: (path, file, lines, fingerprint) => invoke("discard_lines", { path, file, lines, fingerprint }),
+  commit: (path, message, amend) => invoke("commit", { path, message, amend }),
+  headMessage: (path) => invoke("head_message", { path }),
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -150,7 +195,6 @@ const mockApi: Api = {
     mockSave({ ...s, repoUi: { ...s.repoUi, [path]: ui } });
   },
   async repoSummary(path) {
-    const n = path.length;
     const { refs } = mockHistory(path);
     return {
       branch: refs.headBranch,
@@ -158,7 +202,7 @@ const mockApi: Api = {
       upstream: "origin/main",
       ahead: 1,
       behind: 0,
-      changes: n % 4,
+      changes: mockChangeCount(path),
       remoteUrl: "git@gitlab.exemple.fr:demo/" + (path.split("/").pop() ?? "repo") + ".git",
     };
   },
@@ -176,6 +220,48 @@ const mockApi: Api = {
   async commitDiff(_path, sha, file) {
     await mockDelay();
     return mockDiff(sha, file);
+  },
+  async workStatus(path) {
+    return mockStatus(path);
+  },
+  async workDiff(path, file, _oldFile, area) {
+    await mockDelay();
+    return mockWorkDiff(path, file, area);
+  },
+  async stageFiles(path, files) {
+    mockStage(path, files, false);
+  },
+  async unstageFiles(path, files) {
+    mockStage(path, files, true);
+  },
+  async stageAll(path) {
+    mockStageAll(path, false);
+  },
+  async unstageAll(path) {
+    mockStageAll(path, true);
+  },
+  async discardFiles(path, tracked, untracked) {
+    mockDiscard(path, [...tracked, ...untracked]);
+  },
+  async discardAll(path) {
+    mockDiscardAll(path);
+  },
+  async stashAll(path) {
+    mockDiscardAll(path);
+  },
+  async stageLines(path, file, _oldFile, lines, _fingerprint, unstage) {
+    mockStageLines(path, file, lines, unstage);
+  },
+  async discardLines(path, file, lines) {
+    mockDiscard(path, [file], lines);
+  },
+  async commit(path, message, amend) {
+    if (!message.trim()) throw "empty_message";
+    if (!mockCommitIndex(path, amend)) throw "nothing_to_commit";
+    return mockCommit(path, message, amend);
+  },
+  async headMessage(path) {
+    return mockHeadMessage(path);
   },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];

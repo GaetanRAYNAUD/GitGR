@@ -22,12 +22,15 @@ export type ThemeSetting = "system" | "light" | "dark";
 export type LanguageSetting = "system" | "fr" | "en";
 /** Fichiers d'un commit : liste à plat ou arborescence des dossiers. */
 export type FileViewSetting = "list" | "tree";
+/** Diffs : une colonne (inline) ou avant / après côte à côte (split). */
+export type DiffViewSetting = "inline" | "split";
 
 export interface Settings {
   theme: ThemeSetting;
   language: LanguageSetting;
   /** Absent dans un état enregistré par une version antérieure. */
   fileView?: FileViewSetting;
+  diffView?: DiffViewSetting;
 }
 
 /** Préférences d'affichage propres à un dépôt (barre latérale). */
@@ -127,4 +130,35 @@ export interface FileDiff {
   binary: boolean;
   truncated: boolean;
   hunks: Hunk[];
+  /** Empreinte du diff brut, renvoyée avec une sélection de lignes (contrôle de fraîcheur). */
+  fingerprint: string;
+}
+
+// --- Copie de travail (src-tauri/src/worktree.rs) ---------------------------
+
+/** Comme `FileStatus`, plus « ? » (non suivi) et « U » (conflit). */
+export type WorkFileStatus = FileStatus | "?" | "U";
+
+export interface StatusFile {
+  path: string;
+  /** Ancien chemin d'un renommage indexé. */
+  oldPath: string | null;
+  status: WorkFileStatus;
+}
+
+export interface WorkStatus {
+  /** HEAD → index. */
+  staged: StatusFile[];
+  /** Index → copie de travail, fichiers non suivis compris. */
+  unstaged: StatusFile[];
+  conflicted: StatusFile[];
+}
+
+/** Côté d'un diff de la copie de travail. */
+export type DiffArea = "unstaged" | "staged" | "untracked" | "conflicted";
+
+/** Une ligne d'un diff : `FileDiff.hunks[hunk].lines[line]`. */
+export interface LineRef {
+  hunk: number;
+  line: number;
 }

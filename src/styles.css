@@ -1455,6 +1455,416 @@ h2 {
   color: var(--g0);
 }
 
+.st-N {
+  color: var(--add);
+}
+
+.st-U {
+  color: var(--del);
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+/* Petits boutons (actions de ligne, de bloc, de section) ------------------ */
+
+.mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mini:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.mini:disabled {
+  opacity: 0.5;
+}
+
+.mini.icon {
+  width: 24px;
+  padding: 0;
+}
+
+.mini.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text, #fff);
+}
+
+.mini.primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  filter: brightness(1.1);
+}
+
+.danger-text,
+.mini.danger-text,
+.icon-btn.danger-text {
+  color: var(--del);
+}
+
+.btn.sm {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.btn.danger {
+  background: #c62f2f;
+  border-color: #c62f2f;
+  color: #fff;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: #b02626;
+}
+
+.dialog-icon.danger {
+  background: color-mix(in srgb, var(--del) 18%, transparent);
+  color: var(--del);
+}
+
+/* Panneau des modifications en cours -------------------------------------- */
+
+.commit-panel.staging {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.staging-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.staging-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.staging-head .view-toggle {
+  margin-left: 0;
+}
+
+.staging-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staging-lists {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.stage-h {
+  margin: 0;
+  padding: 6px 10px 6px 14px;
+  background: var(--panel2);
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.stage-section:first-child .stage-h {
+  border-top: 0;
+}
+
+.stage-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.stage-toggle:hover {
+  color: var(--text);
+}
+
+.stage-toggle .section-count {
+  margin-left: 4px;
+}
+
+.file-item {
+  position: relative;
+}
+
+.file-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  gap: 4px;
+}
+
+.file-item:hover .file-actions,
+.file-item:focus-within .file-actions {
+  display: flex;
+}
+
+.file-item:hover .file-row {
+  background: var(--hover);
+}
+
+/* Zone de commit */
+
+.commit-box {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--side);
+}
+
+.commit-label {
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.commit-count {
+  margin-left: auto;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.commit-count.over {
+  color: var(--mod);
+}
+
+.commit-summary,
+.commit-body {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--text);
+  outline: 0;
+}
+
+.commit-summary {
+  height: 36px;
+  padding: 0 10px;
+  font-weight: 500;
+}
+
+.commit-body {
+  height: 72px;
+  padding: 8px 10px;
+  font: 400 12.5px/1.45 inherit;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.commit-summary:focus,
+.commit-body:focus {
+  border-color: var(--accent);
+}
+
+.commit-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.commit-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.commit-hint {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--faint);
+  text-align: right;
+}
+
+.commit-btn {
+  justify-content: center;
+  min-height: 40px;
+  font-weight: 600;
+}
+
+/* Diff de la copie de travail ----------------------------------------------- */
+
+.area-pill {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.area-staged {
+  border-color: color-mix(in srgb, var(--add) 60%, transparent);
+  color: var(--add);
+}
+
+.area-conflicted {
+  border-color: color-mix(in srgb, var(--del) 60%, transparent);
+  color: var(--del);
+}
+
+.diff-file-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.diff-file-actions + .diff-sha {
+  margin-left: 0;
+}
+
+.line-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  flex: none;
+}
+
+.line-bar.on {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.line-bar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.hunk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hunk-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hunk-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+}
+
+.diff-table.selectable tr.add,
+.diff-table.selectable tr.del {
+  cursor: pointer;
+}
+
+.diff-table.selectable tr.add:hover,
+.diff-table.selectable tr.del:hover {
+  filter: brightness(1.15);
+}
+
+/* Côte à côte : deux demi-colonnes, le texte long passe à la ligne au lieu d'élargir. */
+.diff-table.split {
+  table-layout: fixed;
+}
+
+.diff-table.split .col-ln {
+  width: 52px;
+}
+
+.diff-table.split .code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  width: auto;
+}
+
+.diff-table.split td.code + td.ln {
+  border-left: 1px solid var(--border);
+}
+
+.diff-table.split td.add {
+  background: color-mix(in srgb, var(--add) 14%, transparent);
+}
+
+.diff-table.split td.del {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+.diff-table.split td.empty {
+  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--border) 45%, transparent) 6px 7px);
+}
+
+.diff-table.split.selectable td.add,
+.diff-table.split.selectable td.del {
+  cursor: pointer;
+}
+
+.diff-table.split td.ln.picked {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+
+.diff-table.split td.code.picked {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.diff-head .view-toggle {
+  margin-left: 0;
+}
+
+.diff-table tr.picked .ln {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+
+.diff-table tr.picked .sign {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* Diff ------------------------------------------------------------------ */
 
 .diff-view {
@@ -1535,6 +1945,21 @@ h2 {
 
 .diff-table tr.del {
   background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+/* Mots modifiés dans une ligne : fond plus soutenu que celui de la ligne. */
+.diff-table .hl {
+  border-radius: 3px;
+}
+
+.diff-table tr.add .hl,
+.diff-table td.add .hl {
+  background: color-mix(in srgb, var(--add) 45%, transparent);
+}
+
+.diff-table tr.del .hl,
+.diff-table td.del .hl {
+  background: color-mix(in srgb, var(--del) 45%, transparent);
 }
 
 .diff-table tr.add .sign {

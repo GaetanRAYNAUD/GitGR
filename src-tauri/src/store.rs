@@ -37,11 +37,13 @@ pub struct Settings {
     pub language: String,
     /// Fichiers d'un commit : "list" | "tree"
     pub file_view: String,
+    /// Diffs : "inline" | "split" (côte à côte)
+    pub diff_view: String,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: "system".into(), language: "system".into(), file_view: "list".into() }
+        Self { theme: "system".into(), language: "system".into(), file_view: "list".into(), diff_view: "inline".into() }
     }
 }
 
@@ -147,6 +149,7 @@ mod tests {
         assert_eq!(store.state.repos.len(), 1);
         assert_eq!(store.state.settings.theme, "system");
         assert_eq!(store.state.settings.file_view, "list", "réglage ajouté après coup : valeur par défaut");
+        assert_eq!(store.state.settings.diff_view, "inline");
         assert!(store.state.session.open_tabs.is_empty());
     }
 }
