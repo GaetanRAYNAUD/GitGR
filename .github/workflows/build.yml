@@ -37,7 +37,7 @@ jobs:
       - run: npm ci
       # `tauri build` lance aussi `npm run build` (interface) avant de compiler le Rust.
       - run: npx tauri build --bundles appimage,deb,rpm
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: gitgr-linux
           path: |
