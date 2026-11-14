@@ -35,7 +35,17 @@
   - Panneau de détails (parents cliquables, copie du SHA) ; clic sur un fichier → diff à la place du graphe (Échap pour revenir) ; navigation clavier ↑ ↓ PageUp PageDown Début Fin ; sélection et défilement conservés par onglet.
   - Barre latérale : Local, une section par remote, Tags ; branches à préfixe rangées en dossiers (`feature/…`) ; sections et dossiers repliables, sections masquables, choix mémorisés par dépôt (`repoUi` dans `state.json`) ; filtre ; clic = sélection du commit (charge les pages nécessaires).
   - Limites connues : `--date-order` + `--skip` relit tout l'historique à chaque page (à remplacer par un processus `git log` en flux ou un cache côté Rust si c'est lent sur 100k+ commits) ; diff unifié uniquement (vue côte à côte plus tard) ; pas encore de recherche dans le graphe ni d'avatars.
-  - Tests : 91 unitaires front, 28 unitaires Rust, 24 E2E.
+  - Tests : 97 unitaires front, 28 unitaires Rust, 25 E2E.
+
+## À faire / plus tard
+
+Retours d'utilisation, à caser dans une prochaine étape :
+
+- [ ] **Hauteur des sections** : pouvoir redimensionner la hauteur de chaque section dans chaque panneau (ex. Local / origin / Tags à gauche, détails / fichiers à droite).
+- [ ] **Largeur des panneaux** : pouvoir redimensionner la barre latérale, le graphe et le panneau de détails (poignées de glisser, largeurs mémorisées).
+- [ ] **Colonnes du graphe** : choisir les colonnes affichées (branche/tag, graphe, message, auteur, date, SHA) et leur largeur.
+- [ ] **Compteurs de fichiers** : distinguer ajoutés / modifiés / renommés / supprimés (ex. `+2 ~3 →1 −1`) au lieu d'un seul total.
+- [ ] **Détails d'un commit plus compacts** : le bloc auteur (avatar, nom, e-mail, date) prend beaucoup de place pour une info déjà visible dans le graphe, et repousse la liste des fichiers vers le bas. Le rendre discret (ex. une seule ligne « auteur · date », e-mail et committer en infobulle) pour que les fichiers modifiés remontent.
 
 ## 1. Vision
 
