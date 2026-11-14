@@ -26,6 +26,8 @@ interface AppStore {
   repoUi: Record<string, RepoUi>;
   /** Dernière erreur à afficher (code backend ou message). */
   error: string | null;
+  /** Message d'information ; `sticky` : reste affiché jusqu'à ce qu'on le ferme. */
+  notice: { text: string; sticky: boolean; id: number } | null;
 
   init(): Promise<void>;
   recheckGit(): Promise<void>;
@@ -47,7 +49,11 @@ interface AppStore {
   refreshRepo(path: string): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
+  notify(text: string, sticky?: boolean): void;
+  dismissNotice(): void;
 }
+
+let noticeSeq = 0;
 
 function persistSession(tabs: string[], active: string | null) {
   api.setSession({ openTabs: tabs, active }).catch(() => {});
@@ -70,6 +76,7 @@ export const useApp = create<AppStore>((set, get) => ({
   summaries: {},
   repoUi: {},
   error: null,
+  notice: null,
 
   async init() {
     let state, git;
@@ -248,6 +255,14 @@ export const useApp = create<AppStore>((set, get) => ({
 
   dismissError() {
     set({ error: null });
+  },
+
+  notify(text, sticky = false) {
+    set({ notice: { text, sticky, id: ++noticeSeq } });
+  },
+
+  dismissNotice() {
+    set({ notice: null });
   },
 }));
 

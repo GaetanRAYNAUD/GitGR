@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FileDiff, LineRef } from "../../lib/types";
 import { useWork, type WorkDiff } from "../../store/worktree";
-import { ConfirmDialog, type ConfirmRequest } from "../ConfirmDialog";
+import { useDialogs } from "../../store/dialogs";
 import { DiffBody, DiffViewToggle, lineKey, useEscape } from "./DiffBody";
 import { BackButton } from "./DiffView";
 import { StatusBadge } from "./FileList";
@@ -33,7 +33,6 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
   const lineMode = area === "unstaged" || area === "staged";
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const anchor = useRef<LineRef | null>(null);
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
 
   // Nouveau diff (autre fichier, autre côté, contenu changé) : la sélection n'a plus de sens.
   useEffect(() => {
@@ -64,19 +63,29 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
 
   const picked = (): LineRef[] => all.filter((r) => selected.has(lineKey(r.hunk, r.line)));
 
-  const discardLines = (lines: LineRef[], what: "lines" | "hunk") =>
-    setConfirm({
-      title: t(what === "hunk" ? "staging.discardHunkTitle" : "staging.discardLinesTitle", { count: lines.length }),
-      body: t("staging.discardLinesBody", { file: file.path }),
-      actions: [{ label: t("staging.discard"), danger: true, onClick: () => w.applyLines(path, lines, "discard") }],
+  /** Confirmation d'un abandon (irréversible), puis l'action. */
+  const confirmDiscard = async (title: string, body: string, run: () => void) => {
+    const ok = await useDialogs.getState().choose({
+      title,
+      body,
+      choices: [{ id: "discard", label: t("staging.discard"), danger: true }],
     });
+    if (ok) run();
+  };
+
+  const discardLines = (lines: LineRef[], what: "lines" | "hunk") =>
+    confirmDiscard(
+      t(what === "hunk" ? "staging.discardHunkTitle" : "staging.discardLinesTitle", { count: lines.length }),
+      t("staging.discardLinesBody", { file: file.path }),
+      () => w.applyLines(path, lines, "discard"),
+    );
 
   const discardFile = () =>
-    setConfirm({
-      title: t("staging.discardTitle", { count: 1 }),
-      body: t(file.status === "?" ? "staging.discardUntracked" : "staging.discardFile", { file: file.path }),
-      actions: [{ label: t("staging.discard"), danger: true, onClick: () => w.discard(path, [file]) }],
-    });
+    confirmDiscard(
+      t("staging.discardTitle", { count: 1 }),
+      t(file.status === "?" ? "staging.discardUntracked" : "staging.discardFile", { file: file.path }),
+      () => w.discard(path, [file]),
+    );
 
   const hunkActions =
     lineMode && data
@@ -173,7 +182,6 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           selection={lineMode ? { selected, toggle } : undefined}
         />
       </div>
-      {confirm && <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />}
     </section>
   );
 }

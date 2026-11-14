@@ -492,6 +492,14 @@ h2 {
   background: transparent;
   color: var(--muted);
   font-weight: 500;
+  /* Jamais sur deux lignes : un libellé trop long déborderait du bouton. */
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* Réglages : trois choix par ligne (thème, pull, fetch automatique). */
+.settings .popover {
+  width: 330px;
 }
 
 /* Séparateur vertical entre deux options (centré dans l'espace de 3px). */
@@ -2283,4 +2291,226 @@ body.resizing-y * {
 
 .change-counts .st-M {
   color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Branches et réseau (étape 4)                                        */
+/* ------------------------------------------------------------------ */
+
+/* Pull + menu de son mode, collés. */
+.tool-split .tbtn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tool-chevron {
+  min-width: 18px;
+  padding: 4px 2px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.tbtn.running .ico {
+  animation: tool-spin 1s linear infinite;
+}
+
+@keyframes tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tbtn.running .ico {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Menu contextuel */
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 200px;
+  max-width: 360px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+
+.menu-item:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.menu-item.danger {
+  color: var(--del);
+}
+
+.menu-radio {
+  width: 12px;
+  font-size: 9px;
+  color: var(--accent);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.context-menu > .menu-sep:first-child,
+.context-menu > .menu-sep:last-child,
+.context-menu > .menu-sep + .menu-sep {
+  display: none;
+}
+
+/* Saisie d'un nom (nouvelle branche, renommage) */
+.input-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-dialog h2 {
+  margin-top: 0;
+}
+
+.input-dialog > p {
+  margin: -6px 0 0;
+  font-size: 12.5px;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.input-field input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.input-field input[aria-invalid="true"] {
+  border-color: var(--del);
+}
+
+.input-dialog .input-error {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  color: var(--del);
+}
+
+.input-dialog .dialog-actions {
+  margin-top: 4px;
+}
+
+/* Opération en cours (merge, rebase…) */
+.op-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--mod) 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mod) 10%, transparent);
+  font-size: 12.5px;
+}
+
+.op-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.op-title .ico {
+  color: var(--mod);
+}
+
+.op-banner p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.op-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.commit-options {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+/* Messages d'information */
+.toast.notice .ico {
+  color: var(--add);
+}
+
+.toast.notice.warn .ico {
+  color: var(--mod);
+}
+
+.toast.notice span {
+  max-width: 560px;
+}
+
+/* Auto-stash pas encore réappliqué */
+.autostash-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--mod) 45%, var(--border));
+  background: color-mix(in srgb, var(--mod) 12%, var(--panel));
+  font-size: 12.5px;
+}
+
+.autostash-banner .ico {
+  color: var(--mod);
+  flex: none;
+}
+
+.autostash-banner span {
+  flex: 1;
+  min-width: 0;
 }

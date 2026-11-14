@@ -8,7 +8,7 @@ import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { areaOf, changedCount, useWork } from "../../store/worktree";
-import { ConfirmDialog, type ConfirmRequest } from "../ConfirmDialog";
+import { useDialogs } from "../../store/dialogs";
 import { Icon } from "../Icon";
 import { ResizableBlock } from "../Splitter";
 import { CommitBox } from "./CommitBox";
@@ -23,7 +23,6 @@ export function StagingPanel({ path }: { path: string }) {
   const branch = useApp((s) => s.summaries[path]?.data?.branch);
   const view = useApp((s) => s.settings.fileView ?? "list");
   const [closed, setClosed] = useState<Set<ListKind>>(() => new Set());
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const widthStyle = useWidthStyle(LAYOUT.panel);
 
   const st = work?.status;
@@ -31,25 +30,30 @@ export function StagingPanel({ path }: { path: string }) {
   const busy = !!work?.busy;
   const diff = work?.diff;
 
-  const askDiscard = (files: StatusFile[]) =>
-    setConfirm({
+  const askDiscard = async (files: StatusFile[]) => {
+    const ok = await useDialogs.getState().choose({
       title: t("staging.discardTitle", { count: files.length }),
       body:
         files.length === 1
           ? t(files[0].status === "?" ? "staging.discardUntracked" : "staging.discardFile", { file: files[0].path })
           : t("staging.discardFiles", { count: files.length }),
-      actions: [{ label: t("staging.discard"), danger: true, onClick: () => w.discard(path, files) }],
+      choices: [{ id: "discard", label: t("staging.discard"), danger: true }],
     });
+    if (ok) w.discard(path, files);
+  };
 
-  const askDiscardAll = () =>
-    setConfirm({
+  const askDiscardAll = async () => {
+    const pick = await useDialogs.getState().choose({
       title: t("staging.discardAllTitle"),
       body: t("staging.discardAllBody", { count: total }),
-      actions: [
-        { label: t("staging.stashInstead"), onClick: () => w.stashAll(path, t("staging.stashMessage", { branch: branch ?? "HEAD" })) },
-        { label: t("staging.discardAll"), danger: true, onClick: () => w.discardAll(path) },
+      choices: [
+        { id: "stash", label: t("staging.stashInstead") },
+        { id: "discard", label: t("staging.discardAll"), danger: true },
       ],
     });
+    if (pick === "stash") w.stashAll(path, t("staging.stashMessage", { branch: branch ?? "HEAD" }));
+    else if (pick === "discard") w.discardAll(path);
+  };
 
   const section = (kind: ListKind, files: StatusFile[]) => {
     if (kind === "conflicted" && files.length === 0) return null;
@@ -170,7 +174,6 @@ export function StagingPanel({ path }: { path: string }) {
       </div>
 
       <CommitBox path={path} />
-      {confirm && <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />}
     </aside>
   );
 }

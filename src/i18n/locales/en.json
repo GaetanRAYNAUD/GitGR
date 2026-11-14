@@ -19,7 +19,12 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "language": "Language",
-    "languageSystem": "System"
+    "languageSystem": "System",
+    "autoStash": "Auto-stash when switching branches and pulling",
+    "pullStrategy": "Pull",
+    "autoFetch": "Automatic fetch",
+    "autoFetchOff": "Off",
+    "minutes": "{{count}} min"
   },
   "welcome": {
     "title": "Repositories",
@@ -48,12 +53,20 @@
     "stash": "Stash",
     "pop": "Pop",
     "refresh": "Refresh",
-    "comingSoon": "Available in an upcoming step",
     "detached": "Detached HEAD",
     "noUpstream": "No upstream branch",
     "ahead": "{{count}} to push",
     "behind": "{{count}} to pull",
-    "upToDate": "Up to date"
+    "upToDate": "Up to date",
+    "stashMessage": "Stash from {{branch}}",
+    "pullStrategy": "Pull mode",
+    "pullHint": "Pull ({{mode}})",
+    "branchHint": "New branch from HEAD",
+    "stashHint": "Put all changes aside",
+    "popHint_one": "Reapply the latest stash ({{count}} stored)",
+    "popHint_other": "Reapply the latest stash ({{count}} stored)",
+    "popEmpty": "No stash",
+    "running": "Working…"
   },
   "graph": {
     "label": "Commit history",
@@ -140,7 +153,8 @@
     "gone": "deleted",
     "hidden_one": "{{count}} hidden section · Show",
     "hidden_other": "{{count}} hidden sections · Show",
-    "notFound": "This commit is not in the history."
+    "notFound": "This commit is not in the history.",
+    "dblClick": "Double-click to check out"
   },
   "staging": {
     "label": "Work in progress",
@@ -216,7 +230,9 @@
     "amendButton": "Amend last commit",
     "nothingStaged": "Stage files to commit.",
     "conflicts": "Resolve conflicts before committing.",
-    "shortcut": "Ctrl+Enter"
+    "shortcut": "Ctrl+Enter",
+    "pushAfter": "Push after committing",
+    "pushAfterHint": "Remembered for this repository"
   },
   "confirm": {
     "cancel": "Back"
@@ -228,21 +244,6 @@
     "embedded": "Use bundled Git",
     "linuxHint": "On Linux: install the “git” package with your package manager (e.g. sudo apt install git).",
     "retry": "Retry"
-  },
-  "errors": {
-    "not_a_repo": "This folder is not a Git repository.",
-    "path_not_found": "This folder no longer exists.",
-    "git_not_found": "Git was not found on this machine.",
-    "dubious_ownership": "Git refuses this repository because it belongs to another user. Allow it with: git config --global --add safe.directory <path>",
-    "invalid_sha": "Commit not found.",
-    "diff_changed": "The file changed in the meantime: the diff was reloaded, please select again.",
-    "identity_missing": "Git doesn’t know who you are (name and email). Set them with git config user.name / user.email (GitGR profiles arrive in step 5).",
-    "nothing_to_commit": "Nothing to commit: stage some changes first.",
-    "empty_message": "The commit message is empty.",
-    "unsupported_encoding": "This file is not UTF-8: its lines can’t be discarded one by one.",
-    "invalid_path": "Invalid file path.",
-    "no_commit_to_restore": "This repository has no commit yet: there is no state to restore (everything would be deleted).",
-    "dismiss": "Dismiss"
   },
   "time": {
     "justNow": "just now",
@@ -258,5 +259,120 @@
     "section": "Height of the “{{name}}” section",
     "details": "Height of the message and author",
     "resetHint": "double-click: default size"
+  },
+  "pull": {
+    "ff-only": "Fast-forward only",
+    "merge": "Merge",
+    "rebase": "Rebase",
+    "ffOnlyHint": "Does nothing if the branches have diverged (you are then asked what to do)",
+    "mergeHint": "Creates a merge commit when needed",
+    "rebaseHint": "Replays your local commits on top of the remote branch",
+    "divergedTitle": "The branches have diverged",
+    "divergedBody": "{{branch}} and its remote branch each have commits the other lacks. How should they be combined?",
+    "ff-onlyShort": "Fast-forward",
+    "mergeShort": "Merge",
+    "rebaseShort": "Rebase"
+  },
+  "push": {
+    "rejectedTitle": "Push rejected",
+    "rejectedBody": "The remote branch has commits you don’t have. Pull first, or overwrite it (force with lease: refused if someone pushed since your last fetch).",
+    "pullFirst": "Pull",
+    "force": "Force push"
+  },
+  "branch": {
+    "newTitle": "New branch",
+    "newFrom": "From {{start}}",
+    "name": "Branch name",
+    "checkout": "Switch to the new branch",
+    "create": "Create",
+    "renameTitle": "Rename {{branch}}",
+    "rename": "Rename",
+    "deleteTitle": "Delete {{branch}}?",
+    "deleteBody": "The local branch is deleted; its commits remain reachable from the reflog.",
+    "delete": "Delete",
+    "notMergedTitle": "{{branch}} is not merged",
+    "notMergedBody": "Its commits are not in any other branch: once deleted, they will no longer show in the graph (the reflog keeps them for a while).",
+    "forceDelete": "Delete anyway",
+    "deleteRemoteTitle": "Delete {{branch}} on the server?",
+    "deleteRemoteBody": "The branch is deleted on the remote, for everyone. Your local branch is not touched.",
+    "deleteRemote": "Delete on the server",
+    "invalid": "Invalid name (no spaces, no ~ ^ : ? * [ \\ characters, no “..”).",
+    "exists": "A branch with this name already exists."
+  },
+  "menu": {
+    "checkout": "Checkout",
+    "checkoutBranch": "Checkout {{branch}}",
+    "checkoutDetached": "Checkout this commit (detached HEAD)",
+    "newBranch": "New branch here…",
+    "rename": "Rename…",
+    "delete": "Delete…",
+    "deleteRemote": "Delete on the server…",
+    "pull": "Pull",
+    "push": "Push",
+    "copySha": "Copy SHA",
+    "copyName": "Copy name"
+  },
+  "op": {
+    "merge": "Merge in progress",
+    "rebase": "Rebase in progress",
+    "cherry-pick": "Cherry-pick in progress",
+    "revert": "Revert in progress",
+    "mergeHint": "Resolve the conflicts, stage the files, then commit to finish the merge.",
+    "continueHint": "Resolve the conflicts and stage the files, then continue.",
+    "continue": "Continue",
+    "abort": "Abort",
+    "abortTitle": "Abort the operation in progress?",
+    "abortBody": "The repository goes back to its state before the operation; conflict resolutions in progress are lost."
+  },
+  "notice": {
+    "stashKept": "Your changes could not be reapplied without conflicts: they are kept in the stash “{{label}}”. Resolve the conflicts, then drop the stash.",
+    "popConflict": "The stash was applied with conflicts; it is kept.",
+    "conflicts": "The operation stopped on conflicts: resolve them in the current changes.",
+    "pushed": "{{branch}} pushed.",
+    "fetched": "Fetch complete."
+  },
+  "autostash": {
+    "pending": "Changes put aside by GitGR (“{{message}}”) have not been reapplied.",
+    "apply": "Reapply",
+    "later": "Later"
+  },
+  "errors": {
+    "not_a_repo": "This folder is not a Git repository.",
+    "path_not_found": "This folder no longer exists.",
+    "git_not_found": "Git was not found on this machine.",
+    "dubious_ownership": "Git refuses this repository because it belongs to another user. Allow it with: git config --global --add safe.directory <path>",
+    "invalid_sha": "Commit not found.",
+    "diff_changed": "The file changed in the meantime: the diff was reloaded, please select again.",
+    "identity_missing": "Git doesn’t know who you are (name and email). Set them with git config user.name / user.email (GitGR profiles arrive in step 5).",
+    "nothing_to_commit": "Nothing to commit: stage some changes first.",
+    "empty_message": "The commit message is empty.",
+    "unsupported_encoding": "This file is not UTF-8: its lines can’t be discarded one by one.",
+    "invalid_path": "Invalid file path.",
+    "no_commit_to_restore": "This repository has no commit yet: there is no state to restore (everything would be deleted).",
+    "branch_not_found": "Branch not found.",
+    "branch_exists": "A branch with this name already exists.",
+    "branch_is_current": "Cannot delete the current branch: switch to another branch first.",
+    "branch_not_merged": "This branch is not merged.",
+    "invalid_branch_name": "Invalid branch name.",
+    "invalid_start_point": "Starting point not found.",
+    "invalid_strategy": "Unknown pull mode.",
+    "local_changes_conflict": "Your local changes would be overwritten. Commit them, stash them, or enable auto-stash in the settings.",
+    "unresolved_conflicts": "Some conflicts are not resolved: finish them first.",
+    "operation_in_progress": "An operation (merge, rebase…) is in progress: finish or abort it first.",
+    "no_operation": "No operation in progress.",
+    "merge_needs_commit": "To finish a merge, commit the resolved files.",
+    "detached_head": "HEAD is detached: switch to a branch first.",
+    "no_upstream": "This branch does not track a remote branch: push it first.",
+    "no_remote": "This repository has no remote.",
+    "not_fast_forward": "The branches have diverged: a fast-forward is not possible.",
+    "push_rejected": "Push rejected: the remote branch has commits you don’t have.",
+    "push_stale": "Force push refused: the remote branch moved since your last fetch. Fetch and check before forcing.",
+    "auth_failed": "The server refused authentication (SSH key or credentials). Per-profile key management comes in step 5.",
+    "host_key_unknown": "Unknown SSH host key: connect to the server once from the command line (ssh) to accept it.",
+    "network_unreachable": "Server unreachable: check the network connection and the remote address.",
+    "remote_not_found": "Remote repository not found (remote address or access rights).",
+    "no_stash": "No stash to reapply.",
+    "stash_would_overwrite": "The stash would overwrite current changes: commit or stash them first.",
+    "dismiss": "Dismiss"
   }
 }

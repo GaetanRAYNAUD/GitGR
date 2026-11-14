@@ -1,0 +1,115 @@
+# Tous les tests, sur main et sur chaque pull request.
+#
+# - interface : typage, tests unitaires (Vitest), E2E sur le backend simulé (Playwright) ;
+# - rust : tests du backend sur de vrais dépôts git, sous Linux et sous Windows ;
+# - app : E2E sur l'app compilée (Rust + WebView2 piloté par CDP) — Windows uniquement.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un nouveau push sur une PR annule la série précédente, devenue inutile.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  interface:
+    name: Interface (typage, unitaires, E2E simulés)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Navigateur de Playwright
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Rapport Playwright (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-interface
+          path: test-results/
+          retention-days: 7
+
+  rust:
+    name: Backend Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Dépendances système de Tauri (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: cargo test
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tee cargo-test.log
+      # Chaque test en échec devient une annotation de la PR (message de panique compris) :
+      # lisible sans être connecté à GitHub, contrairement aux logs du job.
+      - name: Échecs en annotations
+        if: failure()
+        shell: bash
+        run: |
+          awk '/^---- .* stdout ----$/ { if (b) print b; b = $0; n = 0; next }
+               /^(failures:|test result:)/ { if (b) print b; b = ""; next }
+               b && n < 20 { b = b "%0A" $0; n++ }
+               END { if (b) print b }' cargo-test.log | sed 's/^/::error title=cargo test::/'
+
+  app:
+    name: App compilée (Windows, WebView2)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Version de WebView2 installée
+        shell: pwsh
+        run: |
+          $keys = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $v = $keys | ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Select-Object -First 1
+          if ($v) { "WebView2 Runtime $v" } else { "WebView2 Runtime introuvable" }
+      # Compile le binaire de debug, puis lance l'app pour chaque test (cf. e2e-app/app.ts).
+      - run: npm run test:app
+      - name: Rapport Playwright (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-app
+          path: test-results/
+          retention-days: 7

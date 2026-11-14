@@ -16,6 +16,8 @@ const ref = (kind: GitRef["kind"], short: string, target: string): GitRef => ({
 const info: RefsInfo = {
   head: "a",
   headBranch: "main",
+  stashes: 0,
+  autostash: null,
   refs: [
     ref("local", "feature", "b"),
     ref("local", "main", "a"),

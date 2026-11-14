@@ -34,6 +34,7 @@ npm run dev           # interface seule dans le navigateur, avec un backend simu
 | `npm run test:rust` | tests unitaires du backend, dont des tests sur de vrais dépôts Git temporaires | `cargo test` |
 | `npm run test:e2e` | parcours utilisateur dans un vrai navigateur, backend simulé | Playwright |
 | `npm run test:all` | typage + les trois suites | |
+| `npm run test:app` | parcours sur la **vraie app** (Rust compilé + WebView2) et de vrais dépôts temporaires — Windows uniquement | Playwright via CDP |
 
 Avant le premier `test:e2e`, installer le navigateur de Playwright :
 
@@ -41,7 +42,21 @@ Avant le premier `test:e2e`, installer le navigateur de Playwright :
 npx playwright install chromium
 ```
 
+`test:app` compile le binaire de debug, puis chaque test lance l'app avec une config et un profil WebView2 isolés (`GITGR_CONFIG_DIR`, dossier temporaire) : vos dépôts et votre `state.json` ne sont jamais touchés. Voir `e2e-app/app.ts`.
+
 Les tests Rust ont besoin de `git` dans le PATH. Les tests E2E démarrent Vite eux-mêmes, ou réutilisent celui de `npm run tauri dev` s'il tourne déjà.
+
+### Intégration continue
+
+[GitHub Actions](.github/workflows/ci.yml) lance tous les tests à chaque push sur `main` et sur chaque pull request :
+
+| Job | Machine | Contenu |
+|---|---|---|
+| Interface | Ubuntu | typage, `npm test`, `npm run test:e2e` |
+| Backend Rust | Ubuntu et Windows | `cargo test` (dont la surveillance du dépôt : inotify sous Linux) |
+| App compilée | Windows | `npm run test:app` |
+
+En cas d'échec, les traces Playwright sont jointes au run (artefacts `playwright-*`).
 
 ## Structure
 
@@ -50,14 +65,19 @@ src/                 interface React
   components/        barre de titre, réglages, icônes…
   components/graph/  graphe des commits, détails, diff, barre latérale des branches
   views/             écrans (accueil, dépôt)
-  store/             état global (zustand) : app.ts (onglets, réglages), graph.ts (historique)
+  store/             état global (zustand) : app.ts (onglets, réglages), graph.ts (historique),
+                     worktree.ts (copie de travail), ops.ts (branches, réseau), dialogs.ts
   lib/api.ts         façade vers le backend (Tauri ou simulé)
   i18n/              traductions
   **/*.test.ts(x)    tests unitaires, à côté du code testé
-e2e/                 tests E2E Playwright
+e2e/                 tests E2E Playwright (backend simulé)
+e2e-app/             tests E2E sur l'app compilée (CDP de WebView2)
 src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque fichier)
   git.rs             appels au binaire git
   history.rs         historique : log, refs, détails d'un commit, diff
+  worktree.rs        copie de travail : état, indexation, commit
+  branches.rs        checkout (auto-stash), branches, fetch / pull / push, stash pop
+  watch.rs           surveillance du dépôt actif
   store.rs           état persistant (dépôts, onglets, réglages)
   commands.rs        commandes exposées à l'interface
 ```

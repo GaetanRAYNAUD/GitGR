@@ -3,10 +3,12 @@
 //! - `git`      : appels au binaire `git` et lecture de son résultat.
 //! - `history`  : historique (log, refs, détails, diff) pour le graphe.
 //! - `worktree` : copie de travail (status, indexation, commit).
+//! - `branches` : checkout (auto-stash), branches, fetch / pull / push, stash pop.
 //! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
+mod branches;
 mod commands;
 mod git;
 mod history;
@@ -17,6 +19,28 @@ mod worktree;
 use std::sync::Mutex;
 use tauri::Manager;
 
+/// Crée la fenêtre principale décrite dans tauri.conf.json (`"create": false` : pas
+/// automatiquement, pour pouvoir régler WebView2 ici).
+///
+/// Build de debug sous Windows avec `GITGR_DEVTOOLS_PORT` : WebView2 ouvre son port de
+/// débogage (CDP), pour piloter l'app dans les tests (e2e-app/). La variable
+/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` n'est pas fiable pour ça (ignorée sur les runners
+/// de GitHub). Jamais dans une version release : le port donnerait la main sur l'app.
+fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
+    let config = app.config().app.windows.iter().find(|w| w.label == "main").cloned().expect("fenêtre « main » dans tauri.conf.json");
+    #[allow(unused_mut)]
+    let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    #[cfg(all(windows, debug_assertions))]
+    if let Some(port) = std::env::var("GITGR_DEVTOOLS_PORT").ok().filter(|p| p.parse::<u16>().is_ok()) {
+        // Remplace les arguments par défaut de wry : on les remet.
+        builder = builder.additional_browser_args(&format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
+        ));
+    }
+    builder.build()?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -25,9 +49,14 @@ pub fn run() {
         .setup(|app| {
             // Fichier d'état : %APPDATA%\fr.gitgr.app\state.json sous Windows,
             // ~/.config/fr.gitgr.app/state.json sous Linux.
-            let dir = app.path().app_config_dir()?;
+            // `GITGR_CONFIG_DIR` le remplace (tests sur l'app compilée, cf. e2e-app/).
+            let dir = match std::env::var_os("GITGR_CONFIG_DIR") {
+                Some(d) => std::path::PathBuf::from(d),
+                None => app.path().app_config_dir()?,
+            };
             app.manage(Mutex::new(store::Store::load(dir)));
             app.manage(Mutex::new(watch::RepoWatcher::default()));
+            create_main_window(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -56,6 +85,19 @@ pub fn run() {
             commands::discard_lines,
             commands::commit,
             commands::head_message,
+            commands::checkout,
+            commands::checkout_remote,
+            commands::checkout_detached,
+            commands::create_branch,
+            commands::rename_branch,
+            commands::delete_branch,
+            commands::delete_remote_branch,
+            commands::fetch,
+            commands::pull,
+            commands::push,
+            commands::stash_pop,
+            commands::abort_operation,
+            commands::continue_operation,
             commands::watch_repo,
         ])
         .run(tauri::generate_context!())

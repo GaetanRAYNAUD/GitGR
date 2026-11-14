@@ -35,7 +35,15 @@ export interface Settings {
   layout?: Record<string, number>;
   /** Colonnes masquées dans le graphe. */
   hiddenColumns?: GraphColumn[];
+  /** Met les modifications de côté pendant un changement de branche ou un pull (défaut : oui). */
+  autoStash?: boolean;
+  pullStrategy?: PullStrategy;
+  /** Fetch automatique du dépôt actif, en minutes (0 : désactivé ; défaut : 10). */
+  autoFetchMinutes?: number;
 }
+
+/** Pull : avance rapide uniquement, merge, ou rebase. */
+export type PullStrategy = "ff-only" | "merge" | "rebase";
 
 /** Colonnes du graphe ; le message est toujours affiché. */
 export type GraphColumn = "refs" | "graph" | "author" | "date" | "sha";
@@ -45,6 +53,8 @@ export interface RepoUi {
   /** Sections repliées (`local`, `remote:origin`, `tags`…). */
   collapsed: string[];
   hidden: string[];
+  /** Case « pousser après le commit ». */
+  pushAfterCommit?: boolean;
 }
 
 export interface AppState {
@@ -97,6 +107,16 @@ export interface RefsInfo {
   head: string | null;
   headBranch: string | null;
   refs: GitRef[];
+  /** Nombre d'entrées dans la pile de stash. */
+  stashes: number;
+  /** Dernier stash s'il vient de l'auto-stash (modifications pas encore réappliquées). */
+  autostash: AutoStash | null;
+}
+
+export interface AutoStash {
+  sha: string;
+  /** `GitGR-autostash: main` */
+  message: string;
 }
 
 export type FileStatus = "A" | "M" | "D" | "R" | "C" | "T";
@@ -159,6 +179,23 @@ export interface WorkStatus {
   /** Index → copie de travail, fichiers non suivis compris. */
   unstaged: StatusFile[];
   conflicted: StatusFile[];
+  /** Opération laissée en cours par git (conflits à résoudre). */
+  operation: Operation | null;
+  /** Message préparé par git pour terminer un merge. */
+  mergeMessage: string | null;
+}
+
+export type Operation = "merge" | "rebase" | "cherry-pick" | "revert";
+
+// --- Branches et réseau (src-tauri/src/branches.rs) --------------------------
+
+export interface OpResult {
+  /** Modifications mises de côté puis réappliquées (auto-stash). */
+  stashed: boolean;
+  /** Le stash n'a pas pu être réappliqué proprement : il est conservé. */
+  stashKept: boolean;
+  /** L'opération s'est arrêtée sur des conflits (merge / rebase en cours). */
+  conflicts: boolean;
 }
 
 /** Côté d'un diff de la copie de travail. */

@@ -6,6 +6,7 @@ import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
 import { REPO_B } from "../../test/utils";
+import { DialogHost } from "../DialogHost";
 import { CommitBox } from "./CommitBox";
 import { StagingPanel } from "./StagingPanel";
 import { WorkDiffView } from "./WorkDiffView";
@@ -16,7 +17,12 @@ const repo = () => w().repos[REPO_B];
 
 async function panel() {
   await w().refresh(REPO_B);
-  render(<StagingPanel path={REPO_B} />);
+  render(
+    <>
+      <StagingPanel path={REPO_B} />
+      <DialogHost />
+    </>,
+  );
 }
 
 const list = (name: string) => screen.getByRole("list", { name: new RegExp(`^${name}$`) });
@@ -125,7 +131,12 @@ describe("<WorkDiffView />", () => {
   async function openRender() {
     await w().refresh(REPO_B);
     await w().openDiff(REPO_B, repo().status!.unstaged[0], "unstaged");
-    return render(<WorkDiffView path={REPO_B} diff={repo().diff!} />);
+    return render(
+      <>
+        <WorkDiffView path={REPO_B} diff={repo().diff!} />
+        <DialogHost />
+      </>,
+    );
   }
 
   it("sélection de lignes au clic puis indexation des lignes choisies", async () => {

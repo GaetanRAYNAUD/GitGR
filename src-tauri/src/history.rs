@@ -110,6 +110,10 @@ pub struct RefsInfo {
     /// Branche courante (`None` si HEAD détachée).
     pub head_branch: Option<String>,
     pub refs: Vec<GitRef>,
+    /// Nombre d'entrées dans la pile de stash.
+    pub stashes: u32,
+    /// Dernier stash s'il vient de l'auto-stash (pas encore réappliqué).
+    pub autostash: Option<crate::branches::AutoStash>,
 }
 
 pub fn refs(path: &Path) -> Result<RefsInfo, String> {
@@ -124,10 +128,13 @@ pub fn refs(path: &Path) -> Result<RefsInfo, String> {
             "refs/tags",
         ],
     )?;
+    let (stashes, autostash) = crate::branches::stash_info(path);
     Ok(RefsInfo {
         head: run(Some(path), &["rev-parse", "-q", "--verify", "HEAD"]).ok(),
         head_branch: run(Some(path), &["symbolic-ref", "-q", "--short", "HEAD"]).ok(),
         refs: parse_refs(&out),
+        stashes,
+        autostash,
     })
 }
 

@@ -14,7 +14,8 @@
 //! démon fsmonitor de `.git`, fichiers ignorés (`git check-ignore`) ne déclenchent rien.
 
 use crate::git;
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::event::{AccessKind, AccessMode};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -126,7 +127,9 @@ fn process(rx: Receiver<notify::Result<Event>>, watcher: Weak<Mutex<RecommendedW
             match res {
                 Ok(e) => {
                     lost |= e.need_rescan();
-                    paths.extend(e.paths);
+                    if changes_content(&e.kind) {
+                        paths.extend(e.paths);
+                    }
                 }
                 Err(_) => lost = true,
             }
@@ -295,6 +298,17 @@ pub fn relevant(root: &Path, git_dir: &Path, paths: &[PathBuf]) -> bool {
     any_not_ignored(root, &work)
 }
 
+/// L'événement peut changer ce qu'on affiche. Une simple lecture (ouverture, fermeture
+/// sans écriture) ne compte pas : inotify (Linux) les signale, et nos propres commandes git
+/// lisent l'index, la config… — sinon chaque rafraîchissement en déclencherait un autre.
+fn changes_content(kind: &EventKind) -> bool {
+    match kind {
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
+        EventKind::Access(_) => false,
+        _ => true,
+    }
+}
+
 /// Changement dans le dossier git qui compte : refs, HEAD, index, journal… mais pas les
 /// objets (écrits avant les refs, qui suivront), les verrous temporaires, ni les fichiers du
 /// démon fsmonitor : il en écrit à chaque `git status`, ce qui relancerait un rafraîchissement
@@ -319,6 +333,17 @@ fn any_not_ignored(root: &Path, paths: &[String]) -> bool {
 mod tests {
     use super::*;
     use crate::git::tests::{commit_file, temp_repo};
+
+    #[test]
+    fn reads_are_not_changes() {
+        use notify::event::{CreateKind, ModifyKind};
+        assert!(!changes_content(&EventKind::Access(AccessKind::Open(AccessMode::Any))));
+        assert!(!changes_content(&EventKind::Access(AccessKind::Close(AccessMode::Read))));
+        assert!(changes_content(&EventKind::Access(AccessKind::Close(AccessMode::Write))));
+        assert!(changes_content(&EventKind::Create(CreateKind::File)));
+        assert!(changes_content(&EventKind::Modify(ModifyKind::Any)));
+        assert!(changes_content(&EventKind::Any));
+    }
 
     #[test]
     fn git_dir_changes() {

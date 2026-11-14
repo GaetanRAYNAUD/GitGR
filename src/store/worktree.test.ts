@@ -28,10 +28,10 @@ describe("copie de travail : état", () => {
     let resolveOld!: (v: Awaited<ReturnType<typeof api.workStatus>>) => void;
     vi.spyOn(api, "workStatus")
       .mockImplementationOnce(() => new Promise((r) => (resolveOld = r)))
-      .mockResolvedValueOnce({ staged: [], unstaged: [], conflicted: [] });
+      .mockResolvedValueOnce({ staged: [], unstaged: [], conflicted: [], operation: null, mergeMessage: null });
     const old = w().refresh(REPO_B);
     await w().refresh(REPO_B);
-    resolveOld({ staged: [], unstaged: [{ path: "x", oldPath: null, status: "M" }], conflicted: [] });
+    resolveOld({ staged: [], unstaged: [{ path: "x", oldPath: null, status: "M" }], conflicted: [], operation: null, mergeMessage: null });
     await old;
     expect(repo().status?.unstaged).toEqual([]);
   });
