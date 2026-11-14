@@ -1,7 +1,6 @@
 // Icônes au trait (24×24), couleur héritée de `currentColor`.
 
 const PATHS = {
-  logo: "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM18 9a9 9 0 0 1-9 9",
   branch: "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM18 9a9 9 0 0 1-9 9",
   pull: "M12 4v12m-5-5 5 5 5-5M5 20h14",
   push: "M12 20V8m-5 5 5-5 5 5M5 4h14",

@@ -9,6 +9,13 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
+  /* Logo (cf. components/Logo.tsx) : variante sombre, celle de l'icône de l'app. */
+  --logo-bg: #1b1f27;
+  --logo-edge: transparent;
+  --logo-head: #ffffff;
+  --logo-1: #3b7bf0;
+  --logo-2: #f0a03b;
+  --logo-3: #3bc47a;
   --bg: #121418;
   --panel: #181b21;
   --panel2: #1e222a;
@@ -44,6 +51,13 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
+  /* Logo : variante claire. */
+  --logo-bg: #f4f6fa;
+  --logo-edge: #d5dae3;
+  --logo-head: #1b1f27;
+  --logo-1: #3b7bf0;
+  --logo-2: #f0a03b;
+  --logo-3: #2fae69;
   --bg: #eceef2;
   --panel: #ffffff;
   --panel2: #f6f7f9;
@@ -279,15 +293,21 @@ h2 {
   color: var(--text);
 }
 
-.brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Logo sans carré de fond : l'intérieur des commits prend la couleur de l'onglet. */
+.brand {
+  --logo-hole: var(--bg);
+}
+
+.brand:hover {
+  --logo-hole: var(--hover);
+}
+
+.brand.on {
+  --logo-hole: var(--panel);
+}
+
+.brand .logo {
+  flex: none;
 }
 
 .tabs {

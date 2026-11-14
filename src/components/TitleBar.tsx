@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { repoColor, useApp } from "../store/app";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 import { SettingsMenu } from "./SettingsMenu";
 
 /** Distance (px) à parcourir avant qu'un appui devienne un glisser. */
@@ -80,9 +81,7 @@ export function TitleBar() {
         title={`${t("tabs.home")} (Ctrl T)`}
         aria-label={t("tabs.home")}
       >
-        <span className="brand-mark">
-          <Icon name="logo" size={14} />
-        </span>
+        <Logo size={20} tile={false} />
         <span>{t("app.name")}</span>
       </button>
 

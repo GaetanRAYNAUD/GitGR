@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 110 110">
+  <!-- Logo GitGR (variante D, thème clair). -->
+  <rect x="0.5" y="0.5" width="109" height="109" rx="24" fill="#f4f6fa" stroke="#d5dae3"/>
+  <g fill="none" stroke-width="6" stroke-linecap="round">
+    <path d="M76 36A28 28 0 0 0 27 55" stroke="#3b7bf0"/>
+    <path d="M27 55A28 28 0 0 0 55 83" stroke="#f0a03b"/>
+    <path d="M55 83A28 28 0 0 0 83 55H58" stroke="#2fae69"/>
+  </g>
+  <g fill="#f4f6fa" stroke-width="4">
+    <circle cx="76" cy="36" r="7" stroke="#3b7bf0"/>
+    <circle cx="27" cy="55" r="7" stroke="#f0a03b"/>
+    <circle cx="55" cy="83" r="7" stroke="#2fae69"/>
+  </g>
+  <circle cx="56" cy="55" r="7" fill="#1b1f27"/>
+</svg>

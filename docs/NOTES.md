@@ -56,6 +56,7 @@
   - Deux modes : **récursif** sous Windows / macOS (une seule veille, événements des dossiers ignorés écartés au tri) ; **dossier par dossier** sous Linux, où inotify coûte une veille par dossier (`max_user_watches`) : seuls les dossiers non ignorés sont surveillés (`git ls-files --ignored --directory`), sans `.git/objects`, et les dossiers créés ensuite sont ajoutés à la volée. Une veille refusée (limite atteinte) n'arrête pas les autres et déclenche un rafraîchissement.
   - Limites connues : le mode par dossier est testé sous Windows (même code, backend `notify` différent) mais pas encore sur un vrai Linux / inotify (à valider avec la CI Linux, étape 7) ; un dossier qui *devient* ignoré après coup (`.gitignore` modifié) reste surveillé jusqu'au prochain changement d'onglet ; l'état attend la relecture du graphe (première page du log si les refs ont bougé).
   - Tests : 154 unitaires front, 48 unitaires Rust, 33 E2E.
+- **Logo** : un G tracé comme une branche du graphe (trois commits colorés, HEAD au centre). Variante sombre = icône de l'app (`src-tauri/icons/logo.svg`, icônes générées par `tauri icon`, cibles desktop seulement) ; variante claire (`logo-light.svg`) utilisée dans l'app avec le thème clair (`components/Logo.tsx`, couleurs `--logo-*`). Le dessin existe en trois exemplaires (deux SVG + le composant) : les modifier ensemble, puis relancer `npx tauri icon src-tauri/icons/logo.svg` (et retirer les dossiers `android/` et `ios/` générés).
 
 ## À faire / plus tard
 
