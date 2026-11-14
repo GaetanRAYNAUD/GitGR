@@ -36,15 +36,20 @@ pub fn run(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
 
 /// Comme [`run`], mais renvoie stdout tel quel (diffs : les blancs de fin comptent).
 pub fn run_raw(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
-    run_with_input(cwd, args, None)
+    run_with_input(cwd, args, None, &[])
+}
+
+/// Comme [`run`], avec des variables d'environnement en plus (`GIT_EDITOR`…).
+pub fn run_env(cwd: Option<&Path>, args: &[&str], env: &[(&str, &str)]) -> Result<String, String> {
+    run_with_input(cwd, args, None, env).map(|s| s.trim_end().to_string())
 }
 
 /// Lance git en lui passant `input` sur l'entrée standard (message de commit, patch…).
 pub fn run_input(cwd: Option<&Path>, args: &[&str], input: &str) -> Result<String, String> {
-    run_with_input(cwd, args, Some(input)).map(|s| s.trim_end().to_string())
+    run_with_input(cwd, args, Some(input), &[]).map(|s| s.trim_end().to_string())
 }
 
-fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>) -> Result<String, String> {
+fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &[(&str, &str)]) -> Result<String, String> {
     use std::io::Write;
     use std::process::Stdio;
     let mut cmd = git_command();
@@ -52,6 +57,9 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>) -> Res
         cmd.current_dir(dir);
     }
     cmd.args(args);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
     // Comme `Command::output()` : sorties capturées, pas d'entrée héritée (sauf `input`).
     cmd.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())

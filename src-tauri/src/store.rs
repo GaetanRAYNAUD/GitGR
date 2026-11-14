@@ -44,6 +44,12 @@ pub struct Settings {
     pub layout: HashMap<String, f64>,
     /// Colonnes masquées dans le graphe (`refs`, `graph`, `author`, `date`, `sha`).
     pub hidden_columns: Vec<String>,
+    /// Met les modifications de côté pendant un changement de branche ou un pull.
+    pub auto_stash: bool,
+    /// Pull : "ff-only" | "merge" | "rebase"
+    pub pull_strategy: String,
+    /// Fetch automatique du dépôt actif, en minutes (0 : désactivé).
+    pub auto_fetch_minutes: u32,
 }
 
 impl Default for Settings {
@@ -55,6 +61,9 @@ impl Default for Settings {
             diff_view: "inline".into(),
             layout: HashMap::new(),
             hidden_columns: Vec::new(),
+            auto_stash: true,
+            pull_strategy: "ff-only".into(),
+            auto_fetch_minutes: 10,
         }
     }
 }
@@ -67,6 +76,8 @@ pub struct RepoUi {
     pub collapsed: Vec<String>,
     /// Sections masquées.
     pub hidden: Vec<String>,
+    /// Case « pousser après le commit ».
+    pub push_after_commit: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -127,7 +138,7 @@ mod tests {
         store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42 });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
-        store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![] });
+        store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true });
         store.save().unwrap();
 
         let again = Store::load(dir.path().join("cfg"));
@@ -136,6 +147,7 @@ mod tests {
         assert_eq!(again.state.session.active.as_deref(), Some("/r"));
         assert_eq!(again.state.settings.theme, "dark");
         assert_eq!(again.state.repo_ui["/r"].collapsed, vec!["tags".to_string()]);
+        assert!(again.state.repo_ui["/r"].push_after_commit);
         // Le fichier temporaire ne doit pas traîner.
         assert!(!dir.path().join("cfg").join("state.json.tmp").exists());
     }
@@ -164,6 +176,9 @@ mod tests {
         assert_eq!(store.state.settings.diff_view, "inline");
         assert!(store.state.settings.layout.is_empty());
         assert!(store.state.settings.hidden_columns.is_empty());
+        assert!(store.state.settings.auto_stash);
+        assert_eq!(store.state.settings.pull_strategy, "ff-only");
+        assert_eq!(store.state.settings.auto_fetch_minutes, 10);
         assert!(store.state.session.open_tabs.is_empty());
     }
 }

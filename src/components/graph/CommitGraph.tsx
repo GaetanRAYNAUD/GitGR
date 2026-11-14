@@ -7,11 +7,13 @@ import { commitDate } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
-import type { Commit, GraphColumn } from "../../lib/types";
+import type { Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
+import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
+import { checkoutRef, commitMenu, refMenu } from "./menus";
 import { Splitter } from "../Splitter";
 
 export const ROW_H = 28;
@@ -148,12 +150,25 @@ function drawGraph(
   }
 }
 
-function Chip({ chip, color }: { chip: RefChip; color: number }) {
+/** Ref représentée par une étiquette (aucune pour « HEAD » détachée). */
+function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
+  if (chip.kind === "head") return undefined;
+  return refs?.refs.find((r) => r.kind === chip.kind && r.short === chip.label);
+}
+
+function Chip({ chip, color, path, refs }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null }) {
   const { t } = useTranslation();
+  const r = chipRef(chip, refs);
   const cls = chip.kind === "tag" ? "chip tag" : chip.kind === "remote" ? "chip remote" : "chip";
   const title = [chip.title, chip.current && t("graph.current"), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
   return (
-    <span className={cls} style={{ "--chip": `var(--g${color % PALETTE_SIZE})` } as React.CSSProperties} title={title}>
+    <span
+      className={cls}
+      style={{ "--chip": `var(--g${color % PALETTE_SIZE})` } as React.CSSProperties}
+      title={title}
+      onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
+      onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
+    >
       {chip.current && <Icon name="check" size={12} />}
       {chip.kind === "tag" && <Icon name="tag" size={12} />}
       {chip.kind === "remote" && <Icon name="cloud" size={12} />}
@@ -328,7 +343,7 @@ export function CommitGraph({ path, changes }: Props) {
         return (
           <span key={col} className="commit-refs">
             {(chips.get(c.sha) ?? []).map((chip) => (
-              <Chip key={chip.kind + chip.label} chip={chip} color={color} />
+              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} />
             ))}
           </span>
         );
@@ -430,7 +445,12 @@ export function CommitGraph({ path, changes }: Props) {
                 // Garde le focus sur la liste pour la navigation au clavier.
                 e.preventDefault();
                 scrollRef.current?.focus();
+                if (e.button === 0) select(path, c.sha);
+              }}
+              onContextMenu={(e) => {
+                if (isWip) return e.preventDefault();
                 select(path, c.sha);
+                openContextMenu(e, commitMenu(t, path, c.sha, graph.refs));
               }}
             >
               {visible.map((col) => cell(col, c, row.color, isWip))}

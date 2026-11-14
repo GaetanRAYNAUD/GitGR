@@ -4,6 +4,21 @@
 // Dans un simple navigateur (`npm run dev` sans Tauri), une implémentation
 // factice en mémoire prend le relais : pratique pour travailler l'interface.
 
+import {
+  mockCheckout,
+  mockCheckoutDetached,
+  mockCheckoutRemote,
+  mockCreateBranch,
+  mockDeleteBranch,
+  mockDeleteRemoteBranch,
+  mockPull,
+  mockPush,
+  mockRenameBranch,
+  mockAutostash,
+  mockStashCount,
+  mockStashPop,
+  mockStashPush,
+} from "./mockBranches";
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
 import {
   mockChangeCount,
@@ -24,6 +39,8 @@ import type {
   FileDiff,
   GitInfo,
   LineRef,
+  OpResult,
+  PullStrategy,
   RefsInfo,
   RepoEntry,
   RepoSummary,
@@ -65,6 +82,23 @@ export interface Api {
   /** Renvoie le SHA du commit créé. */
   commit(path: string, message: string, amend: boolean): Promise<string>;
   headMessage(path: string): Promise<string>;
+  // Branches et réseau. `autoStash` : modifications mises de côté puis réappliquées.
+  checkout(path: string, branch: string, autoStash: boolean): Promise<OpResult>;
+  /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
+  checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
+  checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** `start` : SHA ou nom de ref (`null` : HEAD). */
+  createBranch(path: string, name: string, start: string | null, checkout: boolean, autoStash: boolean): Promise<OpResult>;
+  renameBranch(path: string, oldName: string, newName: string): Promise<void>;
+  deleteBranch(path: string, branch: string, force: boolean): Promise<void>;
+  deleteRemoteBranch(path: string, branch: string): Promise<void>;
+  fetch(path: string): Promise<void>;
+  pull(path: string, strategy: PullStrategy, autoStash: boolean): Promise<OpResult>;
+  /** Sans branche distante, la crée et la suit ; `force` : `--force-with-lease`. */
+  push(path: string, force: boolean): Promise<void>;
+  stashPop(path: string): Promise<OpResult>;
+  abortOperation(path: string): Promise<void>;
+  continueOperation(path: string): Promise<OpResult>;
   /** Surveille ce dépôt sur disque (un seul à la fois ; `null` : aucun). */
   watchRepo(path: string | null): Promise<void>;
   /** Appelé quand le dépôt surveillé change sur disque ; renvoie de quoi se désabonner. */
@@ -118,6 +152,19 @@ const tauriApi: Api = {
   discardLines: (path, file, lines, fingerprint) => invoke("discard_lines", { path, file, lines, fingerprint }),
   commit: (path, message, amend) => invoke("commit", { path, message, amend }),
   headMessage: (path) => invoke("head_message", { path }),
+  checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
+  checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
+  checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  createBranch: (path, name, start, checkout, autoStash) => invoke("create_branch", { path, name, start, checkout, autoStash }),
+  renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
+  deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
+  deleteRemoteBranch: (path, branch) => invoke("delete_remote_branch", { path, branch }),
+  fetch: (path) => invoke("fetch", { path }),
+  pull: (path, strategy, autoStash) => invoke("pull", { path, strategy, autoStash }),
+  push: (path, force) => invoke("push", { path, force }),
+  stashPop: (path) => invoke("stash_pop", { path }),
+  abortOperation: (path) => invoke("abort_operation", { path }),
+  continueOperation: (path) => invoke("continue_operation", { path }),
   watchRepo: (path) => invoke("watch_repo", { path }),
   async onRepoChanged(cb) {
     const { listen } = await import("@tauri-apps/api/event");
@@ -213,12 +260,13 @@ const mockApi: Api = {
   },
   async repoSummary(path) {
     const { refs } = mockHistory(path);
+    const cur = refs.refs.find((r) => r.kind === "local" && r.short === refs.headBranch);
     return {
       branch: refs.headBranch,
       head: refs.head,
-      upstream: "origin/main",
-      ahead: 1,
-      behind: 0,
+      upstream: cur?.upstream ?? null,
+      ahead: cur?.ahead ?? 0,
+      behind: cur?.behind ?? 0,
       changes: mockChangeCount(path),
       remoteUrl: "git@gitlab.exemple.fr:demo/" + (path.split("/").pop() ?? "repo") + ".git",
     };
@@ -228,7 +276,7 @@ const mockApi: Api = {
     return mockHistory(path).commits.slice(skip, skip + limit);
   },
   async repoRefs(path) {
-    return mockHistory(path).refs;
+    return { ...mockHistory(path).refs, stashes: mockStashCount(path), autostash: mockAutostash(path) };
   },
   async commitDetails(path, sha) {
     await mockDelay();
@@ -263,8 +311,8 @@ const mockApi: Api = {
   async discardAll(path) {
     mockDiscardAll(path);
   },
-  async stashAll(path) {
-    mockDiscardAll(path);
+  async stashAll(path, message) {
+    mockStashPush(path, message);
   },
   async stageLines(path, file, _oldFile, lines, _fingerprint, unstage) {
     mockStageLines(path, file, lines, unstage);
@@ -279,6 +327,34 @@ const mockApi: Api = {
   },
   async headMessage(path) {
     return mockHeadMessage(path);
+  },
+  checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
+  checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
+  checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  createBranch: async (path, name, start, checkout, autoStash) => mockCreateBranch(path, name, start, checkout, autoStash),
+  renameBranch: async (path, oldName, newName) => mockRenameBranch(path, oldName, newName),
+  deleteBranch: async (path, branch, force) => mockDeleteBranch(path, branch, force),
+  async deleteRemoteBranch(path, branch) {
+    await mockDelay();
+    mockDeleteRemoteBranch(path, branch);
+  },
+  async fetch() {
+    await mockDelay();
+  },
+  async pull(path, strategy, autoStash) {
+    await mockDelay();
+    return mockPull(path, strategy, autoStash);
+  },
+  async push(path, force) {
+    await mockDelay();
+    mockPush(path, force);
+  },
+  stashPop: async (path) => mockStashPop(path),
+  async abortOperation() {
+    throw "no_operation";
+  },
+  async continueOperation() {
+    throw "no_operation";
   },
   async watchRepo() {},
   async onRepoChanged(cb) {

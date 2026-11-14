@@ -19,7 +19,12 @@
     "themeLight": "Clair",
     "themeDark": "Sombre",
     "language": "Langue",
-    "languageSystem": "Système"
+    "languageSystem": "Système",
+    "autoStash": "Auto-stash au changement de branche et au pull",
+    "pullStrategy": "Pull",
+    "autoFetch": "Fetch automatique",
+    "autoFetchOff": "Non",
+    "minutes": "{{count}} min"
   },
   "welcome": {
     "title": "Dépôts",
@@ -48,12 +53,20 @@
     "stash": "Stash",
     "pop": "Pop",
     "refresh": "Actualiser",
-    "comingSoon": "Disponible dans une prochaine étape",
     "detached": "HEAD détachée",
     "noUpstream": "Aucune branche distante suivie",
     "ahead": "{{count}} à pousser",
     "behind": "{{count}} à tirer",
-    "upToDate": "À jour"
+    "upToDate": "À jour",
+    "stashMessage": "Stash depuis {{branch}}",
+    "pullStrategy": "Mode du pull",
+    "pullHint": "Pull ({{mode}})",
+    "branchHint": "Nouvelle branche depuis HEAD",
+    "stashHint": "Mettre toutes les modifications de côté",
+    "popHint_one": "Réappliquer le dernier stash ({{count}} en réserve)",
+    "popHint_other": "Réappliquer le dernier stash ({{count}} en réserve)",
+    "popEmpty": "Aucun stash",
+    "running": "En cours…"
   },
   "graph": {
     "label": "Historique des commits",
@@ -140,7 +153,8 @@
     "gone": "supprimée",
     "hidden_one": "{{count}} section masquée · Afficher",
     "hidden_other": "{{count}} sections masquées · Afficher",
-    "notFound": "Ce commit n’apparaît pas dans l’historique."
+    "notFound": "Ce commit n’apparaît pas dans l’historique.",
+    "dblClick": "Double-clic : checkout"
   },
   "staging": {
     "label": "Modifications en cours",
@@ -216,7 +230,9 @@
     "amendButton": "Modifier le dernier commit",
     "nothingStaged": "Indexez des fichiers pour commiter.",
     "conflicts": "Résolvez les conflits avant de commiter.",
-    "shortcut": "Ctrl+Entrée"
+    "shortcut": "Ctrl+Entrée",
+    "pushAfter": "Pousser après le commit",
+    "pushAfterHint": "Mémorisé pour ce dépôt"
   },
   "confirm": {
     "cancel": "Retour"
@@ -228,21 +244,6 @@
     "embedded": "Utiliser le Git embarqué",
     "linuxHint": "Sous Linux : installez le paquet « git » avec votre gestionnaire de paquets (ex. sudo apt install git).",
     "retry": "Réessayer"
-  },
-  "errors": {
-    "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
-    "path_not_found": "Ce dossier n’existe plus.",
-    "git_not_found": "Git est introuvable sur cette machine.",
-    "dubious_ownership": "Git refuse ce dépôt car il appartient à un autre utilisateur. Autorisez-le avec : git config --global --add safe.directory <chemin>",
-    "invalid_sha": "Commit introuvable.",
-    "diff_changed": "Le fichier a changé entre-temps : le diff a été rechargé, recommencez la sélection.",
-    "identity_missing": "Git ne connaît pas votre identité (nom et e-mail). Configurez-la avec git config user.name / user.email (les profils GitGR arrivent à l’étape 5).",
-    "nothing_to_commit": "Rien à commiter : indexez d’abord des modifications.",
-    "empty_message": "Le message de commit est vide.",
-    "unsupported_encoding": "Ce fichier n’est pas en UTF-8 : ses lignes ne peuvent pas être annulées une à une.",
-    "invalid_path": "Chemin de fichier invalide.",
-    "no_commit_to_restore": "Ce dépôt n’a pas encore de commit : il n’y a pas d’état à restaurer (tout serait supprimé).",
-    "dismiss": "Fermer"
   },
   "time": {
     "justNow": "à l’instant",
@@ -258,5 +259,120 @@
     "section": "Hauteur de la section « {{name}} »",
     "details": "Hauteur du message et de l’auteur",
     "resetHint": "double-clic : taille par défaut"
+  },
+  "pull": {
+    "ff-only": "Avance rapide uniquement",
+    "merge": "Merge",
+    "rebase": "Rebase",
+    "ffOnlyHint": "Ne fait rien si les branches ont divergé (on vous demande alors quoi faire)",
+    "mergeHint": "Crée un commit de merge si nécessaire",
+    "rebaseHint": "Rejoue vos commits locaux par-dessus la branche distante",
+    "divergedTitle": "Les branches ont divergé",
+    "divergedBody": "{{branch}} et sa branche distante ont chacune des commits que l’autre n’a pas. Comment les réunir ?",
+    "ff-onlyShort": "Avance rapide",
+    "mergeShort": "Merge",
+    "rebaseShort": "Rebase"
+  },
+  "push": {
+    "rejectedTitle": "Push refusé",
+    "rejectedBody": "La branche distante contient des commits que vous n’avez pas. Faites d’abord un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch).",
+    "pullFirst": "Pull",
+    "force": "Forcer le push"
+  },
+  "branch": {
+    "newTitle": "Nouvelle branche",
+    "newFrom": "Depuis {{start}}",
+    "name": "Nom de la branche",
+    "checkout": "Passer sur la nouvelle branche",
+    "create": "Créer",
+    "renameTitle": "Renommer {{branch}}",
+    "rename": "Renommer",
+    "deleteTitle": "Supprimer {{branch}} ?",
+    "deleteBody": "La branche locale est supprimée ; les commits restent accessibles depuis le reflog.",
+    "delete": "Supprimer",
+    "notMergedTitle": "{{branch}} n’est pas fusionnée",
+    "notMergedBody": "Ses commits ne sont dans aucune autre branche : après suppression, ils ne seront plus visibles dans le graphe (le reflog les garde quelque temps).",
+    "forceDelete": "Supprimer quand même",
+    "deleteRemoteTitle": "Supprimer {{branch}} sur le serveur ?",
+    "deleteRemoteBody": "La branche est supprimée sur le remote, pour tout le monde. Votre branche locale n’est pas touchée.",
+    "deleteRemote": "Supprimer sur le serveur",
+    "invalid": "Nom invalide (pas d’espace ni de caractères ~ ^ : ? * [ \\, pas de « .. »).",
+    "exists": "Une branche porte déjà ce nom."
+  },
+  "menu": {
+    "checkout": "Checkout",
+    "checkoutBranch": "Checkout {{branch}}",
+    "checkoutDetached": "Checkout de ce commit (HEAD détachée)",
+    "newBranch": "Nouvelle branche ici…",
+    "rename": "Renommer…",
+    "delete": "Supprimer…",
+    "deleteRemote": "Supprimer sur le serveur…",
+    "pull": "Pull",
+    "push": "Push",
+    "copySha": "Copier le SHA",
+    "copyName": "Copier le nom"
+  },
+  "op": {
+    "merge": "Merge en cours",
+    "rebase": "Rebase en cours",
+    "cherry-pick": "Cherry-pick en cours",
+    "revert": "Revert en cours",
+    "mergeHint": "Résolvez les conflits, indexez les fichiers, puis commitez pour terminer le merge.",
+    "continueHint": "Résolvez les conflits et indexez les fichiers, puis continuez.",
+    "continue": "Continuer",
+    "abort": "Annuler l’opération",
+    "abortTitle": "Annuler l’opération en cours ?",
+    "abortBody": "Le dépôt revient à l’état d’avant l’opération ; les résolutions de conflits en cours sont perdues."
+  },
+  "notice": {
+    "stashKept": "Vos modifications n’ont pas pu être réappliquées sans conflit : elles sont gardées dans le stash « {{label}} ». Résolvez les conflits, puis supprimez le stash.",
+    "popConflict": "Le stash a été appliqué avec des conflits ; il est conservé.",
+    "conflicts": "L’opération s’est arrêtée sur des conflits : résolvez-les dans les modifications en cours.",
+    "pushed": "{{branch}} poussée.",
+    "fetched": "Fetch terminé."
+  },
+  "autostash": {
+    "pending": "Des modifications mises de côté par GitGR (« {{message}} ») n’ont pas été réappliquées.",
+    "apply": "Réappliquer",
+    "later": "Plus tard"
+  },
+  "errors": {
+    "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
+    "path_not_found": "Ce dossier n’existe plus.",
+    "git_not_found": "Git est introuvable sur cette machine.",
+    "dubious_ownership": "Git refuse ce dépôt car il appartient à un autre utilisateur. Autorisez-le avec : git config --global --add safe.directory <chemin>",
+    "invalid_sha": "Commit introuvable.",
+    "diff_changed": "Le fichier a changé entre-temps : le diff a été rechargé, recommencez la sélection.",
+    "identity_missing": "Git ne connaît pas votre identité (nom et e-mail). Configurez-la avec git config user.name / user.email (les profils GitGR arrivent à l’étape 5).",
+    "nothing_to_commit": "Rien à commiter : indexez d’abord des modifications.",
+    "empty_message": "Le message de commit est vide.",
+    "unsupported_encoding": "Ce fichier n’est pas en UTF-8 : ses lignes ne peuvent pas être annulées une à une.",
+    "invalid_path": "Chemin de fichier invalide.",
+    "no_commit_to_restore": "Ce dépôt n’a pas encore de commit : il n’y a pas d’état à restaurer (tout serait supprimé).",
+    "branch_not_found": "Branche introuvable.",
+    "branch_exists": "Une branche porte déjà ce nom.",
+    "branch_is_current": "Impossible de supprimer la branche courante : passez d’abord sur une autre branche.",
+    "branch_not_merged": "Cette branche n’est pas fusionnée.",
+    "invalid_branch_name": "Nom de branche invalide.",
+    "invalid_start_point": "Point de départ introuvable.",
+    "invalid_strategy": "Mode de pull inconnu.",
+    "local_changes_conflict": "Vos modifications locales seraient écrasées. Commitez-les, mettez-les de côté (stash) ou activez l’auto-stash dans les réglages.",
+    "unresolved_conflicts": "Des conflits ne sont pas résolus : terminez-les d’abord.",
+    "operation_in_progress": "Une opération (merge, rebase…) est en cours : terminez-la ou annulez-la d’abord.",
+    "no_operation": "Aucune opération en cours.",
+    "merge_needs_commit": "Pour terminer un merge, commitez les fichiers résolus.",
+    "detached_head": "HEAD est détachée : passez sur une branche d’abord.",
+    "no_upstream": "Cette branche ne suit aucune branche distante : poussez-la d’abord.",
+    "no_remote": "Ce dépôt n’a aucun remote.",
+    "not_fast_forward": "Les branches ont divergé : une avance rapide est impossible.",
+    "push_rejected": "Push refusé : la branche distante contient des commits que vous n’avez pas.",
+    "push_stale": "Push forcé refusé : la branche distante a bougé depuis votre dernier fetch. Faites un fetch et vérifiez avant de forcer.",
+    "auth_failed": "Authentification refusée par le serveur (clé SSH ou identifiants). La gestion des clés par profil arrive à l’étape 5.",
+    "host_key_unknown": "Clé d’hôte SSH inconnue : connectez-vous une première fois au serveur en ligne de commande (ssh) pour l’accepter.",
+    "network_unreachable": "Serveur injoignable : vérifiez la connexion réseau et l’adresse du remote.",
+    "remote_not_found": "Dépôt distant introuvable (adresse du remote ou droits d’accès).",
+    "no_stash": "Aucun stash à réappliquer.",
+    "stash_would_overwrite": "Le stash écraserait des modifications en cours : commitez-les ou mettez-les de côté d’abord.",
+    "dismiss": "Fermer"
   }
 }

@@ -3,6 +3,7 @@
 //! Les commandes qui lancent git sont `async` : Tauri les exécute hors du
 //! thread principal, l'interface ne gèle donc pas pendant l'appel.
 
+use crate::branches::{self, OpResult};
 use crate::git::{self, GitInfo, RepoSummary};
 use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
 use crate::worktree::{self, LineRef, WorkStatus};
@@ -195,6 +196,81 @@ pub async fn commit(path: String, message: String, amend: bool) -> Result<String
 #[tauri::command]
 pub async fn head_message(path: String) -> Result<String, String> {
     worktree::head_message(Path::new(&path)).map_err(classify)
+}
+
+// --- Branches et réseau -----------------------------------------------------
+// Les erreurs sont déjà classées par `branches::classify`.
+
+#[tauri::command]
+pub async fn checkout(path: String, branch: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::checkout(Path::new(&path), &branch, auto_stash)
+}
+
+/// Renvoie le résultat et le nom de la branche locale.
+#[tauri::command]
+pub async fn checkout_remote(path: String, branch: String, auto_stash: bool) -> Result<(OpResult, String), String> {
+    branches::checkout_remote(Path::new(&path), &branch, auto_stash)
+}
+
+#[tauri::command]
+pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::checkout_detached(Path::new(&path), &sha, auto_stash)
+}
+
+#[tauri::command]
+pub async fn create_branch(
+    path: String,
+    name: String,
+    start: Option<String>,
+    checkout: bool,
+    auto_stash: bool,
+) -> Result<OpResult, String> {
+    branches::create_branch(Path::new(&path), &name, start.as_deref(), checkout, auto_stash)
+}
+
+#[tauri::command]
+pub async fn rename_branch(path: String, old: String, new: String) -> Result<(), String> {
+    branches::rename_branch(Path::new(&path), &old, &new)
+}
+
+#[tauri::command]
+pub async fn delete_branch(path: String, branch: String, force: bool) -> Result<(), String> {
+    branches::delete_branch(Path::new(&path), &branch, force)
+}
+
+#[tauri::command]
+pub async fn delete_remote_branch(path: String, branch: String) -> Result<(), String> {
+    branches::delete_remote_branch(Path::new(&path), &branch)
+}
+
+#[tauri::command]
+pub async fn fetch(path: String) -> Result<(), String> {
+    branches::fetch(Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn pull(path: String, strategy: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::pull(Path::new(&path), &strategy, auto_stash)
+}
+
+#[tauri::command]
+pub async fn push(path: String, force: bool) -> Result<(), String> {
+    branches::push(Path::new(&path), force)
+}
+
+#[tauri::command]
+pub async fn stash_pop(path: String) -> Result<OpResult, String> {
+    branches::stash_pop(Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn abort_operation(path: String) -> Result<(), String> {
+    branches::abort_operation(Path::new(&path)).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
+pub async fn continue_operation(path: String) -> Result<OpResult, String> {
+    branches::continue_operation(Path::new(&path))
 }
 
 /// Surveille le dépôt de l'onglet actif (`None` : aucun) ; l'interface reçoit l'événement

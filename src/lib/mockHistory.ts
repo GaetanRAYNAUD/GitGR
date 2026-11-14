@@ -118,7 +118,7 @@ export function mockHistory(path: string): MockHistory {
     ref("remote", "origin/feature/graph-rendering", wip),
     ...tags.reverse().map(([name, sha]) => ref("tag", name, sha)),
   ];
-  const result = { commits, refs: { head: main, headBranch: "main", refs } };
+  const result = { commits, refs: { head: main, headBranch: "main", refs, stashes: 0, autostash: null } };
   cache.set(path, result);
   return result;
 }
@@ -195,6 +195,16 @@ export function mockCommit(path: string, message: string, amend: boolean): strin
       r.kind === "local" && r.short === h.refs.headBranch ? { ...r, target: sha, ahead: r.ahead + (amend ? 0 : 1) } : r,
     ),
   };
+  return sha;
+}
+
+/** Ajoute un commit simulé (pull avec merge / rebase) et renvoie son SHA ; les refs sont
+ *  à mettre à jour par l'appelant. */
+export function mockNewCommit(path: string, parents: string[], subject: string): string {
+  const h = mockHistory(path);
+  const sha = fakeSha(`${path}:new:${Date.now()}:${Math.random()}`);
+  const [author, email] = AUTHORS[0];
+  h.commits = [{ sha, parents, author, email, time: Math.floor(Date.now() / 1000), subject }, ...h.commits];
   return sha;
 }
 

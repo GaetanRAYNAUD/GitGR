@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { ContextMenuHost } from "./components/ContextMenu";
+import { DialogHost } from "./components/DialogHost";
 import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
@@ -7,6 +9,7 @@ import { resolveLanguage } from "./i18n";
 import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
+import { useOps } from "./store/ops";
 import { RepoView } from "./views/RepoView";
 import { Welcome } from "./views/Welcome";
 
@@ -104,6 +107,65 @@ function useWatchActiveRepo() {
   }, []);
 }
 
+/** Fetch automatique du dépôt actif : à l'ouverture de l'onglet, puis toutes les N minutes
+ *  (réglage `autoFetchMinutes`, 0 = jamais). Silencieux : une erreur réseau n'est pas affichée. */
+const lastFetch = new Map<string, number>();
+const FETCH_TICK_MS = 30_000;
+
+function useAutoFetch() {
+  const active = useApp((s) => s.active);
+  const minutes = useApp((s) => s.settings.autoFetchMinutes) ?? 10;
+  useEffect(() => {
+    if (!active || minutes <= 0) return;
+    const tick = () => {
+      const last = lastFetch.get(active) ?? 0;
+      // Une commande en cours : on réessaie au prochain passage, pas dans N minutes.
+      if (Date.now() - last < minutes * 60_000 || useOps.getState().running[active]) return;
+      lastFetch.set(active, Date.now());
+      useOps.getState().fetch(active, true);
+    };
+    tick();
+    const id = setInterval(tick, FETCH_TICK_MS);
+    return () => clearInterval(id);
+  }, [active, minutes]);
+}
+
+/** Pas de menu du navigateur (Recharger, Inspecter…) : nos propres menus le remplacent.
+ *  Gardé dans les champs de saisie, pour copier / coller. */
+function useNoBrowserMenu() {
+  useEffect(() => {
+    const onMenu = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, [contenteditable='true']")) return;
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", onMenu);
+    return () => document.removeEventListener("contextmenu", onMenu);
+  }, []);
+}
+
+/** Message d'information ; ceux qui ne sont pas `sticky` disparaissent seuls. */
+function Notice() {
+  const { t } = useTranslation();
+  const notice = useApp((s) => s.notice);
+  const dismiss = useApp((s) => s.dismissNotice);
+  useEffect(() => {
+    if (!notice || notice.sticky) return;
+    const id = setTimeout(dismiss, 4000);
+    return () => clearTimeout(id);
+  }, [notice, dismiss]);
+  if (!notice) return null;
+  return (
+    <div className={notice.sticky ? "toast notice warn" : "toast notice"} role="status">
+      <Icon name={notice.sticky ? "alert" : "check"} />
+      <span>{notice.text}</span>
+      <button className="link" onClick={dismiss}>
+        {t("errors.dismiss")}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const { t } = useTranslation();
   const ready = useApp((s) => s.ready);
@@ -121,12 +183,15 @@ export default function App() {
   useShortcuts();
   useRefreshOnFocus();
   useWatchActiveRepo();
+  useAutoFetch();
+  useNoBrowserMenu();
 
   return (
     <div className="app">
       <TitleBar />
       <main className="content">{ready && (active ? <RepoView key={active} path={active} /> : <Welcome />)}</main>
 
+      {!error && <Notice />}
       {error && (
         <div className="toast error" role="alert">
           <Icon name="alert" />
@@ -137,6 +202,8 @@ export default function App() {
         </div>
       )}
 
+      <DialogHost />
+      <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}
     </div>
   );

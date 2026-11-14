@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitGraph } from "../components/graph/CommitGraph";
 import { CommitPanel } from "../components/graph/CommitPanel";
 import { DiffView } from "../components/graph/DiffView";
 import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
+import { openMenuBelow } from "../components/ContextMenu";
 import { Icon, type IconName } from "../components/Icon";
 import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
@@ -12,16 +13,119 @@ import { remoteHost } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
+import { useOps, type OpName } from "../store/ops";
 import { changedCount, useWork } from "../store/worktree";
+import type { PullStrategy } from "../lib/types";
 
-const TOOLS: { key: string; icon: IconName; sep?: boolean }[] = [
-  { key: "pull", icon: "pull" },
-  { key: "push", icon: "push" },
-  { key: "fetch", icon: "fetch" },
-  { key: "branch", icon: "branch", sep: true },
-  { key: "stash", icon: "stash" },
-  { key: "pop", icon: "pop" },
-];
+const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
+
+/** Stash d'auto-stash « masqués pour l'instant », par SHA (le temps de la session). */
+const laterAutostash = new Set<string>();
+
+/** Des modifications mises de côté par l'auto-stash n'ont pas été réappliquées (conflits, ou
+ *  app interrompue entre le stash et la réapplication) : on propose de le faire. */
+function AutostashBanner({ path }: { path: string }) {
+  const { t } = useTranslation();
+  const autostash = useGraph((s) => s.graphs[path]?.refs?.autostash ?? null);
+  const running = useOps((s) => !!s.running[path]);
+  const [, rerender] = useState(0);
+  if (!autostash || laterAutostash.has(autostash.sha)) return null;
+  return (
+    <div className="autostash-banner" role="status">
+      <Icon name="stash" size={16} />
+      <span>{t("autostash.pending", { message: autostash.message })}</span>
+      <button
+        className="mini"
+        onClick={() => {
+          laterAutostash.add(autostash.sha);
+          rerender((n) => n + 1);
+        }}
+      >
+        {t("autostash.later")}
+      </button>
+      <button className="mini primary" disabled={running} onClick={() => useOps.getState().pop(path)}>
+        {t("autostash.apply")}
+      </button>
+    </div>
+  );
+}
+
+/** Boutons pull / push / fetch / branche / stash / pop. */
+function Tools({ path, changes }: { path: string; changes: number }) {
+  const { t } = useTranslation();
+  const data = useApp((s) => s.summaries[path]?.data);
+  const strategy = useApp((s) => s.settings.pullStrategy) ?? "ff-only";
+  const update = useApp((s) => s.updateSettings);
+  const stashes = useGraph((s) => s.graphs[path]?.refs?.stashes ?? 0);
+  const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
+  const running = useOps((s) => s.running[path]);
+  const ops = useOps.getState();
+  const chevron = useRef<HTMLButtonElement>(null);
+  const detached = !!data && !data.branch;
+
+  const tool = (
+    key: OpName | "branch",
+    icon: IconName,
+    onClick: () => void,
+    opts: { disabled?: boolean; title?: string; badge?: number; label?: string } = {},
+  ) => (
+    <button
+      className={running === key ? "tbtn running" : "tbtn"}
+      disabled={!!running || opts.disabled}
+      title={running === key ? t("repo.running") : opts.title}
+      aria-busy={running === key}
+      onClick={onClick}
+    >
+      <Icon name={icon} />
+      <span>{opts.label ?? t(`repo.${key}`)}</span>
+      {!!opts.badge && <span className="badge">{opts.badge}</span>}
+    </button>
+  );
+
+  const strategyMenu = () => {
+    if (!chevron.current) return;
+    openMenuBelow(
+      chevron.current,
+      STRATEGIES.map((s) => ({ label: t(`pull.${s}`), checked: s === strategy, onClick: () => update({ pullStrategy: s }) })),
+    );
+  };
+
+  return (
+    <div className="tools">
+      <span className="tool-wrap tool-split">
+        {tool("pull", "pull", () => ops.pull(path), {
+          disabled: !data?.upstream || !!operation,
+          title: data?.upstream ? t("repo.pullHint", { mode: t(`pull.${strategy}`) }) : t("errors.no_upstream"),
+          badge: data?.behind,
+        })}
+        <button
+          ref={chevron}
+          className="tbtn tool-chevron"
+          aria-label={t("repo.pullStrategy")}
+          title={t("repo.pullStrategy")}
+          aria-haspopup="menu"
+          onClick={strategyMenu}
+        >
+          <Icon name="chevron" size={12} />
+        </button>
+      </span>
+      {tool("push", "push", () => ops.push(path), {
+        disabled: detached || !!operation,
+        title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
+        badge: data?.ahead,
+      })}
+      {tool("fetch", "fetch", () => ops.fetch(path))}
+      <span className="tool-sep" />
+      {tool("branch", "branch", () => ops.newBranch(path, null, data?.branch ?? "HEAD"), { title: t("repo.branchHint") })}
+      {tool("stash", "stash", () => ops.stash(path), { disabled: changes === 0 || !!operation, title: t("repo.stashHint") })}
+      {tool("pop", "pop", () => ops.pop(path), {
+        disabled: stashes === 0,
+        title: stashes ? t("repo.popHint", { count: stashes }) : t("repo.popEmpty"),
+        badge: stashes,
+      })}
+    </div>
+  );
+}
 
 /** Vue d'un dépôt ouvert : barre d'outils, branches, graphe (ou diff) et détails du commit. */
 export function RepoView({ path }: { path: string }) {
@@ -84,19 +188,7 @@ export function RepoView({ path }: { path: string }) {
           <span className="branch-chip-name">{branchLabel}</span>
         </div>
 
-        <div className="tools">
-          {TOOLS.map((tool) => (
-            <span key={tool.key} className="tool-wrap">
-              {tool.sep && <span className="tool-sep" />}
-              <button className="tbtn" disabled title={t("repo.comingSoon")}>
-                <Icon name={tool.icon} />
-                <span>{t(`repo.${tool.key}`)}</span>
-                {tool.key === "push" && !!data?.ahead && <span className="badge">{data.ahead}</span>}
-                {tool.key === "pull" && !!data?.behind && <span className="badge">{data.behind}</span>}
-              </button>
-            </span>
-          ))}
-        </div>
+        <Tools path={path} changes={changes} />
 
         <button className="tbtn" onClick={() => refresh(path)} title={`${t("repo.refresh")} (F5)`}>
           <Icon name="fetch" />
@@ -104,6 +196,7 @@ export function RepoView({ path }: { path: string }) {
         </button>
       </div>
 
+      <AutostashBanner path={path} />
       <div className="repo-body">
         <RefsSidebar path={path} />
         <Splitter

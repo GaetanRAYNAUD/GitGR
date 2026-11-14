@@ -9,7 +9,9 @@ import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
+import { openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
+import { checkoutRef, refMenu } from "./menus";
 import { ResizableBlock } from "../Splitter";
 
 /** Par défaut, les tags sont repliés (souvent nombreux). */
@@ -58,7 +60,9 @@ export function RefsSidebar({ path }: { path: string }) {
           className={cls}
           style={{ "--depth": depth } as React.CSSProperties}
           onClick={() => go(r)}
-          title={missing === r.name ? t("sidebar.notFound") : r.short}
+          onDoubleClick={() => checkoutRef(path, r, refs)}
+          onContextMenu={(e) => openContextMenu(e, refMenu(t, path, r, refs))}
+          title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${t("sidebar.dblClick")}`}
         >
           <span className="side-label">{label}</span>
           {r.gone && <span className="side-meta">{t("sidebar.gone")}</span>}

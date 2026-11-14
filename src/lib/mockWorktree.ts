@@ -9,7 +9,7 @@ interface Side {
   lines: DiffLine[];
 }
 
-interface MockFile {
+export interface MockFile {
   path: string;
   staged?: Side;
   unstaged?: Side;
@@ -65,6 +65,8 @@ export function mockStatus(path: string): WorkStatus {
     staged: fs.filter((f) => changed(f.staged)).map((f) => entry(f, f.staged!)),
     unstaged: fs.filter((f) => changed(f.unstaged)).map((f) => entry(f, f.unstaged!)),
     conflicted: [],
+    operation: null,
+    mergeMessage: null,
   };
 }
 
@@ -136,6 +138,16 @@ export function mockCommitIndex(path: string, amend: boolean): boolean {
   for (const f of fs) f.staged = undefined;
   prune(path);
   return true;
+}
+
+/** Copie de la copie de travail (stash simulé). */
+export function mockSnapshot(path: string): MockFile[] {
+  return structuredClone(files(path));
+}
+
+/** Remplace la copie de travail (vide : tout est mis de côté). */
+export function mockRestore(path: string, snapshot: MockFile[]) {
+  repos.set(path, structuredClone(snapshot));
 }
 
 /** Tests : repart des copies de travail initiales. */

@@ -38,12 +38,21 @@ pub struct WorkStatus {
     /// Changements non indexés (index → copie de travail), fichiers non suivis compris.
     pub unstaged: Vec<StatusFile>,
     pub conflicted: Vec<StatusFile>,
+    /// Opération laissée en cours par git : "merge", "rebase", "cherry-pick", "revert".
+    pub operation: Option<String>,
+    /// Message préparé par git pour terminer un merge.
+    pub merge_message: Option<String>,
 }
 
 pub fn status(path: &Path) -> Result<WorkStatus, String> {
     check_dir(path)?;
     let out = run_raw(Some(path), &["status", "--porcelain=v2", "-z", "--untracked-files=all"])?;
-    Ok(parse_status(&out))
+    let mut s = parse_status(&out);
+    s.operation = crate::branches::operation(path).map(str::to_string);
+    if s.operation.as_deref() == Some("merge") {
+        s.merge_message = crate::branches::merge_message(path);
+    }
+    Ok(s)
 }
 
 fn file(path: &str, old_path: Option<&str>, status: char) -> StatusFile {
