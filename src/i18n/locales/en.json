@@ -1,11 +1,17 @@
 {
-  "app": { "name": "GitGR" },
+  "app": {
+    "name": "GitGR"
+  },
   "tabs": {
     "home": "Home",
     "new": "New tab",
     "close": "Close tab {{name}}"
   },
-  "window": { "minimize": "Minimize", "maximize": "Maximize", "close": "Close" },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
   "settings": {
     "title": "Settings",
     "theme": "Theme",
@@ -44,23 +50,84 @@
     "refresh": "Refresh",
     "comingSoon": "Available in an upcoming step",
     "detached": "Detached HEAD",
-    "noCommit": "No commits",
-    "branchLabel": "Branch",
-    "upstream": "Tracks",
     "noUpstream": "No upstream branch",
-    "changes_one": "{{count}} changed file",
-    "changes_other": "{{count}} changed files",
-    "workingTree": "Working tree",
-    "clean": "Clean, no changes",
     "ahead": "{{count}} to push",
     "behind": "{{count}} to pull",
-    "upToDate": "Up to date",
-    "head": "Current commit",
-    "remote": "Remote origin",
-    "noRemote": "No origin remote",
-    "path": "Folder",
-    "graphSoon": "The commit graph arrives in step 2.",
-    "loading": "Reading repository…"
+    "upToDate": "Up to date"
+  },
+  "graph": {
+    "label": "Commit history",
+    "refs": "Branch / tag",
+    "graph": "Graph",
+    "message": "Message",
+    "author": "Author",
+    "date": "Date",
+    "sha": "SHA",
+    "wip_one": "// Work in progress — {{count}} file",
+    "wip_other": "// Work in progress — {{count}} files",
+    "loading": "Reading history…",
+    "loadingMore": "Loading more…",
+    "empty": "No commits yet.",
+    "count_one": "{{count}} commit",
+    "count_other": "{{count}} commits",
+    "countMore_one": "{{count}} commit loaded",
+    "countMore_other": "{{count}} commits loaded",
+    "current": "current branch",
+    "synced": "in sync with the remote branch"
+  },
+  "details": {
+    "label": "Commit details",
+    "none": "Select a commit to see its details.",
+    "loading": "Loading…",
+    "wipTitle": "Work in progress",
+    "wipBody_one": "{{count}} changed file in the working tree.",
+    "wipBody_other": "{{count}} changed files in the working tree.",
+    "wipSoon": "Staging and committing arrive in step 3.",
+    "date": "Date",
+    "committer": "Committed by",
+    "sha": "SHA",
+    "parents_one": "Parent",
+    "parents_other": "Parents",
+    "copy": "Copy SHA",
+    "copied": "Copied",
+    "files_one": "{{count}} changed file",
+    "files_other": "{{count}} changed files",
+    "noFiles": "No changed files.",
+    "merge": "Merge commit: compared with the first parent.",
+    "fileView": "File view",
+    "view": {
+      "list": "List",
+      "tree": "Tree"
+    },
+    "status": {
+      "A": "Added",
+      "M": "Modified",
+      "D": "Deleted",
+      "R": "Renamed",
+      "C": "Copied",
+      "T": "Type changed"
+    }
+  },
+  "diff": {
+    "label": "Diff of {{file}}",
+    "back": "Back to graph",
+    "loading": "Loading diff…",
+    "binary": "Binary file: no preview.",
+    "empty": "No content changes (mode or type change).",
+    "truncated": "Diff truncated: the file is too long to show in full."
+  },
+  "sidebar": {
+    "label": "Branches and tags",
+    "filter": "Filter",
+    "sections": "Visible sections",
+    "sectionsHint": "Remembered for this repository",
+    "local": "Local",
+    "tags": "Tags",
+    "empty": "None",
+    "gone": "deleted",
+    "hidden_one": "{{count}} hidden section · Show",
+    "hidden_other": "{{count}} hidden sections · Show",
+    "notFound": "This commit is not in the history."
   },
   "gitMissing": {
     "title": "Git was not found",
@@ -74,7 +141,9 @@
     "not_a_repo": "This folder is not a Git repository.",
     "path_not_found": "This folder no longer exists.",
     "git_not_found": "Git was not found on this machine.",
-    "dubious_ownership": "Git refuses this repository because it belongs to another user. Allow it with: git config --global --add safe.directory <path>",    "dismiss": "Dismiss"
+    "dubious_ownership": "Git refuses this repository because it belongs to another user. Allow it with: git config --global --add safe.directory <path>",
+    "invalid_sha": "Commit not found.",
+    "dismiss": "Dismiss"
   },
   "time": {
     "justNow": "just now",

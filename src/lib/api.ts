@@ -4,7 +4,20 @@
 // Dans un simple navigateur (`npm run dev` sans Tauri), une implémentation
 // factice en mémoire prend le relais : pratique pour travailler l'interface.
 
-import type { AppState, GitInfo, RepoEntry, RepoSummary, Session, Settings } from "./types";
+import { mockDetails, mockDiff, mockHistory } from "./mockHistory";
+import type {
+  AppState,
+  Commit,
+  CommitDetails,
+  FileDiff,
+  GitInfo,
+  RefsInfo,
+  RepoEntry,
+  RepoSummary,
+  RepoUi,
+  Session,
+  Settings,
+} from "./types";
 
 export interface Api {
   gitInfo(): Promise<GitInfo>;
@@ -13,7 +26,14 @@ export interface Api {
   forgetRepo(path: string): Promise<void>;
   setSession(session: Session): Promise<void>;
   setSettings(settings: Settings): Promise<void>;
+  setRepoUi(path: string, ui: RepoUi): Promise<void>;
   repoSummary(path: string): Promise<RepoSummary>;
+  /** Une page de l'historique (toutes refs, enfants avant parents). */
+  repoLog(path: string, skip: number, limit: number): Promise<Commit[]>;
+  repoRefs(path: string): Promise<RefsInfo>;
+  commitDetails(path: string, sha: string): Promise<CommitDetails>;
+  /** Diff d'un fichier d'un commit par rapport à son premier parent. */
+  commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
@@ -43,7 +63,12 @@ const tauriApi: Api = {
   forgetRepo: (path) => invoke("forget_repo", { path }),
   setSession: (session) => invoke("set_session", { session }),
   setSettings: (settings) => invoke("set_settings", { settings }),
+  setRepoUi: (path, ui) => invoke("set_repo_ui", { path, ui }),
   repoSummary: (path) => invoke("repo_summary", { path }),
+  repoLog: (path, skip, limit) => invoke("repo_log", { path, skip, limit }),
+  repoRefs: (path) => invoke("repo_refs", { path }),
+  commitDetails: (path, sha) => invoke("commit_details", { path, sha }),
+  commitDiff: (path, sha, file, oldFile) => invoke("commit_diff", { path, sha, file, oldFile }),
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -91,6 +116,9 @@ function mockSave(s: AppState) {
   }
 }
 
+/** Petite latence simulée, pour voir les états de chargement. */
+const mockDelay = () => new Promise((r) => setTimeout(r, 30));
+
 const mockApi: Api = {
   gitInfo: async () => ({ found: true, version: "2.45.1 (simulé)" }),
   getState: async () => mockLoad(),
@@ -107,6 +135,7 @@ const mockApi: Api = {
     const s = mockLoad();
     s.repos = s.repos.filter((r) => r.path !== path);
     s.session.openTabs = s.session.openTabs.filter((p) => p !== path);
+    if (s.repoUi) delete s.repoUi[path];
     if (s.session.active === path) s.session.active = null;
     mockSave(s);
   },
@@ -116,17 +145,37 @@ const mockApi: Api = {
   async setSettings(settings) {
     mockSave({ ...mockLoad(), settings });
   },
+  async setRepoUi(path, ui) {
+    const s = mockLoad();
+    mockSave({ ...s, repoUi: { ...s.repoUi, [path]: ui } });
+  },
   async repoSummary(path) {
     const n = path.length;
+    const { refs } = mockHistory(path);
     return {
-      branch: n % 2 ? "main" : "feature/graph-rendering",
-      head: "a91f3c2e5b7d0c4f8e1a2b3c4d5e6f708192a3b4",
-      upstream: n % 2 ? "origin/main" : "origin/feature/graph-rendering",
-      ahead: n % 3,
-      behind: n % 2,
+      branch: refs.headBranch,
+      head: refs.head,
+      upstream: "origin/main",
+      ahead: 1,
+      behind: 0,
       changes: n % 4,
       remoteUrl: "git@gitlab.exemple.fr:demo/" + (path.split("/").pop() ?? "repo") + ".git",
     };
+  },
+  async repoLog(path, skip, limit) {
+    await mockDelay();
+    return mockHistory(path).commits.slice(skip, skip + limit);
+  },
+  async repoRefs(path) {
+    return mockHistory(path).refs;
+  },
+  async commitDetails(path, sha) {
+    await mockDelay();
+    return mockDetails(path, sha);
+  },
+  async commitDiff(_path, sha, file) {
+    await mockDelay();
+    return mockDiff(sha, file);
   },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];

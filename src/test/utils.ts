@@ -1,10 +1,13 @@
 import { useApp } from "../store/app";
+import { useGraph } from "../store/graph";
 
 const initial = useApp.getState();
+const initialGraph = useGraph.getState();
 
-/** Remet le store zustand dans son état de départ (entre deux tests). */
+/** Remet les stores zustand dans leur état de départ (entre deux tests). */
 export function resetStore() {
   useApp.setState(initial, true);
+  useGraph.setState(initialGraph, true);
 }
 
 /** Chemins acceptés par le backend simulé (voir lib/api.ts). */

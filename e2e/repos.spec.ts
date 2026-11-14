@@ -12,11 +12,10 @@ test("accueil vide au premier lancement", async ({ page }) => {
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
-test("ouvrir un dépôt l'affiche dans un onglet avec son résumé", async ({ page }) => {
+test("ouvrir un dépôt l'affiche dans un onglet avec son graphe", async ({ page }) => {
   await openNextRepo(page, "GitGR");
-  await expect(page.getByRole("term").filter({ hasText: "Branche" })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Historique des commits" })).toBeVisible();
   await expect(page.getByText("C:/Users/demo/Projects/GitGR").first()).toBeVisible();
-  await expect(page.getByText("Le graphe des commits arrive à l’étape 2.")).toBeVisible();
   // Les actions Git ne sont pas encore branchées.
   await expect(page.getByRole("button", { name: "Push" })).toBeDisabled();
 });

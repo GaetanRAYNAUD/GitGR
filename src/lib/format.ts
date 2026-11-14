@@ -17,3 +17,26 @@ export function relativeTime(ms: number, now: number = Date.now()): RelativeTime
   if (h < 24) return { key: "hours", count: h };
   return { key: "days", count: Math.floor(h / 24) };
 }
+
+export type CommitDate = RelativeTime | { key: "date"; text: string };
+
+/** Date d'un commit dans la liste : relative sur les 7 derniers jours, sinon date courte. */
+export function commitDate(ms: number, lang: string, now: number = Date.now()): CommitDate {
+  const rel = relativeTime(ms, now);
+  if (rel.key !== "days" || rel.count < 7) return rel;
+  const d = new Date(ms);
+  const sameYear = d.getFullYear() === new Date(now).getFullYear();
+  return {
+    key: "date",
+    text: d.toLocaleDateString(lang, { day: "numeric", month: "short", year: sameYear ? undefined : "numeric" }),
+  };
+}
+
+/** Initiales d'un nom (avatar) : « Camille Dupont » → « CD ». */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = [...parts[0]][0] ?? "";
+  const last = parts.length > 1 ? ([...parts[parts.length - 1]][0] ?? "") : "";
+  return (first + last).toUpperCase();
+}

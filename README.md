@@ -48,14 +48,16 @@ Les tests Rust ont besoin de `git` dans le PATH. Les tests E2E démarrent Vite e
 ```
 src/                 interface React
   components/        barre de titre, réglages, icônes…
+  components/graph/  graphe des commits, détails, diff, barre latérale des branches
   views/             écrans (accueil, dépôt)
-  store/             état global (zustand)
+  store/             état global (zustand) : app.ts (onglets, réglages), graph.ts (historique)
   lib/api.ts         façade vers le backend (Tauri ou simulé)
   i18n/              traductions
   **/*.test.ts(x)    tests unitaires, à côté du code testé
 e2e/                 tests E2E Playwright
 src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque fichier)
   git.rs             appels au binaire git
+  history.rs         historique : log, refs, détails d'un commit, diff
   store.rs           état persistant (dépôts, onglets, réglages)
   commands.rs        commandes exposées à l'interface
 ```

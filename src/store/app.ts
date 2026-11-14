@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
-import type { GitInfo, RepoEntry, RepoSummary, Settings } from "../lib/types";
+import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
+import { useGraph } from "./graph";
 
 export interface SummaryState {
   loading: boolean;
@@ -20,6 +21,8 @@ interface AppStore {
   active: string | null;
   settings: Settings;
   summaries: Record<string, SummaryState>;
+  /** Préférences d'affichage par dépôt (absent = valeurs par défaut). */
+  repoUi: Record<string, RepoUi>;
   /** Dernière erreur à afficher (code backend ou message). */
   error: string | null;
 
@@ -35,6 +38,9 @@ interface AppStore {
   forget(path: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): void;
   refreshSummary(path: string): Promise<void>;
+  /** Résumé + graphe (F5, retour du focus). */
+  refreshRepo(path: string): void;
+  setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
 }
 
@@ -54,6 +60,7 @@ export const useApp = create<AppStore>((set, get) => ({
   active: null,
   settings: { theme: "system", language: "system" },
   summaries: {},
+  repoUi: {},
   error: null,
 
   async init() {
@@ -68,7 +75,7 @@ export const useApp = create<AppStore>((set, get) => ({
     const known = new Set(state.repos.map((r) => r.path));
     const tabs = state.session.openTabs.filter((p) => known.has(p));
     const active = state.session.active && tabs.includes(state.session.active) ? state.session.active : null;
-    set({ ready: true, git, repos: state.repos, tabs, active, settings: state.settings });
+    set({ ready: true, git, repos: state.repos, tabs, active, settings: state.settings, repoUi: state.repoUi ?? {} });
     if (active) get().refreshSummary(active);
   },
 
@@ -120,6 +127,7 @@ export const useApp = create<AppStore>((set, get) => ({
     if (active === path) nextActive = nextTabs[Math.min(idx, nextTabs.length - 1)] ?? null;
     set({ tabs: nextTabs, active: nextActive });
     persistSession(nextTabs, nextActive);
+    useGraph.getState().drop(path);
   },
 
   cycleTab(delta) {
@@ -149,13 +157,17 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ error: errorCode(e) });
       return;
     }
-    const { repos, tabs, active } = get();
+    const { repos, tabs, active, repoUi } = get();
     const nextTabs = tabs.filter((p) => p !== path);
+    const nextUi = { ...repoUi };
+    delete nextUi[path];
     set({
       repos: repos.filter((r) => r.path !== path),
       tabs: nextTabs,
       active: active === path ? null : active,
+      repoUi: nextUi,
     });
+    useGraph.getState().drop(path);
   },
 
   updateSettings(patch) {
@@ -177,6 +189,16 @@ export const useApp = create<AppStore>((set, get) => ({
     } catch (e) {
       apply({ loading: false, error: errorCode(e) });
     }
+  },
+
+  refreshRepo(path) {
+    get().refreshSummary(path);
+    useGraph.getState().refresh(path);
+  },
+
+  setRepoUi(path, ui) {
+    set((s) => ({ repoUi: { ...s.repoUi, [path]: ui } }));
+    api.setRepoUi(path, ui).catch(() => {});
   },
 
   dismissError() {

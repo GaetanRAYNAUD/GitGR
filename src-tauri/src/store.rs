@@ -1,9 +1,10 @@
 //! État persistant de l'application, stocké en JSON dans le dossier de config.
 //!
-//! Volontairement simple pour l'étape 1 ; on passera à SQLite quand les
+//! Volontairement simple pour l'instant ; on passera à SQLite quand les
 //! profils et les liaisons dépôt ↔ profils arriveront.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -34,12 +35,24 @@ pub struct Settings {
     pub theme: String,
     /// "system" | "fr" | "en"
     pub language: String,
+    /// Fichiers d'un commit : "list" | "tree"
+    pub file_view: String,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: "system".into(), language: "system".into() }
+        Self { theme: "system".into(), language: "system".into(), file_view: "list".into() }
     }
+}
+
+/// Préférences d'affichage propres à un dépôt (barre latérale).
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RepoUi {
+    /// Sections repliées (`local`, `remote:origin`, `tags`…).
+    pub collapsed: Vec<String>,
+    /// Sections masquées.
+    pub hidden: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -48,6 +61,8 @@ pub struct AppState {
     pub repos: Vec<RepoEntry>,
     pub session: Session,
     pub settings: Settings,
+    /// Préférences par dépôt, indexées par chemin.
+    pub repo_ui: HashMap<String, RepoUi>,
 }
 
 pub struct Store {
@@ -98,6 +113,7 @@ mod tests {
         store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42 });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
+        store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![] });
         store.save().unwrap();
 
         let again = Store::load(dir.path().join("cfg"));
@@ -105,6 +121,7 @@ mod tests {
         assert_eq!(again.state.repos[0].last_opened, 42);
         assert_eq!(again.state.session.active.as_deref(), Some("/r"));
         assert_eq!(again.state.settings.theme, "dark");
+        assert_eq!(again.state.repo_ui["/r"].collapsed, vec!["tags".to_string()]);
         // Le fichier temporaire ne doit pas traîner.
         assert!(!dir.path().join("cfg").join("state.json.tmp").exists());
     }
@@ -129,6 +146,7 @@ mod tests {
         let store = Store::load(dir.path().to_path_buf());
         assert_eq!(store.state.repos.len(), 1);
         assert_eq!(store.state.settings.theme, "system");
+        assert_eq!(store.state.settings.file_view, "list", "réglage ajouté après coup : valeur par défaut");
         assert!(store.state.session.open_tabs.is_empty());
     }
 }

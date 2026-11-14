@@ -29,8 +29,13 @@ fn git_command() -> Command {
     cmd
 }
 
-/// Lance `git <args>` (dans `cwd` si fourni) et renvoie stdout.
+/// Lance `git <args>` (dans `cwd` si fourni) et renvoie stdout, sans les blancs de fin.
 pub fn run(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
+    run_raw(cwd, args).map(|s| s.trim_end().to_string())
+}
+
+/// Comme [`run`], mais renvoie stdout tel quel (diffs : les blancs de fin comptent).
+pub fn run_raw(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -44,7 +49,7 @@ pub fn run(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
         }
     })?;
     if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim_end().to_string())
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
         Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
     }
@@ -83,7 +88,7 @@ pub fn toplevel(path: &Path) -> Result<PathBuf, String> {
 }
 
 /// Reconnaît les erreurs git qui ont un code dédié (traduit côté interface).
-fn classify_error(stderr: &str) -> Option<&'static str> {
+pub fn classify_error(stderr: &str) -> Option<&'static str> {
     if stderr == "git_not_found" {
         Some("git_not_found")
     } else if stderr.contains("dubious ownership") {
@@ -151,7 +156,7 @@ fn parse_status(out: &str) -> RepoSummary {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
@@ -189,7 +194,7 @@ mod tests {
     // --- Tests sur un vrai dépôt (nécessitent `git` dans le PATH) ---------
 
     /// Crée un dépôt vide dans un dossier temporaire, avec une identité locale.
-    fn temp_repo() -> tempfile::TempDir {
+    pub(crate) fn temp_repo() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path();
         run(Some(p), &["init", "-q", "-b", "main"]).unwrap();
@@ -199,7 +204,7 @@ mod tests {
         dir
     }
 
-    fn commit_file(repo: &Path, name: &str, content: &str) {
+    pub(crate) fn commit_file(repo: &Path, name: &str, content: &str) {
         std::fs::write(repo.join(name), content).unwrap();
         run(Some(repo), &["add", name]).unwrap();
         run(Some(repo), &["commit", "-q", "-m", "test"]).unwrap();

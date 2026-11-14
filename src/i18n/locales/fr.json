@@ -1,11 +1,17 @@
 {
-  "app": { "name": "GitGR" },
+  "app": {
+    "name": "GitGR"
+  },
   "tabs": {
     "home": "Accueil",
     "new": "Nouvel onglet",
     "close": "Fermer l’onglet {{name}}"
   },
-  "window": { "minimize": "Réduire", "maximize": "Agrandir", "close": "Fermer" },
+  "window": {
+    "minimize": "Réduire",
+    "maximize": "Agrandir",
+    "close": "Fermer"
+  },
   "settings": {
     "title": "Réglages",
     "theme": "Thème",
@@ -44,23 +50,84 @@
     "refresh": "Actualiser",
     "comingSoon": "Disponible dans une prochaine étape",
     "detached": "HEAD détachée",
-    "noCommit": "Aucun commit",
-    "branchLabel": "Branche",
-    "upstream": "Suit",
     "noUpstream": "Aucune branche distante suivie",
-    "changes_one": "{{count}} fichier modifié",
-    "changes_other": "{{count}} fichiers modifiés",
-    "workingTree": "Copie de travail",
-    "clean": "Propre, aucune modification",
     "ahead": "{{count}} à pousser",
     "behind": "{{count}} à tirer",
-    "upToDate": "À jour",
-    "head": "Commit courant",
-    "remote": "Remote origin",
-    "noRemote": "Aucun remote origin",
-    "path": "Dossier",
-    "graphSoon": "Le graphe des commits arrive à l’étape 2.",
-    "loading": "Lecture du dépôt…"
+    "upToDate": "À jour"
+  },
+  "graph": {
+    "label": "Historique des commits",
+    "refs": "Branche / tag",
+    "graph": "Graphe",
+    "message": "Message",
+    "author": "Auteur",
+    "date": "Date",
+    "sha": "SHA",
+    "wip_one": "// Modifications en cours — {{count}} fichier",
+    "wip_other": "// Modifications en cours — {{count}} fichiers",
+    "loading": "Lecture de l’historique…",
+    "loadingMore": "Chargement de la suite…",
+    "empty": "Aucun commit pour l’instant.",
+    "count_one": "{{count}} commit",
+    "count_other": "{{count}} commits",
+    "countMore_one": "{{count}} commit chargé",
+    "countMore_other": "{{count}} commits chargés",
+    "current": "branche courante",
+    "synced": "à jour avec la branche distante"
+  },
+  "details": {
+    "label": "Détails du commit",
+    "none": "Sélectionnez un commit pour voir ses détails.",
+    "loading": "Chargement…",
+    "wipTitle": "Modifications en cours",
+    "wipBody_one": "{{count}} fichier modifié dans la copie de travail.",
+    "wipBody_other": "{{count}} fichiers modifiés dans la copie de travail.",
+    "wipSoon": "L’indexation et le commit arrivent à l’étape 3.",
+    "date": "Date",
+    "committer": "Commité par",
+    "sha": "SHA",
+    "parents_one": "Parent",
+    "parents_other": "Parents",
+    "copy": "Copier le SHA",
+    "copied": "Copié",
+    "files_one": "{{count}} fichier modifié",
+    "files_other": "{{count}} fichiers modifiés",
+    "noFiles": "Aucun fichier modifié.",
+    "merge": "Commit de fusion : comparé au premier parent.",
+    "fileView": "Affichage des fichiers",
+    "view": {
+      "list": "Liste",
+      "tree": "Arborescence"
+    },
+    "status": {
+      "A": "Ajouté",
+      "M": "Modifié",
+      "D": "Supprimé",
+      "R": "Renommé",
+      "C": "Copié",
+      "T": "Type modifié"
+    }
+  },
+  "diff": {
+    "label": "Diff de {{file}}",
+    "back": "Retour au graphe",
+    "loading": "Chargement du diff…",
+    "binary": "Fichier binaire : pas d’aperçu.",
+    "empty": "Aucune différence de contenu (changement de mode ou de type).",
+    "truncated": "Diff tronqué : le fichier est trop long pour être affiché en entier."
+  },
+  "sidebar": {
+    "label": "Branches et tags",
+    "filter": "Filtrer",
+    "sections": "Sections affichées",
+    "sectionsHint": "Mémorisé pour ce dépôt",
+    "local": "Local",
+    "tags": "Tags",
+    "empty": "Aucune",
+    "gone": "supprimée",
+    "hidden_one": "{{count}} section masquée · Afficher",
+    "hidden_other": "{{count}} sections masquées · Afficher",
+    "notFound": "Ce commit n’apparaît pas dans l’historique."
   },
   "gitMissing": {
     "title": "Git est introuvable",
@@ -74,7 +141,9 @@
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
     "path_not_found": "Ce dossier n’existe plus.",
     "git_not_found": "Git est introuvable sur cette machine.",
-    "dubious_ownership": "Git refuse ce dépôt car il appartient à un autre utilisateur. Autorisez-le avec : git config --global --add safe.directory <chemin>",    "dismiss": "Fermer"
+    "dubious_ownership": "Git refuse ce dépôt car il appartient à un autre utilisateur. Autorisez-le avec : git config --global --add safe.directory <chemin>",
+    "invalid_sha": "Commit introuvable.",
+    "dismiss": "Fermer"
   },
   "time": {
     "justNow": "à l’instant",

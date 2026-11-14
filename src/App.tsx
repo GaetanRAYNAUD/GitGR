@@ -56,7 +56,7 @@ function useShortcuts() {
         const path = s.tabs[Number(e.key) - 1];
         if (path) s.activate(path);
       } else if (e.key === "F5") {
-        if (s.active) s.refreshSummary(s.active);
+        if (s.active) s.refreshRepo(s.active);
       } else {
         return;
       }
@@ -71,8 +71,8 @@ function useShortcuts() {
 function useRefreshOnFocus() {
   useEffect(() => {
     const onFocus = () => {
-      const { active, refreshSummary } = useApp.getState();
-      if (active) refreshSummary(active);
+      const { active, refreshRepo } = useApp.getState();
+      if (active) refreshRepo(active);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);

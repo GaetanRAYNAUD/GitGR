@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { relativeTime, remoteHost } from "./format";
+import { commitDate, initials, relativeTime, remoteHost } from "./format";
 
 describe("remoteHost", () => {
   it.each([
@@ -31,5 +31,35 @@ describe("relativeTime", () => {
     [3 * 24 * 60 * min, { key: "days", count: 3 }],
   ])("il y a %i ms", (ago, expected) => {
     expect(relativeTime(now - ago, now)).toEqual(expected);
+  });
+});
+
+describe("commitDate", () => {
+  const now = Date.UTC(2026, 10, 14, 12);
+  const day = 86_400_000;
+
+  it("relative sur les 7 derniers jours", () => {
+    expect(commitDate(now - 2 * day, "fr", now)).toEqual({ key: "days", count: 2 });
+    expect(commitDate(now - 5 * 60_000, "fr", now)).toEqual({ key: "minutes", count: 5 });
+  });
+
+  it("date courte au-delà, avec l'année si elle diffère", () => {
+    const sameYear = commitDate(now - 30 * day, "fr", now);
+    expect(sameYear.key).toBe("date");
+    expect(sameYear.key === "date" && sameYear.text).not.toMatch(/2026/);
+    const older = commitDate(Date.UTC(2024, 2, 3), "fr", now);
+    expect(older.key === "date" && older.text).toMatch(/2024/);
+  });
+});
+
+describe("initials", () => {
+  it.each([
+    ["Camille Dupont", "CD"],
+    ["alex", "A"],
+    ["  Jean  Pierre  Martin ", "JM"],
+    ["", "?"],
+    ["Élodie Ölçer", "ÉÖ"],
+  ])("%s → %s", (name, expected) => {
+    expect(initials(name)).toBe(expected);
   });
 });

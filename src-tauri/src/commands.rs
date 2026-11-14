@@ -4,7 +4,8 @@
 //! thread principal, l'interface ne gèle donc pas pendant l'appel.
 
 use crate::git::{self, GitInfo, RepoSummary};
-use crate::store::{AppState, RepoEntry, Session, Settings, Store};
+use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
+use crate::store::{AppState, RepoEntry, RepoUi, Session, Settings, Store};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -54,6 +55,7 @@ pub fn forget_repo(path: String, store: StoreState<'_>) -> Result<(), String> {
     let mut s = store.lock().unwrap();
     s.state.repos.retain(|r| r.path != path);
     s.state.session.open_tabs.retain(|p| *p != path);
+    s.state.repo_ui.remove(&path);
     if s.state.session.active.as_deref() == Some(path.as_str()) {
         s.state.session.active = None;
     }
@@ -75,6 +77,43 @@ pub fn set_settings(settings: Settings, store: StoreState<'_>) -> Result<(), Str
 }
 
 #[tauri::command]
+pub fn set_repo_ui(path: String, ui: RepoUi, store: StoreState<'_>) -> Result<(), String> {
+    let mut s = store.lock().unwrap();
+    s.state.repo_ui.insert(path, ui);
+    s.save()
+}
+
+#[tauri::command]
 pub async fn repo_summary(path: String) -> Result<RepoSummary, String> {
     git::summary(Path::new(&path))
+}
+
+/// Erreurs de lecture : codes connus (dépôt déplacé, propriétaire…) ou message brut de git.
+fn classify(e: String) -> String {
+    git::classify_error(&e).map(str::to_string).unwrap_or(e)
+}
+
+#[tauri::command]
+pub async fn repo_log(path: String, skip: u32, limit: u32) -> Result<Vec<Commit>, String> {
+    history::log(Path::new(&path), skip, limit).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn repo_refs(path: String) -> Result<RefsInfo, String> {
+    history::refs(Path::new(&path)).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn commit_details(path: String, sha: String) -> Result<CommitDetails, String> {
+    history::details(Path::new(&path), &sha).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn commit_diff(
+    path: String,
+    sha: String,
+    file: String,
+    old_file: Option<String>,
+) -> Result<FileDiff, String> {
+    history::diff(Path::new(&path), &sha, &file, old_file.as_deref()).map_err(classify)
 }

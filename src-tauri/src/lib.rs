@@ -1,11 +1,13 @@
 //! Point d'entrée de l'application GitGR (côté Rust).
 //!
 //! - `git`      : appels au binaire `git` et lecture de son résultat.
+//! - `history`  : historique (log, refs, détails, diff) pour le graphe.
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
 mod commands;
 mod git;
+mod history;
 mod store;
 
 use std::sync::Mutex;
@@ -30,7 +32,12 @@ pub fn run() {
             commands::forget_repo,
             commands::set_session,
             commands::set_settings,
+            commands::set_repo_ui,
             commands::repo_summary,
+            commands::repo_log,
+            commands::repo_refs,
+            commands::commit_details,
+            commands::commit_diff,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -20,6 +20,14 @@ const PATHS = {
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
   cloud:"M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9Z",
   commit: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM3 12h5M16 12h5",
+  tag: "M3 12V4h8l9 9-8 8-9-9ZM7.5 8h.01",
+  copy: "M9 9h11v11H9zM5 15H4V4h11v1",
+  chevron: "m6 9 6 6 6-6",
+  back: "M19 12H5m6-6-6 6 6 6",
+  sliders: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4",
+  list: "M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01",
+  tree: "M4 4h6v4H4zM13 10h7v4h-7zM13 17h7v4h-7zM7 8v11h6M7 12h6",
+  file: "M14 3H6v18h12V7l-4-4ZM14 3v4h4",
   alert: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
 } as const;
 
