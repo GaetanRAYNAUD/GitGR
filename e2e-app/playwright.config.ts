@@ -8,6 +8,9 @@ export default defineConfig({
   // Une seule app à la fois : chaque test lance la sienne, sur son propre port CDP.
   workers: 1,
   timeout: process.env.CI ? 150_000 : 60_000,
+  // Sur un runner chargé, un push suivi de la relecture du dépôt peut dépasser les 5 s par
+  // défaut : le message « poussée » arrivait trop tard (échec intermittent sur main).
+  expect: { timeout: process.env.CI ? 20_000 : 5_000 },
   // En CI, les échecs deviennent aussi des annotations de la PR (lisibles sans connexion).
   reporter: process.env.CI ? [["github"], ["list"]] : "list",
   use: { trace: "off" },
