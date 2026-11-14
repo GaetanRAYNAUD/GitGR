@@ -4,7 +4,7 @@
 //   dépôts de l'utilisateur.
 // - Dépôts de test créés dans un dossier temporaire (un remote nu, des clones), ouverts en
 //   onglets au démarrage via le state.json pré-rempli.
-// - WebView2 expose CDP grâce à `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`.
+// - WebView2 expose CDP sur le port donné par `GITGR_DEVTOOLS_PORT` (build de debug seulement).
 
 import { test as base, chromium, expect, type Browser, type Page } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
@@ -138,7 +138,8 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
       ...process.env,
       GITGR_CONFIG_DIR: config,
       WEBVIEW2_USER_DATA_FOLDER: join(sandbox.root, "webview2"),
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
+      // Port de débogage ouvert par l'app elle-même (build de debug, cf. src-tauri/src/lib.rs).
+      GITGR_DEVTOOLS_PORT: String(port),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

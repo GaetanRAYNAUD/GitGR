@@ -19,6 +19,28 @@ mod worktree;
 use std::sync::Mutex;
 use tauri::Manager;
 
+/// Crée la fenêtre principale décrite dans tauri.conf.json (`"create": false` : pas
+/// automatiquement, pour pouvoir régler WebView2 ici).
+///
+/// Build de debug sous Windows avec `GITGR_DEVTOOLS_PORT` : WebView2 ouvre son port de
+/// débogage (CDP), pour piloter l'app dans les tests (e2e-app/). La variable
+/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` n'est pas fiable pour ça (ignorée sur les runners
+/// de GitHub). Jamais dans une version release : le port donnerait la main sur l'app.
+fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
+    let config = app.config().app.windows.iter().find(|w| w.label == "main").cloned().expect("fenêtre « main » dans tauri.conf.json");
+    #[allow(unused_mut)]
+    let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    #[cfg(all(windows, debug_assertions))]
+    if let Some(port) = std::env::var("GITGR_DEVTOOLS_PORT").ok().filter(|p| p.parse::<u16>().is_ok()) {
+        // Remplace les arguments par défaut de wry : on les remet.
+        builder = builder.additional_browser_args(&format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
+        ));
+    }
+    builder.build()?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -34,6 +56,7 @@ pub fn run() {
             };
             app.manage(Mutex::new(store::Store::load(dir)));
             app.manage(Mutex::new(watch::RepoWatcher::default()));
+            create_main_window(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
