@@ -96,6 +96,19 @@ function diagnose(sandbox: Sandbox): string {
     `processus gitgr : ${run("tasklist", ["/FI", "IMAGENAME eq gitgr.exe", "/NH"])}`,
     `profil WebView2 : ${existsSync(profile) ? readdirSync(profile).join(", ") || "(vide)" : "(absent)"}`,
     `session : ${run("powershell", ["-NoProfile", "-Command", "[System.Diagnostics.Process]::GetCurrentProcess().SessionId; [Environment]::UserInteractive"])}`,
+    // Le port demandé a-t-il atteint le processus principal de WebView2 ?
+    `lignes de commande WebView2 : ${run("powershell", [
+      "-NoProfile",
+      "-Command",
+      "Get-CimInstance Win32_Process -Filter \"Name='msedgewebview2.exe'\" | Where-Object { $_.CommandLine -notmatch '--type=' } | ForEach-Object { $_.CommandLine }",
+    ])}`,
+    `ports en écoute de WebView2 : ${run("powershell", [
+      "-NoProfile",
+      "-Command",
+      "$ids = (Get-Process msedgewebview2 -ErrorAction SilentlyContinue).Id; Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ids -contains $_.OwningProcess } | ForEach-Object { \"$($_.LocalAddress):$($_.LocalPort)\" }",
+    ])}`,
+    `DevToolsActivePort : ${run("powershell", ["-NoProfile", "-Command", `Get-Content -ErrorAction SilentlyContinue '${join(profile, "EBWebView", "DevToolsActivePort")}'`]) || "(absent)"}`,
+    `stratégies Edge / WebView2 : ${run("reg", ["query", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge", "/s"])}`,
   ].join("\n");
 }
 
@@ -145,8 +158,10 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
       browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     } catch (e) {
       if (Date.now() > deadline) {
+        // Diagnostic d'abord, l'app encore en vie.
+        const err = failed(`CDP injoignable sur le port ${port} : ${(e as Error).message.split("\n")[0]}`);
         proc.kill();
-        throw failed(`CDP injoignable sur le port ${port} : ${(e as Error).message.split("\n")[0]}`);
+        throw err;
       }
       await new Promise((r) => setTimeout(r, 500));
     }
