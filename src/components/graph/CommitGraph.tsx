@@ -5,10 +5,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from "react-i18next";
 import { commitDate } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
+import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
-import type { Commit } from "../../lib/types";
+import type { Commit, GraphColumn } from "../../lib/types";
+import { useDismiss } from "../../lib/useDismiss";
+import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
 import { Icon } from "../Icon";
+import { Splitter } from "../Splitter";
 
 export const ROW_H = 28;
 const LANE_W = 14;
@@ -19,8 +23,16 @@ const OVERSCAN = 10;
 /** Quand on approche de la fin de l'historique chargé, on demande la page suivante. */
 const PREFETCH_ROWS = 200;
 
+/** Colonnes dans l'ordre d'affichage ; le message est toujours là et prend la place restante. */
+const COLUMNS = ["refs", "graph", "message", "author", "date", "sha"] as const;
+type Column = (typeof COLUMNS)[number];
+/** Colonnes dont on règle la largeur (celle du graphe suit le nombre de branches). */
+const RESIZABLE: readonly Column[] = ["refs", "author", "date", "sha"];
+
 /** Position de défilement par dépôt, retrouvée en revenant sur l'onglet. */
 const scrollMemory = new Map<string, number>();
+
+const NO_COLUMNS: GraphColumn[] = [];
 
 interface Props {
   path: string;
@@ -151,8 +163,47 @@ function Chip({ chip, color }: { chip: RefChip; color: number }) {
   );
 }
 
+/** Choix des colonnes affichées (clic droit sur l'en-tête, ou bouton à droite). */
+function ColumnsMenu({ hidden, onClose }: { hidden: GraphColumn[]; onClose: () => void }) {
+  const { t } = useTranslation();
+  const update = useApp((s) => s.updateSettings);
+  const ref = useRef<HTMLDivElement>(null);
+  useDismiss(ref, true, onClose);
+  return (
+    <div className="popover columns-menu" role="dialog" aria-label={t("graph.columns")} ref={ref}>
+      <div className="eyebrow">{t("graph.columns")}</div>
+      {COLUMNS.map((c) => (
+        <label key={c} className="menu-check">
+          <input
+            type="checkbox"
+            disabled={c === "message"}
+            checked={c === "message" || !hidden.includes(c)}
+            onChange={() => {
+              if (c === "message") return;
+              update({ hiddenColumns: hidden.includes(c) ? hidden.filter((h) => h !== c) : [...hidden, c] });
+            }}
+          />
+          {t(`graph.${c}`)}
+        </label>
+      ))}
+      <div className="menu-hint">{t("graph.columnsHint")}</div>
+    </div>
+  );
+}
+
 export function CommitGraph({ path, changes }: Props) {
   const { t, i18n } = useTranslation();
+  const hidden = useApp((s) => s.settings.hiddenColumns) ?? NO_COLUMNS;
+  // Une valeur par colonne : glisser une autre poignée (panneaux, sections) ne redessine pas le graphe.
+  const widths: Partial<Record<Column, number>> = {
+    refs: useLayoutValue(colKey("refs")),
+    author: useLayoutValue(colKey("author")),
+    date: useLayoutValue(colKey("date")),
+    sha: useLayoutValue(colKey("sha")),
+  };
+  const setLayout = useApp((s) => s.setLayout);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const graph = useGraph((s) => s.graphs[path]);
   const select = useGraph((s) => s.select);
   const loadMore = useGraph((s) => s.loadMore);
@@ -198,9 +249,10 @@ export function CommitGraph({ path, changes }: Props) {
     return () => ro.disconnect();
   }, [path, showList]);
 
+  const showGraph = !hidden.includes("graph");
   useEffect(() => {
     if (canvasRef.current) drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette);
-  }, [layout, first, last, graphW, head, shas, palette]);
+  }, [layout, first, last, graphW, head, shas, palette, showGraph]);
 
   // Page suivante quand on approche de la fin.
   useEffect(() => {
@@ -259,8 +311,57 @@ export function CommitGraph({ path, changes }: Props) {
     return <p className="graph-state muted">{t("graph.empty")}</p>;
   }
 
-  const cols = `var(--col-refs) ${graphW}px minmax(0, 1fr) var(--col-author) var(--col-date) var(--col-sha)`;
+  const visible = COLUMNS.filter((c) => c === "message" || !hidden.includes(c));
+  const colWidth = (c: Column) => {
+    if (c === "graph") return `${graphW}px`;
+    if (c === "message") return "minmax(0, 1fr)";
+    const w = widths[c];
+    return w !== undefined ? `${w}px` : `var(--col-${c})`;
+  };
+  const cols = visible.map(colWidth).join(" ");
+  const canvasLeft = visible.includes("refs") ? colWidth("refs") : "0px";
   const now = Date.now();
+
+  const cell = (col: Column, c: Commit, color: number, isWip: boolean) => {
+    switch (col) {
+      case "refs":
+        return (
+          <span key={col} className="commit-refs">
+            {(chips.get(c.sha) ?? []).map((chip) => (
+              <Chip key={chip.kind + chip.label} chip={chip} color={color} />
+            ))}
+          </span>
+        );
+      case "graph":
+        return <span key={col} />;
+      case "message":
+        return (
+          <span key={col} className="commit-msg">
+            {isWip ? t("graph.wip", { count: changes }) : c.subject}
+          </span>
+        );
+      case "author":
+        return (
+          <span key={col} className="commit-author" title={c.email}>
+            {c.author}
+          </span>
+        );
+      case "date": {
+        const when = isWip ? null : commitDate(c.time * 1000, i18n.language, now);
+        return (
+          <span key={col} className="commit-date" title={isWip ? undefined : new Date(c.time * 1000).toLocaleString(i18n.language)}>
+            {when && (when.key === "date" ? when.text : t(`time.${when.key}`, { count: when.count }))}
+          </span>
+        );
+      }
+      case "sha":
+        return (
+          <span key={col} className="commit-sha">
+            {isWip ? "" : c.sha.slice(0, 7)}
+          </span>
+        );
+    }
+  };
 
   return (
     <div
@@ -274,21 +375,42 @@ export function CommitGraph({ path, changes }: Props) {
       onKeyDown={onKeyDown}
       style={{ "--cols": cols } as React.CSSProperties}
     >
-      <div className="graph-head" aria-hidden="true">
-        <span className="graph-head-refs">{t("graph.refs")}</span>
-        <span>{t("graph.graph")}</span>
-        <span>{t("graph.message")}</span>
-        <span>{t("graph.author")}</span>
-        <span>{t("graph.date")}</span>
-        <span>{t("graph.sha")}</span>
+      <div
+        className="graph-head"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuOpen(true);
+        }}
+      >
+        {visible.map((c) => (
+          <span key={c} className={c === "refs" ? "graph-head-cell graph-head-refs" : "graph-head-cell"}>
+            <span className="graph-head-label">{t(`graph.${c}`)}</span>
+            {RESIZABLE.includes(c) && (
+              <Splitter
+                dir="x"
+                label={t("layout.column", { name: t(`graph.${c}`) })}
+                measure={(el) => el.parentElement!.getBoundingClientRect().width}
+                onChange={(v, final) => setLayout({ [colKey(c as GraphColumn)]: clamp(v, LIMITS.column) }, final)}
+                onReset={() => setLayout({ [colKey(c as GraphColumn)]: null })}
+              />
+            )}
+          </span>
+        ))}
+        <button
+          className="icon-btn sm columns-btn"
+          aria-label={t("graph.columns")}
+          aria-expanded={menuOpen}
+          title={t("graph.columns")}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <Icon name="sliders" size={13} />
+        </button>
+        {menuOpen && <ColumnsMenu hidden={hidden} onClose={closeMenu} />}
       </div>
       <div className="graph-body" style={{ height: commits.length * ROW_H }}>
-        <canvas
-          ref={canvasRef}
-          className="graph-canvas"
-          style={{ top: first * ROW_H, left: "var(--col-refs)" }}
-          aria-hidden="true"
-        />
+        {showGraph && (
+          <canvas ref={canvasRef} className="graph-canvas" style={{ top: first * ROW_H, left: canvasLeft }} aria-hidden="true" />
+        )}
         {commits.slice(first, last).map((c, k) => {
           const i = first + k;
           const row = layout.rows[i];
@@ -296,7 +418,6 @@ export function CommitGraph({ path, changes }: Props) {
           const cls = ["commit-row", isWip && "wip", c.sha === selected && "sel", row.col < MAX_LANES || "far"]
             .filter(Boolean)
             .join(" ");
-          const when = isWip ? null : commitDate(c.time * 1000, i18n.language, now);
           return (
             <div
               key={c.sha}
@@ -312,22 +433,7 @@ export function CommitGraph({ path, changes }: Props) {
                 select(path, c.sha);
               }}
             >
-              <span className="commit-refs">
-                {(chips.get(c.sha) ?? []).map((chip) => (
-                  <Chip key={chip.kind + chip.label} chip={chip} color={row.color} />
-                ))}
-              </span>
-              <span />
-              <span className="commit-msg">
-                {isWip ? t("graph.wip", { count: changes }) : c.subject}
-              </span>
-              <span className="commit-author" title={c.email}>
-                {c.author}
-              </span>
-              <span className="commit-date" title={isWip ? undefined : new Date(c.time * 1000).toLocaleString(i18n.language)}>
-                {when && (when.key === "date" ? when.text : t(`time.${when.key}`, { count: when.count }))}
-              </span>
-              <span className="commit-sha">{isWip ? "" : c.sha.slice(0, 7)}</span>
+              {visible.map((col) => cell(col, c, row.color, isWip))}
             </div>
           );
         })}

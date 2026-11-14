@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { mockHistory } from "../../lib/mockHistory";
@@ -66,7 +66,9 @@ describe("<CommitPanel />", () => {
     g().select(REPO_A, c.sha);
     rerender(<CommitPanel path={REPO_A} />);
     expect(await screen.findByRole("heading", { name: c.subject })).toBeInTheDocument();
-    expect(screen.getByText(c.sha)).toBeInTheDocument();
+    expect(screen.getByText(c.sha.slice(0, 10))).toBeInTheDocument();
+    // Auteur sur une ligne, e-mail en infobulle.
+    expect(screen.getByTitle(new RegExp(`^${c.author} <`))).toBeInTheDocument();
 
     const files = screen.getAllByRole("button").filter((b) => b.className.includes("file-row"));
     await userEvent.click(files[0]);
@@ -168,5 +170,45 @@ describe("<RefsSidebar />", () => {
     await userEvent.click(folder);
     expect(within(local).queryByRole("button", { name: "profils" })).not.toBeInTheDocument();
     expect(useApp.getState().repoUi[REPO_A].collapsed).toContain("local/feature");
+  });
+});
+
+describe("<CommitGraph /> colonnes", () => {
+  it("le menu des colonnes masque une colonne (mémorisé) ; le message reste toujours", async () => {
+    await loaded();
+    render(<CommitGraph path={REPO_A} changes={0} />);
+    const labels = () => Array.from(document.querySelectorAll(".graph-head-label"), (e) => e.textContent);
+    expect(labels()).toContain("Auteur");
+
+    await userEvent.click(screen.getByRole("button", { name: "Colonnes affichées" }));
+    const menu = screen.getByRole("dialog", { name: "Colonnes affichées" });
+    expect(within(menu).getByRole("checkbox", { name: "Message" })).toBeDisabled();
+    await userEvent.click(within(menu).getByRole("checkbox", { name: "Auteur" }));
+    expect(useApp.getState().settings.hiddenColumns).toEqual(["author"]);
+    expect(labels()).toEqual(["Branche / tag", "Graphe", "Message", "Date", "SHA"]);
+    expect(screen.getAllByRole("option")[0].querySelector(".commit-author")).toBeNull();
+  });
+
+  it("clic droit sur l'en-tête ouvre le menu ; largeur d'une colonne au clavier", async () => {
+    await loaded();
+    render(<CommitGraph path={REPO_A} changes={0} />);
+    fireEvent.contextMenu(document.querySelector(".graph-head")!);
+    expect(screen.getByRole("dialog", { name: "Colonnes affichées" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Largeur de la colonne « Date »" }), { key: "ArrowRight" });
+    // jsdom ne mesure rien : 0 + 16, ramené au minimum.
+    expect(useApp.getState().settings.layout?.["col:date"]).toBe(40);
+    expect((document.querySelector(".graph-scroll") as HTMLElement).style.getPropertyValue("--cols")).toContain("40px");
+  });
+});
+
+describe("compteurs de fichiers", () => {
+  it("par catégorie dans les détails d'un commit", async () => {
+    await loaded();
+    const c = history().commits[0];
+    g().select(REPO_A, c.sha);
+    render(<CommitPanel path={REPO_A} />);
+    const counts = await screen.findByRole("img", { name: /modifié|ajouté|supprimé|renommé/ });
+    expect(counts.textContent).toMatch(/^([+~→−]\d+)+$/);
   });
 });

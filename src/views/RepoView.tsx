@@ -6,8 +6,10 @@ import { DiffView } from "../components/graph/DiffView";
 import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
 import { Icon, type IconName } from "../components/Icon";
+import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
 import { remoteHost } from "../lib/format";
+import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
 import { changedCount, useWork } from "../store/worktree";
@@ -39,6 +41,7 @@ export function RepoView({ path }: { path: string }) {
   const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
   const head = useGraph((s) => s.graphs[path]?.refs?.head ?? null);
   const select = useGraph((s) => s.select);
+  const setLayout = useApp((s) => s.setLayout);
   // L'état détaillé de la copie de travail fait foi ; le résumé sert en attendant.
   const changes = work?.status ? changedCount(work.status) : (data?.changes ?? 0);
   const workDiff = selected === WIP ? work?.diff : undefined;
@@ -103,6 +106,13 @@ export function RepoView({ path }: { path: string }) {
 
       <div className="repo-body">
         <RefsSidebar path={path} />
+        <Splitter
+          dir="x"
+          label={t("layout.sidebar")}
+          measure="prev"
+          onChange={(v, final) => setLayout({ [LAYOUT.sidebar]: clamp(v, LIMITS.sidebar) }, final)}
+          onReset={() => setLayout({ [LAYOUT.sidebar]: null })}
+        />
         <div className="repo-center">
           {error ? (
             <div className="notice error repo-error" role="alert">
@@ -117,6 +127,14 @@ export function RepoView({ path }: { path: string }) {
             <CommitGraph path={path} changes={changes} />
           )}
         </div>
+        <Splitter
+          dir="x"
+          label={t("layout.panel")}
+          measure="next"
+          sign={-1}
+          onChange={(v, final) => setLayout({ [LAYOUT.panel]: clamp(v, LIMITS.panel) }, final)}
+          onReset={() => setLayout({ [LAYOUT.panel]: null })}
+        />
         <CommitPanel path={path} />
       </div>
 

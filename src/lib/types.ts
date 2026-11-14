@@ -31,7 +31,14 @@ export interface Settings {
   /** Absent dans un état enregistré par une version antérieure. */
   fileView?: FileViewSetting;
   diffView?: DiffViewSetting;
+  /** Tailles choisies à la souris, par clé (cf. lib/layout.ts) ; absente = par défaut. */
+  layout?: Record<string, number>;
+  /** Colonnes masquées dans le graphe. */
+  hiddenColumns?: GraphColumn[];
 }
+
+/** Colonnes du graphe ; le message est toujours affiché. */
+export type GraphColumn = "refs" | "graph" | "author" | "date" | "sha";
 
 /** Préférences d'affichage propres à un dépôt (barre latérale). */
 export interface RepoUi {

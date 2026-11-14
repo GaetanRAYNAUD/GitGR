@@ -25,6 +25,58 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** Catégories de compteurs, dans l'ordre d'affichage, avec leur signe. */
+const COUNT_KINDS = [
+  { key: "added", sign: "+", cls: "st-A" },
+  { key: "modified", sign: "~", cls: "st-M" },
+  { key: "renamed", sign: "→", cls: "st-R" },
+  { key: "deleted", sign: "−", cls: "st-D" },
+  { key: "conflicted", sign: "!", cls: "st-U" },
+] as const;
+
+type CountKind = (typeof COUNT_KINDS)[number]["key"];
+
+/** Catégorie d'un statut de fichier (commit ou copie de travail). */
+export function countKind(status: string): CountKind {
+  switch (status) {
+    case "A":
+    case "C":
+    case "?":
+      return "added";
+    case "R":
+      return "renamed";
+    case "D":
+      return "deleted";
+    case "U":
+      return "conflicted";
+    default:
+      return "modified"; // M, T
+  }
+}
+
+/** Nombre de fichiers par catégorie : `+2 ~3 →1 −1` (catégories vides omises). */
+export function ChangeCounts({ files }: { files: { status: string }[] }) {
+  const { t } = useTranslation();
+  const counts = new Map<CountKind, number>();
+  for (const f of files) {
+    const k = countKind(f.status);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  const shown = COUNT_KINDS.filter((k) => counts.has(k.key));
+  if (shown.length === 0) return null;
+  const label = shown.map((k) => t(`details.counts.${k.key}`, { count: counts.get(k.key) })).join(", ");
+  return (
+    <span className="change-counts" role="img" aria-label={label} title={label}>
+      {shown.map((k) => (
+        <span key={k.key} className={k.cls}>
+          {k.sign}
+          {counts.get(k.key)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 interface Props<T extends ListFile> {
   files: T[];
   view: FileViewSetting;

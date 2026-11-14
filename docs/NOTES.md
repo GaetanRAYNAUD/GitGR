@@ -43,16 +43,25 @@
   - Diffs (commit et copie de travail) : vue **en ligne ou côte à côte**, choix mémorisé dans les réglages ; la sélection de lignes fonctionne dans les deux vues. Dans une ligne modifiée, **les mots réellement changés sont surlignés** (comparaison mot à mot, budget de calcul par diff pour ne jamais figer l'interface ; pas de surlignage si la ligne est presque entièrement réécrite).
   - Limites connues : pas d'indexation partielle d'un fichier non suivi (fichier entier seulement) ; pas de résolution de conflits intégrée (v2) ; amend possible uniquement depuis la ligne « en cours » (donc avec des modifications).
   - Tests : 139 unitaires front, 43 unitaires Rust, 30 E2E.
+- **Retours d'utilisation (après l'étape 3)** : faits, vérifiés dans le navigateur avec le backend simulé.
+  - Poignées de redimensionnement (glisser, flèches au clavier, double-clic = taille par défaut) : largeur de la barre latérale et du panneau de droite, hauteur de chaque section (barre latérale, Non indexés / Indexés, bloc message + auteur des détails), largeur des colonnes du graphe, partage du diff côte à côte (borné pour laisser de la place aux deux versions). Tailles dans `settings.layout` (`state.json`), enregistrées au relâcher seulement.
+  - Colonnes du graphe masquables (bouton à droite de l'en-tête ou clic droit), sauf le message ; choix dans `settings.hiddenColumns`.
+  - Compteurs par catégorie `+ajoutés ~modifiés →renommés −supprimés` (détails d'un commit, sections du panneau des modifications).
+  - Détails d'un commit : auteur et date sur une ligne (e-mail et committer en infobulle), SHA court + parents sur une ligne.
+  - Le logo est l'onglet Accueil (même style que les onglets, sans fermeture).
+  - Tests : 151 unitaires front, 43 unitaires Rust, 33 E2E.
 
 ## À faire / plus tard
 
 Retours d'utilisation, à caser dans une prochaine étape :
 
-- [ ] **Hauteur des sections** : pouvoir redimensionner la hauteur de chaque section dans chaque panneau (ex. Local / origin / Tags à gauche, détails / fichiers à droite).
-- [ ] **Largeur des panneaux** : pouvoir redimensionner la barre latérale, le graphe et le panneau de détails (poignées de glisser, largeurs mémorisées).
-- [ ] **Colonnes du graphe** : choisir les colonnes affichées (branche/tag, graphe, message, auteur, date, SHA) et leur largeur.
-- [ ] **Compteurs de fichiers** : distinguer ajoutés / modifiés / renommés / supprimés (ex. `+2 ~3 →1 −1`) au lieu d'un seul total.
-- [ ] **Détails d'un commit plus compacts** : le bloc auteur (avatar, nom, e-mail, date) prend beaucoup de place pour une info déjà visible dans le graphe, et repousse la liste des fichiers vers le bas. Le rendre discret (ex. une seule ligne « auteur · date », e-mail et committer en infobulle) pour que les fichiers modifiés remontent.
+- [x] **Hauteur des sections** : pouvoir redimensionner la hauteur de chaque section dans chaque panneau (ex. Local / origin / Tags à gauche, détails / fichiers à droite).
+- [x] **Largeur des panneaux** : pouvoir redimensionner la barre latérale, le graphe et le panneau de détails (poignées de glisser, largeurs mémorisées).
+- [x] **Colonnes du graphe** : choisir les colonnes affichées (branche/tag, graphe, message, auteur, date, SHA) et leur largeur.
+- [x] **Compteurs de fichiers** : distinguer ajoutés / modifiés / renommés / supprimés (ex. `+2 ~3 →1 −1`) au lieu d'un seul total.
+- [x] **Détails d'un commit plus compacts** : le bloc auteur (avatar, nom, e-mail, date) prend beaucoup de place pour une info déjà visible dans le graphe, et repousse la liste des fichiers vers le bas. Le rendre discret (ex. une seule ligne « auteur · date », e-mail et committer en infobulle) pour que les fichiers modifiés remontent.
+- [x] **Logo = onglet Accueil** : le logo en haut à gauche (retour à l'accueil) doit avoir le même style que les onglets de dépôts, mais sans bouton de fermeture.
+- [x] **Diff côte à côte redimensionnable** : pouvoir déplacer le séparateur entre l'ancienne et la nouvelle version.
 - [ ] **Publier un dépôt local sur GitHub / GitLab** (comme GitKraken) : pour un dépôt sans remote, créer le dépôt distant via l'API du provider (nom, description, public/privé, groupe/organisation, instance self-hosted), ajouter `origin` et pousser la branche courante **en configurant son suivi** (`push -u`). À noter : GitKraken a créé `origin` et poussé `main` pour GitGR, mais sans configurer l'upstream de `main` (pas d'ahead/behind tant qu'on ne fait pas `git branch -u origin/main`) — à ne pas reproduire. Dépend des étapes 5 (profils) et 6 (providers).
 - [ ] **Serveur MCP** : exposer les actions de GitGR via un serveur MCP (Model Context Protocol) pour qu'un agent (Claude Code, etc.) puisse faire commit / push / pull / fetch / checkout… **avec les préférences configurées dans l'app** : profil actif du dépôt (identité injectée, clé SSH), auto-stash au changement de branche, stratégie de pull, push après commit… Outils en lecture aussi (status, log, branches, diff). À prévoir : activation explicite dans les réglages, actions destructives (reset, suppression de branche, push --force) refusées ou soumises à confirmation dans l'app, journal des actions faites par l'agent (et undo via le reflog). Dépend des étapes 3-5.
 

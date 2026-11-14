@@ -4,13 +4,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { errorMessage } from "../../lib/errors";
+import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { areaOf, changedCount, useWork } from "../../store/worktree";
 import { ConfirmDialog, type ConfirmRequest } from "../ConfirmDialog";
 import { Icon } from "../Icon";
+import { ResizableBlock } from "../Splitter";
 import { CommitBox } from "./CommitBox";
-import { FileList, FileViewToggle } from "./FileList";
+import { ChangeCounts, FileList, FileViewToggle } from "./FileList";
 
 type ListKind = "conflicted" | "unstaged" | "staged";
 
@@ -22,6 +24,7 @@ export function StagingPanel({ path }: { path: string }) {
   const view = useApp((s) => s.settings.fileView ?? "list");
   const [closed, setClosed] = useState<Set<ListKind>>(() => new Set());
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const widthStyle = useWidthStyle(LAYOUT.panel);
 
   const st = work?.status;
   const total = changedCount(st);
@@ -74,7 +77,7 @@ export function StagingPanel({ path }: { path: string }) {
           <button className="stage-toggle" aria-expanded={open} onClick={toggle}>
             <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
             <span>{t(`staging.${kind}`)}</span>
-            <span className="section-count">{files.length}</span>
+            <ChangeCounts files={files} />
           </button>
           {bulk}
         </div>
@@ -82,6 +85,11 @@ export function StagingPanel({ path }: { path: string }) {
           (files.length === 0 ? (
             <p className="details-note muted">{t(`staging.${kind}Empty`)}</p>
           ) : (
+            <ResizableBlock
+              layoutKey={sectionKey(`stage:${kind}`)}
+              label={t("layout.section", { name: t(`staging.${kind}`) })}
+              className="stage-content"
+            >
             <FileList
               files={files}
               view={view}
@@ -116,13 +124,14 @@ export function StagingPanel({ path }: { path: string }) {
                 )
               }
             />
+            </ResizableBlock>
           ))}
       </div>
     );
   };
 
   return (
-    <aside className="commit-panel staging" aria-label={t("staging.label")}>
+    <aside className="commit-panel staging" aria-label={t("staging.label")} style={widthStyle}>
       <div className="staging-head">
         <div className="staging-title">
           <h2 className="details-subject">{t("staging.title")}</h2>

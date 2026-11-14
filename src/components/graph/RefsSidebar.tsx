@@ -5,10 +5,12 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { refSections, refTree, type RefNode, type RefSection } from "../../lib/refs";
 import type { GitRef, RepoUi } from "../../lib/types";
+import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { Icon, type IconName } from "../Icon";
+import { ResizableBlock } from "../Splitter";
 
 /** Par défaut, les tags sont repliés (souvent nombreux). */
 export const DEFAULT_REPO_UI: RepoUi = { collapsed: ["tags"], hidden: [] };
@@ -26,6 +28,7 @@ export function RefsSidebar({ path }: { path: string }) {
   const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
   const ui = useApp((s) => s.repoUi[path]) ?? DEFAULT_REPO_UI;
   const setUi = useApp((s) => s.setRepoUi);
+  const widthStyle = useWidthStyle(LAYOUT.sidebar);
   const [filter, setFilter] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [missing, setMissing] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export function RefsSidebar({ path }: { path: string }) {
     });
 
   return (
-    <nav className="refs-sidebar" aria-label={t("sidebar.label")}>
+    <nav className="refs-sidebar" aria-label={t("sidebar.label")} style={widthStyle}>
       <div className="sidebar-tools" ref={menuRef}>
         <label className="sidebar-filter">
           <Icon name="search" size={15} />
@@ -143,11 +146,17 @@ export function RefsSidebar({ path }: { path: string }) {
               (items.length === 0 ? (
                 <p className="side-empty">{t("sidebar.empty")}</p>
               ) : (
-                <ul>
-                  {s.kind === "tags"
-                    ? items.map((r) => refButton(r, r.short, 0))
-                    : renderNodes(s.key, refTree(items), 0)}
-                </ul>
+                <ResizableBlock
+                  layoutKey={sectionKey(s.key)}
+                  label={t("layout.section", { name: title(s) })}
+                  className="side-content"
+                >
+                  <ul>
+                    {s.kind === "tags"
+                      ? items.map((r) => refButton(r, r.short, 0))
+                      : renderNodes(s.key, refTree(items), 0)}
+                  </ul>
+                </ResizableBlock>
               ))}
           </div>
         );

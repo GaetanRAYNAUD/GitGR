@@ -38,6 +38,9 @@ interface AppStore {
   moveTab(path: string, index: number): void;
   forget(path: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): void;
+  /** Change des tailles (`null` = retour à la valeur par défaut). Pendant un glisser,
+   *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
+  setLayout(patch: Record<string, number | null>, persist?: boolean): void;
   refreshSummary(path: string): Promise<void>;
   /** Résumé, graphe et copie de travail (F5, retour du focus). */
   refreshRepo(path: string): void;
@@ -177,6 +180,18 @@ export const useApp = create<AppStore>((set, get) => ({
     const settings = { ...get().settings, ...patch };
     set({ settings });
     api.setSettings(settings).catch(() => {});
+  },
+
+  setLayout(patch, persist = true) {
+    const layout = { ...get().settings.layout };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete layout[k];
+      // NaN / Infinity deviendraient `null` en JSON et feraient échouer l'enregistrement côté Rust.
+      else if (Number.isFinite(v)) layout[k] = Math.round(v * 1000) / 1000;
+    }
+    const settings = { ...get().settings, layout };
+    set({ settings });
+    if (persist) api.setSettings(settings).catch(() => {});
   },
 
   async refreshSummary(path) {

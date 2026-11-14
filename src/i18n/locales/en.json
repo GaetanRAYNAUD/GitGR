@@ -73,15 +73,14 @@
     "countMore_one": "{{count}} commit loaded",
     "countMore_other": "{{count}} commits loaded",
     "current": "current branch",
-    "synced": "in sync with the remote branch"
+    "synced": "in sync with the remote branch",
+    "columns": "Visible columns",
+    "columnsHint": "Right-click the header to get back here."
   },
   "details": {
     "label": "Commit details",
     "none": "Select a commit to see its details.",
     "loading": "Loading…",
-    "date": "Date",
-    "committer": "Committed by",
-    "sha": "SHA",
     "parents_one": "Parent",
     "parents_other": "Parents",
     "copy": "Copy SHA",
@@ -104,6 +103,18 @@
       "T": "Type changed",
       "N": "Untracked",
       "U": "Conflicted"
+    },
+    "committedBy": "Committed by {{name}} on {{date}}",
+    "counts": {
+      "added_one": "{{count}} added",
+      "added_other": "{{count}} added",
+      "modified_one": "{{count}} modified",
+      "modified_other": "{{count}} modified",
+      "renamed_one": "{{count}} renamed",
+      "renamed_other": "{{count}} renamed",
+      "deleted_one": "{{count}} deleted",
+      "deleted_other": "{{count}} deleted",
+      "conflicted": "{{count}} conflicted"
     }
   },
   "diff": {
@@ -238,5 +249,14 @@
     "minutes": "{{count}} min ago",
     "hours": "{{count}} h ago",
     "days": "{{count}} d ago"
+  },
+  "layout": {
+    "sidebar": "Sidebar width",
+    "panel": "Right panel width",
+    "diffSplit": "Split between old and new version",
+    "column": "Width of the “{{name}}” column",
+    "section": "Height of the “{{name}}” section",
+    "details": "Height of the message and author",
+    "resetHint": "double-click: default size"
   }
 }

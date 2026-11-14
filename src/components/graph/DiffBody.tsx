@@ -2,13 +2,15 @@
 // états de chargement / erreur, hunks en une colonne (inline) ou côte à côte (split),
 // actions par bloc et sélection de lignes.
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { errorMessage } from "../../lib/errors";
+import { clamp, DIFF_LN_W as LN_W, diffSplitBounds, LAYOUT, useLayoutValue } from "../../lib/layout";
 import type { DiffLine, DiffViewSetting, FileDiff, Hunk } from "../../lib/types";
 import { DIFF_WORD_BUDGET, hunkItems, hunkWordDiffs, type Segment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
 import { Icon } from "../Icon";
+import { Splitter } from "../Splitter";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
@@ -119,6 +121,22 @@ function LineText({ segments, text }: { segments?: Segment[]; text: string }) {
 export function DiffBody({ data, error, hunkActions, selection }: Props) {
   const { t } = useTranslation();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
+  // Côte à côte : part de la largeur donnée au texte de gauche (absente = moitié-moitié).
+  const saved = useLayoutValue(LAYOUT.diffSplit);
+  const setLayout = useApp((s) => s.setLayout);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // Largeur de la table côte à côte : la part enregistrée est rebornée si la fenêtre rétrécit.
+  const [wrapW, setWrapW] = useState(0);
+  const hasWrap = mode === "split" && !!data && !error && !data.binary && data.hunks.length > 0;
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!hasWrap || !el) return;
+    const ro = new ResizeObserver(() => setWrapW(el.clientWidth));
+    ro.observe(el);
+    setWrapW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [hasWrap]);
+  const ratio = saved === undefined ? undefined : clamp(saved, diffSplitBounds(wrapW));
   // Mots réellement modifiés dans chaque ligne changée (suppression ↔ ajout appariés).
   const words = useMemo(() => {
     const budget = { left: DIFF_WORD_BUDGET };
@@ -202,19 +220,40 @@ export function DiffBody({ data, error, hunkActions, selection }: Props) {
   ]);
 
   const cls = ["diff-table", mode === "split" ? "split" : "", selection ? "selectable" : ""].filter(Boolean).join(" ");
-  return (
-    <>
-      <table className={cls}>
-        {mode === "split" && (
+  const table =
+    mode === "split" ? (
+      <div className="diff-split-wrap" ref={wrapRef}>
+        <table className={cls}>
           <colgroup>
             <col className="col-ln" />
-            <col className="col-code" />
+            <col className="col-code" style={ratio !== undefined ? { width: `${ratio * 100}%` } : undefined} />
             <col className="col-ln" />
             <col className="col-code" />
           </colgroup>
-        )}
-        <tbody>{mode === "split" ? split : inline}</tbody>
+          <tbody>{split}</tbody>
+        </table>
+        {/* Séparateur entre les deux versions : sa position est la limite gauche des numéros de droite. */}
+        <Splitter
+          dir="x"
+          label={t("layout.diffSplit")}
+          className="diff-splitter"
+          style={{ left: ratio !== undefined ? `calc(${LN_W}px + ${ratio * 100}%)` : "50%" }}
+          measure={(el) => el.offsetLeft}
+          onChange={(x, final) => {
+            const w = wrapRef.current?.clientWidth ?? 0;
+            if (w > 0) setLayout({ [LAYOUT.diffSplit]: clamp((x - LN_W) / w, diffSplitBounds(w)) }, final);
+          }}
+          onReset={() => setLayout({ [LAYOUT.diffSplit]: null })}
+        />
+      </div>
+    ) : (
+      <table className={cls}>
+        <tbody>{inline}</tbody>
       </table>
+    );
+  return (
+    <>
+      {table}
       {data.truncated && <p className="notice diff-truncated">{t("diff.truncated")}</p>}
     </>
   );

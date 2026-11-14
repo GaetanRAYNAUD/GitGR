@@ -39,11 +39,23 @@ pub struct Settings {
     pub file_view: String,
     /// Diffs : "inline" | "split" (côte à côte)
     pub diff_view: String,
+    /// Tailles choisies à la souris (largeurs de panneaux et de colonnes, hauteurs de
+    /// sections, partage du diff côte à côte), par clé ; absente = taille par défaut.
+    pub layout: HashMap<String, f64>,
+    /// Colonnes masquées dans le graphe (`refs`, `graph`, `author`, `date`, `sha`).
+    pub hidden_columns: Vec<String>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: "system".into(), language: "system".into(), file_view: "list".into(), diff_view: "inline".into() }
+        Self {
+            theme: "system".into(),
+            language: "system".into(),
+            file_view: "list".into(),
+            diff_view: "inline".into(),
+            layout: HashMap::new(),
+            hidden_columns: Vec::new(),
+        }
     }
 }
 
@@ -150,6 +162,8 @@ mod tests {
         assert_eq!(store.state.settings.theme, "system");
         assert_eq!(store.state.settings.file_view, "list", "réglage ajouté après coup : valeur par défaut");
         assert_eq!(store.state.settings.diff_view, "inline");
+        assert!(store.state.settings.layout.is_empty());
+        assert!(store.state.settings.hidden_columns.is_empty());
         assert!(store.state.session.open_tabs.is_empty());
     }
 }

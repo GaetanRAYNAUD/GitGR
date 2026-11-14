@@ -79,3 +79,33 @@ describe("<DiffBody /> mots modifiés", () => {
     expect([...split.container.querySelectorAll(".hl")].map((e) => e.textContent)).toEqual(["34", "ROW_H"]);
   });
 });
+
+describe("DiffBody côte à côte : séparateur", () => {
+  it("au milieu par défaut ; la part choisie règle la colonne de gauche", () => {
+    useApp.setState((s) => ({ settings: { ...s.settings, diffView: "split" } }));
+    const { container, rerender } = render(<DiffBody data={data} />);
+    const sep = screen.getByRole("separator", { name: "Partage entre l’ancienne et la nouvelle version" });
+    expect(sep.style.left).toBe("50%");
+
+    useApp.getState().setLayout({ diffSplit: 0.3 });
+    rerender(<DiffBody data={data} />);
+    expect(sep.style.left).toContain("30%");
+    expect((container.querySelectorAll("col")[1] as HTMLElement).style.width).toBe("30%");
+  });
+});
+
+describe("countKind", () => {
+  it("range les statuts par catégorie", async () => {
+    const { countKind } = await import("./FileList");
+    expect(["A", "C", "?", "M", "T", "R", "D", "U"].map(countKind)).toEqual([
+      "added",
+      "added",
+      "added",
+      "modified",
+      "modified",
+      "renamed",
+      "deleted",
+      "conflicted",
+    ]);
+  });
+});

@@ -75,6 +75,7 @@ export function TitleBar() {
     <header className="titlebar" data-tauri-drag-region>
       <button
         className={active === null ? "brand on" : "brand"}
+        aria-current={active === null ? "page" : undefined}
         onClick={() => activate(null)}
         title={`${t("tabs.home")} (Ctrl T)`}
         aria-label={t("tabs.home")}
@@ -114,7 +115,7 @@ export function TitleBar() {
           );
         })}
         <button
-          className={active === null ? "tab-new on" : "tab-new"}
+          className="tab-new"
           aria-label={t("tabs.new")}
           title={`${t("tabs.new")} (Ctrl T)`}
           onClick={() => activate(null)}

@@ -73,15 +73,14 @@
     "countMore_one": "{{count}} commit chargé",
     "countMore_other": "{{count}} commits chargés",
     "current": "branche courante",
-    "synced": "à jour avec la branche distante"
+    "synced": "à jour avec la branche distante",
+    "columns": "Colonnes affichées",
+    "columnsHint": "Clic droit sur l’en-tête pour y revenir."
   },
   "details": {
     "label": "Détails du commit",
     "none": "Sélectionnez un commit pour voir ses détails.",
     "loading": "Chargement…",
-    "date": "Date",
-    "committer": "Commité par",
-    "sha": "SHA",
     "parents_one": "Parent",
     "parents_other": "Parents",
     "copy": "Copier le SHA",
@@ -104,6 +103,18 @@
       "T": "Type modifié",
       "N": "Non suivi",
       "U": "En conflit"
+    },
+    "committedBy": "Commité par {{name}} le {{date}}",
+    "counts": {
+      "added_one": "{{count}} ajouté",
+      "added_other": "{{count}} ajoutés",
+      "modified_one": "{{count}} modifié",
+      "modified_other": "{{count}} modifiés",
+      "renamed_one": "{{count}} renommé",
+      "renamed_other": "{{count}} renommés",
+      "deleted_one": "{{count}} supprimé",
+      "deleted_other": "{{count}} supprimés",
+      "conflicted": "{{count}} en conflit"
     }
   },
   "diff": {
@@ -238,5 +249,14 @@
     "minutes": "il y a {{count}} min",
     "hours": "il y a {{count}} h",
     "days": "il y a {{count}} j"
+  },
+  "layout": {
+    "sidebar": "Largeur de la barre latérale",
+    "panel": "Largeur du panneau de droite",
+    "diffSplit": "Partage entre l’ancienne et la nouvelle version",
+    "column": "Largeur de la colonne « {{name}} »",
+    "section": "Hauteur de la section « {{name}} »",
+    "details": "Hauteur du message et de l’auteur",
+    "resetHint": "double-clic : taille par défaut"
   }
 }
