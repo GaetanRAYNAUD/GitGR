@@ -150,16 +150,23 @@ pub fn continue_operation(path: &Path) -> Result<OpResult, String> {
 /// Réapplique le dernier stash, état de l'index compris si possible. Faux si le stash a dû
 /// être gardé (conflits, fichier non suivi déjà présent…).
 fn pop_stash(path: &Path) -> bool {
+    let state = || run(Some(path), &["status", "--porcelain", "--untracked-files=all"]).ok();
+    let before = state();
     if run(Some(path), &["stash", "pop", "-q", "--index"]).is_ok() {
         return true;
     }
     // `--index` échoue sans rien toucher quand l'index ne peut pas être restauré ; sans
-    // lui, les modifications reviennent (non indexées). Si la copie de travail a déjà été
-    // modifiée (conflits), on n'essaie pas une seconde fois.
-    if has_conflicts(path) || is_dirty(path).unwrap_or(true) {
+    // lui, les modifications reviennent (non indexées). Si ce premier essai a changé la copie
+    // de travail (conflits), on n'essaie pas une seconde fois.
+    if before.is_none() || state() != before {
         return false;
     }
     run(Some(path), &["stash", "pop", "-q"]).is_ok()
+}
+
+/// Dernier stash de la pile (son SHA).
+fn top_stash(path: &Path) -> Option<String> {
+    run(Some(path), &["rev-parse", "-q", "--verify", "refs/stash"]).ok()
 }
 
 /// Lance `op` (déjà classée : renvoie des codes d'erreur). Le stash n'est fait **que si git
@@ -183,7 +190,13 @@ fn with_autostash(
         other => return other,
     }
     let message = format!("{AUTOSTASH_PREFIX}{label}");
+    let before = top_stash(path);
     run(Some(path), &["stash", "push", "-q", "-u", "-m", &message])?;
+    // Rien n'a été mis de côté (git n'a rien trouvé à stasher) : réappliquer « le dernier
+    // stash » toucherait à un stash de l'utilisateur. Le refus de git est rendu tel quel.
+    if top_stash(path) == before {
+        return Err("local_changes_conflict".into());
+    }
     match op() {
         Err(e) => {
             pop_stash(path);
@@ -282,6 +295,10 @@ pub fn create_branch(path: &Path, name: &str, start: Option<&str>, checkout: boo
     }
     // Depuis le commit courant, git garde les modifications telles quelles : pas de stash.
     let commit = |r: &str| run(Some(path), &["rev-parse", "-q", "--verify", &format!("{r}^{{commit}}")]).ok();
+    // Dépôt sans commit : aucun point de départ à donner, la branche à naître change de nom.
+    if start == "HEAD" && commit("HEAD").is_none() {
+        return switch(path, &["--no-track", "-c", name]);
+    }
     if commit(start) == commit("HEAD") {
         return switch(path, &["--no-track", "-c", name, start]);
     }
@@ -364,20 +381,33 @@ pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, S
         _ => return Err("invalid_strategy".into()),
     };
     let branch = current_branch(path).ok_or("detached_head")?;
-    if upstream_of(path, &branch).is_none() {
+    let Some((remote, _)) = upstream_of(path, &branch) else {
         return Err("no_upstream".into());
-    }
+    };
     if operation(path).is_some() {
         return Err("operation_in_progress".into());
     }
     with_autostash(path, auto_stash, &branch, || {
         match run_env(Some(path), &["pull", "-q", mode, "--no-edit"], &[("GIT_EDITOR", "true")]) {
             Ok(_) => Ok(OpResult::default()),
-            Err(_) if operation(path).is_some() => Ok(OpResult { conflicts: true, ..Default::default() }),
+            Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
+            // Arrêt sans conflit (signature refusée, hook…) : il n'y a rien à résoudre. On revient
+            // à l'état d'avant le pull et l'erreur de git est rendue ; si l'annulation échoue,
+            // l'opération reste en cours, à poursuivre ou annuler depuis l'interface.
+            Err(e) if operation(path).is_some() => match abort_operation(path) {
+                Ok(()) => Err(classify(&e)),
+                Err(_) => Ok(OpResult { conflicts: true, ..Default::default() }),
+            },
             Err(e) => match classify(&e) {
-                // `pull --rebase` refuse une copie sale même sans rien à tirer : déjà à jour
-                // (la distante, tout juste récupérée, est contenue dans HEAD), rien à faire.
-                code if code == "local_changes_conflict" && contains_upstream(path) => Ok(OpResult::default()),
+                // `pull --rebase` refuse une copie sale même sans rien à tirer, et avant d'avoir
+                // récupéré la distante : on la récupère, pour ne pas conclure « déjà à jour »
+                // sur un état périmé. Contenue dans HEAD : rien à faire.
+                code if code == "local_changes_conflict" => {
+                    if mode == "--rebase" && remote != "." {
+                        run(Some(path), &["fetch", "-q", &remote]).map_err(|e| classify(&e))?;
+                    }
+                    if contains_upstream(path) { Ok(OpResult::default()) } else { Err(code) }
+                }
                 code => Err(code),
             },
         }
@@ -390,7 +420,7 @@ fn contains_upstream(path: &Path) -> bool {
 }
 
 /// Pousse la branche courante vers sa branche distante. Sans branche distante, elle est
-/// créée sur `origin` (ou l'unique remote) **et suivie** (`-u`). `force` : `--force-with-lease`
+/// créée sur `origin` (ou le premier remote) **et suivie** (`-u`). `force` : `--force-with-lease`
 /// (refusé si la distante a bougé depuis le dernier fetch).
 pub fn push(path: &Path, force: bool) -> Result<(), String> {
     check_dir(path)?;
@@ -402,7 +432,11 @@ pub fn push(path: &Path, force: bool) -> Result<(), String> {
     let local = format!("refs/heads/{branch}");
     let refspec;
     let remote;
-    match upstream_of(path, &branch) {
+    // Branche qui suit une branche locale (remote « . ») : ce n'est pas une destination de
+    // push — on y écraserait l'autre branche. Elle part vers le remote, sans changer ce suivi.
+    let upstream = upstream_of(path, &branch);
+    let tracks_local = upstream.as_ref().is_some_and(|(r, _)| r == ".");
+    match upstream.filter(|_| !tracks_local) {
         Some((r, merge)) => {
             remote = r;
             refspec = format!("{local}:{merge}");
@@ -415,7 +449,9 @@ pub fn push(path: &Path, force: bool) -> Result<(), String> {
                 all.first().cloned().ok_or("no_remote")?
             };
             refspec = format!("{local}:{local}");
-            args.push("-u");
+            if !tracks_local {
+                args.push("-u");
+            }
         }
     }
     args.push(&remote);
@@ -729,6 +765,46 @@ mod tests {
     }
 
     #[test]
+    fn push_of_a_branch_tracking_a_local_branch_goes_to_the_remote() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        let main = git(p, &["rev-parse", "main"]);
+        git(p, &["switch", "-q", "-c", "suite", "--track", "main"]);
+        commit_file(p, "s.txt", "s\n");
+        push(p, true).unwrap();
+        assert_eq!(git(remote.path(), &["rev-parse", "suite"]), git(p, &["rev-parse", "HEAD"]));
+        assert_eq!(git(p, &["rev-parse", "main"]), main, "la branche locale suivie n'a pas bougé");
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "main", "le suivi est inchangé");
+    }
+
+    #[test]
+    fn branch_created_before_the_first_commit() {
+        let repo = temp_repo();
+        let p = repo.path();
+        assert_eq!(create_branch(p, "dev", None, true, true).unwrap(), OpResult::default());
+        assert_eq!(current_branch(p).as_deref(), Some("dev"));
+    }
+
+    #[test]
+    fn stash_pop_falls_back_without_index_on_a_dirty_tree() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1\n2\n3\n4\n5\n");
+        // Stash avec un changement indexé…
+        std::fs::write(p.join("a.txt"), "un\n2\n3\n4\n5\n").unwrap();
+        git(p, &["add", "a.txt"]);
+        git(p, &["stash", "push", "-q"]);
+        // … dont le contexte change ensuite : l'index ne peut plus être restauré tel quel,
+        // mais les modifications se fusionnent sans conflit.
+        commit_file(p, "a.txt", "1\n2\n3\nquatre\n5\n");
+        // Copie de travail déjà sale, sans rapport avec le stash.
+        std::fs::write(p.join("autre.txt"), "x\n").unwrap();
+        assert_eq!(stash_pop(p).unwrap(), OpResult::default());
+        assert_eq!(read(p, "a.txt"), "un\n2\n3\nquatre\n5\n");
+        assert_eq!(stash_count(p), 0);
+    }
+
+    #[test]
     fn push_rejected_then_forced_with_lease() {
         let (remote, a) = with_remote();
         let b = clone_of(remote.path());
@@ -769,6 +845,17 @@ mod tests {
         assert_eq!(git(a.path(), &["rev-parse", "HEAD~1"]), git(b.path(), &["rev-parse", "HEAD"]));
 
         assert_eq!(pull(a.path(), "autre", true).unwrap_err(), "invalid_strategy");
+
+        // Copie sale et distante pas encore récupérée : le commit est tiré, pas « déjà à jour ».
+        commit_file(b.path(), "b3.txt", "b3
+");
+        git(b.path(), &["push", "-q"]);
+        let r = pull(a.path(), "rebase", true).unwrap();
+        assert_eq!(r, OpResult { stashed: true, stash_kept: false, conflicts: false });
+        assert_eq!(read(a.path(), "b3.txt"), "b3
+");
+        assert_eq!(read(a.path(), "f.txt"), "local
+");
 
         // Déjà à jour avec une copie sale : rien n'est stashé, même en rebase.
         let r = pull(a.path(), "rebase", true).unwrap();
@@ -814,6 +901,35 @@ mod tests {
         assert_eq!(operation(a.path()), None);
         assert_eq!(current_branch(a.path()).as_deref(), Some("main"));
         assert_eq!(git(a.path(), &["log", "-1", "--format=%s"]), "test");
+    }
+
+    #[test]
+    fn pull_stopped_without_conflict_is_undone_and_reports_the_error() {
+        let (remote, a) = with_remote();
+        let b = clone_of(remote.path());
+        commit_file(b.path(), "b.txt", "b
+");
+        git(b.path(), &["push", "-q"]);
+        commit_file(a.path(), "a.txt", "a
+");
+        let before = git(a.path(), &["rev-parse", "HEAD"]);
+        // Modification locale gênante pour le rebase : passe par l'auto-stash.
+        std::fs::write(a.path().join("f.txt"), "local
+").unwrap();
+
+        // Le rebase doit re-signer le commit local, avec une clé qui n'existe pas.
+        let absent = a.path().join("absente").to_string_lossy().to_string();
+        let id = crate::git::Identity { name: "A".into(), email: "a@exemple.fr".into(), ssh_key: None, signing: crate::git::Signing::Ssh(absent) };
+        crate::git::tests::set_identity(a.path(), Some(id));
+        let res = pull(a.path(), "rebase", true);
+        crate::git::tests::set_identity(a.path(), None);
+
+        assert_eq!(res.unwrap_err(), "sign_failed");
+        assert_eq!(operation(a.path()), None, "pas de rebase laissé en cours");
+        assert_eq!(git(a.path(), &["rev-parse", "HEAD"]), before);
+        assert_eq!(read(a.path(), "f.txt"), "local
+", "modifications locales revenues");
+        assert_eq!(stash_list(a.path()), "");
     }
 
     #[test]

@@ -6,7 +6,7 @@
 
 use crate::git::quiet_command;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -30,12 +30,7 @@ fn gpg_candidates() -> Vec<PathBuf> {
         }
     }
     list.push(PathBuf::from("gpg"));
-    if cfg!(windows)
-        && let Ok(exec) = crate::git::run(None, &["--exec-path"])
-        && let Some(root) = Path::new(&exec).ancestors().nth(3)
-    {
-        list.push(root.join("usr").join("bin").join("gpg.exe"));
-    }
+    list.extend(crate::git::git_for_windows_tool("gpg"));
     list
 }
 
@@ -66,11 +61,15 @@ fn parse_secret_keys(out: &str) -> Vec<GpgKey> {
         match f.first().copied() {
             Some("sec") => {
                 let validity = f.get(1).copied().unwrap_or("");
+                // Capacités : en majuscules, celles de la clé entière (sous-clés comprises) ;
+                // `S` = signer, `D` = clé désactivée. Absentes (vieux gpg) : on ne conclut rien.
+                let caps = f.get(11).copied().unwrap_or("");
+                let cannot_sign = !caps.is_empty() && (!caps.contains('S') || caps.contains('D'));
                 keys.push(GpgKey {
                     id: f.get(4).copied().unwrap_or("").to_string(),
                     fingerprint: String::new(),
                     uids: Vec::new(),
-                    unusable: matches!(validity, "e" | "r" | "d" | "i"),
+                    unusable: matches!(validity, "e" | "r" | "d" | "i") || cannot_sign,
                 });
                 want_fpr = true;
             }
@@ -111,6 +110,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::git::tests::{set_identity, temp_repo};
     use crate::git::{run, Identity, Signing};
+    use std::path::Path;
 
     /// Le gpg de Git pour Windows (msys) ne démarre son agent qu'avec un `GNUPGHOME` en chemin
     /// msys (`/c/…`) ; ailleurs, le chemin tel quel.
@@ -150,6 +150,10 @@ pub(crate) mod tests {
         assert_eq!(keys[0].uids, ["Camille Dupont <camille@exemple.fr>"]);
         assert!(!keys[0].unusable);
         assert!(keys[1].unusable && keys[1].uids.is_empty());
+        // Clé de chiffrement seule, ou désactivée : rien pour signer.
+        let caps = |c: &str| parse_secret_keys(&format!("sec:u:255:22:AAAA000011112222:1700000000:::u:::{c}:::+:::cv25519:::0:\n"))[0].unusable;
+        assert!(caps("eE") && caps("scESCD"));
+        assert!(!caps("scSC") && !caps(""));
     }
 
     /// Trousseau GPG jetable avec une clé de signature sans phrase de passe ; renvoie le
@@ -239,6 +243,13 @@ pub(crate) mod tests {
         set_identity(p, identity(Signing::Ssh(key.clone())));
         crate::git::tests::commit_file(p, "a.txt", "1");
         assert!(raw_head(p).contains("-----BEGIN SSH SIGNATURE-----"), "{}", raw_head(p));
+        // `log.showSignature` ne se glisse pas dans ce que lit l'historique.
+        run(Some(p), &["config", "log.showSignature", "true"]).unwrap();
+        let commits = crate::history::log(p, 0, 10).unwrap();
+        assert_eq!(commits.len(), 1);
+        assert!(commits[0].sha.len() == 40 && commits[0].sha.chars().all(|c| c.is_ascii_hexdigit()), "{:?}", commits[0].sha);
+        assert_eq!(crate::history::details(p, &commits[0].sha).unwrap().subject, "test");
+        assert_eq!(crate::worktree::head_message(p).unwrap(), "test");
         // La `.pub` indiquée à la place de la clé privée marche aussi.
         set_identity(p, identity(Signing::Ssh(format!("{key}.pub"))));
         crate::git::tests::commit_file(p, "b.txt", "1");

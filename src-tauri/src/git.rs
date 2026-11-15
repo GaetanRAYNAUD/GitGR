@@ -129,6 +129,21 @@ pub fn identity_for(cwd: &Path) -> Option<Identity> {
     map.get(&repo_key(cwd)).cloned()
 }
 
+/// Écrit ces réglages dans `.git/config` (« Écrire l'identité dans .git/config ») et retire ceux
+/// de `previous` — les clés écrites la fois d'avant — que le profil ne définit plus : la
+/// signature d'un ancien profil ne survit pas au changement. Les réglages que l'utilisateur a
+/// posés lui-même ne sont jamais dans `previous`, donc jamais retirés. Renvoie les clés écrites.
+pub fn write_local_config(repo: &Path, settings: &[(&'static str, String)], previous: &[String]) -> Result<Vec<String>, String> {
+    for key in previous.iter().filter(|k| !settings.iter().any(|(s, _)| s == k)) {
+        // Déjà absente (retirée à la main) : rien à faire.
+        let _ = run(Some(repo), &["config", "--local", "--unset-all", key]);
+    }
+    for (key, value) in settings {
+        run(Some(repo), &["config", "--local", key, value])?;
+    }
+    Ok(settings.iter().map(|(key, _)| key.to_string()).collect())
+}
+
 /// Dossier personnel de l'utilisateur (`USERPROFILE` sous Windows, `HOME` ailleurs).
 pub fn home_dir() -> Option<PathBuf> {
     let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
@@ -187,6 +202,10 @@ fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
     env
 }
 
+/// Configuration imposée à chaque commande git (cf. `git_command`).
+const CONFIG_OVERRIDES: [&str; 5] =
+    ["log.showSignature=false", "diff.noprefix=false", "diff.mnemonicPrefix=false", "diff.srcPrefix=a/", "diff.dstPrefix=b/"];
+
 /// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
 fn git_command() -> Command {
     let mut cmd = quiet_command("git");
@@ -198,6 +217,11 @@ fn git_command() -> Command {
         .env("GIT_PAGER", "cat")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0");
+    // Réglages de l'utilisateur qui changeraient les sorties que nous analysons :
+    // `log.showSignature` écrit la vérification de signature avant chaque commit ; sans les
+    // préfixes `a/` `b/` (`diff.noprefix`, `diff.mnemonicPrefix`…), un patch partiel passé à
+    // `git apply` viserait un autre chemin.
+    cmd.args(CONFIG_OVERRIDES.iter().flat_map(|setting| ["-c", setting]));
     for (key, value) in appimage_env_fixes() {
         match value {
             Some(v) => cmd.env(key, v),
@@ -274,14 +298,27 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let spawned = cmd.spawn().and_then(|mut child| {
-        if let Some(text) = input {
-            // Écrit puis ferme l'entrée (drop) pour que git voie la fin du flux.
-            child.stdin.take().expect("stdin").write_all(text.as_bytes())?;
-        }
-        child.wait_with_output()
+        let stdin = child.stdin.take();
+        // L'entrée est écrite par un autre fil pendant que les sorties sont lues : écrite d'abord,
+        // elle bloquerait dès que git remplit son tube de sortie sans avoir tout lu (les deux
+        // processus s'attendraient l'un l'autre). Fermée à la fin (drop) : git voit la fin du flux.
+        // Une erreur d'écriture (git sorti sans tout lire) est ignorée : son code de retour et
+        // son message disent pourquoi.
+        std::thread::scope(|scope| {
+            if let (Some(mut stdin), Some(text)) = (stdin, input) {
+                scope.spawn(move || {
+                    let _ = stdin.write_all(text.as_bytes());
+                });
+            }
+            child.wait_with_output()
+        })
     });
     let out = spawned.map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
+        // Dossier de travail disparu (dépôt supprimé, disque démonté) : le lancement échoue
+        // lui aussi, parfois avec la même erreur que pour un programme introuvable.
+        if cwd.is_some_and(|dir| !dir.is_dir()) {
+            "path_not_found".to_string()
+        } else if e.kind() == std::io::ErrorKind::NotFound {
             "git_not_found".to_string()
         } else {
             e.to_string()
@@ -294,6 +331,26 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
         Err(if err.is_empty() { String::from_utf8_lossy(&out.stdout).trim().to_string() } else { err })
     }
+}
+
+/// Outil livré avec Git pour Windows (`ssh-keygen`, `gpg`…) : `<Git>/usr/bin/<nom>.exe`, hors
+/// du PATH de l'app en général. `None` ailleurs que sous Windows, ou sans git. La racine de Git
+/// n'est cherchée qu'une fois.
+pub fn git_for_windows_tool(name: &str) -> Option<PathBuf> {
+    static ROOT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    if !cfg!(windows) {
+        return None;
+    }
+    let root = match ROOT.get() {
+        Some(root) => root,
+        None => {
+            // C:/Program Files/Git/mingw64/libexec/git-core → C:/Program Files/Git
+            let exec = run(None, &["--exec-path"]).ok()?;
+            let root = Path::new(&exec).ancestors().nth(3)?.to_path_buf();
+            ROOT.get_or_init(|| root)
+        }
+    };
+    Some(root.join("usr").join("bin").join(format!("{name}.exe")))
 }
 
 #[derive(Serialize)]
@@ -574,6 +631,54 @@ pub(crate) mod tests {
         set_identity(repo.path(), None);
         commit_file(repo.path(), "b.txt", "1");
         assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
+    }
+
+    #[test]
+    fn large_input_does_not_block_on_large_output() {
+        // git répond au fil de la lecture : sans lecture de sa sortie pendant l'écriture de
+        // l'entrée, les deux tubes se rempliraient et la commande ne finirait jamais.
+        let repo = temp_repo();
+        std::fs::write(repo.path().join(".gitignore"), "*.o\n").unwrap();
+        let count = 20_000;
+        let input: String = (0..count).map(|i| format!("un/dossier/assez/long/pour/remplir/le/tube/{i}.o\0")).collect();
+        let out = run_input(Some(repo.path()), &["check-ignore", "-z", "--stdin"], &input).unwrap();
+        assert_eq!(out.split('\0').filter(|s| !s.is_empty()).count(), count);
+        // git sort sans lire son entrée : c'est son résultat qui compte, pas l'écriture interrompue.
+        assert!(run_input(None, &["--version"], &input).unwrap().starts_with("git version"));
+    }
+
+    #[test]
+    fn written_identity_replaces_the_previous_one() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let local = |key: &str| run(Some(p), &["config", "--local", "--get", key]).ok();
+        // Réglage posé à la main : jamais retiré.
+        run(Some(p), &["config", "core.hooksPath", "hooks"]).unwrap();
+        let id = |signing| Identity { name: "A".into(), email: "a@exemple.fr".into(), ssh_key: None, signing };
+
+        let written = write_local_config(p, &id(Signing::Ssh("/k/sign".into())).config(), &[]).unwrap();
+        assert_eq!(written, ["user.name", "user.email", "commit.gpgsign", "gpg.format", "user.signingkey"]);
+        assert_eq!(local("gpg.format").as_deref(), Some("ssh"));
+
+        // Profil suivant, signature laissée à Git : celle de l'ancien profil disparaît.
+        let mut next = id(Signing::Config);
+        next.name = "B".into();
+        let written = write_local_config(p, &next.config(), &written).unwrap();
+        assert_eq!(written, ["user.name", "user.email"]);
+        assert_eq!(local("user.name").as_deref(), Some("B"));
+        assert_eq!((local("commit.gpgsign"), local("gpg.format"), local("user.signingkey")), (None, None, None));
+        assert_eq!(local("core.hooksPath").as_deref(), Some("hooks"));
+
+        // Sans trace d'une écriture précédente, rien n'est retiré (signature posée à la main).
+        run(Some(p), &["config", "commit.gpgsign", "true"]).unwrap();
+        write_local_config(p, &next.config(), &[]).unwrap();
+        assert_eq!(local("commit.gpgsign").as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn missing_folder_is_not_a_missing_git() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(run(Some(&dir.path().join("absent")), &["status"]).unwrap_err(), "path_not_found");
     }
 
     #[test]

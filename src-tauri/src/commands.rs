@@ -62,6 +62,7 @@ pub fn forget_repo(path: String, store: StoreState<'_>) -> Result<(), String> {
     s.state.session.open_tabs.retain(|p| *p != path);
     s.state.repo_ui.remove(&path);
     s.state.repo_profiles.remove(&path);
+    s.state.written_config.remove(&path);
     if s.state.session.active.as_deref() == Some(path.as_str()) {
         s.state.session.active = None;
     }
@@ -299,8 +300,10 @@ pub fn set_profiles(profiles: Vec<Profile>, store: StoreState<'_>) -> Result<Has
     let mut s = store.lock().unwrap();
     s.state.profiles = profiles;
     s.state.prune_profiles();
-    s.save()?;
+    // Avant la sauvegarde : même si elle échoue, git suit l'état en mémoire, celui que
+    // l'interface affiche.
     sync_identities(&s.state);
+    s.save()?;
     Ok(s.state.repo_profiles.clone())
 }
 
@@ -309,9 +312,8 @@ pub fn set_repo_profiles(path: String, profiles: RepoProfiles, store: StoreState
     let mut s = store.lock().unwrap();
     s.state.repo_profiles.insert(path, profiles);
     s.state.prune_profiles();
-    s.save()?;
     sync_identities(&s.state);
-    Ok(())
+    s.save()
 }
 
 /// Dossier personnel, avec des `/` (règles `~/…`, chemin proposé pour une nouvelle clé).
@@ -337,15 +339,17 @@ pub async fn generate_ssh_key(path: String, comment: String, passphrase: Option<
 }
 
 /// « Écrire l'identité dans .git/config » : identité et signature du profil actif, pour
-/// qu'elles vaillent aussi en ligne de commande.
+/// qu'elles vaillent aussi en ligne de commande. Ce qu'une écriture précédente avait posé et
+/// que ce profil ne définit plus (signature d'un autre profil) est retiré.
 #[tauri::command]
-pub async fn apply_identity(path: String) -> Result<(), String> {
+pub async fn apply_identity(path: String, store: StoreState<'_>) -> Result<(), String> {
     let p = Path::new(&path);
     let id = git::identity_for(p).ok_or("no_profile")?;
-    for (key, value) in id.config() {
-        git::run(Some(p), &["config", "--local", key, &value]).map_err(classify)?;
-    }
-    Ok(())
+    let previous = store.lock().unwrap().state.written_config.get(&path).cloned().unwrap_or_default();
+    let written = git::write_local_config(p, &id.config(), &previous).map_err(classify)?;
+    let mut s = store.lock().unwrap();
+    s.state.written_config.insert(path, written);
+    s.save()
 }
 
 /// Clés GPG secrètes, pour choisir celle d'un profil.

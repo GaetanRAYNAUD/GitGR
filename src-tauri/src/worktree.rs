@@ -102,7 +102,9 @@ fn parse_status(out: &str) -> WorkStatus {
 
 /// Côté du diff : "unstaged" (index → copie), "staged" (HEAD → index), "untracked", "conflicted".
 fn diff_args<'a>(area: &str, file: &'a str, old_file: Option<&'a str>) -> Result<Vec<&'a str>, String> {
-    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--unified=3"];
+    // `--no-textconv` : les lignes affichées doivent être celles du fichier, puisqu'elles
+    // servent à construire un patch ou à réécrire le fichier.
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3"];
     match area {
         "unstaged" => {}
         "staged" => args.extend(["--cached", "-M"]),
@@ -129,12 +131,16 @@ pub fn file_diff(path: &Path, file: &str, old_file: Option<&str>, area: &str) ->
 
 /// Un fichier non suivi n'a pas de diff dans git : tout son contenu est « ajouté ».
 fn untracked_diff(path: &Path, file: &str) -> Result<FileDiff, String> {
-    let bytes = std::fs::read(path.join(file)).map_err(|e| e.to_string())?;
-    let mut d = FileDiff { fingerprint: fingerprint(&format!("{}", bytes.len())), ..FileDiff::default() };
-    if bytes.len() > MAX_UNTRACKED_BYTES {
+    check_relative(file)?;
+    let full = path.join(file);
+    // Taille lue avant le contenu : un fichier énorme n'est pas chargé pour rien.
+    let len = std::fs::metadata(&full).map_err(|e| e.to_string())?.len();
+    let mut d = FileDiff { fingerprint: fingerprint(&len.to_string()), ..FileDiff::default() };
+    if len > MAX_UNTRACKED_BYTES as u64 {
         d.truncated = true;
         return Ok(d);
     }
+    let bytes = std::fs::read(&full).map_err(|e| e.to_string())?;
     if bytes.iter().take(8000).any(|&b| b == 0) {
         d.binary = true;
         return Ok(d);
@@ -163,6 +169,18 @@ fn with_paths<'a>(base: &[&'a str], files: &'a [String]) -> Vec<&'a str> {
     args.push("--");
     args.extend(files.iter().map(String::as_str));
     args
+}
+
+/// Chemin relatif fourni par l'interface : ne jamais sortir du dépôt. Refuse `..`, un chemin
+/// absolu, vide ou `.` (le dépôt lui-même) et, sous Windows, `\x` ou `C:x`, que `join`
+/// placerait ailleurs.
+fn check_relative(file: &str) -> Result<(), String> {
+    let mut parts = Path::new(file).components().peekable();
+    if parts.peek().is_some() && parts.all(|c| matches!(c, std::path::Component::Normal(_))) {
+        Ok(())
+    } else {
+        Err("invalid_path".into())
+    }
 }
 
 fn has_head(path: &Path) -> bool {
@@ -202,22 +220,22 @@ pub fn unstage_all(path: &Path) -> Result<(), String> {
 /// supprime les fichiers non suivis.
 pub fn discard_files(path: &Path, tracked: &[String], untracked: &[String]) -> Result<(), String> {
     check_dir(path)?;
+    // Avant de toucher à quoi que ce soit : un chemin refusé n'annule rien à moitié.
+    untracked.iter().try_for_each(|f| check_relative(f))?;
     if !tracked.is_empty() {
         run(Some(path), &with_paths(&["checkout"], tracked))?;
     }
     for f in untracked {
         let full = path.join(f);
-        // Ne jamais sortir du dépôt (chemin relatif fourni par l'interface).
-        if f.split(['/', '\\']).any(|p| p == "..") || Path::new(f).is_absolute() {
-            return Err("invalid_path".into());
-        }
         // `symlink_metadata` : un lien vers un dossier est supprimé comme un fichier (le lien
         // seul), jamais parcouru.
         let is_real_dir = std::fs::symlink_metadata(&full).map(|m| m.is_dir()).unwrap_or(false);
         if is_real_dir {
             std::fs::remove_dir_all(&full)
         } else {
-            std::fs::remove_file(&full)
+            // Sous Windows, un lien vers un dossier (ou une jonction) se retire comme un
+            // dossier : `remove_dir` n'enlève que le lien.
+            std::fs::remove_file(&full).or_else(|e| if cfg!(windows) { std::fs::remove_dir(&full).map_err(|_| e) } else { Err(e) })
         }
         .map_err(|e| e.to_string())?;
     }
@@ -426,9 +444,7 @@ pub fn stage_lines(
 /// Abandonne les lignes choisies (changements non indexés) en réécrivant le fichier de travail.
 pub fn discard_lines(path: &Path, file: &str, lines: &[LineRef], expected: &str) -> Result<(), String> {
     check_dir(path)?;
-    if file.split(['/', '\\']).any(|p| p == "..") || Path::new(file).is_absolute() {
-        return Err("invalid_path".into());
-    }
+    check_relative(file)?;
     let raw = current_diff(path, "unstaged", file, None, expected)?;
     let selected: HashSet<LineRef> = lines.iter().copied().collect();
     let full = path.join(file);
@@ -452,8 +468,8 @@ fn revert_lines(content: &str, raw: &str, selected: &HashSet<LineRef>) -> Result
     for (h, hunk) in hunks.iter().enumerate() {
         let new_count = hunk.lines.iter().filter(|l| l.kind == ' ' || l.kind == '+').count();
         // Une plage vide (`+0,0`, fichier vidé) désigne la ligne *après laquelle* insérer.
-        let mut pos = if new_count == 0 { hunk.new_start as usize } else { hunk.new_start as usize - 1 };
-        for l in &hunk.lines {
+        let mut pos = if new_count == 0 { hunk.new_start as usize } else { (hunk.new_start as usize).saturating_sub(1) };
+        for (i, l) in hunk.lines.iter().enumerate() {
             let sel = l.index.is_some_and(|i| selected.contains(&LineRef { hunk: h, line: i }));
             match l.kind {
                 ' ' => pos += 1,
@@ -465,7 +481,11 @@ fn revert_lines(content: &str, raw: &str, selected: &HashSet<LineRef>) -> Result
                 }
                 '-' if sel => {
                     let text = l.raw[1..].strip_suffix('\r').unwrap_or(&l.raw[1..]);
-                    inserts.entry(pos).or_default().push(format!("{text}{eol}"));
+                    // Suivie de « \ No newline at end of file » : l'ancienne dernière ligne
+                    // n'avait pas de saut de ligne, elle revient sans (`push` en met un si
+                    // d'autres lignes la suivent).
+                    let unterminated = hunk.lines.get(i + 1).is_some_and(|next| next.kind == '\\');
+                    inserts.entry(pos).or_default().push(format!("{text}{}", if unterminated { "" } else { eol }));
                 }
                 _ => {}
             }
@@ -757,6 +777,77 @@ mod tests {
         let raw = "@@ -1,2 +1,1 @@\n a\n-b\n";
         let s: HashSet<_> = sel(&[(0, 1)]).into_iter().collect();
         assert_eq!(revert_lines("a", raw, &s).unwrap(), "a\nb\n");
+        // L'ancienne dernière ligne n'avait pas de saut de ligne : elle revient telle quelle.
+        let raw = "@@ -1,2 +1,2 @@\n a\n-b\n\\ No newline at end of file\n+B\n\\ No newline at end of file\n";
+        let s: HashSet<_> = sel(&[(0, 1), (0, 2)]).into_iter().collect();
+        assert_eq!(revert_lines("a\nB", raw, &s).unwrap(), "a\nb");
+        let only_removed: HashSet<_> = sel(&[(0, 1)]).into_iter().collect();
+        assert_eq!(revert_lines("a\nB", raw, &only_removed).unwrap(), "a\nb\nB");
+    }
+
+    #[test]
+    fn discarding_all_lines_restores_a_file_without_final_newline() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "f.txt", "a\nb");
+        write(p, "f.txt", "a\nB");
+        let d = file_diff(p, "f.txt", None, "unstaged").unwrap();
+        let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
+        discard_lines(p, "f.txt", &sel(&all), &d.fingerprint).unwrap();
+        assert_eq!(read(p, "f.txt"), "a\nb");
+        assert!(status(p).unwrap().unstaged.is_empty());
+    }
+
+    #[test]
+    fn line_staging_ignores_diff_prefix_settings() {
+        let repo = temp_repo();
+        let p = repo.path();
+        write(p, "src/f.txt", "un\ndeux\n");
+        write(p, "f.txt", "racine\n");
+        stage_all(p).unwrap();
+        commit(p, "base", false).unwrap();
+        // Sans `a/` `b/`, `git apply` retirerait `src/` du chemin et viserait `f.txt`.
+        git(p, &["config", "diff.noprefix", "true"]);
+        git(p, &["config", "diff.mnemonicPrefix", "true"]);
+        write(p, "src/f.txt", "un\ndeux\ntrois\n");
+        let d = file_diff(p, "src/f.txt", None, "unstaged").unwrap();
+        let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
+        stage_lines(p, "src/f.txt", None, &sel(&all), &d.fingerprint, false).unwrap();
+        assert_eq!(staged(p, "src/f.txt"), "un\ndeux\ntrois\n");
+        assert_eq!(staged(p, "f.txt"), "racine\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn discarding_a_folder_link_removes_only_the_link() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("garde.txt"), "x").unwrap();
+        let link = p.join("lien");
+        let made = crate::git::quiet_command("cmd").arg("/C").arg("mklink").arg("/J").arg(&link).arg(outside.path()).output();
+        if !made.is_ok_and(|o| o.status.success()) {
+            eprintln!("jonction impossible à créer : test sauté");
+            return;
+        }
+        discard_files(p, &[], &["lien".into()]).unwrap();
+        assert!(std::fs::symlink_metadata(&link).is_err(), "le lien est retiré");
+        assert!(outside.path().join("garde.txt").exists(), "son contenu est intact");
+    }
+
+    #[test]
+    fn paths_outside_the_repo_are_refused() {
+        for bad in ["", ".", "..", "../x", "a/../../x", "/x"] {
+            assert_eq!(check_relative(bad).unwrap_err(), "invalid_path", "{bad:?}");
+        }
+        if cfg!(windows) {
+            for bad in ["\\x", "C:x", "C:\\x", "a\\..\\x"] {
+                assert_eq!(check_relative(bad).unwrap_err(), "invalid_path", "{bad:?}");
+            }
+        }
+        for good in ["a.txt", "dir/b c.txt", "sous/module/", "..a/b..", "[ab].txt"] {
+            assert!(check_relative(good).is_ok(), "{good:?}");
+        }
     }
 
     #[test]
@@ -770,12 +861,19 @@ mod tests {
         assert_eq!(d.hunks[0].lines.len(), 2);
         assert!(d.hunks[0].lines.iter().all(|l| l.kind == "+"));
         assert!(file_diff(p, "d/bin.dat", None, "untracked").unwrap().binary);
+        assert_eq!(file_diff(p, "../ailleurs.txt", None, "untracked").unwrap_err(), "invalid_path");
 
         write(p, "a.txt", "2\n");
         discard_files(p, &["a.txt".into()], &["n.txt".into(), "d/bin.dat".into()]).unwrap();
         assert_eq!(read(p, "a.txt"), "1\n");
         assert_eq!(status(p).unwrap(), WorkStatus::default());
         assert_eq!(discard_files(p, &[], &["../x".into()]).unwrap_err(), "invalid_path");
+        // Un chemin refusé en fin de liste : rien n'est annulé ni supprimé avant lui.
+        write(p, "a.txt", "3\n");
+        write(p, "garde.txt", "x\n");
+        assert_eq!(discard_files(p, &["a.txt".into()], &["garde.txt".into(), "".into()]).unwrap_err(), "invalid_path");
+        assert_eq!(read(p, "a.txt"), "3\n");
+        assert!(p.join("garde.txt").exists());
     }
 
     #[test]
