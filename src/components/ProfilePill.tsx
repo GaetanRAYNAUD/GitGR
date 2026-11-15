@@ -25,10 +25,11 @@ export function ProfilePill({ path, className }: { path: string; className?: str
     const items: MenuItem[] = ordered.map((p) => ({
       label: `${p.name} · ${p.userEmail}`,
       checked: p.id === active?.id,
+      swatch: profileColor(p),
       onClick: () => store.setActive(path, p.id),
     }));
     if (profiles.length) {
-      items.push({ label: t("profiles.noneItem"), checked: !active, onClick: () => store.setActive(path, null) }, "sep");
+      items.push({ label: t("profiles.noneItem"), checked: !active, swatch: null, onClick: () => store.setActive(path, null) }, "sep");
       items.push({ label: t("profiles.apply"), disabled: !active, onClick: () => store.applyIdentity(path) });
     }
     items.push({

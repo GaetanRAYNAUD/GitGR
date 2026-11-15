@@ -2425,9 +2425,23 @@ body.resizing-y * {
 }
 
 .menu-radio {
-  width: 12px;
-  font-size: 9px;
+  width: 13px;
+  display: inline-flex;
   color: var(--accent);
+}
+
+.menu-swatch {
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.menu-swatch.none {
+  width: 10px;
+  padding: 0;
+  border: 1.5px dashed var(--faint);
 }
 
 .menu-sep {
