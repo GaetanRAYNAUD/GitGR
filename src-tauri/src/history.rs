@@ -45,7 +45,8 @@ pub struct Commit {
 
 const LOG_FORMAT: &str = "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s";
 
-/// Une page de l'historique de toutes les refs (hors stash ; `--exclude` doit précéder `--all`), du plus récent au plus ancien.
+/// Une page de l'historique de toutes les refs (hors stash et notes, qui ne sont pas de
+/// l'historique ; `--exclude` doit précéder `--all`), du plus récent au plus ancien.
 /// `--date-order` garantit qu'un commit apparaît toujours avant ses parents, ce dont le
 /// calcul des lanes a besoin.
 pub fn log(path: &Path, skip: u32, limit: u32) -> Result<Vec<Commit>, String> {
@@ -54,7 +55,7 @@ pub fn log(path: &Path, skip: u32, limit: u32) -> Result<Vec<Commit>, String> {
     let limit = format!("--max-count={limit}");
     let out = run(
         Some(path),
-        &["log", "--exclude=refs/stash", "--all", "--date-order", "-z", LOG_FORMAT, &skip, &limit],
+        &["log", "--exclude=refs/stash", "--exclude=refs/notes/*", "--all", "--date-order", "-z", LOG_FORMAT, &skip, &limit],
     );
     // Dépôt sans aucun commit : `--all` ne trouve aucune ref, la sortie est simplement vide.
     Ok(parse_log(&out?))
@@ -520,6 +521,9 @@ mod tests {
         commit_file(p, "a.txt", "1");
         std::fs::write(p.join("a.txt"), "2").unwrap();
         git(p, &["stash", "-q"]);
+        assert_eq!(log(p, 0, 100).unwrap().len(), 1);
+        // Les notes non plus : leurs commits ne font pas partie de l'historique du code.
+        git(p, &["notes", "add", "-m", "une note"]);
         assert_eq!(log(p, 0, 100).unwrap().len(), 1);
     }
 

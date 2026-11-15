@@ -205,7 +205,15 @@ impl Store {
         }
         let json = serde_json::to_vec_pretty(&self.state).map_err(|e| e.to_string())?;
         let tmp = self.file.with_extension("json.tmp");
-        fs::write(&tmp, json).map_err(|e| e.to_string())?;
+        // Synchronisé avant le renommage : après une coupure de courant, le fichier est l'ancien
+        // ou le nouveau, jamais un fichier vide.
+        let write = |tmp: &PathBuf| -> std::io::Result<()> {
+            use std::io::Write;
+            let mut f = fs::File::create(tmp)?;
+            f.write_all(&json)?;
+            f.sync_all()
+        };
+        write(&tmp).map_err(|e| e.to_string())?;
         fs::rename(&tmp, &self.file).map_err(|e| e.to_string())
     }
 }

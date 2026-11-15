@@ -187,6 +187,10 @@ fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
     env
 }
 
+/// Configuration imposée à chaque commande git (cf. `git_command`).
+const CONFIG_OVERRIDES: [&str; 5] =
+    ["log.showSignature=false", "diff.noprefix=false", "diff.mnemonicPrefix=false", "diff.srcPrefix=a/", "diff.dstPrefix=b/"];
+
 /// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
 fn git_command() -> Command {
     let mut cmd = quiet_command("git");
@@ -198,6 +202,11 @@ fn git_command() -> Command {
         .env("GIT_PAGER", "cat")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0");
+    // Réglages de l'utilisateur qui changeraient les sorties que nous analysons :
+    // `log.showSignature` écrit la vérification de signature avant chaque commit ; sans les
+    // préfixes `a/` `b/` (`diff.noprefix`, `diff.mnemonicPrefix`…), un patch partiel passé à
+    // `git apply` viserait un autre chemin.
+    cmd.args(CONFIG_OVERRIDES.iter().flat_map(|setting| ["-c", setting]));
     for (key, value) in appimage_env_fixes() {
         match value {
             Some(v) => cmd.env(key, v),
@@ -290,7 +299,11 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         })
     });
     let out = spawned.map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
+        // Dossier de travail disparu (dépôt supprimé, disque démonté) : le lancement échoue
+        // lui aussi, parfois avec la même erreur que pour un programme introuvable.
+        if cwd.is_some_and(|dir| !dir.is_dir()) {
+            "path_not_found".to_string()
+        } else if e.kind() == std::io::ErrorKind::NotFound {
             "git_not_found".to_string()
         } else {
             e.to_string()
@@ -617,6 +630,12 @@ pub(crate) mod tests {
         assert_eq!(out.split('\0').filter(|s| !s.is_empty()).count(), count);
         // git sort sans lire son entrée : c'est son résultat qui compte, pas l'écriture interrompue.
         assert!(run_input(None, &["--version"], &input).unwrap().starts_with("git version"));
+    }
+
+    #[test]
+    fn missing_folder_is_not_a_missing_git() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(run(Some(&dir.path().join("absent")), &["status"]).unwrap_err(), "path_not_found");
     }
 
     #[test]

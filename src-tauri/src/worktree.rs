@@ -102,7 +102,9 @@ fn parse_status(out: &str) -> WorkStatus {
 
 /// Côté du diff : "unstaged" (index → copie), "staged" (HEAD → index), "untracked", "conflicted".
 fn diff_args<'a>(area: &str, file: &'a str, old_file: Option<&'a str>) -> Result<Vec<&'a str>, String> {
-    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--unified=3"];
+    // `--no-textconv` : les lignes affichées doivent être celles du fichier, puisqu'elles
+    // servent à construire un patch ou à réécrire le fichier.
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3"];
     match area {
         "unstaged" => {}
         "staged" => args.extend(["--cached", "-M"]),
@@ -129,6 +131,7 @@ pub fn file_diff(path: &Path, file: &str, old_file: Option<&str>, area: &str) ->
 
 /// Un fichier non suivi n'a pas de diff dans git : tout son contenu est « ajouté ».
 fn untracked_diff(path: &Path, file: &str) -> Result<FileDiff, String> {
+    check_relative(file)?;
     let full = path.join(file);
     // Taille lue avant le contenu : un fichier énorme n'est pas chargé pour rien.
     let len = std::fs::metadata(&full).map_err(|e| e.to_string())?.len();
@@ -230,7 +233,9 @@ pub fn discard_files(path: &Path, tracked: &[String], untracked: &[String]) -> R
         if is_real_dir {
             std::fs::remove_dir_all(&full)
         } else {
-            std::fs::remove_file(&full)
+            // Sous Windows, un lien vers un dossier (ou une jonction) se retire comme un
+            // dossier : `remove_dir` n'enlève que le lien.
+            std::fs::remove_file(&full).or_else(|e| if cfg!(windows) { std::fs::remove_dir(&full).map_err(|_| e) } else { Err(e) })
         }
         .map_err(|e| e.to_string())?;
     }
@@ -794,6 +799,43 @@ mod tests {
     }
 
     #[test]
+    fn line_staging_ignores_diff_prefix_settings() {
+        let repo = temp_repo();
+        let p = repo.path();
+        write(p, "src/f.txt", "un\ndeux\n");
+        write(p, "f.txt", "racine\n");
+        stage_all(p).unwrap();
+        commit(p, "base", false).unwrap();
+        // Sans `a/` `b/`, `git apply` retirerait `src/` du chemin et viserait `f.txt`.
+        git(p, &["config", "diff.noprefix", "true"]);
+        git(p, &["config", "diff.mnemonicPrefix", "true"]);
+        write(p, "src/f.txt", "un\ndeux\ntrois\n");
+        let d = file_diff(p, "src/f.txt", None, "unstaged").unwrap();
+        let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
+        stage_lines(p, "src/f.txt", None, &sel(&all), &d.fingerprint, false).unwrap();
+        assert_eq!(staged(p, "src/f.txt"), "un\ndeux\ntrois\n");
+        assert_eq!(staged(p, "f.txt"), "racine\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn discarding_a_folder_link_removes_only_the_link() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("garde.txt"), "x").unwrap();
+        let link = p.join("lien");
+        let made = crate::git::quiet_command("cmd").arg("/C").arg("mklink").arg("/J").arg(&link).arg(outside.path()).output();
+        if !made.is_ok_and(|o| o.status.success()) {
+            eprintln!("jonction impossible à créer : test sauté");
+            return;
+        }
+        discard_files(p, &[], &["lien".into()]).unwrap();
+        assert!(std::fs::symlink_metadata(&link).is_err(), "le lien est retiré");
+        assert!(outside.path().join("garde.txt").exists(), "son contenu est intact");
+    }
+
+    #[test]
     fn paths_outside_the_repo_are_refused() {
         for bad in ["", ".", "..", "../x", "a/../../x", "/x"] {
             assert_eq!(check_relative(bad).unwrap_err(), "invalid_path", "{bad:?}");
@@ -819,6 +861,7 @@ mod tests {
         assert_eq!(d.hunks[0].lines.len(), 2);
         assert!(d.hunks[0].lines.iter().all(|l| l.kind == "+"));
         assert!(file_diff(p, "d/bin.dat", None, "untracked").unwrap().binary);
+        assert_eq!(file_diff(p, "../ailleurs.txt", None, "untracked").unwrap_err(), "invalid_path");
 
         write(p, "a.txt", "2\n");
         discard_files(p, &["a.txt".into()], &["n.txt".into(), "d/bin.dat".into()]).unwrap();

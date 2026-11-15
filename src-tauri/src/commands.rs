@@ -299,8 +299,10 @@ pub fn set_profiles(profiles: Vec<Profile>, store: StoreState<'_>) -> Result<Has
     let mut s = store.lock().unwrap();
     s.state.profiles = profiles;
     s.state.prune_profiles();
-    s.save()?;
+    // Avant la sauvegarde : même si elle échoue, git suit l'état en mémoire, celui que
+    // l'interface affiche.
     sync_identities(&s.state);
+    s.save()?;
     Ok(s.state.repo_profiles.clone())
 }
 
@@ -309,9 +311,8 @@ pub fn set_repo_profiles(path: String, profiles: RepoProfiles, store: StoreState
     let mut s = store.lock().unwrap();
     s.state.repo_profiles.insert(path, profiles);
     s.state.prune_profiles();
-    s.save()?;
     sync_identities(&s.state);
-    Ok(())
+    s.save()
 }
 
 /// Dossier personnel, avec des `/` (règles `~/…`, chemin proposé pour une nouvelle clé).
