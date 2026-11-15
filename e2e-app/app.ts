@@ -17,9 +17,11 @@ const EXE = join(ROOT, "src-tauri", "target", "debug", process.platform === "win
 /** Un port CDP par lancement : une app qui se termine encore ne peut pas répondre à la place. */
 let nextPort = 9333;
 
-/** `git` dans `cwd` ; renvoie stdout sans les blancs de fin. */
+/** `git` dans `cwd` ; renvoie stdout sans les blancs de fin. Le remote nu des tests est lu
+ *  depuis son dossier : accepté même si l'utilisateur a réglé `safe.bareRepository = explicit`. */
 export function git(cwd: string, ...args: string[]): string {
-  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trimEnd();
+  const env = { ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.bareRepository", GIT_CONFIG_VALUE_0: "all" };
+  return execFileSync("git", args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trimEnd();
 }
 
 /** Clone configuré pour les tests (identité, pas de signature, pas de conversion de fins de ligne). */

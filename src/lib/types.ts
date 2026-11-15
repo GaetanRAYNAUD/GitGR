@@ -90,6 +90,23 @@ export interface Profile {
   /** GPG : identifiant ou empreinte (vide : choisie par gpg d'après l'e-mail).
    *  SSH : fichier de clé (vide : la clé SSH du profil). */
   signingKey?: string | null;
+  /** Comptes providers (GitHub, GitLab) liés au profil ; absent = aucun. */
+  accounts?: Account[];
+}
+
+export type ProviderKind = "github" | "gitlab";
+
+/** Un compte GitHub / GitLab connecté (src-tauri/src/providers.rs). Son token est dans le
+ *  trousseau du système, jamais ici. */
+export interface Account {
+  /** `<kind>|<url>|<login>`. */
+  id: string;
+  kind: ProviderKind;
+  /** Adresse de l'instance (`https://github.com`, `https://gitlab.exemple.fr`). */
+  url: string;
+  login: string;
+  /** Nom affiché sur le provider, s'il est renseigné. */
+  name: string | null;
 }
 
 /** "" : configuration Git ; "off" : jamais ; "gpg" ; "ssh". */

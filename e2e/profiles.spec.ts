@@ -255,3 +255,98 @@ test("signature des commits : GPG (clé choisie dans la liste) ou SSH", async ({
   await dialog.getByRole("button", { name: "Enregistrer" }).click();
   await expect(section).toContainText("Phrase de passe dans le trousseau du système.");
 });
+
+test("compte provider : token refusé, compte connecté au profil, utilisé par le remote, déconnecté", async ({ page }) => {
+  // Backend simulé : tout token est accepté sauf `bad…` ; le compte GitLab est `camille.dupont`.
+  await createBoulot(page);
+  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  await expect(accounts).toContainText("Aucun compte connecté.");
+
+  await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
+  const submit = dialog.getByRole("button", { name: "Connecter", exact: true });
+  await expect(dialog.getByRole("radio", { name: "GitHub" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("button", { name: "Créer un token sur github.com…" })).toBeVisible();
+  await expect(submit).toBeDisabled();
+
+  // Adresse d'instance invalide : signalée, rien n'est envoyé.
+  await dialog.getByRole("radio", { name: "GitLab" }).click();
+  await dialog.getByLabel("Instance").fill("ssh://gitlab.exemple.fr");
+  await dialog.getByLabel("Token personnel").fill("bad-token");
+  await expect(dialog.getByRole("alert")).toHaveText("Adresse invalide : un hôte (gitlab.exemple.fr) ou une URL http(s).");
+  await expect(submit).toBeDisabled();
+
+  // http : accepté, mais signalé (le token circulerait en clair).
+  await dialog.getByLabel("Instance").fill("http://gitlab.exemple.fr");
+  await expect(dialog.getByRole("note")).toContainText("Connexion non chiffrée (http)");
+
+  // Token refusé : la fenêtre reste ouverte, avec l'erreur.
+  await dialog.getByLabel("Instance").fill("gitlab.exemple.fr");
+  await expect(dialog.getByRole("button", { name: "Créer un token sur gitlab.exemple.fr…" })).toBeVisible();
+  await submit.click();
+  await expect(dialog.getByRole("alert")).toHaveText("Token refusé : il est incorrect, expiré ou révoqué.");
+
+  await dialog.getByLabel("Token personnel").fill("glpat-demo");
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  const row = accounts.getByRole("listitem").filter({ hasText: "camille.dupont" });
+  await expect(row).toContainText("gitlab.exemple.fr");
+  await expect(row.getByRole("status")).toHaveText("connecté");
+  // Enregistré tout de suite : pas de modification en attente, et jamais de token dans l'état.
+  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  const state = await page.evaluate(() => localStorage.getItem("gitgr.mock-state") ?? "");
+  expect(JSON.parse(state).profiles[0].accounts).toEqual([
+    { id: "gitlab|https://gitlab.exemple.fr|camille.dupont", kind: "gitlab", url: "https://gitlab.exemple.fr", login: "camille.dupont", name: null },
+  ]);
+  expect(state).not.toContain("glpat");
+
+  // Une autre modification du profil, enregistrée ensuite, garde le compte.
+  await page.getByLabel("Nom (user.name)").fill("Camille D.");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expect(row).toBeVisible();
+
+  // Dans le dépôt (remote gitlab.exemple.fr, profil Boulot) : icône du provider et compte du remote.
+  await page.getByRole("button", { name: "Fermer les profils" }).click();
+  const origin = page.locator(".refs-sidebar .section-btn").filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
+  await expect(origin.locator(".section-icon")).toHaveAttribute("data-provider", "gitlab");
+  await expect(origin).toHaveAttribute("title", /Compte GitLab : camille\.dupont/);
+
+  // Déconnexion, après confirmation.
+  await openProfiles(page);
+  await row.getByRole("button", { name: "Déconnecter camille.dupont" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click();
+  await expect(accounts).toContainText("Aucun compte connecté.");
+  await page.getByRole("button", { name: "Fermer les profils" }).click();
+  await expect(origin).toHaveAttribute("title", /Aucun compte GitLab connecté pour ce profil/);
+});
+
+test("compte provider : pas avant d'avoir enregistré le profil ; token perdu signalé", async ({ page }) => {
+  await openProfiles(page);
+  await page$(page).getByRole("button", { name: "Nouveau profil" }).first().click();
+  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  await expect(accounts).toContainText("Enregistrez d’abord le profil pour lui connecter un compte.");
+  await expect(accounts.getByRole("button", { name: "Connecter un compte…" })).toHaveCount(0);
+
+  await page.getByLabel("Nom du profil").fill("Perso");
+  await page.getByLabel("Nom (user.name)").fill("Camille");
+  await page.getByLabel("E-mail (user.email)").fill("camille@perso.fr");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Perso »" });
+  // Backend simulé : `as:<login>` choisit le compte ; un compte `revoked…` a perdu son token.
+  await dialog.getByLabel("Token personnel").fill("as:revoked-octo");
+  await dialog.getByRole("button", { name: "Connecter", exact: true }).click();
+  const row = accounts.getByRole("listitem").filter({ hasText: "revoked-octo" });
+  await expect(row.getByRole("alert")).toHaveText("Token refusé : il est incorrect, expiré ou révoqué.");
+
+  // « Reconnecter… » rouvre la fenêtre sur le même provider et la même instance ; Échap la
+  // ferme sans fermer la page des profils.
+  await row.getByRole("button", { name: "Reconnecter…" }).click();
+  await expect(dialog.getByRole("radio", { name: "GitHub" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByLabel("Instance")).toHaveValue("github.com");
+  await dialog.getByRole("button", { name: "Retour" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page$(page).getByRole("heading", { name: "Profils" })).toBeVisible();
+});

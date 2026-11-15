@@ -36,7 +36,9 @@ import {
   mockStatus,
   mockWorkDiff,
 } from "./mockWorktree";
+import { instance, withAccount } from "./providers";
 import type {
+  Account,
   AppState,
   Commit,
   CommitDetails,
@@ -47,6 +49,7 @@ import type {
   LineRef,
   OpResult,
   Profile,
+  ProviderKind,
   PullStrategy,
   RefsInfo,
   RepoEntry,
@@ -133,11 +136,18 @@ export interface Api {
   generateSshKey(path: string, comment: string, passphrase: string | null): Promise<SshKeyInfo>;
   /** Vérifie puis range la phrase de passe dans le trousseau du système (`null` : l'oublie). */
   setKeyPassphrase(path: string, passphrase: string | null): Promise<SshKeyInfo>;
-  /** Écrit l'identité dans `.git/config` du dépôt. */
   /** Écrit l'identité et la signature du profil actif dans `.git/config` du dépôt. */
   applyIdentity(path: string): Promise<void>;
   /** Clés GPG secrètes de l'utilisateur. */
   gpgKeys(): Promise<GpgKey[]>;
+  // Comptes providers
+  /** Vérifie le token auprès de l'instance (`url` vide : github.com / gitlab.com), le range dans
+   *  le trousseau et lie le compte au profil (à la place de celui de la même instance). */
+  connectAccount(profile: string, kind: ProviderKind, url: string, token: string): Promise<Account>;
+  /** Retire le compte du profil ; son token est oublié si aucun autre profil ne le porte. */
+  disconnectAccount(profile: string, account: string): Promise<void>;
+  /** Le token enregistré est-il toujours valable ? (`token_missing`, `token_invalid`…) */
+  checkAccount(account: string): Promise<Account>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
@@ -220,6 +230,9 @@ const tauriApi: Api = {
   setKeyPassphrase: (path, passphrase) => invoke("set_key_passphrase", { path, passphrase }),
   applyIdentity: (path) => invoke("apply_identity", { path }),
   gpgKeys: () => invoke("gpg_keys"),
+  connectAccount: (profile, kind, url, token) => invoke("connect_account", { profile, kind, url, token }),
+  disconnectAccount: (profile, account) => invoke("disconnect_account", { profile, account }),
+  checkAccount: (account) => invoke("check_account", { account }),
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -499,6 +512,34 @@ const mockApi: Api = {
       { id: "1111222233334444", fingerprint: "9999999999999999999999991111222233334444", uids: ["Demo <demo@exemple.fr>"], unusable: false },
       { id: "AAAA0000BBBB1111", fingerprint: "0000000000000000000000000000AAAA0000BBBB1111", uids: ["Ancienne <old@exemple.fr>"], unusable: true },
     ];
+  },
+  // Backend simulé : tout token est accepté sauf `bad…` (refusé) ; le compte est `octo-demo`
+  // (GitHub) ou `camille.dupont` (GitLab), ou `<login>` avec un token `as:<login>`. Une instance
+  // dont l'adresse contient `injoignable` ne répond pas ; un compte `revoked…` a perdu son token.
+  async connectAccount(profile, kind, url, token) {
+    await mockDelay();
+    const inst = instance(kind, url);
+    if (!inst) throw "invalid_instance_url";
+    if (inst.url.includes("injoignable")) throw "provider_unreachable";
+    const secret = token.trim();
+    if (!secret || /\s/.test(secret) || secret.startsWith("bad")) throw "token_invalid";
+    const login = secret.startsWith("as:") ? secret.slice(3) : kind === "github" ? "octo-demo" : "camille.dupont";
+    const account: Account = { id: `${kind}|${inst.url}|${login.toLowerCase()}`, kind, url: inst.url, login, name: kind === "github" ? "Octo Démo" : null };
+    const s = mockLoad();
+    if (!s.profiles?.some((p) => p.id === profile)) throw "no_profile";
+    mockSave({ ...s, profiles: s.profiles.map((p) => (p.id === profile ? { ...p, accounts: withAccount(p.accounts, account) } : p)) });
+    return account;
+  },
+  async disconnectAccount(profile, account) {
+    const s = mockLoad();
+    mockSave({ ...s, profiles: s.profiles?.map((p) => (p.id === profile ? { ...p, accounts: p.accounts?.filter((a) => a.id !== account) } : p)) });
+  },
+  async checkAccount(account) {
+    await mockDelay();
+    const found = mockLoad().profiles?.flatMap((p) => p.accounts ?? []).find((a) => a.id === account);
+    if (!found) throw "account_not_found";
+    if (found.login.startsWith("revoked")) throw "token_invalid";
+    return found;
   },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];

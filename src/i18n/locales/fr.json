@@ -378,7 +378,9 @@
     "removeTitle": "Supprimer le remote {{remote}} ?",
     "removeBody": "Ses branches distantes disparaissent de la barre latérale, et les branches locales qui les suivaient ne suivent plus rien. Rien n’est supprimé sur le serveur.",
     "removeConfirm": "Supprimer",
-    "pushUrl": "Push : {{url}}"
+    "pushUrl": "Push : {{url}}",
+    "account": "Compte {{provider}} : {{login}}",
+    "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
@@ -432,6 +434,16 @@
     "invalid_remote_name": "Nom de remote invalide.",
     "invalid_remote_url": "URL de remote invalide.",
     "remote_exists": "Un remote porte déjà ce nom.",
+    "unknown_provider": "Provider inconnu.",
+    "invalid_instance_url": "Adresse d’instance invalide.",
+    "token_invalid": "Token refusé : il est incorrect, expiré ou révoqué.",
+    "token_forbidden": "Accès refusé avec ce token : droits insuffisants, autorisation SSO manquante ou limite de requêtes atteinte.",
+    "token_missing": "Le token de ce compte n’est plus dans le trousseau du système : reconnectez le compte.",
+    "provider_unreachable": "Instance injoignable : vérifiez l’adresse, la connexion réseau et le certificat du serveur.",
+    "provider_not_found": "L’API de ce provider ne répond pas à cette adresse : vérifiez l’adresse de l’instance et le provider choisi.",
+    "provider_unexpected": "Réponse inattendue : cette adresse n’est pas celle d’une instance de ce provider.",
+    "provider_error": "Le serveur a répondu par une erreur : réessayez plus tard.",
+    "account_not_found": "Compte introuvable.",
     "dismiss": "Fermer"
   },
   "profiles": {
@@ -540,6 +552,32 @@
     "sshSigningKey": "Clé de signature SSH",
     "sshSigningDefault": "Vide : la clé SSH du profil est utilisée.",
     "sshSigningMissing": "Indiquez une clé de signature, ou une clé SSH pour le profil.",
-    "appliedSigning": "Réglages de signature écrits aussi."
+    "appliedSigning": "Réglages de signature écrits aussi.",
+    "accounts": "Comptes GitHub / GitLab",
+    "accountsHint": "Le compte sert à l’API du provider (dépôts, PR / MR). Dans un dépôt, chaque remote utilise le compte de son profil sur son instance. Le token est rangé dans le trousseau du système.",
+    "accountsEmpty": "Aucun compte connecté.",
+    "accountsNew": "Enregistrez d’abord le profil pour lui connecter un compte.",
+    "accountConnect": "Connecter un compte…",
+    "accountDisconnect": "Déconnecter",
+    "accountDisconnectTitle": "Déconnecter {{login}} ?",
+    "accountDisconnectBody": "Le compte {{login}} ({{instance}}) est retiré du profil « {{profile}} » et son token est oublié s’il ne sert à aucun autre profil. Rien n’est révoqué chez {{provider}}.",
+    "accountReconnect": "Reconnecter…",
+    "accountChecking": "vérification…",
+    "accountOk": "connecté",
+    "accountConnected": "Compte {{login}} connecté ({{instance}}).",
+    "accountDisconnected": "Compte {{login}} déconnecté.",
+    "accountDialogTitle": "Connecter un compte au profil « {{profile}} »",
+    "accountProvider": "Provider",
+    "accountInstance": "Instance",
+    "accountInstanceHint_github": "Vide : github.com. Pour GitHub Enterprise, l’adresse de l’instance.",
+    "accountInstanceHint_gitlab": "Vide : gitlab.com. Pour une instance self-hosted, son adresse.",
+    "accountInstanceInvalid": "Adresse invalide : un hôte (gitlab.exemple.fr) ou une URL http(s).",
+    "accountInsecure": "Connexion non chiffrée (http) : le token circulera en clair sur le réseau. Préférez https.",
+    "accountToken": "Token personnel",
+    "accountTokenCreate": "Créer un token sur {{host}}…",
+    "accountTokenHint_github": "Token classique, droits : repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pré-cochés par le lien).",
+    "accountTokenHint_gitlab": "Droits : api, read_user (pré-cochés par le lien).",
+    "accountSubmit": "Connecter",
+    "accountConnecting": "Vérification…"
   }
 }

@@ -22,6 +22,8 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 notify = "8"
+# API des providers (GitHub, GitLab) : client HTTP bloquant, certificats du système.
+ureq = { version = "3", features = ["platform-verifier"] }
 
 # Phrases de passe des clés SSH : trousseau de l'OS (Gestionnaire d'identification Windows,
 # Secret Service sous Linux, trousseau macOS).

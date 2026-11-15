@@ -7,6 +7,7 @@ use crate::branches::{self, OpResult};
 use crate::git::{self, GitInfo, RepoSummary};
 use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
 use crate::profiles::{self, SshKeyInfo};
+use crate::providers::{self, Account};
 use crate::worktree::{self, LineRef, WorkStatus};
 use crate::watch::RepoWatcher;
 use crate::store::{AppState, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
@@ -328,7 +329,9 @@ pub fn sync_identities(state: &AppState) {
 #[tauri::command]
 pub fn set_profiles(profiles: Vec<Profile>, store: StoreState<'_>) -> Result<HashMap<String, RepoProfiles>, String> {
     let mut s = store.lock().unwrap();
+    let accounts = s.state.account_ids();
     s.state.profiles = profiles;
+    forget_tokens(&accounts, &s.state);
     s.state.prune_profiles();
     // Avant la sauvegarde : même si elle échoue, git suit l'état en mémoire, celui que
     // l'interface affiche.
@@ -386,4 +389,69 @@ pub async fn apply_identity(path: String, store: StoreState<'_>) -> Result<(), S
 #[tauri::command]
 pub async fn gpg_keys() -> Result<Vec<crate::signing::GpgKey>, String> {
     crate::signing::gpg_keys()
+}
+
+// --- Comptes providers ---------------------------------------------------------
+
+/// Oublie les tokens des comptes de `before` qu'aucun profil ne porte plus (profil supprimé,
+/// compte déconnecté). Un trousseau indisponible n'est pas une erreur ici.
+fn forget_tokens(before: &std::collections::HashSet<String>, state: &AppState) {
+    let kept = state.account_ids();
+    for id in before.difference(&kept) {
+        let _ = crate::secrets::delete_token(id);
+    }
+}
+
+/// Connecte un compte GitHub / GitLab au profil : le token est vérifié auprès de l'instance
+/// (`url` vide : github.com / gitlab.com), rangé dans le trousseau, et le compte ajouté au
+/// profil. Il remplace le compte que le profil avait déjà sur cette instance.
+#[tauri::command]
+pub async fn connect_account(profile: String, kind: String, url: String, token: String, store: StoreState<'_>) -> Result<Account, String> {
+    let known = |s: &Store| s.state.profiles.iter().any(|p| p.id == profile);
+    if !known(&store.lock().unwrap()) {
+        return Err("no_profile".into());
+    }
+    // Appel réseau : sans tenir le verrou de l'état.
+    let account = providers::connect(&kind, &url, &token)?;
+    let mut s = store.lock().unwrap();
+    let mut tokens = s.state.account_ids();
+    tokens.insert(account.id.clone());
+    let previous = s.state.profiles.clone();
+    if let Some(p) = s.state.profiles.iter_mut().find(|p| p.id == profile) {
+        p.accounts.retain(|a| !(a.kind == account.kind && a.url == account.url));
+        p.accounts.push(account.clone());
+    }
+    // Profil supprimé pendant l'appel, ou écriture en échec : rien ne change.
+    let saved = if known(&s) { s.save() } else { Err("no_profile".into()) };
+    if saved.is_err() {
+        s.state.profiles = previous;
+    }
+    // Une fois l'état fixé : le token d'un compte remplacé — ou du compte refusé — ne reste pas.
+    forget_tokens(&tokens, &s.state);
+    saved.map(|()| account)
+}
+
+/// Retire un compte du profil ; son token est oublié si aucun autre profil ne porte ce compte.
+#[tauri::command]
+pub fn disconnect_account(profile: String, account: String, store: StoreState<'_>) -> Result<(), String> {
+    let mut s = store.lock().unwrap();
+    let before = s.state.account_ids();
+    let previous = s.state.profiles.clone();
+    if let Some(p) = s.state.profiles.iter_mut().find(|p| p.id == profile) {
+        p.accounts.retain(|a| a.id != account);
+    }
+    // Écriture en échec : le compte reste (l'interface l'affiche encore), avec son token.
+    if let Err(e) = s.save() {
+        s.state.profiles = previous;
+        return Err(e);
+    }
+    forget_tokens(&before, &s.state);
+    Ok(())
+}
+
+/// Le token du compte est-il toujours valable ? (`token_missing`, `token_invalid`…)
+#[tauri::command]
+pub async fn check_account(account: String, store: StoreState<'_>) -> Result<Account, String> {
+    let found = store.lock().unwrap().state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned();
+    providers::check(&found.ok_or("account_not_found")?)
 }

@@ -2,7 +2,8 @@
 // règles de sélection automatique, dépôts associés). Les modifications sont faites sur un
 // brouillon, enregistré d'un bloc.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AccountDialog } from "../components/AccountDialog";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../components/Icon";
 import { ProfileAvatar } from "../components/ProfileAvatar";
@@ -20,7 +21,8 @@ import {
   sshDir,
   validEmail,
 } from "../lib/profiles";
-import type { GpgKey, Profile, SigningMode, SshKeyInfo } from "../lib/types";
+import { instanceLabel, PROVIDER_NAMES } from "../lib/providers";
+import type { Account, GpgKey, Profile, SigningMode, SshKeyInfo } from "../lib/types";
 import { useApp } from "../store/app";
 import { useDialogs } from "../store/dialogs";
 import { useProfiles } from "../store/profiles";
@@ -37,6 +39,7 @@ function cleaned(p: Profile): Profile {
     image: p.image ?? null,
     signing: p.signing ?? "",
     signingKey: p.signingKey?.trim() || null,
+    accounts: p.accounts ?? [],
     rules: [...new Set(p.rules.map((r) => r.trim()).filter(Boolean))],
   };
 }
@@ -92,6 +95,7 @@ export function ProfilesPage() {
     image: null,
     signing: "",
     signingKey: null,
+    accounts: [],
     rules: [],
     color: nextColor(profiles),
   });
@@ -105,6 +109,10 @@ export function ProfilesPage() {
   const [touched, setTouched] = useState(false);
   const [newRule, setNewRule] = useState("");
   const [keyReload, setKeyReload] = useState(0);
+  /** Fenêtre « Connecter un compte » ouverte ; `initial` : compte à reconnecter. */
+  const [accountDialog, setAccountDialog] = useState<{ initial: Account | null } | null>(null);
+  /** Comptes à revérifier (après une reconnexion). */
+  const [accountReload, setAccountReload] = useState(0);
   const keyState = useKeyInfo(draft?.sshKey ?? null, keyReload);
 
   const saved = draft ? profiles.find((p) => p.id === draft.id) : undefined;
@@ -247,6 +255,38 @@ export function ProfilesPage() {
     }
   };
 
+  /** Les comptes sont enregistrés tout de suite (comme les dépôts associés) : le brouillon suit,
+   *  sans toucher à ses autres modifications — s'il est toujours celui de ce profil. */
+  const syncAccounts = (id: string) => {
+    const accounts = useProfiles.getState().profiles.find((p) => p.id === id)?.accounts ?? [];
+    setDraft((d) => (d && d.id === id ? { ...d, accounts } : d));
+  };
+
+  const accountClosed = (account: Account | null) => {
+    setAccountDialog(null);
+    if (!account || !draft) return;
+    syncAccounts(draft.id);
+    setAccountReload((n) => n + 1);
+    useApp.getState().notify(t("profiles.accountConnected", { login: account.login, instance: instanceLabel(account.url) }));
+  };
+
+  const disconnect = async (account: Account) => {
+    if (!draft) return;
+    const pick = await useDialogs.getState().choose({
+      title: t("profiles.accountDisconnectTitle", { login: account.login }),
+      body: t("profiles.accountDisconnectBody", {
+        login: account.login,
+        instance: instanceLabel(account.url),
+        profile: saved?.name ?? draft.name,
+        provider: PROVIDER_NAMES[account.kind],
+      }),
+      choices: [{ id: "disconnect", label: t("profiles.accountDisconnect"), danger: true }],
+    });
+    if (pick !== "disconnect" || !(await store.disconnectAccount(draft.id, account.id))) return;
+    syncAccounts(draft.id);
+    useApp.getState().notify(t("profiles.accountDisconnected", { login: account.login }));
+  };
+
   const addRule = () => {
     const rule = newRule.trim();
     if (!draft || !rule) return;
@@ -290,7 +330,7 @@ export function ProfilesPage() {
       className="profiles-page"
       onKeyDown={(e) => {
         const el = e.target as HTMLElement;
-        if (e.key === "Escape" && !useDialogs.getState().current && !el.closest("input, textarea")) close();
+        if (e.key === "Escape" && !useDialogs.getState().current && !accountDialog && !el.closest("input, textarea")) close();
       }}
     >
       <aside className="pf-list" aria-label={t("profiles.title")}>
@@ -449,6 +489,26 @@ export function ProfilesPage() {
 
             <SigningSection draft={draft} patch={patch} touched={touched} home={home} keyReload={keyReload} onPassphrase={storePassphrase} />
 
+            <section className="pf-sec" aria-labelledby="pf-accounts">
+              <h3 id="pf-accounts" className="eyebrow">
+                {t("profiles.accounts")}
+              </h3>
+              <p className="pf-note">{t("profiles.accountsHint")}</p>
+              {isNew ? (
+                <p className="pf-note">{t("profiles.accountsNew")}</p>
+              ) : (
+                <>
+                  <AccountList accounts={draft.accounts ?? []} reload={accountReload} onReconnect={(initial) => setAccountDialog({ initial })} onDisconnect={disconnect} />
+                  <div className="pf-actions">
+                    <button type="button" className="btn" onClick={() => setAccountDialog({ initial: null })}>
+                      <Icon name="link" size={15} />
+                      {t("profiles.accountConnect")}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+
             <section className="pf-sec" aria-labelledby="pf-rules">
               <h3 id="pf-rules" className="eyebrow">
                 {t("profiles.rules")}
@@ -547,7 +607,83 @@ export function ProfilesPage() {
           </form>
         )}
       </section>
+      {accountDialog && saved && <AccountDialog profile={saved} initial={accountDialog.initial} onClose={accountClosed} />}
     </div>
+  );
+}
+
+type AccountState = "checking" | "ok" | { error: string };
+
+/** Comptes du profil, avec l'état de leur token (vérifié auprès du provider à l'affichage). */
+function AccountList({
+  accounts,
+  reload,
+  onReconnect,
+  onDisconnect,
+}: {
+  accounts: Account[];
+  reload: number;
+  onReconnect: (account: Account) => void;
+  onDisconnect: (account: Account) => void;
+}) {
+  const { t } = useTranslation();
+  const [states, setStates] = useState<Record<string, AccountState>>({});
+  const ids = accounts.map((a) => a.id).join("\n");
+  /** Comptes déjà vérifiés (ou en cours) pour cette valeur de `reload` : seuls les nouveaux le
+   *  sont quand la liste change ; `reload` les revérifie tous. */
+  const checked = useRef({ reload, ids: new Set<string>() });
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (checked.current.reload !== reload) checked.current = { reload, ids: new Set() };
+    const round = checked.current;
+    for (const id of ids ? ids.split("\n") : []) {
+      if (round.ids.has(id)) continue;
+      round.ids.add(id);
+      // Une réponse d'une vérification précédente (avant reconnexion) n'écrase pas la nouvelle.
+      const settle = (state: AccountState) => alive.current && checked.current === round && setStates((s) => ({ ...s, [id]: state }));
+      setStates((s) => ({ ...s, [id]: "checking" }));
+      api.checkAccount(id).then(
+        () => settle("ok"),
+        (e) => settle({ error: errorCode(e) }),
+      );
+    }
+  }, [ids, reload]);
+
+  if (accounts.length === 0) return <p className="pf-note">{t("profiles.accountsEmpty")}</p>;
+  return (
+    <ul className="pf-accounts">
+      {accounts.map((a) => {
+        const state = states[a.id] ?? "checking";
+        const failed = typeof state === "object";
+        return (
+          <li key={a.id} className={failed ? "bad" : undefined}>
+            <Icon name={a.kind} size={16} />
+            <strong>{a.login}</strong>
+            <span className="muted pf-account-instance" title={a.url}>
+              {a.name ? `${a.name} · ` : ""}
+              {instanceLabel(a.url)}
+            </span>
+            <span className="pf-account-status" role={failed ? "alert" : "status"}>
+              {failed ? errorMessage(t, state.error) : state === "ok" ? t("profiles.accountOk") : t("profiles.accountChecking")}
+            </span>
+            {failed && (
+              <button type="button" className="mini" onClick={() => onReconnect(a)}>
+                {t("profiles.accountReconnect")}
+              </button>
+            )}
+            <button type="button" className="mini" aria-label={`${t("profiles.accountDisconnect")} ${a.login}`} onClick={() => onDisconnect(a)}>
+              {t("profiles.accountDisconnect")}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
