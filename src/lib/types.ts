@@ -85,6 +85,24 @@ export interface Profile {
   color: number;
   /** Image (data URL, carré de 128 px) affichée à la place des initiales ; absente = aucune. */
   image?: string | null;
+  /** Signature des commits ; absent ou "" : la configuration Git décide. */
+  signing?: SigningMode;
+  /** GPG : identifiant ou empreinte (vide : choisie par gpg d'après l'e-mail).
+   *  SSH : fichier de clé (vide : la clé SSH du profil). */
+  signingKey?: string | null;
+}
+
+/** "" : configuration Git ; "off" : jamais ; "gpg" ; "ssh". */
+export type SigningMode = "" | "off" | "gpg" | "ssh";
+
+export interface GpgKey {
+  /** Identifiant long. */
+  id: string;
+  fingerprint: string;
+  /** `Nom <e-mail>`. */
+  uids: string[];
+  /** Expirée ou révoquée. */
+  unusable: boolean;
 }
 
 /** Profils associés à un dépôt et profil actif (`null` : configuration Git). */

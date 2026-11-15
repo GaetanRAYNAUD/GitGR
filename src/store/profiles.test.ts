@@ -117,7 +117,7 @@ describe("store : profils", () => {
     await s().setActive(REPO_A, "perso");
     const apply = vi.spyOn(api, "applyIdentity");
     await s().applyIdentity(REPO_A);
-    expect(apply).toHaveBeenCalledWith(REPO_A, "Nom perso", "perso@exemple.fr");
+    expect(apply).toHaveBeenCalledWith(REPO_A);
     apply.mockRestore();
   });
 

@@ -32,6 +32,76 @@ pub struct Identity {
     pub email: String,
     /// Chemin de la clé privée (`~` accepté).
     pub ssh_key: Option<String>,
+    pub signing: Signing,
+}
+
+/// Signature des commits du profil.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum Signing {
+    /// La configuration Git décide (`commit.gpgsign`, `user.signingkey`…).
+    #[default]
+    Config,
+    /// Jamais, même si la configuration Git le demande.
+    Off,
+    /// GPG ; clé (identifiant ou empreinte) facultative : sinon gpg choisit d'après l'e-mail.
+    Gpg(Option<String>),
+    /// SSH, avec cette clé (privée ou `.pub`, `~` accepté).
+    Ssh(String),
+}
+
+impl Identity {
+    /// Réglages git du profil : identité et signature (injectés en `-c`, ou écrits dans
+    /// `.git/config` par « Écrire l'identité dans .git/config »).
+    pub fn config(&self) -> Vec<(&'static str, String)> {
+        let clean = |v: &str| v.replace(['\n', '\r'], " ").trim().to_string();
+        let mut out = Vec::new();
+        for (key, value) in [("user.name", clean(&self.name)), ("user.email", clean(&self.email))] {
+            if !value.is_empty() {
+                out.push((key, value));
+            }
+        }
+        match &self.signing {
+            Signing::Config => {}
+            Signing::Off => out.push(("commit.gpgsign", "false".into())),
+            Signing::Gpg(key) => {
+                out.push(("commit.gpgsign", "true".into()));
+                out.push(("gpg.format", "openpgp".into()));
+                // Sans clé choisie : l'e-mail du profil (gpg prend la clé de cette identité), et
+                // surtout pas le `user.signingkey` de la config globale, qui peut viser une autre
+                // clé, voire une clé SSH.
+                let k = key.as_deref().map(clean).filter(|k| !k.is_empty()).unwrap_or_else(|| clean(&self.email));
+                if !k.is_empty() {
+                    out.push(("user.signingkey", k));
+                }
+            }
+            Signing::Ssh(key) => {
+                out.push(("commit.gpgsign", "true".into()));
+                out.push(("gpg.format", "ssh".into()));
+                // Clé privée pour ssh-keygen (`-Y sign -f`) : `/`, `~` développé, sans `.pub`.
+                let k = expand_home(key.trim().trim_end_matches(".pub")).to_string_lossy().replace('\\', "/");
+                out.push(("user.signingkey", k));
+            }
+        }
+        out
+    }
+
+    /// Clés dont ssh / ssh-keygen peuvent demander la phrase de passe (askpass).
+    fn askpass_keys(&self) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::new();
+        let mut add = |k: &str| {
+            let k = expand_home(k.trim().trim_end_matches(".pub")).to_string_lossy().to_string();
+            if !k.is_empty() && !keys.contains(&k) {
+                keys.push(k);
+            }
+        };
+        if let Some(k) = self.ssh_key.as_deref().filter(|k| !k.trim().is_empty()) {
+            add(k);
+        }
+        if let Signing::Ssh(k) = &self.signing {
+            add(k);
+        }
+        keys
+    }
 }
 
 /// Identités par dépôt, indexées par [`repo_key`] ; tenues à jour par `commands`.
@@ -50,7 +120,8 @@ pub fn set_identities(map: HashMap<String, Identity>) {
     *IDENTITIES.write().unwrap() = map;
 }
 
-fn identity_for(cwd: &Path) -> Option<Identity> {
+/// Identité injectée dans ce dépôt (profil actif), s'il y en a une.
+pub fn identity_for(cwd: &Path) -> Option<Identity> {
     let map = IDENTITIES.read().unwrap();
     if map.is_empty() {
         return None;
@@ -85,18 +156,14 @@ pub fn ssh_command(key: &str) -> String {
 /// sous-commande, et variables d'environnement.
 fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
     let Some(id) = cwd.and_then(identity_for) else { return (Vec::new(), Vec::new()) };
-    let clean = |v: &str| v.replace(['\n', '\r'], " ").trim().to_string();
-    let mut args = Vec::new();
-    for (key, value) in [("user.name", clean(&id.name)), ("user.email", clean(&id.email))] {
-        if !value.is_empty() {
-            args.push("-c".to_string());
-            args.push(format!("{key}={value}"));
-        }
-    }
+    let args = id.config().into_iter().flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
     let mut env = Vec::new();
     if let Some(key) = id.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
         env.push(("GIT_SSH_COMMAND", ssh_command(key)));
-        env.extend(askpass_env(key));
+    }
+    let keys = id.askpass_keys();
+    if !keys.is_empty() {
+        env.extend(askpass_env(&keys));
     }
     (args, env)
 }
@@ -106,12 +173,13 @@ fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
 /// `SSH_ASKPASS_REQUIRE=force` (OpenSSH ≥ 8.4) l'impose ; `DISPLAY` pour les versions plus
 /// anciennes, qui n'appellent l'askpass qu'avec un affichage. Rien n'est lu dans le trousseau
 /// ici : seulement si ssh pose effectivement la question.
-fn askpass_env(key: &str) -> Vec<(&'static str, String)> {
+/// Une clé par ligne dans `GITGR_ASKPASS_KEY` (clé SSH du profil, clé de signature SSH).
+fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
     let Ok(exe) = std::env::current_exe() else { return Vec::new() };
     let mut env = vec![
         ("SSH_ASKPASS", exe.to_string_lossy().replace('\\', "/")),
         ("SSH_ASKPASS_REQUIRE", "force".to_string()),
-        (crate::askpass::KEY_VAR, expand_home(key).to_string_lossy().to_string()),
+        (crate::askpass::KEY_VAR, keys.join("\n")),
     ];
     if std::env::var_os("DISPLAY").is_none() {
         env.push(("DISPLAY", ":0".to_string()));
@@ -258,6 +326,18 @@ pub fn toplevel(path: &Path) -> Result<PathBuf, String> {
             None => "not_a_repo".to_string(),
         }),
     }
+}
+
+/// Le commit n'a pas pu être signé (gpg ou ssh-keygen en échec : clé introuvable, phrase de
+/// passe refusée…) ; git le dit par « gpg failed to sign » ou « failed to write commit object »
+/// après un message du programme de signature.
+pub fn is_sign_error(stderr: &str) -> bool {
+    let s = stderr.to_lowercase();
+    s.contains("failed to sign the data")
+        || (s.contains("failed to write commit object")
+            && ["gpg failed", "ssh-keygen", "signing file", "couldn't load", "couldn't sign", "signing failed"]
+                .iter()
+                .any(|p| s.contains(p)))
 }
 
 /// Reconnaît les erreurs git qui ont un code dédié (traduit côté interface).
@@ -440,10 +520,37 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn signing_settings() {
+        let id = |signing| Identity { name: "N".into(), email: "n@exemple.fr".into(), ssh_key: None, signing };
+        let keys = |i: Identity| i.config().into_iter().skip(2).collect::<Vec<_>>();
+        let s = |v: &str| v.to_string();
+        assert_eq!(keys(id(Signing::Config)), []);
+        assert_eq!(keys(id(Signing::Off)), [("commit.gpgsign", s("false"))]);
+        // Clé GPG non choisie : celle de l'e-mail du profil, jamais celle de la config globale.
+        assert_eq!(
+            keys(id(Signing::Gpg(None))),
+            [("commit.gpgsign", s("true")), ("gpg.format", s("openpgp")), ("user.signingkey", s("n@exemple.fr"))]
+        );
+        assert_eq!(keys(id(Signing::Gpg(Some("ABCD".into()))))[2], ("user.signingkey", s("ABCD")));
+        assert_eq!(
+            keys(id(Signing::Ssh(r"C:\k\sign.pub".into()))),
+            [("commit.gpgsign", s("true")), ("gpg.format", s("ssh")), ("user.signingkey", s("C:/k/sign"))]
+        );
+    }
+
+    #[test]
+    fn signing_errors() {
+        assert!(is_sign_error("error: gpg failed to sign the data\nfatal: failed to write commit object"));
+        assert!(is_sign_error("error: Couldn't load public key /k/x: No such file or directory?\n\nfatal: failed to write commit object"));
+        assert!(!is_sign_error("hook: reassigned owner\nfatal: failed to write commit object"));
+        assert!(!is_sign_error("fatal: unable to write new index file"));
+    }
+
+    #[test]
     fn identity_is_injected_only_in_its_repo() {
         let repo = temp_repo();
         let other = temp_repo();
-        let id = Identity { name: "Perso\nX".into(), email: " moi@perso.fr ".into(), ssh_key: Some("/k/id".into()) };
+        let id = Identity { name: "Perso\nX".into(), email: " moi@perso.fr ".into(), ssh_key: Some("/k/id".into()), signing: Signing::Config };
         set_identity(repo.path(), Some(id));
         let (args, env) = injected(Some(repo.path()));
         assert_eq!(args, ["-c", "user.name=Perso X", "-c", "user.email=moi@perso.fr"]);

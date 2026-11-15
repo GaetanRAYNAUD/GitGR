@@ -15,10 +15,12 @@ import {
   nextColor,
   profileComplete,
   ruleKind,
+  signingKeyMissing,
+  uidEmail,
   sshDir,
   validEmail,
 } from "../lib/profiles";
-import type { Profile, SshKeyInfo } from "../lib/types";
+import type { GpgKey, Profile, SigningMode, SshKeyInfo } from "../lib/types";
 import { useApp } from "../store/app";
 import { useDialogs } from "../store/dialogs";
 import { useProfiles } from "../store/profiles";
@@ -33,6 +35,8 @@ function cleaned(p: Profile): Profile {
     userEmail: p.userEmail.trim(),
     sshKey: key ? key : null,
     image: p.image ?? null,
+    signing: p.signing ?? "",
+    signingKey: p.signingKey?.trim() || null,
     rules: [...new Set(p.rules.map((r) => r.trim()).filter(Boolean))],
   };
 }
@@ -86,6 +90,8 @@ export function ProfilesPage() {
     userEmail: "",
     sshKey: null,
     image: null,
+    signing: "",
+    signingKey: null,
     rules: [],
     color: nextColor(profiles),
   });
@@ -200,8 +206,8 @@ export function ProfilesPage() {
   };
 
   /** Enregistre (`true`) ou oublie (`false`) la phrase de passe de la clé indiquée. */
-  const storePassphrase = async (store: boolean) => {
-    const key = draft?.sshKey?.trim();
+  const storePassphrase = async (key: string | null | undefined, store: boolean) => {
+    key = key?.trim();
     if (!key) return;
     const passphrase = store ? await askPassphrase(key) : null;
     if (store && passphrase === null) return;
@@ -421,7 +427,7 @@ export function ProfilesPage() {
                   </button>
                 </div>
               </div>
-              <KeyStatus state={keyState} onPassphrase={storePassphrase} />
+              <KeyStatus state={keyState} onPassphrase={(store) => storePassphrase(draft.sshKey, store)} />
               <div className="pf-actions">
                 <button type="button" className="btn" onClick={generate}>
                   <Icon name="key" size={15} />
@@ -440,6 +446,8 @@ export function ProfilesPage() {
                 )}
               </div>
             </section>
+
+            <SigningSection draft={draft} patch={patch} touched={touched} home={home} keyReload={keyReload} onPassphrase={storePassphrase} />
 
             <section className="pf-sec" aria-labelledby="pf-rules">
               <h3 id="pf-rules" className="eyebrow">
@@ -577,5 +585,152 @@ function KeyStatus({ state, onPassphrase }: { state: KeyState; onPassphrase: (st
         </button>
       )}
     </div>
+  );
+}
+
+type GpgState = { status: "loading" } | { status: "ok"; keys: GpgKey[] } | { status: "error"; error: string };
+
+/** Clés GPG, lues une fois à l'ouverture de la section en mode GPG. */
+function useGpgKeys(enabled: boolean): GpgState {
+  const [state, setState] = useState<GpgState>({ status: "loading" });
+  useEffect(() => {
+    if (!enabled) return;
+    let gone = false;
+    setState({ status: "loading" });
+    api.gpgKeys().then(
+      (keys) => !gone && setState({ status: "ok", keys }),
+      (e) => !gone && setState({ status: "error", error: errorCode(e) }),
+    );
+    return () => {
+      gone = true;
+    };
+  }, [enabled]);
+  return state;
+}
+
+/** Signature des commits : selon la config Git, jamais, GPG (clé à choisir) ou SSH (clé du
+ *  profil par défaut). */
+function SigningSection({
+  draft,
+  patch,
+  touched,
+  home,
+  keyReload,
+  onPassphrase,
+}: {
+  draft: Profile;
+  patch: (p: Partial<Profile>) => void;
+  touched: boolean;
+  home: string | null;
+  keyReload: number;
+  onPassphrase: (key: string, store: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const mode: SigningMode = draft.signing ?? "";
+  const gpg = useGpgKeys(mode === "gpg");
+  const key = draft.signingKey ?? "";
+  // Clé de signature SSH distincte de celle du profil : son état (et sa phrase de passe) ici.
+  const ownSshKey = mode === "ssh" && !!key.trim() && key.trim() !== draft.sshKey?.trim();
+  const sshKeyState = useKeyInfo(ownSshKey ? key.replace(/\.pub$/, "") : null, keyReload);
+  const modes: SigningMode[] = ["", "off", "gpg", "ssh"];
+  const label = (m: SigningMode) => t(`profiles.signing_${m || "config"}`);
+
+  // GPG : la clé choisie (ou celle que gpg prendra) correspond-elle à l'e-mail du profil ?
+  const email = draft.userEmail.trim().toLowerCase();
+  const usable = gpg.status === "ok" ? gpg.keys.filter((k) => !k.unusable) : [];
+  const chosen = usable.find((k) => key && (k.id === key || k.fingerprint === key || k.fingerprint.endsWith(key.toUpperCase())));
+  const emailMismatch =
+    mode === "gpg" && gpg.status === "ok" && !!email && (chosen ? !chosen.uids.some((u) => uidEmail(u) === email) : !key && !usable.some((k) => k.uids.some((u) => uidEmail(u) === email)));
+
+  const browse = async () => {
+    try {
+      const file = await api.pickFile(t("profiles.browseTitle"), sshDir(home));
+      if (file) patch({ signingKey: file });
+    } catch (e) {
+      useApp.setState({ error: errorCode(e) });
+    }
+  };
+
+  return (
+    <section className="pf-sec" aria-labelledby="pf-signing">
+      <h3 id="pf-signing" className="eyebrow">
+        {t("profiles.signing")}
+      </h3>
+      <div className="segmented pf-segmented" role="radiogroup" aria-label={t("profiles.signing")}>
+        {modes.map((m) => (
+          <button
+            key={m || "config"}
+            type="button"
+            role="radio"
+            aria-checked={m === mode}
+            className={m === mode ? "seg on" : "seg"}
+            onClick={() => patch({ signing: m, signingKey: m === mode ? draft.signingKey : null })}
+          >
+            {label(m)}
+          </button>
+        ))}
+      </div>
+      <p className="pf-note">{t(`profiles.signingHint_${mode || "config"}`)}</p>
+
+      {mode === "gpg" && (
+        <div className="pf-field">
+          <label htmlFor="pf-gpg">{t("profiles.gpgKey")}</label>
+          {gpg.status === "error" ? (
+            <p className="pf-key bad" role="alert">
+              <Icon name="alert" size={15} />
+              {errorMessage(t, gpg.error)}
+            </p>
+          ) : (
+            <select id="pf-gpg" className="pf-input" value={chosen?.id ?? key} disabled={gpg.status === "loading"} onChange={(e) => patch({ signingKey: e.target.value || null })}>
+              <option value="">{t("profiles.gpgAuto")}</option>
+              {usable.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.uids[0] ?? k.id} — {k.id}
+                </option>
+              ))}
+              {key && !chosen && gpg.status === "ok" && <option value={key}>{key}</option>}
+            </select>
+          )}
+          {gpg.status === "ok" && usable.length === 0 && <p className="pf-note">{t("profiles.gpgNone")}</p>}
+          {emailMismatch && (
+            <p className="pf-key warn">
+              <Icon name="alert" size={15} />
+              {t("profiles.gpgEmailMismatch", { email: draft.userEmail.trim() })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {mode === "ssh" && (
+        <div className="pf-field">
+          <label htmlFor="pf-sign-key">{t("profiles.sshSigningKey")}</label>
+          <div className="pf-row">
+            <input
+              id="pf-sign-key"
+              className="pf-input mono"
+              value={key}
+              placeholder={draft.sshKey?.trim() || "~/.ssh/id_ed25519"}
+              onChange={(e) => patch({ signingKey: e.target.value })}
+              spellCheck={false}
+              autoComplete="off"
+              aria-invalid={touched && signingKeyMissing(draft)}
+              aria-describedby={touched && signingKeyMissing(draft) ? "pf-sign-key-error" : undefined}
+            />
+            <button type="button" className="btn" onClick={browse}>
+              {t("profiles.browse")}
+            </button>
+          </div>
+          {touched && signingKeyMissing(draft) ? (
+            <span id="pf-sign-key-error" className="input-error">
+              {t("profiles.sshSigningMissing")}
+            </span>
+          ) : ownSshKey ? (
+            <KeyStatus state={sshKeyState} onPassphrase={(store) => onPassphrase(key.replace(/\.pub$/, ""), store)} />
+          ) : (
+            !key.trim() && draft.sshKey?.trim() && <p className="pf-note">{t("profiles.sshSigningDefault")}</p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

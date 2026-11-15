@@ -9,8 +9,10 @@ import {
   parseRemote,
   profileComplete,
   ruleKind,
+  signingKeyMissing,
   slug,
   suggestProfile,
+  uidEmail,
   validEmail,
   type Remote,
 } from "./profiles";
@@ -148,5 +150,21 @@ describe("petites fonctions des profils", () => {
     expect(profileComplete(profile("p", []))).toBe(true);
     expect(profileComplete(profile("p", [], { userName: " " }))).toBe(false);
     expect(profileComplete(profile("p", [], { name: "" }))).toBe(false);
+  });
+});
+
+describe("signature des commits", () => {
+  it("signature SSH : une clé (de signature ou du profil) est nécessaire", () => {
+    const base = profile("p", []);
+    expect(signingKeyMissing({ ...base, signing: "ssh" })).toBe(true);
+    expect(profileComplete({ ...base, signing: "ssh" })).toBe(false);
+    expect(signingKeyMissing({ ...base, signing: "ssh", sshKey: "~/.ssh/id" })).toBe(false);
+    expect(signingKeyMissing({ ...base, signing: "ssh", signingKey: " ~/.ssh/sign " })).toBe(false);
+    expect(signingKeyMissing({ ...base, signing: "gpg" })).toBe(false);
+  });
+
+  it("e-mail d'une identité GPG", () => {
+    expect(uidEmail("Camille Dupont <Camille@Exemple.fr>")).toBe("camille@exemple.fr");
+    expect(uidEmail("camille@exemple.fr")).toBe("camille@exemple.fr");
   });
 });

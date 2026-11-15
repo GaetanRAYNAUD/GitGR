@@ -383,6 +383,9 @@
     "image_unreadable": "Image illisible : choisissez un fichier PNG, JPEG, GIF, WebP ou SVG.",
     "wrong_passphrase": "Phrase de passe incorrecte pour cette clé.",
     "keyring_unavailable": "Trousseau du système indisponible (sous Linux, il faut un service Secret Service : GNOME Keyring, KWallet…).",
+    "sign_failed": "Le commit n’a pas pu être signé : vérifiez la clé de signature du profil (et sa phrase de passe).",
+    "gpg_not_found": "gpg est introuvable (il est fourni avec Git pour Windows, ou par GnuPG / Gpg4win).",
+    "no_profile": "Ce dépôt n’a pas de profil actif.",
     "dismiss": "Fermer"
   },
   "profiles": {
@@ -474,6 +477,23 @@
     "passphraseLabel": "Phrase de passe (vérifiée, puis rangée dans le trousseau du système, jamais dans les fichiers de GitGR)",
     "passphraseSubmit": "Enregistrer",
     "passphraseSaved": "Phrase de passe enregistrée dans le trousseau du système.",
-    "passphraseForgotten": "Phrase de passe retirée du trousseau."
+    "passphraseForgotten": "Phrase de passe retirée du trousseau.",
+    "signing": "Signature des commits",
+    "signing_config": "Config Git",
+    "signing_off": "Ne pas signer",
+    "signing_gpg": "GPG",
+    "signing_ssh": "SSH",
+    "signingHint_config": "La configuration Git décide (commit.gpgsign, user.signingkey), comme sans profil.",
+    "signingHint_off": "Les commits ne sont jamais signés avec ce profil, même si la configuration Git le demande.",
+    "signingHint_gpg": "Chaque commit est signé avec une clé GPG. Sa phrase de passe est demandée par gpg (fenêtre pinentry), puis gardée par gpg-agent. Ajoutez la clé publique à votre compte GitHub / GitLab pour que les commits apparaissent « vérifiés ».",
+    "signingHint_ssh": "Chaque commit est signé avec une clé SSH (Git 2.34 ou plus). Sa phrase de passe vient du trousseau, comme pour la clé du profil. Ajoutez la clé publique comme « clé de signature » sur GitHub / GitLab.",
+    "gpgKey": "Clé GPG",
+    "gpgAuto": "Choisie par gpg d’après l’e-mail du profil",
+    "gpgNone": "Aucune clé GPG secrète trouvée : créez-en une (gpg --full-generate-key) ou importez-la.",
+    "gpgEmailMismatch": "Aucune identité de cette clé n’utilise l’adresse {{email}} : GitHub / GitLab afficheront la signature comme non vérifiée.",
+    "sshSigningKey": "Clé de signature SSH",
+    "sshSigningDefault": "Vide : la clé SSH du profil est utilisée.",
+    "sshSigningMissing": "Indiquez une clé de signature, ou une clé SSH pour le profil.",
+    "appliedSigning": "Réglages de signature écrits aussi."
   }
 }

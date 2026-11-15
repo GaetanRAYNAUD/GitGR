@@ -45,6 +45,17 @@ pub(crate) mod tests {
 
     /// Trousseau utilisable ? (pas de Secret Service sur un runner Linux sans session) — les
     /// tests qui en ont besoin sont alors sautés.
+    /// Retire ces entrées du trousseau à la fin du test, même s'il échoue.
+    pub(crate) struct Cleanup(pub Vec<String>);
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            for key in &self.0 {
+                let _ = delete_passphrase(key);
+            }
+        }
+    }
+
     pub(crate) fn keyring_available() -> bool {
         let probe = format!("probe-{}", std::process::id());
         let ok = set_passphrase(&probe, "x").is_ok() && passphrase(&probe).as_deref() == Some("x");
@@ -67,6 +78,7 @@ pub(crate) mod tests {
             return;
         }
         let key = format!("/gitgr-tests/{}/id", std::process::id());
+        let _cleanup = Cleanup(vec![key.clone()]);
         assert!(!has_passphrase(&key));
         set_passphrase(&key, "pa ss'phrase").unwrap();
         assert_eq!(passphrase(&key).as_deref(), Some("pa ss'phrase"));

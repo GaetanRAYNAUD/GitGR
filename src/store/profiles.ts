@@ -156,8 +156,9 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
       const p = activeProfile(path);
       if (!p) return;
       try {
-        await api.applyIdentity(path, p.userName, p.userEmail);
-        useApp.getState().notify(t("profiles.applied", { name: p.userName, email: p.userEmail }));
+        await api.applyIdentity(path);
+        const signing = p.signing ? ` ${t("profiles.appliedSigning")}` : "";
+        useApp.getState().notify(t("profiles.applied", { name: p.userName, email: p.userEmail }) + signing);
       } catch (e) {
         useApp.setState({ error: errorCode(e) });
       }

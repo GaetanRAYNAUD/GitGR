@@ -177,5 +177,12 @@ export function nextColor(profiles: Profile[]): number {
 /** Adresse e-mail plausible (un `@` entre deux parties non vides, sans espace). */
 export const validEmail = (email: string) => /^[^\s@]+@[^\s@]+$/.test(email.trim());
 
-/** Profil complet : nom, `user.name` et e-mail valide. */
-export const profileComplete = (p: Profile) => !!p.name.trim() && !!p.userName.trim() && validEmail(p.userEmail);
+/** Signature SSH sans clé (ni clé de signature, ni clé SSH du profil) : impossible. */
+export const signingKeyMissing = (p: Profile) => p.signing === "ssh" && !p.signingKey?.trim() && !p.sshKey?.trim();
+
+/** Profil complet : nom, `user.name`, e-mail valide, et de quoi signer si la signature SSH est choisie. */
+export const profileComplete = (p: Profile) =>
+  !!p.name.trim() && !!p.userName.trim() && validEmail(p.userEmail) && !signingKeyMissing(p);
+
+/** Adresse e-mail d'un uid GPG (`Nom <e-mail>`), en minuscules. */
+export const uidEmail = (uid: string) => (uid.match(/<([^>]+)>/)?.[1] ?? uid).trim().toLowerCase();

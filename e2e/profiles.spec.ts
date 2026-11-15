@@ -213,3 +213,45 @@ test("modifications non enregistrées : confirmation avant de quitter, puis supp
   await page.getByRole("button", { name: "Fermer les profils" }).click();
   await expect(commitPill(page)).toHaveText("Config Git");
 });
+
+test("signature des commits : GPG (clé choisie dans la liste) ou SSH", async ({ page }) => {
+  await createBoulot(page);
+  const signing = page.getByRole("radiogroup", { name: "Signature des commits" });
+  await expect(signing.getByRole("radio", { name: "Config Git" })).toHaveAttribute("aria-checked", "true");
+
+  // GPG : liste des clés ; une clé dont aucune identité n'a l'e-mail du profil est signalée.
+  await signing.getByRole("radio", { name: "GPG" }).click();
+  const gpgKey = page.getByLabel("Clé GPG");
+  await expect(gpgKey.locator("option")).toHaveText([
+    "Choisie par gpg d’après l’e-mail du profil",
+    "Camille Dupont <camille@boulot.fr> — 5E8B7C4CFAC5417C",
+    "Demo <demo@exemple.fr> — 1111222233334444",
+  ]);
+  await gpgKey.selectOption("1111222233334444");
+  await expect(page.locator(".profiles-page")).toContainText("Aucune identité de cette clé n’utilise l’adresse camille@boulot.fr");
+  await gpgKey.selectOption("5E8B7C4CFAC5417C");
+  await expect(page.locator(".profiles-page")).not.toContainText("Aucune identité de cette clé");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("gitgr.mock-state") ?? "{}").profiles[0]);
+  expect([saved.signing, saved.signingKey]).toEqual(["gpg", "5E8B7C4CFAC5417C"]);
+
+  // SSH sans aucune clé : refusé ; avec la clé du profil : accepté (clé de signature vide).
+  await signing.getByRole("radio", { name: "SSH" }).click();
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.locator(".profiles-page")).toContainText("Indiquez une clé de signature, ou une clé SSH pour le profil.");
+  await page.getByLabel("Fichier de clé privée").fill("C:/Users/demo/.ssh/id_ed25519");
+  await expect(page.locator(".profiles-page")).toContainText("Vide : la clé SSH du profil est utilisée.");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+
+  // Clé de signature à part, protégée : sa phrase de passe se règle ici aussi.
+  await page.getByLabel("Clé de signature SSH").fill("C:/Users/demo/.ssh/locked_ed25519");
+  const section = page.getByRole("region", { name: "Signature des commits" });
+  await expect(section).toContainText("Protégée par une phrase de passe : enregistrez-la");
+  await section.getByRole("button", { name: "Enregistrer la phrase de passe…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Phrase de passe de la clé" });
+  await dialog.locator("input[type=password]").fill("secret");
+  await dialog.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(section).toContainText("Phrase de passe dans le trousseau du système.");
+});

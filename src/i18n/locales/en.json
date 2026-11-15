@@ -383,6 +383,9 @@
     "image_unreadable": "Unreadable picture: choose a PNG, JPEG, GIF, WebP or SVG file.",
     "wrong_passphrase": "Wrong passphrase for this key.",
     "keyring_unavailable": "System keyring unavailable (on Linux, a Secret Service is needed: GNOME Keyring, KWallet…).",
+    "sign_failed": "The commit could not be signed: check the profile signing key (and its passphrase).",
+    "gpg_not_found": "gpg was not found (it ships with Git for Windows, or with GnuPG / Gpg4win).",
+    "no_profile": "This repository has no active profile.",
     "dismiss": "Dismiss"
   },
   "profiles": {
@@ -474,6 +477,23 @@
     "passphraseLabel": "Passphrase (checked, then kept in the system keyring, never in GitGR’s files)",
     "passphraseSubmit": "Save",
     "passphraseSaved": "Passphrase saved in the system keyring.",
-    "passphraseForgotten": "Passphrase removed from the keyring."
+    "passphraseForgotten": "Passphrase removed from the keyring.",
+    "signing": "Commit signing",
+    "signing_config": "Git config",
+    "signing_off": "Don’t sign",
+    "signing_gpg": "GPG",
+    "signing_ssh": "SSH",
+    "signingHint_config": "The Git configuration decides (commit.gpgsign, user.signingkey), as without a profile.",
+    "signingHint_off": "Commits are never signed with this profile, even if the Git configuration asks for it.",
+    "signingHint_gpg": "Every commit is signed with a GPG key. Its passphrase is asked by gpg (pinentry window), then kept by gpg-agent. Add the public key to your GitHub / GitLab account so commits show as “verified”.",
+    "signingHint_ssh": "Every commit is signed with an SSH key (Git 2.34 or later). Its passphrase comes from the keyring, like the profile key. Add the public key as a “signing key” on GitHub / GitLab.",
+    "gpgKey": "GPG key",
+    "gpgAuto": "Picked by gpg from the profile email",
+    "gpgNone": "No secret GPG key found: create one (gpg --full-generate-key) or import it.",
+    "gpgEmailMismatch": "No identity of this key uses {{email}}: GitHub / GitLab will show the signature as unverified.",
+    "sshSigningKey": "SSH signing key",
+    "sshSigningDefault": "Empty: the profile SSH key is used.",
+    "sshSigningMissing": "Pick a signing key, or an SSH key for the profile.",
+    "appliedSigning": "Signing settings written too."
   }
 }

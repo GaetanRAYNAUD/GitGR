@@ -336,12 +336,20 @@ pub async fn generate_ssh_key(path: String, comment: String, passphrase: Option<
     profiles::generate_key(&path, &comment, passphrase.as_deref())
 }
 
-/// « Appliquer au dépôt » : écrit l'identité dans `.git/config`, pour qu'elle vaille aussi en
-/// ligne de commande.
+/// « Écrire l'identité dans .git/config » : identité et signature du profil actif, pour
+/// qu'elles vaillent aussi en ligne de commande.
 #[tauri::command]
-pub async fn apply_identity(path: String, name: String, email: String) -> Result<(), String> {
+pub async fn apply_identity(path: String) -> Result<(), String> {
     let p = Path::new(&path);
-    git::run(Some(p), &["config", "--local", "user.name", name.trim()]).map_err(classify)?;
-    git::run(Some(p), &["config", "--local", "user.email", email.trim()]).map_err(classify)?;
+    let id = git::identity_for(p).ok_or("no_profile")?;
+    for (key, value) in id.config() {
+        git::run(Some(p), &["config", "--local", key, &value]).map_err(classify)?;
+    }
     Ok(())
+}
+
+/// Clés GPG secrètes, pour choisir celle d'un profil.
+#[tauri::command]
+pub async fn gpg_keys() -> Result<Vec<crate::signing::GpgKey>, String> {
+    crate::signing::gpg_keys()
 }

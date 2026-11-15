@@ -486,7 +486,9 @@ pub fn stash_pop(path: &Path) -> Result<OpResult, String> {
 pub fn classify(stderr: &str) -> String {
     let s = stderr;
     let has = |p: &str| s.contains(p);
-    let code = if has("would be overwritten by checkout")
+    let code = if crate::git::is_sign_error(s) {
+        "sign_failed"
+    } else if has("would be overwritten by checkout")
         || has("would be overwritten by merge")
         || has("cannot pull with rebase")
         || has("cannot rebase: You have unstaged changes")

@@ -38,6 +38,7 @@ import type {
   DiffArea,
   FileDiff,
   GitInfo,
+  GpgKey,
   LineRef,
   OpResult,
   Profile,
@@ -118,7 +119,10 @@ export interface Api {
   /** Vérifie puis range la phrase de passe dans le trousseau du système (`null` : l'oublie). */
   setKeyPassphrase(path: string, passphrase: string | null): Promise<SshKeyInfo>;
   /** Écrit l'identité dans `.git/config` du dépôt. */
-  applyIdentity(path: string, name: string, email: string): Promise<void>;
+  /** Écrit l'identité et la signature du profil actif dans `.git/config` du dépôt. */
+  applyIdentity(path: string): Promise<void>;
+  /** Clés GPG secrètes de l'utilisateur. */
+  gpgKeys(): Promise<GpgKey[]>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
@@ -194,7 +198,8 @@ const tauriApi: Api = {
   sshKeyInfo: (path) => invoke("ssh_key_info", { path }),
   generateSshKey: (path, comment, passphrase) => invoke("generate_ssh_key", { path, comment, passphrase }),
   setKeyPassphrase: (path, passphrase) => invoke("set_key_passphrase", { path, passphrase }),
-  applyIdentity: (path, name, email) => invoke("apply_identity", { path, name, email }),
+  applyIdentity: (path) => invoke("apply_identity", { path }),
+  gpgKeys: () => invoke("gpg_keys"),
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -458,6 +463,13 @@ const mockApi: Api = {
     return mockKeyInfo(path);
   },
   async applyIdentity() {},
+  async gpgKeys() {
+    return [
+      { id: "5E8B7C4CFAC5417C", fingerprint: "CD44BED4A958CD21393CB06C5E8B7C4CFAC5417C", uids: ["Camille Dupont <camille@boulot.fr>"], unusable: false },
+      { id: "1111222233334444", fingerprint: "9999999999999999999999991111222233334444", uids: ["Demo <demo@exemple.fr>"], unusable: false },
+      { id: "AAAA0000BBBB1111", fingerprint: "0000000000000000000000000000AAAA0000BBBB1111", uids: ["Ancienne <old@exemple.fr>"], unusable: true },
+    ];
+  },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];
     mockPick += 1;

@@ -99,6 +99,28 @@ pub struct Profile {
     pub color: u32,
     /// Image (data URL d'un carré de 128 px, quelques Ko) à la place des initiales.
     pub image: Option<String>,
+    /// Signature des commits : "" (la configuration Git décide), "off", "gpg" ou "ssh".
+    pub signing: String,
+    /// GPG : identifiant ou empreinte (vide : choisie par gpg d'après l'e-mail).
+    /// SSH : fichier de clé (vide : la clé SSH du profil).
+    pub signing_key: Option<String>,
+}
+
+impl Profile {
+    fn signing(&self) -> crate::git::Signing {
+        use crate::git::Signing;
+        let key = self.signing_key.as_deref().map(str::trim).filter(|k| !k.is_empty()).map(str::to_string);
+        match self.signing.as_str() {
+            "off" => Signing::Off,
+            "gpg" => Signing::Gpg(key),
+            // Sans clé de signature ni clé SSH : impossible de signer, la config Git décide.
+            "ssh" => match key.or_else(|| self.ssh_key.clone().filter(|k| !k.trim().is_empty())) {
+                Some(k) => Signing::Ssh(k),
+                None => Signing::Config,
+            },
+            _ => Signing::Config,
+        }
+    }
 }
 
 /// Profils d'un dépôt : ceux qui lui sont associés et celui qui sert (relation N–N).
@@ -146,6 +168,7 @@ impl AppState {
                     name: profile.user_name.clone(),
                     email: profile.user_email.clone(),
                     ssh_key: profile.ssh_key.clone(),
+                    signing: profile.signing(),
                 };
                 Some((crate::git::repo_key(std::path::Path::new(path)), id))
             })
@@ -225,6 +248,7 @@ mod tests {
             rules: vec!["github.com".into()],
             color: 2,
             image: Some("data:image/png;base64,AAAA".into()),
+            ..Default::default()
         }
     }
 
@@ -244,6 +268,25 @@ mod tests {
         assert_eq!(ids.len(), 1, "un dépôt sans profil actif n'a pas d'identité");
         let id = &ids[&crate::git::repo_key(std::path::Path::new("/r"))];
         assert_eq!((id.name.as_str(), id.email.as_str(), id.ssh_key.as_deref()), ("Nom perso", "perso@exemple.fr", Some("~/.ssh/perso")));
+    }
+
+    #[test]
+    fn signing_modes_from_profile() {
+        use crate::git::Signing;
+        let mut p = profile("p", Some("~/.ssh/p"));
+        assert_eq!(p.signing(), Signing::Config);
+        p.signing = "off".into();
+        assert_eq!(p.signing(), Signing::Off);
+        p.signing = "gpg".into();
+        assert_eq!(p.signing(), Signing::Gpg(None));
+        p.signing_key = Some(" ABCD1234 ".into());
+        assert_eq!(p.signing(), Signing::Gpg(Some("ABCD1234".into())));
+        p.signing = "ssh".into();
+        assert_eq!(p.signing(), Signing::Ssh("ABCD1234".into()));
+        p.signing_key = None;
+        assert_eq!(p.signing(), Signing::Ssh("~/.ssh/p".into()), "clé SSH du profil par défaut");
+        p.ssh_key = None;
+        assert_eq!(p.signing(), Signing::Config, "rien pour signer");
     }
 
     #[test]
