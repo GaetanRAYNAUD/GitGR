@@ -6,7 +6,7 @@ import { TabColorPopover } from "./TabColorPopover";
 import { type MenuItem, openContextMenu } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
-import { SettingsMenu } from "./SettingsMenu";
+import { useProfiles } from "../store/profiles";
 
 /** Distance (px) à parcourir avant qu'un appui devienne un glisser. */
 const DRAG_THRESHOLD = 5;
@@ -69,6 +69,8 @@ export function TitleBar() {
   const repos = useApp((s) => s.repos);
   const activate = useApp((s) => s.activate);
   const closeTab = useApp((s) => s.closeTab);
+  const settingsOpen = useApp((s) => s.settingsOpen);
+  const profilesOpen = useProfiles((s) => s.pageOpen);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { dragging, onPointerDown } = useTabDrag(tabsRef);
   /** Onglet en cours de renommage (double-clic). */
@@ -186,7 +188,24 @@ export function TitleBar() {
 
       <div className="titlebar-spacer" data-tauri-drag-region />
 
-      <SettingsMenu />
+      <button
+        className={profilesOpen ? "wc on" : "wc"}
+        aria-label={t("settings.accounts")}
+        aria-pressed={profilesOpen}
+        title={t("settings.accounts")}
+        onClick={() => (profilesOpen ? useProfiles.getState().closePage() : useProfiles.getState().openPage())}
+      >
+        <Icon name="user" size={16} />
+      </button>
+      <button
+        className={settingsOpen ? "wc on" : "wc"}
+        aria-label={t("settings.title")}
+        aria-pressed={settingsOpen}
+        title={t("settings.title")}
+        onClick={() => (settingsOpen ? useApp.getState().closeSettings() : useApp.getState().openSettings())}
+      >
+        <Icon name="settings" size={16} />
+      </button>
 
       <div className="window-controls">
         <button className="wc" aria-label={t("window.minimize")} onClick={() => api.window.minimize()}>

@@ -1,50 +1,39 @@
-// Éditeur des couleurs fixes par nom de branche (réglage global).
+// Éditeur des couleurs fixes par nom de branche (page des paramètres).
 // La première règle qui correspond l'emporte : l'ordre se change avec les flèches.
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_BRANCH_COLORS } from "../lib/branchColors";
 import { PALETTE_SIZE } from "../lib/graph";
 import type { BranchColorRule } from "../lib/types";
-import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
 import { ColorChoice } from "./ColorChoice";
 import { Icon } from "./Icon";
 
-export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
+/** Éditeur des règles, enregistrées à chaque changement (les lignes sans motif restent
+ *  à l'écran mais ne sont pas enregistrées). */
+export function BranchColorsEditor({ disabled }: { disabled?: boolean }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLFormElement>(null);
   const saved = useApp((s) => s.settings.branchColors);
-  const [rules, setRules] = useState<BranchColorRule[]>(() => (saved ?? DEFAULT_BRANCH_COLORS).map((r) => ({ ...r })));
+  const [rules, setRulesState] = useState<BranchColorRule[]>(() => (saved ?? DEFAULT_BRANCH_COLORS).map((r) => ({ ...r })));
   /** Ligne ajoutée à l'instant : son champ prend le focus. */
   const [added, setAdded] = useState<number | null>(null);
-  useDismiss(ref, true, onClose);
 
-  const patch = (i: number, p: Partial<BranchColorRule>) => setRules((rs) => rs.map((r, j) => (j === i ? { ...r, ...p } : r)));
-  const move = (i: number, d: number) =>
-    setRules((rs) => {
-      const next = [...rs];
-      [next[i], next[i + d]] = [next[i + d], next[i]];
-      return next;
-    });
+  const setRules = (next: BranchColorRule[]) => {
+    setRulesState(next);
+    const clean = next.map((r) => ({ ...r, pattern: r.pattern.trim() })).filter((r) => r.pattern);
+    useApp.getState().updateSettings({ branchColors: clean });
+  };
+  const patch = (i: number, p: Partial<BranchColorRule>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const move = (i: number, d: number) => {
+    const next = [...rules];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    setRules(next);
+  };
 
   return (
-    <div className="overlay">
-      <form
-        className="dialog branch-colors-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bc-title"
-        ref={ref}
-        onSubmit={(e) => {
-          e.preventDefault();
-          const clean = rules.map((r) => ({ ...r, pattern: r.pattern.trim() })).filter((r) => r.pattern);
-          useApp.getState().updateSettings({ branchColors: clean });
-          onClose();
-        }}
-      >
-        <h2 id="bc-title">{t("branchColors.title")}</h2>
-        <p>{t("branchColors.help")}</p>
+    <fieldset className="bc-editor" disabled={disabled}>
+        <p className="settings-help">{t("branchColors.help")}</p>
         <ul className="bc-rules">
           {rules.map((r, i) => (
             <li key={i} className="bc-rule">
@@ -79,7 +68,7 @@ export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="icon-btn"
                 aria-label={t("branchColors.remove")}
-                onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))}
+                onClick={() => setRules(rules.filter((_, j) => j !== i))}
               >
                 <Icon name="trash" size={14} />
               </button>
@@ -89,7 +78,7 @@ export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
         <div className="bc-tools">
           <button type="button" className="btn" onClick={() => {
               setAdded(rules.length);
-              setRules((rs) => [...rs, { pattern: "", color: rs.length % PALETTE_SIZE }]);
+              setRules([...rules, { pattern: "", color: rules.length % PALETTE_SIZE }]);
             }}>
             <Icon name="plus" size={14} />
             {t("branchColors.add")}
@@ -98,15 +87,6 @@ export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
             {t("branchColors.reset")}
           </button>
         </div>
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={onClose}>
-            {t("profiles.cancel")}
-          </button>
-          <button type="submit" className="btn primary">
-            {t("profiles.save")}
-          </button>
-        </div>
-      </form>
-    </div>
+    </fieldset>
   );
 }

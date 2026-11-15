@@ -41,11 +41,12 @@
     "autoFetch": "Fetch automatique",
     "autoFetchOff": "Non",
     "minutes": "{{count}} min",
-    "profiles": "Profils",
-    "manageProfiles": "Gérer les profils…",
     "branchColors": "Couleurs fixes par nom de branche",
-    "branchColorsHint": "main / master en bleu, develop en vert, release/* en orange, hotfix/* en rose",
-    "branchColorsEdit": "Règles…"
+    "close": "Fermer les paramètres",
+    "accounts": "Profils et comptes",
+    "sectionLook": "Apparence",
+    "sectionGit": "Git",
+    "sectionGraph": "Graphe"
   },
   "welcome": {
     "title": "Dépôts",

@@ -41,11 +41,12 @@
     "autoFetch": "Automatic fetch",
     "autoFetchOff": "Off",
     "minutes": "{{count}} min",
-    "profiles": "Profiles",
-    "manageProfiles": "Manage profiles…",
     "branchColors": "Fixed colors by branch name",
-    "branchColorsHint": "main / master in blue, develop in green, release/* in orange, hotfix/* in pink",
-    "branchColorsEdit": "Rules…"
+    "close": "Close settings",
+    "accounts": "Profiles and accounts",
+    "sectionLook": "Appearance",
+    "sectionGit": "Git",
+    "sectionGraph": "Graph"
   },
   "welcome": {
     "title": "Repositories",

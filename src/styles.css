@@ -437,6 +437,11 @@ h2 {
   color: var(--muted);
 }
 
+.wc.on {
+  color: var(--text);
+  background: var(--hover);
+}
+
 .wc:hover {
   background: var(--hover);
   color: var(--text);
@@ -3120,17 +3125,6 @@ body.resizing-y * {
 
 /* Éditeur des couleurs fixes par nom de branche ---------------------------- */
 
-.menu-check-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.branch-colors-dialog {
-  width: 560px;
-}
-
 .bc-rules {
   list-style: none;
   margin: 16px 0 0;
@@ -3253,4 +3247,62 @@ body.resizing-y * {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: var(--shadow);
+}
+
+/* Page des paramètres ----------------------------------------------------- */
+
+.settings-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--panel);
+}
+
+.settings-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-head h1 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.settings-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-help {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.bc-editor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.bc-editor:disabled {
+  opacity: 0.5;
+}
+
+.bc-editor .bc-rules {
+  max-height: none;
 }

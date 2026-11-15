@@ -22,6 +22,8 @@ interface AppStore {
   tabs: string[];
   /** Onglet actif ; `null` = écran d'accueil. */
   active: string | null;
+  /** Page des paramètres affichée (par-dessus l'onglet actif). */
+  settingsOpen: boolean;
   settings: Settings;
   summaries: Record<string, SummaryState>;
   /** Préférences d'affichage par dépôt (absent = valeurs par défaut). */
@@ -36,6 +38,8 @@ interface AppStore {
   openPath(path: string): Promise<void>;
   pickAndOpen(title: string): Promise<void>;
   activate(path: string | null): void;
+  openSettings(): void;
+  closeSettings(): void;
   closeTab(path: string): void;
   cycleTab(delta: number): void;
   /** Déplace l'onglet `path` à la position `index` (bornée). */
@@ -77,6 +81,7 @@ export const useApp = create<AppStore>((set, get) => ({
   git: null,
   repos: [],
   tabs: [],
+  settingsOpen: false,
   active: null,
   settings: { theme: "system", language: "system" },
   summaries: {},
@@ -115,6 +120,7 @@ export const useApp = create<AppStore>((set, get) => ({
         tabs: nextTabs,
         active: entry.path,
         error: null,
+        settingsOpen: false,
       });
       useProfiles.getState().closePage();
       persistSession(nextTabs, entry.path);
@@ -135,8 +141,17 @@ export const useApp = create<AppStore>((set, get) => ({
     if (path) await get().openPath(path);
   },
 
+  openSettings() {
+    useProfiles.getState().closePage();
+    set({ settingsOpen: true });
+  },
+
+  closeSettings() {
+    set({ settingsOpen: false });
+  },
+
   activate(path) {
-    set({ active: path });
+    set({ active: path, settingsOpen: false });
     useProfiles.getState().closePage();
     persistSession(get().tabs, path);
     if (path) get().refreshSummary(path);
