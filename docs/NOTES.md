@@ -5,7 +5,7 @@
 ## 0. Décisions actées
 
 | Sujet | Décision |
-|---|---|
+|-------|----------|
 | Stack | **Tauri 2** (Rust) — Rust appris au fil de l'eau |
 | Frontend | **React + TypeScript** (connu) |
 | Nature du projet | Perso, **open source** |
