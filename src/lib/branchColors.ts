@@ -12,9 +12,11 @@ export const DEFAULT_BRANCH_COLORS: BranchColorRule[] = [
   { pattern: "hotfix/*", color: 4 },
 ];
 
-/** Règles actives : absentes = règles par défaut ; liste vide = désactivé. */
-export function branchColorRules(rules: BranchColorRule[] | undefined): BranchColorRule[] {
-  return rules ?? DEFAULT_BRANCH_COLORS;
+const NONE: BranchColorRule[] = [];
+
+/** Règles actives : aucune si désactivé, sinon celles choisies (absentes = par défaut). */
+export function branchColorRules(rules: BranchColorRule[] | undefined, off?: boolean): BranchColorRule[] {
+  return off ? NONE : (rules ?? DEFAULT_BRANCH_COLORS);
 }
 
 /** Motif simple : `*` remplace n'importe quelle suite de caractères. */

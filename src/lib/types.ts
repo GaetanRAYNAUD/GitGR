@@ -44,8 +44,10 @@ export interface Settings {
   pullStrategy?: PullStrategy;
   /** Fetch automatique du dépôt actif, en minutes (0 : désactivé ; défaut : 10). */
   autoFetchMinutes?: number;
-  /** Couleurs fixes par nom de branche ; absent = règles par défaut, vide = désactivé. */
+  /** Couleurs fixes par nom de branche ; absent = règles par défaut. */
   branchColors?: BranchColorRule[];
+  /** Couleurs fixes désactivées (les règles sont gardées pour une réactivation). */
+  branchColorsOff?: boolean;
 }
 
 /** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */

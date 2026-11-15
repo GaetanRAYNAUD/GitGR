@@ -3117,3 +3117,78 @@ body.resizing-y * {
 .account-dialog .account-hint .link:disabled {
   opacity: 0.5;
 }
+
+/* Éditeur des couleurs fixes par nom de branche ---------------------------- */
+
+.menu-check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.branch-colors-dialog {
+  width: 560px;
+}
+
+.bc-rules {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.bc-rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bc-pattern {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.bc-swatches {
+  display: flex;
+  gap: 4px;
+}
+
+.bc-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.bc-swatch[aria-checked="true"] {
+  border-color: var(--text);
+}
+
+.bc-rule .icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.bc-up svg {
+  transform: rotate(180deg);
+}
+
+.bc-tools {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}

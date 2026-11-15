@@ -241,7 +241,10 @@ export function CommitGraph({ path, changes }: Props) {
     }
     return list;
   }, [graph?.commits, changes, head]);
-  const rules = branchColorRules(useApp((s) => s.settings.branchColors));
+  const rules = branchColorRules(
+    useApp((s) => s.settings.branchColors),
+    useApp((s) => s.settings.branchColorsOff),
+  );
   const fixed = useMemo(() => fixedColorsByCommit(rules, graph?.refs ?? null), [rules, graph?.refs]);
   const layout = useMemo(() => layoutGraph(commits, fixed), [commits, fixed]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);

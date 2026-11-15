@@ -43,7 +43,8 @@
     "profiles": "Profiles",
     "manageProfiles": "Manage profiles…",
     "branchColors": "Fixed colors by branch name",
-    "branchColorsHint": "main / master in blue, develop in green, release/* in orange, hotfix/* in pink"
+    "branchColorsHint": "main / master in blue, develop in green, release/* in orange, hotfix/* in pink",
+    "branchColorsEdit": "Rules…"
   },
   "welcome": {
     "title": "Repositories",
@@ -596,5 +597,16 @@
     "accountTokenHint_gitlab": "Scopes: api, read_user (pre-selected by the link).",
     "accountSubmit": "Connect",
     "accountConnecting": "Checking…"
+  },
+  "branchColors": {
+    "title": "Colors by branch name",
+    "help": "A branch takes the color of the first rule matching its name (without the remote). “*” matches any characters.",
+    "pattern": "Branch name pattern",
+    "color": "Color",
+    "up": "Move up",
+    "down": "Move down",
+    "remove": "Remove rule",
+    "add": "Add rule",
+    "reset": "Default rules"
   }
 }

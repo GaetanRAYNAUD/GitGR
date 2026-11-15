@@ -57,10 +57,11 @@ pub struct Settings {
     pub pull_strategy: String,
     /// Fetch automatique du dépôt actif, en minutes (0 : désactivé).
     pub auto_fetch_minutes: u32,
-    /// Couleurs fixes par nom de branche ; `None` = règles par défaut (côté interface),
-    /// liste vide = désactivé.
+    /// Couleurs fixes par nom de branche ; `None` = règles par défaut (côté interface).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub branch_colors: Option<Vec<BranchColorRule>>,
+    /// Couleurs fixes désactivées (les règles sont gardées).
+    pub branch_colors_off: bool,
 }
 
 /// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`
@@ -84,6 +85,7 @@ impl Default for Settings {
             pull_strategy: "ff-only".into(),
             auto_fetch_minutes: 10,
             branch_colors: None,
+            branch_colors_off: false,
         }
     }
 }

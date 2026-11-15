@@ -1,10 +1,10 @@
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
-import { DEFAULT_BRANCH_COLORS } from "../lib/branchColors";
 import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
 import { useProfiles } from "../store/profiles";
+import { BranchColorsDialog } from "./BranchColorsDialog";
 import { Flag } from "./Flag";
 import { Icon } from "./Icon";
 
@@ -50,6 +50,7 @@ export function SettingsMenu() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
   const [open, setOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => setOpen(false), []);
@@ -109,14 +110,25 @@ export function SettingsMenu() {
             <input type="checkbox" checked={settings.autoStash ?? true} onChange={(e) => update({ autoStash: e.target.checked })} />
             {t("settings.autoStash")}
           </label>
-          <label className="menu-check" title={t("settings.branchColorsHint")}>
-            <input
-              type="checkbox"
-              checked={(settings.branchColors ?? DEFAULT_BRANCH_COLORS).length > 0}
-              onChange={(e) => update({ branchColors: e.target.checked ? undefined : [] })}
-            />
-            {t("settings.branchColors")}
-          </label>
+          <div className="menu-check-row">
+            <label className="menu-check">
+              <input
+                type="checkbox"
+                checked={!settings.branchColorsOff}
+                onChange={(e) => update({ branchColorsOff: !e.target.checked })}
+              />
+              {t("settings.branchColors")}
+            </label>
+            <button
+              className="btn sm"
+              onClick={() => {
+                setOpen(false);
+                setRulesOpen(true);
+              }}
+            >
+              {t("settings.branchColorsEdit")}
+            </button>
+          </div>
           <div className="field">
             <span className="field-label">{t("settings.profiles")}</span>
             <button
@@ -132,6 +144,7 @@ export function SettingsMenu() {
           </div>
         </div>
       )}
+      {rulesOpen && <BranchColorsDialog onClose={() => setRulesOpen(false)} />}
     </div>
   );
 }
