@@ -258,9 +258,38 @@ pub async fn pull(path: String, strategy: String, auto_stash: bool) -> Result<Op
     branches::pull(Path::new(&path), &strategy, auto_stash)
 }
 
+/// Tire la branche `branch` du remote `remote` dans la branche courante (« Tirer depuis… »).
 #[tauri::command]
-pub async fn push(path: String, force: bool) -> Result<(), String> {
-    branches::push(Path::new(&path), force)
+pub async fn pull_from(path: String, remote: String, branch: String, strategy: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::pull_from(Path::new(&path), &remote, &branch, &strategy, auto_stash)
+}
+
+/// `remote` : destination choisie (« Pousser vers… ») ; absent : celle de la branche suivie.
+#[tauri::command]
+pub async fn push(path: String, force: bool, remote: Option<String>) -> Result<(), String> {
+    branches::push(Path::new(&path), force, remote.as_deref())
+}
+
+// --- Remotes -------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn add_remote(path: String, name: String, url: String) -> Result<(), String> {
+    crate::remotes::add(Path::new(&path), &name, &url)
+}
+
+#[tauri::command]
+pub async fn rename_remote(path: String, old: String, new: String) -> Result<(), String> {
+    crate::remotes::rename(Path::new(&path), &old, &new)
+}
+
+#[tauri::command]
+pub async fn set_remote_url(path: String, name: String, url: String) -> Result<(), String> {
+    crate::remotes::set_url(Path::new(&path), &name, &url)
+}
+
+#[tauri::command]
+pub async fn remove_remote(path: String, name: String) -> Result<(), String> {
+    crate::remotes::remove(Path::new(&path), &name)
 }
 
 #[tauri::command]
@@ -292,6 +321,7 @@ pub async fn watch_repo(path: Option<String>, app: AppHandle, watcher: State<'_,
 /// Met à jour les identités injectées dans git (après tout changement de profils).
 pub fn sync_identities(state: &AppState) {
     git::set_identities(state.identities());
+    crate::remotes::set_table(state.remote_table());
 }
 
 /// Remplace la liste des profils ; renvoie les profils des dépôts, nettoyés de ceux supprimés.

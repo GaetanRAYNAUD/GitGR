@@ -5,7 +5,7 @@ import { CommitPanel } from "../components/graph/CommitPanel";
 import { DiffView } from "../components/graph/DiffView";
 import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
-import { openMenuBelow } from "../components/ContextMenu";
+import { type MenuItem, openMenuBelow } from "../components/ContextMenu";
 import { Icon, type IconName } from "../components/Icon";
 import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
@@ -62,7 +62,12 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   const running = useOps((s) => s.running[path]);
   const ops = useOps.getState();
   const chevron = useRef<HTMLButtonElement>(null);
+  const pushChevron = useRef<HTMLButtonElement>(null);
   const detached = !!data && !data.branch;
+  // Plusieurs remotes : « Tirer depuis… », « Pousser vers… » et « Pousser vers tous ».
+  const remotes = useGraph((s) => s.graphs[path]?.refs?.remotes) ?? [];
+  const several = remotes.length > 1;
+  const blocked = !!running || !!operation || detached;
 
   const tool = (
     key: OpName | "branch",
@@ -85,11 +90,28 @@ function Tools({ path, changes }: { path: string; changes: number }) {
 
   const strategyMenu = () => {
     if (!chevron.current) return;
-    openMenuBelow(
-      chevron.current,
-      STRATEGIES.map((s) => ({ label: t(`pull.${s}`), checked: s === strategy, onClick: () => update({ pullStrategy: s }) })),
-    );
+    const items: MenuItem[] = STRATEGIES.map((s) => ({ label: t(`pull.${s}`), checked: s === strategy, onClick: () => update({ pullStrategy: s }) }));
+    if (several) {
+      items.push("sep");
+      for (const r of remotes) items.push({ label: t("repo.pullFrom", { remote: r.name }), disabled: blocked, onClick: () => ops.pullFrom(path, r.name) });
+    }
+    openMenuBelow(chevron.current, items);
   };
+
+  const pushMenu = () => {
+    if (!pushChevron.current) return;
+    openMenuBelow(pushChevron.current, [
+      ...remotes.map((r): MenuItem => ({ label: t("repo.pushTo", { remote: r.name }), disabled: blocked, onClick: () => ops.push(path, false, r.name) })),
+      "sep",
+      { label: t("repo.pushAll"), disabled: blocked, onClick: () => ops.pushAll(path) },
+    ]);
+  };
+
+  const pushButton = tool("push", "push", () => ops.push(path), {
+    disabled: detached || !!operation,
+    title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
+    badge: data?.ahead,
+  });
 
   return (
     <div className="tools">
@@ -110,11 +132,25 @@ function Tools({ path, changes }: { path: string; changes: number }) {
           <Icon name="chevron" size={12} />
         </button>
       </span>
-      {tool("push", "push", () => ops.push(path), {
-        disabled: detached || !!operation,
-        title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
-        badge: data?.ahead,
-      })}
+      {several ? (
+        <span className="tool-wrap tool-split">
+          {pushButton}
+          <button
+            ref={pushChevron}
+            className="tbtn tool-chevron"
+            aria-label={t("repo.pushMenu")}
+            title={t("repo.pushMenu")}
+            aria-haspopup="menu"
+            // Comme le bouton Push : pas pendant une commande (le menu ne proposerait rien).
+            disabled={blocked}
+            onClick={pushMenu}
+          >
+            <Icon name="chevron" size={12} />
+          </button>
+        </span>
+      ) : (
+        pushButton
+      )}
       {tool("fetch", "fetch", () => ops.fetch(path))}
       <span className="tool-sep" />
       {tool("branch", "branch", () => ops.newBranch(path, null, data?.branch ?? "HEAD"), { title: t("repo.branchHint") })}

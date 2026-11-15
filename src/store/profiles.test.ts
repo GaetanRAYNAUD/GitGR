@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../lib/api";
 import type { Profile } from "../lib/types";
-import { REPO_A, REPO_B } from "../test/utils";
+import { REPO_A, REPO_B, REPO_C } from "../test/utils";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
+import { useGraph } from "./graph";
 import { useOps } from "./ops";
 import { activeProfile, useProfiles } from "./profiles";
 
@@ -71,6 +72,43 @@ describe("store : profils", () => {
     expect(s().repoProfiles[REPO_A]).toEqual({ active: null, allowed: [] });
   });
 
+  it("profil d'un remote : choisi, aucun, puis de nouveau automatique", async () => {
+    await s().save([profile("perso"), profile("boulot")]);
+    await s().setActive(REPO_A, "perso");
+    expect(await s().setRemoteProfile(REPO_A, "origin", "boulot")).toBe(true);
+    await s().setRemoteProfile(REPO_A, "client", null);
+    // Le profil du dépôt et ses profils associés ne changent pas.
+    expect(s().repoProfiles[REPO_A]).toEqual({ active: "perso", allowed: ["perso"], remotes: { origin: "boulot", client: null } });
+    expect((await api.getState()).repoProfiles?.[REPO_A].remotes).toEqual({ origin: "boulot", client: null });
+
+    // Changer le profil du dépôt garde les choix des remotes.
+    await s().setActive(REPO_A, "boulot");
+    expect(s().repoProfiles[REPO_A].remotes).toEqual({ origin: "boulot", client: null });
+
+    // Profil supprimé : son remote retrouve le choix automatique ; « aucun » reste.
+    await s().save([profile("perso")]);
+    expect(s().repoProfiles[REPO_A]).toEqual({ active: null, allowed: ["perso"], remotes: { client: null } });
+
+    await s().setRemoteProfile(REPO_A, "client", undefined);
+    expect(s().repoProfiles[REPO_A].remotes).toEqual({});
+  });
+
+  it("revenir à l'automatique sur un dépôt sans profil choisi n'enregistre rien", async () => {
+    const spy = vi.spyOn(api, "setRepoProfiles");
+    expect(await s().setRemoteProfile(REPO_A, "origin", undefined)).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+    expect(s().repoProfiles[REPO_A]).toBeUndefined();
+  });
+
+  it("un choix de remote refusé par le backend est annulé", async () => {
+    await s().save([profile("perso")]);
+    await s().setActive(REPO_A, "perso");
+    vi.spyOn(api, "setRepoProfiles").mockRejectedValueOnce("disque plein");
+    expect(await s().setRemoteProfile(REPO_A, "origin", "perso")).toBe(false);
+    expect(s().repoProfiles[REPO_A]).toEqual({ active: "perso", allowed: ["perso"] });
+    expect(useApp.getState().error).toBe("disque plein");
+  });
+
   it("garde-fou : propose le profil qui correspond au remote, et retient « garder »", async () => {
     await useApp.getState().openPath(REPO_A);
     await useApp.getState().refreshSummary(REPO_A);
@@ -97,6 +135,23 @@ describe("store : profils", () => {
     expect(await ok).toBe(true);
     expect(await s().confirmIdentity(REPO_A)).toBe(true);
     expect(useDialogs.getState().current).toBeNull();
+  });
+
+  it("garde-fou : pas de question si le profil du dépôt est celui d'un autre remote", async () => {
+    // REPO_C : origin sur gitlab.exemple.fr, client sur gitlab.client.fr.
+    await useApp.getState().openPath(REPO_C);
+    await useApp.getState().refreshSummary(REPO_C);
+    await useGraph.getState().refresh(REPO_C);
+    await s().save([profile("entreprise", ["gitlab.exemple.fr"]), profile("client", ["gitlab.client.fr"]), profile("perso", ["github.com"])]);
+    await s().setActive(REPO_C, "client");
+    expect(await s().confirmIdentity(REPO_C)).toBe(true);
+    expect(useDialogs.getState().current).toBeNull();
+
+    // Un profil qui ne correspond à aucun remote est toujours signalé.
+    await s().setActive(REPO_C, "perso");
+    const ok = s().confirmIdentity(REPO_C);
+    await answer("keep");
+    expect(await ok).toBe(true);
   });
 
   it("le push demande confirmation d'abord ; annulé, rien n'est poussé", async () => {

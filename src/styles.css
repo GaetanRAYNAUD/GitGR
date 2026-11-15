@@ -983,6 +983,34 @@ h2 {
   font-weight: 500;
 }
 
+/* Profil d'un remote (clé SSH) : pastille et nom, discrets, après le nom du remote. */
+.section-name {
+  flex: none;
+}
+
+.section-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-left: 2px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
+}
+
+.section-profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-profile + .section-count {
+  flex: none;
+  padding-left: 6px;
+}
+
 .chev {
   transition: transform 0.15s;
 }
@@ -2112,6 +2140,11 @@ h2 {
 
 .toast.error .ico {
   color: var(--del);
+}
+
+/* Une ligne par remote en échec (« Pousser vers tous les remotes »). */
+.toast.error span {
+  white-space: pre-line;
 }
 
 .overlay {

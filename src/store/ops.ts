@@ -1,6 +1,9 @@
 // Branches et réseau : checkout (avec auto-stash), création / renommage / suppression de
 // branches, fetch, pull, push, stash / pop, et opérations en cours (merge, rebase…).
 //
+// Fetch lit tous les remotes ; push et pull peuvent viser un remote choisi (« Pousser vers… »,
+// « Pousser vers tous les remotes », « Tirer depuis… »), chacun avec la clé de son profil.
+//
 // Les commandes git d'un même dépôt passent une par une (file d'attente par dépôt) ; les
 // questions à l'utilisateur (confirmation, nom de branche) sont posées en dehors de la file.
 // Après chaque commande, tout le dépôt est relu (résumé, graphe, copie de travail).
@@ -8,7 +11,8 @@
 import { create } from "zustand";
 import i18n from "../i18n";
 import { api, errorCode } from "../lib/api";
-import { AUTOSTASH_PREFIX, validBranchName } from "../lib/branchName";
+import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
+import { errorMessage } from "../lib/errors";
 import type { OpResult, PullStrategy } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
@@ -16,7 +20,7 @@ import { useGraph, WIP } from "./graph";
 import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
 
-export type OpName = "checkout" | "branch" | "fetch" | "pull" | "push" | "stash" | "pop" | "operation";
+export type OpName = "checkout" | "branch" | "fetch" | "pull" | "push" | "stash" | "pop" | "operation" | "remote";
 
 export { AUTOSTASH_PREFIX };
 
@@ -39,7 +43,19 @@ interface OpsStore {
   fetch(path: string, silent?: boolean): Promise<boolean>;
   /** `strategy` absente : celle des réglages. */
   pull(path: string, strategy?: PullStrategy): Promise<boolean>;
-  push(path: string, force?: boolean): Promise<boolean>;
+  /** Tire la branche courante depuis un autre remote (« Tirer depuis… ») : la branche du même
+   *  nom, ou `branch`. La branche suivie ne change pas. */
+  pullFrom(path: string, remote: string, branch?: string, strategy?: PullStrategy): Promise<boolean>;
+  /** `remote` : destination choisie (« Pousser vers… ») ; absente : celle de la branche suivie. */
+  push(path: string, force?: boolean, remote?: string): Promise<boolean>;
+  /** Pousse la branche courante vers chaque remote, chacun avec la clé de son profil. */
+  pushAll(path: string): Promise<boolean>;
+  /** Demande un nom et une URL, ajoute le remote, puis le récupère si la case est cochée. */
+  addRemote(path: string): Promise<boolean>;
+  renameRemote(path: string, remote: string): Promise<boolean>;
+  editRemoteUrl(path: string, remote: string): Promise<boolean>;
+  /** Après confirmation : ses branches distantes disparaissent, rien n'est touché sur le serveur. */
+  removeRemote(path: string, remote: string): Promise<boolean>;
   stash(path: string): Promise<boolean>;
   pop(path: string): Promise<boolean>;
   abortOperation(path: string): Promise<boolean>;
@@ -82,6 +98,27 @@ async function selectHead(path: string) {
 }
 
 const nameError = (name: string) => (validBranchName(name) ? null : t("branch.invalid"));
+const remoteNameError = (name: string) => (validRemoteName(name) ? null : t("remotes.invalidName"));
+const remotesOf = (path: string) => useGraph.getState().graphs[path]?.refs?.remotes ?? [];
+
+/** La branche courante suit-elle une branche de ce remote ? */
+function tracksOn(path: string, remote: string): boolean {
+  const refs = useGraph.getState().graphs[path]?.refs;
+  const local = refs?.refs.find((r) => r.kind === "local" && r.short === refs.headBranch);
+  return !!local?.upstream?.startsWith(`${remote}/`);
+}
+
+/** Préférences de la section d'un remote (repliée, masquée, dossiers repliés) : renommées avec
+ *  lui (`next`), ou retirées s'il est supprimé (`null`). */
+function moveRemoteUi(path: string, old: string, next: string | null) {
+  const app = useApp.getState();
+  const ui = app.repoUi[path];
+  if (!ui) return;
+  const prefix = `remote:${old}`;
+  const mine = (key: string) => key === prefix || key.startsWith(`${prefix}/`);
+  const move = (keys: string[]) => keys.flatMap((k) => (!mine(k) ? [k] : next === null ? [] : [`remote:${next}${k.slice(prefix.length)}`]));
+  if (ui.collapsed.some(mine) || ui.hidden.some(mine)) app.setRepoUi(path, { ...ui, collapsed: move(ui.collapsed), hidden: move(ui.hidden) });
+}
 
 export const useOps = create<OpsStore>((set, get) => {
   /** Lance `fn` à son tour dans la file du dépôt, puis relit le dépôt. */
@@ -227,10 +264,34 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
-    async push(path, force = false) {
+    async pullFrom(path, remote, branch, strategy) {
+      const mode = strategy ?? settings().pullStrategy ?? "ff-only";
+      const current = currentBranch(path);
+      const source = branch ?? current;
+      if (!source) return fail("detached_head");
+      const out = await exec(path, "pull", () => api.pullFrom(path, remote, source, mode, autoStash()));
+      if (!out.ok && out.error === "not_fast_forward") {
+        const pick = await useDialogs.getState().choose({
+          title: t("pull.divergedTitle"),
+          body: t("pull.divergedFromBody", { branch: current ?? "HEAD", source: `${remote}/${source}` }),
+          choices: [
+            { id: "merge", label: t("pull.merge") },
+            { id: "rebase", label: t("pull.rebase") },
+          ],
+        });
+        return pick ? get().pullFrom(path, remote, source, pick as PullStrategy) : false;
+      }
+      if (!out.ok) return fail(out.error);
+      report(out.value, current ?? "HEAD");
+      // Conflits ou stash gardé : l'avertissement posé par `report` reste affiché.
+      if (!out.value.conflicts && !out.value.stashKept) notify(t("notice.pulledFrom", { source: `${remote}/${source}` }));
+      return true;
+    },
+
+    async push(path, force = false, remote) {
       // Garde-fou : profil actif qui ne correspond pas au remote (une seule fois par session).
       if (!force && !(await useProfiles.getState().confirmIdentity(path))) return false;
-      const out = await exec(path, "push", () => api.push(path, force));
+      const out = await exec(path, "push", () => api.push(path, force, remote ?? null));
       if (!out.ok && out.error === "push_rejected" && !force) {
         const pick = await useDialogs.getState().choose({
           title: t("push.rejectedTitle"),
@@ -240,12 +301,110 @@ export const useOps = create<OpsStore>((set, get) => {
             { id: "pull", label: t("push.pullFirst") },
           ],
         });
-        if (pick === "pull") return get().pull(path);
-        return pick === "force" ? get().push(path, true) : false;
+        // « Pull » : depuis le remote qui a refusé. Si c'est celui de la branche suivie, c'est elle
+        // qui a reçu le push (son nom peut différer) ; sinon, la branche du même nom.
+        if (pick === "pull") return remote && !tracksOn(path, remote) ? get().pullFrom(path, remote) : get().pull(path);
+        return pick === "force" ? get().push(path, true, remote) : false;
       }
       if (!out.ok) return fail(out.error);
       // Lu après le push : le dépôt vient d'être relu (au démarrage, il pouvait ne pas l'être encore).
-      notify(t("notice.pushed", { branch: currentBranch(path) ?? "HEAD" }));
+      const branch = currentBranch(path) ?? "HEAD";
+      notify(remote ? t("notice.pushedTo", { branch, remote }) : t("notice.pushed", { branch }));
+      return true;
+    },
+
+    async pushAll(path) {
+      if (!(await useProfiles.getState().confirmIdentity(path))) return false;
+      // `origin` d'abord : une branche qui ne suit rien suit le premier remote qui la reçoit.
+      const remotes = remotesOf(path)
+        .map((r) => r.name)
+        .sort((a, b) => Number(b === "origin") - Number(a === "origin"));
+      if (remotes.length === 0) return fail("no_remote");
+      // Une seule commande pour l'interface ; un remote en échec n'empêche pas les suivants.
+      const out = await exec(path, "push", async () => {
+        const failed: { remote: string; error: string }[] = [];
+        for (const remote of remotes) {
+          try {
+            await api.push(path, false, remote);
+          } catch (e) {
+            failed.push({ remote, error: errorCode(e) });
+          }
+        }
+        return failed;
+      });
+      if (!out.ok) return fail(out.error);
+      const failed = out.value;
+      const done = remotes.filter((r) => !failed.some((f) => f.remote === r));
+      const branch = currentBranch(path) ?? "HEAD";
+      if (done.length) notify(t("notice.pushedTo", { branch, remote: done.join(", ") }), failed.length > 0);
+      if (failed.length === 0) return true;
+      const details = failed.map((f) => t("push.remoteFailed", { remote: f.remote, error: errorMessage(i18n.t, f.error) }));
+      return fail(details.join("\n"));
+    },
+
+    async addRemote(path) {
+      const taken = new Set(remotesOf(path).map((r) => r.name));
+      const answer = await useDialogs.getState().input({
+        title: t("remotes.addTitle"),
+        label: t("remotes.name"),
+        // Le premier remote d'un dépôt s'appelle « origin » par convention.
+        initial: taken.size === 0 ? "origin" : "",
+        submit: t("remotes.add"),
+        second: { label: t("remotes.url"), initial: "", placeholder: "git@github.com:mon-org/depot.git" },
+        checkbox: { label: t("remotes.fetchNow"), checked: true },
+        validate: (v) => remoteNameError(v) ?? (taken.has(v) ? t("remotes.exists") : null),
+      });
+      if (!answer) return false;
+      const out = await exec(path, "remote", () => api.addRemote(path, answer.value, answer.second ?? ""));
+      if (!out.ok) return fail(out.error);
+      if (answer.checked) return get().fetch(path);
+      notify(t("remotes.added", { remote: answer.value }));
+      return true;
+    },
+
+    async renameRemote(path, remote) {
+      const taken = new Set(remotesOf(path).map((r) => r.name));
+      const answer = await useDialogs.getState().input({
+        title: t("remotes.renameTitle", { remote }),
+        label: t("remotes.name"),
+        initial: remote,
+        submit: t("branch.rename"),
+        validate: (v) => remoteNameError(v) ?? (v !== remote && taken.has(v) ? t("remotes.exists") : null),
+      });
+      if (!answer || answer.value === remote) return false;
+      const out = await exec(path, "remote", () => api.renameRemote(path, remote, answer.value));
+      if (!out.ok) return fail(out.error);
+      // Le profil choisi pour ce remote et les préférences de sa section le suivent.
+      moveRemoteUi(path, remote, answer.value);
+      await useProfiles.getState().moveRemoteProfile(path, remote, answer.value);
+      return true;
+    },
+
+    async editRemoteUrl(path, remote) {
+      const current = remotesOf(path).find((r) => r.name === remote)?.url ?? "";
+      const answer = await useDialogs.getState().input({
+        title: t("remotes.urlTitle", { remote }),
+        label: t("remotes.url"),
+        initial: current,
+        submit: t("remotes.save"),
+      });
+      if (!answer || answer.value === current) return false;
+      const out = await exec(path, "remote", () => api.setRemoteUrl(path, remote, answer.value));
+      return out.ok || fail(out.error);
+    },
+
+    async removeRemote(path, remote) {
+      const ok = await useDialogs.getState().choose({
+        title: t("remotes.removeTitle", { remote }),
+        body: t("remotes.removeBody"),
+        choices: [{ id: "remove", label: t("remotes.removeConfirm"), danger: true }],
+      });
+      if (!ok) return false;
+      const out = await exec(path, "remote", () => api.removeRemote(path, remote));
+      if (!out.ok) return fail(out.error);
+      // Un remote ajouté plus tard sous ce nom ne reprend ni son profil ni sa section masquée.
+      moveRemoteUi(path, remote, null);
+      await useProfiles.getState().moveRemoteProfile(path, remote, null);
       return true;
     },
 

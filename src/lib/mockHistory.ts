@@ -1,7 +1,7 @@
 // Historique factice pour le backend simulé (navigateur, tests E2E).
 // Déterministe : un même chemin de dépôt donne toujours le même historique.
 
-import type { Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo } from "./types";
+import type { Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
 
 /** Petit générateur pseudo-aléatoire déterministe (mulberry32). */
 function rng(seed: number) {
@@ -118,7 +118,14 @@ export function mockHistory(path: string): MockHistory {
     ref("remote", "origin/feature/graph-rendering", wip),
     ...tags.reverse().map(([name, sha]) => ref("tag", name, sha)),
   ];
-  const result = { commits, refs: { head: main, headBranch: "main", refs, stashes: 0, autostash: null } };
+  const name = path.split("/").pop() ?? "repo";
+  const remotes: RemoteInfo[] = [{ name: "origin", url: `git@gitlab.exemple.fr:demo/${name}.git`, pushUrl: null }];
+  // « dotfiles » a un second remote (celui d'un client), en retard d'un commit sur origin.
+  if (name === "dotfiles") {
+    remotes.unshift({ name: "client", url: `git@gitlab.client.fr:projet/${name}.git`, pushUrl: null });
+    refs.splice(4, 0, ref("remote", "client/main", commits.find((c) => c.sha === originMain)!.parents[0]));
+  }
+  const result = { commits, refs: { head: main, headBranch: "main", refs, stashes: 0, autostash: null, remotes } };
   cache.set(path, result);
   return result;
 }

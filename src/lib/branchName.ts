@@ -1,4 +1,4 @@
-// Validation d'un nom de branche côté interface (le backend vérifie aussi, avec git).
+// Validation d'un nom de branche ou de remote côté interface (le backend vérifie aussi, avec git).
 
 /** Préfixe des stash créés par l'auto-stash (cf. src-tauri/src/branches.rs). */
 export const AUTOSTASH_PREFIX = "GitGR-autostash: ";
@@ -19,3 +19,6 @@ export function validBranchName(name: string): boolean {
     !/[\s~^:?*[\\\x00-\x1f\x7f]/.test(name)
   );
 }
+
+/** Nom de remote : comme un nom de branche (il sert de préfixe à ses branches distantes). */
+export const validRemoteName = validBranchName;

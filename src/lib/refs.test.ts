@@ -18,6 +18,7 @@ const info: RefsInfo = {
   headBranch: "main",
   stashes: 0,
   autostash: null,
+  remotes: [],
   refs: [
     ref("local", "feature", "b"),
     ref("local", "main", "a"),
@@ -63,6 +64,18 @@ describe("refSections", () => {
     expect(s[0].items.map((r) => r.short)).toEqual(["feature", "main"]);
     expect(s[1].items.map(sectionLabel)).toEqual(["feature", "main"]);
     expect(s[3].items.map((r) => r.short)).toEqual(["v1.10.0", "v1.2.0"]);
+  });
+
+  it("un remote sans branche récupérée a sa section, vide", () => {
+    const remote = (name: string) => ({ name, url: `git@exemple.fr:${name}.git`, pushUrl: null });
+    const s = refSections({ ...info, remotes: [remote("client"), remote("origin"), remote("upstream")] });
+    expect(s.map((x) => [x.key, x.items.length])).toEqual([
+      ["local", 2],
+      ["remote:client", 0],
+      ["remote:origin", 2],
+      ["remote:upstream", 1],
+      ["tags", 2],
+    ]);
   });
 });
 

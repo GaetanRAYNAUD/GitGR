@@ -29,6 +29,8 @@ export interface InputRequest {
   submit: string;
   /** Champ masqué (phrase de passe) : ni valeur initiale affichée, ni correction. */
   secret?: boolean;
+  /** Second champ facultatif, sous le premier (URL d'un remote…) ; obligatoire lui aussi. */
+  second?: { label: string; initial: string; placeholder?: string; validate?: (value: string) => string | null };
   /** Case à cocher facultative sous le champ. */
   checkbox?: { label: string; checked: boolean };
   /** Message d'erreur pour une valeur refusée, `null` si elle convient. */
@@ -38,6 +40,8 @@ export interface InputRequest {
 export interface InputAnswer {
   value: string;
   checked: boolean;
+  /** Valeur du second champ, s'il y en a un. */
+  second?: string;
 }
 
 /** `id` : numéro de la demande (une nouvelle fenêtre repart d'un état neuf). */

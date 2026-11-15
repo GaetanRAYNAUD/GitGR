@@ -3,8 +3,8 @@
 
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockRestore, mockSnapshot } from "./mockWorktree";
-import { AUTOSTASH_PREFIX, validBranchName } from "./branchName";
-import type { AutoStash, GitRef, OpResult, PullStrategy } from "./types";
+import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
+import type { AutoStash, GitRef, OpResult, PullStrategy, RemoteInfo } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -46,7 +46,7 @@ export function mockStashPop(path: string): OpResult {
 /** Remplace les refs (nouvel objet : l'empreinte change, le graphe se recharge). */
 function setRefs(path: string, refs: GitRef[], head: string | null, headBranch: string | null) {
   const h = mockHistory(path);
-  h.refs = { head, headBranch, refs, stashes: mockStashCount(path), autostash: mockAutostash(path) };
+  h.refs = { ...h.refs, head, headBranch, refs, stashes: mockStashCount(path), autostash: mockAutostash(path) };
 }
 
 const local = (path: string, name: string) => mockHistory(path).refs.refs.find((r) => r.kind === "local" && r.short === name);
@@ -184,12 +184,94 @@ export function mockPull(path: string, strategy: PullStrategy, autoStash: boolea
   return res;
 }
 
-export function mockPush(path: string, force: boolean) {
+/** Tire `remoteName/branch` dans la branche courante, sans toucher à la branche suivie. */
+export function mockPullFrom(path: string, remoteName: string, branch: string, strategy: PullStrategy, autoStash: boolean): OpResult {
+  const { h, l } = tracked(path);
+  if (!h.refs.remotes.some((r) => r.name === remoteName)) throw "remote_not_found";
+  const source = remote(path, `${remoteName}/${branch}`);
+  if (!source) throw "remote_ref_not_found";
+  if (ancestors(path, l.target).has(source.target)) return OK;
+  const res = stashResult(path, autoStash);
+  let target = source.target;
+  if (!ancestors(path, source.target).has(l.target)) {
+    if (strategy === "ff-only") throw "not_fast_forward";
+    const subject = strategy === "merge" ? `Merge branch '${branch}' of ${remoteName} into ${l.short}` : "fix: correctif local (rebasé)";
+    target = mockNewCommit(path, strategy === "merge" ? [l.target, source.target] : [source.target], subject);
+  }
+  setRefs(path, h.refs.refs.map((r) => (r === l ? { ...r, target } : r)), target, l.short);
+  return res;
+}
+
+/** `to` : remote choisi ; `null` : celui de la branche suivie, sinon `origin`. */
+export function mockPush(path: string, force: boolean, to: string | null = null) {
   const { h, l, up } = tracked(path);
+  if (to && !h.refs.remotes.some((r) => r.name === to)) throw "remote_not_found";
+  const upstreamRemote = up?.short.slice(0, up.short.indexOf("/"));
+  // Vers un autre remote que celui de la branche suivie : la branche du même nom, sans changer le suivi.
+  if (to && up && to !== upstreamRemote) {
+    const name = `${to}/${l.short}`;
+    const there = remote(path, name);
+    if (there && !force && !ancestors(path, l.target).has(there.target)) throw "push_rejected";
+    setRefs(path, [...h.refs.refs.filter((r) => r !== there), makeRef("remote", name, l.target)], h.refs.head, h.refs.headBranch);
+    return;
+  }
   if (up && l.behind > 0 && !force) throw "push_rejected";
-  const name = up?.short ?? `origin/${l.short}`;
+  const name = up?.short ?? `${to ?? "origin"}/${l.short}`;
   const others = h.refs.refs.filter((r) => r !== up).map((r) => (r === l ? { ...r, upstream: name, ahead: 0, behind: 0, gone: false } : r));
   setRefs(path, [...others, makeRef("remote", name, l.target)], h.refs.head, h.refs.headBranch);
+}
+
+// --- Remotes -------------------------------------------------------------------
+
+const sortRemotes = (list: RemoteInfo[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
+
+function setRemotes(path: string, remotes: RemoteInfo[], refs = mockHistory(path).refs.refs) {
+  const h = mockHistory(path);
+  h.refs = { ...h.refs, refs, remotes: sortRemotes(remotes) };
+}
+
+export function mockAddRemote(path: string, name: string, url: string) {
+  const { remotes } = mockHistory(path).refs;
+  if (!validRemoteName(name)) throw "invalid_remote_name";
+  if (!url.trim()) throw "invalid_remote_url";
+  if (remotes.some((r) => r.name === name)) throw "remote_exists";
+  setRemotes(path, [...remotes, { name, url, pushUrl: null }]);
+}
+
+export function mockRenameRemote(path: string, old: string, next: string) {
+  const { remotes, refs } = mockHistory(path).refs;
+  if (!remotes.some((r) => r.name === old)) throw "remote_not_found";
+  if (!validRemoteName(next)) throw "invalid_remote_name";
+  if (old === next) return;
+  if (remotes.some((r) => r.name === next)) throw "remote_exists";
+  const moved = (short: string) => `${next}/${short.slice(old.length + 1)}`;
+  setRemotes(
+    path,
+    remotes.map((r) => (r.name === old ? { ...r, name: next } : r)),
+    refs.map((r) => {
+      if (r.kind === "remote" && r.short.startsWith(`${old}/`)) return { ...r, short: moved(r.short), name: `refs/remotes/${moved(r.short)}` };
+      return r.upstream?.startsWith(`${old}/`) ? { ...r, upstream: moved(r.upstream) } : r;
+    }),
+  );
+}
+
+export function mockSetRemoteUrl(path: string, name: string, url: string) {
+  const { remotes } = mockHistory(path).refs;
+  if (!remotes.some((r) => r.name === name)) throw "remote_not_found";
+  if (!url.trim()) throw "invalid_remote_url";
+  setRemotes(path, remotes.map((r) => (r.name === name ? { ...r, url } : r)));
+}
+
+export function mockRemoveRemote(path: string, name: string) {
+  const { remotes, refs } = mockHistory(path).refs;
+  if (!remotes.some((r) => r.name === name)) throw "remote_not_found";
+  setRemotes(
+    path,
+    remotes.filter((r) => r.name !== name),
+    refs
+      .filter((r) => !(r.kind === "remote" && r.short.startsWith(`${name}/`)))
+      .map((r) => (r.upstream?.startsWith(`${name}/`) ? { ...r, upstream: null, ahead: 0, behind: 0, gone: false } : r)),
+  );
 }
 
 /** Tests : repart de piles de stash vides. */

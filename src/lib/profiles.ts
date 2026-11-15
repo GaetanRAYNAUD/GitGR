@@ -1,7 +1,7 @@
 // Profils : règles de sélection automatique (remote du dépôt, dossier du dépôt) et petites
 // fonctions pures (testées dans profiles.test.ts).
 
-import type { Profile } from "./types";
+import type { Profile, RemoteInfo, RepoProfiles } from "./types";
 
 /** Nombre de couleurs de pastille (`--l0` … `--l3`). */
 export const PROFILE_COLORS = 4;
@@ -140,6 +140,34 @@ export function hostMismatch(profiles: Profile[], activeId: string | null, ctx: 
   const best = suggestProfile(others, ctx);
   if (!best || profileScore(best, ctx) <= profileScore(active, ctx)) return null;
   return profiles.find((p) => p.id === best.id) ?? null;
+}
+
+/** D'où vient le profil d'un remote : choisi à la main, désigné par une règle sur son URL,
+ *  repris du dépôt, ou aucun. */
+export type RemoteProfileSource = "explicit" | "rule" | "repo" | "none";
+
+export interface RemoteProfile {
+  profile: Profile | null;
+  source: RemoteProfileSource;
+}
+
+/** Profil d'un remote (clé SSH, compte de l'API) : celui choisi à la main (`null` : aucun),
+ *  sinon celui que les règles de remote désignent pour son URL, sinon le profil du dépôt. Le
+ *  backend fait le même choix pour la clé SSH (src-tauri/src/remotes.rs) ; les deux côtés
+ *  partagent les cas de remoteRules.cases.json. */
+export function remoteProfile(profiles: Profile[], binding: RepoProfiles | undefined, remote: Pick<RemoteInfo, "name" | "url">): RemoteProfile {
+  const choice = binding?.remotes?.[remote.name];
+  if (choice === null) return { profile: null, source: "explicit" };
+  // Profil choisi puis supprimé : comme sans choix.
+  const chosen = choice !== undefined && profiles.find((p) => p.id === choice);
+  if (chosen) return { profile: chosen, source: "explicit" };
+  const byRule = suggestProfile(
+    profiles.map((p) => ({ ...p, rules: p.rules.filter((r) => ruleKind(r) === "remote") })),
+    { path: "", remote: parseRemote(remote.url), home: null },
+  );
+  if (byRule) return { profile: profiles.find((p) => p.id === byRule.id) ?? null, source: "rule" };
+  const active = profiles.find((p) => p.id === binding?.active) ?? null;
+  return { profile: active, source: active ? "repo" : "none" };
 }
 
 /** Nom de fichier tiré d'un nom de profil : « Équipe Boulot » → `equipe_boulot`. */

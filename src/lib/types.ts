@@ -109,6 +109,10 @@ export interface GpgKey {
 export interface RepoProfiles {
   active: string | null;
   allowed: string[];
+  /** Profil choisi à la main pour un remote (clé SSH, compte de l'API), par nom de remote ;
+   *  `null` : aucun profil. Absent : celui que désignent les règles sur l'URL du remote, sinon
+   *  le profil du dépôt. */
+  remotes?: Record<string, string | null>;
 }
 
 export interface SshKeyInfo {
@@ -169,6 +173,17 @@ export interface RefsInfo {
   stashes: number;
   /** Dernier stash s'il vient de l'auto-stash (modifications pas encore réappliquées). */
   autostash: AutoStash | null;
+  /** Remotes du dépôt (même sans branche récupérée), par ordre alphabétique. */
+  remotes: RemoteInfo[];
+}
+
+/** Un remote du dépôt (src-tauri/src/remotes.rs). */
+export interface RemoteInfo {
+  name: string;
+  /** URL de fetch ; `null` si le remote n'en a pas. */
+  url: string | null;
+  /** URL de push, quand elle diffère. */
+  pushUrl: string | null;
 }
 
 export interface AutoStash {

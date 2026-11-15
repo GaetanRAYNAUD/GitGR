@@ -71,7 +71,8 @@ export function refSections(info: RefsInfo | null): RefSection[] {
   const sections: RefSection[] = [
     { key: "local", kind: "local", items: info.refs.filter((r) => r.kind === "local").sort(byName) },
   ];
-  const remotes = new Map<string, GitRef[]>();
+  // Un remote sans branche récupérée (ajouté, pas encore de fetch) a sa section, vide.
+  const remotes = new Map<string, GitRef[]>(info.remotes.map((r) => [r.name, []]));
   for (const r of info.refs.filter((x) => x.kind === "remote")) {
     const name = remoteName(r);
     remotes.set(name, [...(remotes.get(name) ?? []), r]);

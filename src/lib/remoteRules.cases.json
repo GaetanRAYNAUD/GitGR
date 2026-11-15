@@ -1,0 +1,94 @@
+{
+  "//": "Cas partagés par lib/profiles.test.ts et src-tauri/src/remotes.rs : les règles de remote sont interprétées des deux côtés (affichage / clé SSH injectée) et doivent donner le même résultat.",
+  "parse": [
+    { "url": "git@github.com:Mon-Org/Depot.git", "host": "github.com", "path": "mon-org/depot", "ssh": true },
+    { "url": "https://www.github.com/mon-org/depot/", "host": "github.com", "path": "mon-org/depot", "ssh": false },
+    { "url": "ssh://git@gitlab.exemple.fr:2222/groupe/sous/depot.git", "host": "gitlab.exemple.fr", "path": "groupe/sous/depot", "ssh": true },
+    { "url": "git+ssh://git@GitLab.exemple.fr/g/r.GIT", "host": "gitlab.exemple.fr", "path": "g/r", "ssh": true },
+    { "url": "https://user:token@gitlab.com/g/r", "host": "gitlab.com", "path": "g/r", "ssh": false },
+    { "url": "  github.com:org/depot  ", "host": "github.com", "path": "org/depot", "ssh": true },
+    { "url": "ssh://serveur-a/srv/git/r.git", "host": "serveur-a", "path": "srv/git/r", "ssh": true },
+    { "url": "https://gitlab.com", "host": "gitlab.com", "path": "", "ssh": false },
+    { "url": "C:/repos/remote.git", "host": null },
+    { "url": "C:\\repos\\remote.git", "host": null },
+    { "url": "/srv/git/r.git", "host": null },
+    { "url": "../autre.git", "host": null },
+    { "url": "file:///srv/git/r.git", "host": null },
+    { "url": "ssh://hote:port/x", "host": null },
+    { "url": "", "host": null }
+  ],
+  "match": [
+    { "rule": "github.com", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "GitHub.com", "url": "https://www.github.com/mon-org/depot", "match": true },
+    { "rule": "github.com", "url": "git@gist.github.com:x/y.git", "match": false },
+    { "rule": "*.exemple.fr", "url": "ssh://git@gitlab.exemple.fr:2222/g/r.git", "match": true },
+    { "rule": "*.exemple.fr", "url": "git@exemple.fr:g/r.git", "match": false },
+    { "rule": "gitlab.exemple.fr", "url": "git@gitlabxexemple.fr:g/r.git", "match": false },
+    { "rule": "github.com/mon-org", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "github.com/mon-org/*", "url": "git@github.com:Mon-Org/depot.git", "match": true },
+    { "rule": "github.com/mon-org/**", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "github.com/mon-org", "url": "git@github.com:mon-organisation/depot.git", "match": false },
+    { "rule": "github.com/mon-org", "url": "git@github.com:autre/depot.git", "match": false },
+    { "rule": "github.com/*", "url": "git@github.com:autre/depot.git", "match": true },
+    { "rule": "github.com/org-*", "url": "git@github.com:org-client/depot.git", "match": true },
+    { "rule": "github.com/org-*", "url": "git@github.com:autre/org-client.git", "match": false },
+    { "rule": "gitlab.exemple.fr/groupe/sous-groupe", "url": "git@gitlab.exemple.fr:groupe/sous-groupe/depot.git", "match": true },
+    { "rule": "gitlab.exemple.fr/groupe/sous-groupe", "url": "git@gitlab.exemple.fr:groupe/autre/depot.git", "match": false },
+    { "rule": "gitlab.exemple.fr/*/commun", "url": "git@gitlab.exemple.fr:groupe/commun/depot.git", "match": true },
+    { "rule": "gitlab.exemple.fr/*/commun", "url": "git@gitlab.exemple.fr:a/b/commun/depot.git", "match": false },
+    { "rule": "gitlab.exemple.fr/**/commun", "url": "git@gitlab.exemple.fr:a/b/commun/depot.git", "match": true },
+    { "rule": "https://www.github.com/mon-org", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "git@github.com:mon-org", "url": "https://github.com/mon-org/depot", "match": true },
+    { "rule": "ssh://git@gitlab.exemple.fr:2222/groupe", "url": "git@gitlab.exemple.fr:groupe/depot.git", "match": true },
+    { "rule": "gitlab.exemple.fr:2222", "url": "git@gitlab.exemple.fr:groupe/depot.git", "match": true },
+    { "rule": "github.com/mon-org/depot.git", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "  github.com/mon-org/  ", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "", "url": "git@github.com:mon-org/depot.git", "match": false },
+    { "rule": "*", "url": "git@github.com:mon-org/depot.git", "match": true },
+    { "rule": "github.com", "url": "C:/repos/remote.git", "match": false }
+  ],
+  "suggest": [
+    {
+      "profiles": [
+        { "id": "perso", "rules": ["github.com"] },
+        { "id": "boulot", "rules": ["github.com/mon-org/*", "gitlab.exemple.fr"] }
+      ],
+      "url": "git@github.com:mon-org/depot.git",
+      "pick": "boulot"
+    },
+    {
+      "profiles": [
+        { "id": "perso", "rules": ["github.com"] },
+        { "id": "boulot", "rules": ["github.com/mon-org/*", "gitlab.exemple.fr"] }
+      ],
+      "url": "git@github.com:moi/depot.git",
+      "pick": "perso"
+    },
+    {
+      "profiles": [
+        { "id": "premier", "rules": ["github.com"] },
+        { "id": "second", "rules": ["github.com"] }
+      ],
+      "url": "https://github.com/x/y",
+      "pick": "premier"
+    },
+    {
+      "profiles": [
+        { "id": "dossier", "rules": ["~/work/*", "C:\\work", "/srv/github.com"] },
+        { "id": "remote", "rules": ["*.exemple.fr"] }
+      ],
+      "url": "ssh://git@gitlab.exemple.fr/g/r.git",
+      "pick": "remote"
+    },
+    {
+      "profiles": [{ "id": "dossier", "rules": ["~/work/*"] }],
+      "url": "git@github.com:x/y.git",
+      "pick": null
+    },
+    {
+      "profiles": [{ "id": "perso", "rules": ["github.com"] }],
+      "url": "/srv/git/r.git",
+      "pick": null
+    }
+  ]
+}

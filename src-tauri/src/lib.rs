@@ -5,6 +5,7 @@
 //! - `worktree` : copie de travail (status, indexation, commit).
 //! - `branches` : checkout (auto-stash), branches, fetch / pull / push, stash pop.
 //! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
+//! - `remotes`  : remotes du dépôt et profil de chacun (clé SSH par hôte, config ssh générée).
 //! - `profiles` : clés SSH des profils (lecture, génération) ; l'identité est injectée par `git`.
 //! - `secrets`  : trousseau de l'OS (phrases de passe des clés).
 //! - `signing`  : clés GPG (signature des commits, injectée par `git`).
@@ -18,6 +19,7 @@ mod commands;
 mod git;
 mod history;
 mod profiles;
+mod remotes;
 mod secrets;
 mod signing;
 mod store;
@@ -62,6 +64,7 @@ pub fn run() {
                 Some(d) => std::path::PathBuf::from(d),
                 None => app.path().app_config_dir()?,
             };
+            remotes::set_config_dir(dir.join("ssh"));
             let store = store::Store::load(dir);
             commands::sync_identities(&store.state);
             app.manage(Mutex::new(store));
@@ -104,7 +107,12 @@ pub fn run() {
             commands::delete_remote_branch,
             commands::fetch,
             commands::pull,
+            commands::pull_from,
             commands::push,
+            commands::add_remote,
+            commands::rename_remote,
+            commands::set_remote_url,
+            commands::remove_remote,
             commands::stash_pop,
             commands::abort_operation,
             commands::continue_operation,

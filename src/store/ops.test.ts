@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../lib/api";
 import { validBranchName } from "../lib/branchName";
 import { mockHistory } from "../lib/mockHistory";
-import { REPO_A, REPO_B } from "../test/utils";
+import { REPO_A, REPO_B, REPO_C } from "../test/utils";
 import { useApp } from "./app";
 import { useDialogs, type InputAnswer } from "./dialogs";
 import { useGraph } from "./graph";
 import { useOps } from "./ops";
+import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
 
 // REPO_A (GitGR) est propre ; REPO_B (api-backend) a des modifications en cours.
@@ -171,7 +172,180 @@ describe("réseau", () => {
     const done = ops().push(REPO_A);
     expect(await answer("force")).toBe("Push refusé");
     await done;
-    expect(spy).toHaveBeenLastCalledWith(REPO_A, true);
+    expect(spy).toHaveBeenLastCalledWith(REPO_A, true, null);
+  });
+
+  it("pousser vers un remote choisi : sa branche du même nom, sans changer la branche suivie", async () => {
+    // REPO_C a deux remotes : origin (suivi par main) et client, en retard.
+    await open(REPO_C);
+    const remote = (name: string) => refs(REPO_C).refs.find((r) => r.short === name);
+    expect(remote("client/main")?.target).not.toBe(local(REPO_C, "main")!.target);
+    expect(await ops().push(REPO_C, false, "client")).toBe(true);
+    expect(remote("client/main")?.target).toBe(local(REPO_C, "main")!.target);
+    expect(local(REPO_C, "main")).toMatchObject({ upstream: "origin/main", ahead: 1 });
+    expect(useApp.getState().notice?.text).toBe("main poussée vers client.");
+  });
+
+  it("push refusé par un remote choisi : « Pull » tire depuis ce remote", async () => {
+    await open(REPO_C);
+    vi.spyOn(api, "push").mockRejectedValueOnce("push_rejected");
+    const pull = vi.spyOn(api, "pullFrom");
+    const done = ops().push(REPO_C, false, "client");
+    expect(await answer("pull")).toBe("Push refusé");
+    await done;
+    expect(pull).toHaveBeenCalledWith(REPO_C, "client", "main", "ff-only", true);
+  });
+
+  it("pousser vers tous les remotes : un échec n'empêche pas les autres, et il est nommé", async () => {
+    await open(REPO_C);
+    const spy = vi.spyOn(api, "push");
+    expect(await ops().pushAll(REPO_C)).toBe(true);
+    // origin d'abord : une branche sans suivi suivra origin, pas le premier remote de la liste.
+    expect(spy.mock.calls.map((c) => c[2])).toEqual(["origin", "client"]);
+    expect(useApp.getState().notice?.text).toBe("main poussée vers origin, client.");
+
+    spy.mockClear();
+    spy.mockRejectedValueOnce("auth_failed");
+    expect(await ops().pushAll(REPO_C)).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(useApp.getState().error).toMatch(/^origin : Authentification refusée/);
+    expect(useApp.getState().notice).toMatchObject({ text: "main poussée vers client.", sticky: true });
+  });
+
+  it("pousser vers tous une branche sans suivi : elle suit origin", async () => {
+    await open(REPO_C);
+    await ops().checkout(REPO_C, "feature/profils");
+    expect(await ops().pushAll(REPO_C)).toBe(true);
+    expect(local(REPO_C, "feature/profils")?.upstream).toBe("origin/feature/profils");
+    expect(refs(REPO_C).refs.some((r) => r.short === "client/feature/profils")).toBe(true);
+  });
+
+  it("push refusé par le remote de la branche suivie : « Pull » tire la branche suivie", async () => {
+    await open(REPO_C);
+    vi.spyOn(api, "push").mockRejectedValueOnce("push_rejected");
+    const pull = vi.spyOn(api, "pull");
+    const pullFrom = vi.spyOn(api, "pullFrom");
+    const done = ops().push(REPO_C, false, "origin");
+    await answer("pull");
+    await done;
+    expect(pull).toHaveBeenCalledTimes(1);
+    expect(pullFrom).not.toHaveBeenCalled();
+  });
+
+  it("tirer depuis un remote, arrêté sur des conflits : l'avertissement reste affiché", async () => {
+    await open(REPO_C);
+    vi.spyOn(api, "pullFrom").mockResolvedValueOnce({ stashed: true, stashKept: true, conflicts: true });
+    expect(await ops().pullFrom(REPO_C, "client")).toBe(true);
+    const notice = useApp.getState().notice;
+    expect(notice?.sticky).toBe(true);
+    expect(notice?.text).toMatch(/conflits/);
+    expect(notice?.text).toContain("GitGR-autostash: main");
+  });
+
+  it("tirer depuis un autre remote : la branche du même nom, la branche suivie ne change pas", async () => {
+    await open(REPO_C);
+    // main (1 commit local) contient déjà client/main : rien à tirer.
+    const before = local(REPO_C, "main")!.target;
+    expect(await ops().pullFrom(REPO_C, "client")).toBe(true);
+    expect(local(REPO_C, "main")).toMatchObject({ target: before, upstream: "origin/main" });
+    expect(useApp.getState().notice?.text).toBe("client/main tirée.");
+
+    // Branche absente du remote : erreur de git, traduite.
+    await ops().checkout(REPO_C, "feature/profils");
+    expect(await ops().pullFrom(REPO_C, "client")).toBe(false);
+    expect(useApp.getState().error).toBe("remote_ref_not_found");
+  });
+
+  it("ajouter un remote : nom et URL demandés, puis fetch si la case est cochée", async () => {
+    await open(REPO_A);
+    const fetch = vi.spyOn(api, "fetch");
+    let done = ops().addRemote(REPO_A);
+    await vi.waitFor(() => expect(useDialogs.getState().current).not.toBeNull());
+    const request = useDialogs.getState().current!.request;
+    // Nom déjà pris ou invalide : refusé à la frappe.
+    expect(request.kind === "input" && request.validate?.("origin")).toBe("Un remote porte déjà ce nom.");
+    expect(request.kind === "input" && request.validate?.("pas bon")).toMatch(/Nom invalide/);
+    expect(await answer({ value: "client", second: "git@gitlab.client.fr:g/r.git", checked: true })).toBe("Ajouter un remote");
+    expect(await done).toBe(true);
+    expect(refs(REPO_A).remotes).toEqual([
+      { name: "client", url: "git@gitlab.client.fr:g/r.git", pushUrl: null },
+      { name: "origin", url: "git@gitlab.exemple.fr:demo/GitGR.git", pushUrl: null },
+    ]);
+    expect(useGraph.getState().graphs[REPO_A].refs?.remotes).toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // Case décochée : pas de fetch, un message.
+    done = ops().addRemote(REPO_A);
+    await answer({ value: "miroir", second: "C:/depots/miroir.git", checked: false });
+    expect(await done).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(useApp.getState().notice?.text).toBe("Remote miroir ajouté.");
+  });
+
+  it("renommer un remote : ses branches et le profil choisi pour lui le suivent", async () => {
+    await open(REPO_C);
+    await useProfiles.getState().save([{ id: "p", name: "P", userName: "P", userEmail: "p@exemple.fr", sshKey: null, rules: [], color: 0 }]);
+    await useProfiles.getState().setRemoteProfile(REPO_C, "client", "p");
+    const done = ops().renameRemote(REPO_C, "client");
+    expect(await answer({ value: "partenaire", checked: false })).toBe("Renommer le remote client");
+    expect(await done).toBe(true);
+    expect(refs(REPO_C).remotes.map((r) => r.name)).toEqual(["origin", "partenaire"]);
+    expect(refs(REPO_C).refs.some((r) => r.short === "partenaire/main")).toBe(true);
+    expect(refs(REPO_C).refs.some((r) => r.short.startsWith("client/"))).toBe(false);
+    expect(useProfiles.getState().repoProfiles[REPO_C].remotes).toEqual({ partenaire: "p" });
+    expect((await api.getState()).repoProfiles?.[REPO_C].remotes).toEqual({ partenaire: "p" });
+  });
+
+  it("renommer ou supprimer un remote : les préférences de sa section suivent", async () => {
+    await open(REPO_C);
+    useApp.getState().setRepoUi(REPO_C, { collapsed: ["tags", "remote:client/feature", "remote:client-bis"], hidden: ["remote:client"] });
+    let done = ops().renameRemote(REPO_C, "client");
+    await answer({ value: "partenaire", checked: false });
+    await done;
+    // `remote:client-bis` est un autre remote : pas touché.
+    expect(useApp.getState().repoUi[REPO_C]).toEqual({ collapsed: ["tags", "remote:partenaire/feature", "remote:client-bis"], hidden: ["remote:partenaire"] });
+
+    done = ops().removeRemote(REPO_C, "partenaire");
+    await answer("remove");
+    await done;
+    expect(useApp.getState().repoUi[REPO_C]).toEqual({ collapsed: ["tags", "remote:client-bis"], hidden: [] });
+  });
+
+  it("changer l'URL d'un remote", async () => {
+    await open(REPO_C);
+    const done = ops().editRemoteUrl(REPO_C, "client");
+    expect(await answer({ value: "ssh://git@gitlab.client.fr/autre.git", checked: false })).toBe("URL de client");
+    expect(await done).toBe(true);
+    expect(refs(REPO_C).remotes[0]).toEqual({ name: "client", url: "ssh://git@gitlab.client.fr/autre.git", pushUrl: null });
+  });
+
+  it("supprimer un remote : confirmation, ses branches distantes et son profil disparaissent", async () => {
+    await open(REPO_C);
+    await useProfiles.getState().setRemoteProfile(REPO_C, "client", null);
+    const spy = vi.spyOn(api, "removeRemote");
+    let done = ops().removeRemote(REPO_C, "client");
+    expect(await answer(null)).toBe("Supprimer le remote client ?");
+    expect(await done).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+
+    done = ops().removeRemote(REPO_C, "client");
+    await answer("remove");
+    expect(await done).toBe(true);
+    expect(refs(REPO_C).remotes.map((r) => r.name)).toEqual(["origin"]);
+    expect(refs(REPO_C).refs.some((r) => r.short.startsWith("client/"))).toBe(false);
+    expect(useProfiles.getState().repoProfiles[REPO_C].remotes).toEqual({});
+  });
+
+  it("tirer depuis un remote dont la branche a divergé : on demande merge ou rebase", async () => {
+    await open(REPO_C);
+    const spy = vi.spyOn(api, "pullFrom").mockRejectedValueOnce("not_fast_forward");
+    const done = ops().pullFrom(REPO_C, "client");
+    expect(await answer("merge")).toBe("Les branches ont divergé");
+    expect(await done).toBe(true);
+    expect(spy.mock.calls.map((c) => c.slice(1, 4))).toEqual([
+      ["client", "main", "ff-only"],
+      ["client", "main", "merge"],
+    ]);
   });
 
   it("pull : avance rapide", async () => {

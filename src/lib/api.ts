@@ -5,6 +5,10 @@
 // factice en mémoire prend le relais : pratique pour travailler l'interface.
 
 import {
+  mockAddRemote,
+  mockRemoveRemote,
+  mockRenameRemote,
+  mockSetRemoteUrl,
   mockCheckout,
   mockCheckoutDetached,
   mockCheckoutRemote,
@@ -12,6 +16,7 @@ import {
   mockDeleteBranch,
   mockDeleteRemoteBranch,
   mockPull,
+  mockPullFrom,
   mockPush,
   mockRenameBranch,
   mockAutostash,
@@ -98,8 +103,18 @@ export interface Api {
   deleteRemoteBranch(path: string, branch: string): Promise<void>;
   fetch(path: string): Promise<void>;
   pull(path: string, strategy: PullStrategy, autoStash: boolean): Promise<OpResult>;
-  /** Sans branche distante, la crée et la suit ; `force` : `--force-with-lease`. */
-  push(path: string, force: boolean): Promise<void>;
+  /** Tire la branche `branch` du remote `remote` dans la branche courante. */
+  pullFrom(path: string, remote: string, branch: string, strategy: PullStrategy, autoStash: boolean): Promise<OpResult>;
+  /** Sans branche distante, la crée et la suit ; `force` : `--force-with-lease`. `remote` :
+   *  destination choisie (`null` : celle de la branche suivie, sinon `origin`). */
+  push(path: string, force: boolean, remote: string | null): Promise<void>;
+  // Remotes
+  addRemote(path: string, name: string, url: string): Promise<void>;
+  renameRemote(path: string, oldName: string, newName: string): Promise<void>;
+  /** Nouvelle URL (fetch, et push si le remote n'a pas d'URL de push à part). */
+  setRemoteUrl(path: string, name: string, url: string): Promise<void>;
+  /** Supprime le remote, ses branches distantes et le suivi des branches locales. */
+  removeRemote(path: string, name: string): Promise<void>;
   stashPop(path: string): Promise<OpResult>;
   abortOperation(path: string): Promise<void>;
   continueOperation(path: string): Promise<OpResult>;
@@ -183,7 +198,12 @@ const tauriApi: Api = {
   deleteRemoteBranch: (path, branch) => invoke("delete_remote_branch", { path, branch }),
   fetch: (path) => invoke("fetch", { path }),
   pull: (path, strategy, autoStash) => invoke("pull", { path, strategy, autoStash }),
-  push: (path, force) => invoke("push", { path, force }),
+  pullFrom: (path, remote, branch, strategy, autoStash) => invoke("pull_from", { path, remote, branch, strategy, autoStash }),
+  push: (path, force, remote) => invoke("push", { path, force, remote }),
+  addRemote: (path, name, url) => invoke("add_remote", { path, name, url }),
+  renameRemote: (path, oldName, newName) => invoke("rename_remote", { path, old: oldName, new: newName }),
+  setRemoteUrl: (path, name, url) => invoke("set_remote_url", { path, name, url }),
+  removeRemote: (path, name) => invoke("remove_remote", { path, name }),
   stashPop: (path) => invoke("stash_pop", { path }),
   abortOperation: (path) => invoke("abort_operation", { path }),
   continueOperation: (path) => invoke("continue_operation", { path }),
@@ -335,7 +355,7 @@ const mockApi: Api = {
       ahead: cur?.ahead ?? 0,
       behind: cur?.behind ?? 0,
       changes: mockChangeCount(path),
-      remoteUrl: "git@gitlab.exemple.fr:demo/" + (path.split("/").pop() ?? "repo") + ".git",
+      remoteUrl: refs.remotes.find((r) => r.name === "origin")?.url ?? null,
     };
   },
   async repoLog(path, skip, limit) {
@@ -412,10 +432,18 @@ const mockApi: Api = {
     await mockDelay();
     return mockPull(path, strategy, autoStash);
   },
-  async push(path, force) {
+  async pullFrom(path, remote, branch, strategy, autoStash) {
     await mockDelay();
-    mockPush(path, force);
+    return mockPullFrom(path, remote, branch, strategy, autoStash);
   },
+  async push(path, force, remote) {
+    await mockDelay();
+    mockPush(path, force, remote);
+  },
+  addRemote: async (path, name, url) => mockAddRemote(path, name, url),
+  renameRemote: async (path, oldName, newName) => mockRenameRemote(path, oldName, newName),
+  setRemoteUrl: async (path, name, url) => mockSetRemoteUrl(path, name, url),
+  removeRemote: async (path, name) => mockRemoveRemote(path, name),
   stashPop: async (path) => mockStashPop(path),
   async abortOperation() {
     throw "no_operation";
@@ -434,6 +462,8 @@ const mockApi: Api = {
     const repoProfiles: Record<string, RepoProfiles> = {};
     for (const [path, b] of Object.entries(s.repoProfiles ?? {})) {
       repoProfiles[path] = { active: b.active && ids.has(b.active) ? b.active : null, allowed: b.allowed.filter((id) => ids.has(id)) };
+      // Le remote d'un profil supprimé retrouve le choix automatique.
+      if (b.remotes) repoProfiles[path].remotes = Object.fromEntries(Object.entries(b.remotes).filter(([, id]) => id === null || ids.has(id)));
     }
     mockSave({ ...s, profiles, repoProfiles });
     return repoProfiles;

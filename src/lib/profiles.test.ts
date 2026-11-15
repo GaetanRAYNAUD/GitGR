@@ -8,6 +8,7 @@ import {
   nextColor,
   parseRemote,
   profileComplete,
+  remoteProfile,
   ruleKind,
   signingKeyMissing,
   slug,
@@ -16,6 +17,7 @@ import {
   validEmail,
   type Remote,
 } from "./profiles";
+import cases from "./remoteRules.cases.json";
 import type { Profile } from "./types";
 
 const HOME = "C:/Users/camille";
@@ -126,6 +128,63 @@ describe("règles des profils", () => {
     const remote = parseRemote("https://github.com/mon-org/api");
     expect(hostMismatch([perso, org], "perso", { path: "D:/x", remote, home: HOME })?.id).toBe("org");
     expect(hostMismatch([perso, org], "org", { path: "D:/x", remote, home: HOME })).toBeNull();
+  });
+});
+
+describe("règles de remote : mêmes résultats que le backend", () => {
+  // Cas partagés avec src-tauri/src/remotes.rs, qui choisit la clé SSH de chaque remote.
+  it("URL de remote", () => {
+    for (const c of cases.parse) {
+      const parsed = parseRemote(c.url);
+      if (c.host === null) expect(parsed, c.url).toBeNull();
+      else expect(parsed, c.url).toEqual({ host: c.host, path: c.path });
+    }
+  });
+
+  it("règle et URL", () => {
+    for (const c of cases.match) expect(matchRemote(c.rule, parseRemote(c.url)), `« ${c.rule} » / ${c.url}`).toBe(c.match);
+  });
+
+  it("profil désigné pour un remote : règles de remote seulement, la plus précise", () => {
+    for (const c of cases.suggest) {
+      const profiles = c.profiles.map((p) => profile(p.id, p.rules));
+      const picked = remoteProfile(profiles, undefined, { name: "origin", url: c.url });
+      expect(picked.profile?.id ?? null, c.url).toBe(c.pick);
+      expect(picked.source, c.url).toBe(c.pick ? "rule" : "none");
+    }
+  });
+});
+
+describe("profil d'un remote", () => {
+  const entreprise = profile("entreprise", ["gitlab.entreprise.fr"]);
+  const client = profile("client", ["gitlab.client.fr", "~/work"]);
+  const all = [entreprise, client];
+  const origin = { name: "origin", url: "git@gitlab.entreprise.fr:g/r.git" };
+  const autre = { name: "autre", url: "git@github.com:x/y.git" };
+  const binding = (remotes?: Record<string, string | null>) => ({ active: "client", allowed: ["client"], remotes });
+  const pick = (...args: Parameters<typeof remoteProfile>) => {
+    const r = remoteProfile(...args);
+    return [r.profile?.id ?? null, r.source];
+  };
+
+  it("règle sur son URL, sinon le profil du dépôt", () => {
+    expect(pick(all, binding(), origin)).toEqual(["entreprise", "rule"]);
+    expect(pick(all, binding(), autre)).toEqual(["client", "repo"]);
+    // Sans profil pour le dépôt : aucun.
+    expect(pick(all, undefined, autre)).toEqual([null, "none"]);
+    expect(pick(all, { active: null, allowed: [] }, autre)).toEqual([null, "none"]);
+    // Remote local ou sans URL : le profil du dépôt.
+    expect(pick(all, binding(), { name: "local", url: "C:/depots/r.git" })).toEqual(["client", "repo"]);
+    expect(pick(all, binding(), { name: "vide", url: null })).toEqual(["client", "repo"]);
+  });
+
+  it("un choix fait à la main l'emporte, « aucun » compris", () => {
+    expect(pick(all, binding({ origin: "client" }), origin)).toEqual(["client", "explicit"]);
+    expect(pick(all, binding({ origin: null }), origin)).toEqual([null, "explicit"]);
+    // Le choix d'un remote ne vaut pas pour un autre.
+    expect(pick(all, binding({ autre: "entreprise" }), origin)).toEqual(["entreprise", "rule"]);
+    // Profil choisi puis supprimé : comme sans choix.
+    expect(pick(all, binding({ origin: "disparu" }), origin)).toEqual(["entreprise", "rule"]);
   });
 });
 
