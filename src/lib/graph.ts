@@ -37,7 +37,9 @@ export interface GraphLayout {
 
 export const PALETTE_SIZE = 8;
 
-export function layoutGraph(commits: GraphCommit[]): GraphLayout {
+/** `fixed` : couleur imposée à partir d'un commit (branche à couleur fixe qui y pointe) ;
+ *  la colonne garde cette couleur en dessous. */
+export function layoutGraph(commits: GraphCommit[], fixed?: Map<string, number>): GraphLayout {
   const lanes: (string | null)[] = [];
   const colors: number[] = [];
   let nextColor = 0;
@@ -62,10 +64,15 @@ export function layoutGraph(commits: GraphCommit[]): GraphLayout {
     const before = lanes.length;
     const isTip = incoming.length === 0;
     const col = isTip ? alloc(c.sha) : incoming[0];
+    // Traits du haut dans la couleur de leur colonne, avant une éventuelle couleur fixe
+    // (qui ne s'applique qu'à partir de ce commit).
+    const inPairs: number[] = [];
+    for (const j of incoming) inPairs.push(j, colors[j]);
+    const forced = fixed?.get(c.sha);
+    if (forced !== undefined) colors[col] = forced;
     const color = colors[col];
 
-    const row: GraphRow = { col, color, pass: [], in: [], out: [] };
-    for (const j of incoming) row.in.push(j, colors[j]);
+    const row: GraphRow = { col, color, pass: [], in: inPairs, out: [] };
 
     // Les autres colonnes qui attendaient ce commit se terminent ici.
     for (const j of incoming) if (j !== col) lanes[j] = null;

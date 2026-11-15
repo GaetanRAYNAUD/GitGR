@@ -42,6 +42,8 @@ interface AppStore {
   forget(path: string): Promise<void>;
   /** Nom affiché d'un dépôt (vide / `null` = nom du dossier). */
   rename(path: string, alias: string | null): void;
+  /** Couleur de la pastille d'onglet (`null` = automatique). */
+  setRepoColor(path: string, color: number | null): void;
   updateSettings(patch: Partial<Settings>): void;
   /** Change des tailles (`null` = retour à la valeur par défaut). Pendant un glisser,
    *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
@@ -200,6 +202,11 @@ export const useApp = create<AppStore>((set, get) => ({
     api.renameRepo(path, a ?? null).catch((e) => set({ error: errorCode(e) }));
   },
 
+  setRepoColor(path, color) {
+    set((s) => ({ repos: s.repos.map((r) => (r.path === path ? { ...r, color: color ?? undefined } : r)) }));
+    api.setRepoColor(path, color).catch((e) => set({ error: errorCode(e) }));
+  },
+
   updateSettings(patch) {
     const settings = { ...get().settings, ...patch };
     set({ settings });
@@ -286,8 +293,13 @@ export function repoName(r: RepoEntry): string {
   return r.alias || r.name;
 }
 
-/** Couleur stable associée à un dépôt (pastille d'onglet, liste). */
-export function repoColor(path: string): string {
+/** Nombre de couleurs proposées pour un onglet (palette du graphe `--g0`…). */
+export const TAB_COLORS = 8;
+
+/** Couleur d'un dépôt (pastille d'onglet, liste) : celle choisie, sinon une couleur stable
+ *  tirée du chemin. */
+export function repoColor(path: string, color?: number): string {
+  if (color !== undefined) return `var(--g${Math.abs(color) % TAB_COLORS})`;
   let h = 0;
   for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) | 0;
   return `var(--l${Math.abs(h) % 4})`;

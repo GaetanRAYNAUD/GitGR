@@ -48,8 +48,10 @@ pub async fn open_repo(path: String, store: StoreState<'_>) -> Result<RepoEntry,
         .unwrap_or_else(|| top_str.clone());
     let mut s = store.lock().unwrap();
     // Le nom choisi dans l'app survit à une réouverture.
-    let alias = s.state.repos.iter().find(|r| r.path == top_str).and_then(|r| r.alias.clone());
-    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms(), alias };
+    let prev = s.state.repos.iter().find(|r| r.path == top_str);
+    let alias = prev.and_then(|r| r.alias.clone());
+    let color = prev.and_then(|r| r.color);
+    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms(), alias, color };
     s.state.repos.retain(|r| r.path != top_str);
     s.state.repos.insert(0, entry.clone());
     s.save()?;
@@ -79,6 +81,16 @@ pub fn rename_repo(path: String, alias: Option<String>, store: StoreState<'_>) -
     let mut s = store.lock().unwrap();
     if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
         r.alias = alias;
+    }
+    s.save()
+}
+
+/// Couleur de la pastille d'onglet d'un dépôt (`None` = automatique).
+#[tauri::command]
+pub fn set_repo_color(path: String, color: Option<u8>, store: StoreState<'_>) -> Result<(), String> {
+    let mut s = store.lock().unwrap();
+    if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
+        r.color = color;
     }
     s.save()
 }

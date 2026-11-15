@@ -21,6 +21,9 @@ pub struct RepoEntry {
     /// Nom affiché choisi dans l'app (onglet, récents) ; `None` = nom du dossier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
+    /// Couleur de la pastille d'onglet (indice de palette) ; `None` = automatique.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -54,6 +57,18 @@ pub struct Settings {
     pub pull_strategy: String,
     /// Fetch automatique du dépôt actif, en minutes (0 : désactivé).
     pub auto_fetch_minutes: u32,
+    /// Couleurs fixes par nom de branche ; `None` = règles par défaut (côté interface),
+    /// liste vide = désactivé.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_colors: Option<Vec<BranchColorRule>>,
+}
+
+/// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`
+/// (indice de la palette du graphe).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct BranchColorRule {
+    pub pattern: String,
+    pub color: u8,
 }
 
 impl Default for Settings {
@@ -68,6 +83,7 @@ impl Default for Settings {
             auto_stash: true,
             pull_strategy: "ff-only".into(),
             auto_fetch_minutes: 10,
+            branch_colors: None,
         }
     }
 }
@@ -266,7 +282,7 @@ mod tests {
     fn save_then_load_round_trips() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::load(dir.path().join("cfg"));
-        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42, alias: None });
+        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42, alias: None, color: None });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
         store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true });

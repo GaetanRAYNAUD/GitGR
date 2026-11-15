@@ -69,6 +69,8 @@ export interface Api {
   forgetRepo(path: string): Promise<void>;
   /** Nom affiché (vide / `null` = nom du dossier). */
   renameRepo(path: string, alias: string | null): Promise<void>;
+  /** Couleur de la pastille d'onglet (`null` = automatique). */
+  setRepoColor(path: string, color: number | null): Promise<void>;
   setSession(session: Session): Promise<void>;
   setSettings(settings: Settings): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): Promise<void>;
@@ -180,6 +182,7 @@ const tauriApi: Api = {
   openRepo: (path) => invoke("open_repo", { path }),
   forgetRepo: (path) => invoke("forget_repo", { path }),
   renameRepo: (path, alias) => invoke("rename_repo", { path, alias }),
+  setRepoColor: (path, color) => invoke("set_repo_color", { path, color }),
   setSession: (session) => invoke("set_session", { session }),
   setSettings: (settings) => invoke("set_settings", { settings }),
   setRepoUi: (path, ui) => invoke("set_repo_ui", { path, ui }),
@@ -337,8 +340,8 @@ const mockApi: Api = {
     if (path.includes("pas-un-depot")) throw "not_a_repo";
     const s = mockLoad();
     const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-    const alias = s.repos.find((r) => r.path === path)?.alias;
-    const entry: RepoEntry = { path, name, lastOpened: Date.now(), ...(alias ? { alias } : {}) };
+    const prev = s.repos.find((r) => r.path === path);
+    const entry: RepoEntry = { path, name, lastOpened: Date.now(), alias: prev?.alias, color: prev?.color };
     s.repos = [entry, ...s.repos.filter((r) => r.path !== path)];
     mockSave(s);
     return entry;
@@ -356,6 +359,11 @@ const mockApi: Api = {
     const s = mockLoad();
     const a = alias?.trim() || undefined;
     s.repos = s.repos.map((r) => (r.path === path ? { ...r, alias: a } : r));
+    mockSave(s);
+  },
+  async setRepoColor(path, color) {
+    const s = mockLoad();
+    s.repos = s.repos.map((r) => (r.path === path ? { ...r, color: color ?? undefined } : r));
     mockSave(s);
   },
   async setSession(session) {

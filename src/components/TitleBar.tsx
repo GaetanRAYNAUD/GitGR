@@ -1,7 +1,8 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
-import { repoColor, repoName, useApp } from "../store/app";
+import { repoColor, repoName, TAB_COLORS, useApp } from "../store/app";
+import { type MenuItem, openContextMenu } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { SettingsMenu } from "./SettingsMenu";
@@ -78,6 +79,25 @@ export function TitleBar() {
     return r ? repoName(r) : path;
   };
 
+  const tabMenu = (path: string): MenuItem[] => {
+    const r = repoOf(path);
+    const { rename, setRepoColor } = useApp.getState();
+    const colors: MenuItem[] = Array.from({ length: TAB_COLORS }, (_, i) => ({
+      label: t(`tabs.colors.${i}`),
+      checked: r?.color === i,
+      onClick: () => setRepoColor(path, i),
+    }));
+    return [
+      { label: t("tabs.rename"), onClick: () => setEditing(path) },
+      { label: t("tabs.originalName"), disabled: !r?.alias, onClick: () => rename(path, null) },
+      "sep",
+      { label: t("tabs.colorAuto"), checked: r?.color === undefined, onClick: () => setRepoColor(path, null) },
+      ...colors,
+      "sep",
+      { label: t("tabs.closeTab"), onClick: () => closeTab(path) },
+    ];
+  };
+
   return (
     <header className="titlebar" data-tauri-drag-region>
       <button
@@ -102,6 +122,7 @@ export function TitleBar() {
               className={["tab", on && "on", dragging === path && "dragged"].filter(Boolean).join(" ")}
               title={path}
               onAuxClick={(e) => e.button === 1 && closeTab(path)}
+              onContextMenu={(e) => openContextMenu(e, tabMenu(path))}
             >
               <button
                 role="tab"
@@ -111,7 +132,7 @@ export function TitleBar() {
                 onDoubleClick={() => setEditing(path)}
                 onPointerDown={(e) => editing !== path && onPointerDown(e, path)}
               >
-                <span className="dot" style={{ background: repoColor(path) }} />
+                <span className="dot" style={{ background: repoColor(path, repoOf(path)?.color) }} />
                 {editing === path ? (
                   <input
                     className="tab-rename"

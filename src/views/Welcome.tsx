@@ -99,7 +99,7 @@ export function Welcome() {
             {filtered.map((r) => (
               <div key={r.path} className="repo-row">
                 <button className="repo-open" onClick={() => openPath(r.path)} title={r.path}>
-                  <span className="dot lg" style={{ background: repoColor(r.path) }} />
+                  <span className="dot lg" style={{ background: repoColor(r.path, r.color) }} />
                   <span className="repo-text">
                     <span className="repo-name">{repoName(r)}</span>
                     <span className="repo-path mono">{r.path}</span>

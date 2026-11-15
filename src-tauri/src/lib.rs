@@ -80,6 +80,7 @@ pub fn run() {
             commands::open_repo,
             commands::forget_repo,
             commands::rename_repo,
+            commands::set_repo_color,
             commands::set_session,
             commands::set_settings,
             commands::set_repo_ui,

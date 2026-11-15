@@ -13,6 +13,8 @@ export interface RepoEntry {
   lastOpened: number;
   /** Nom affiché choisi dans l'app ; absent = nom du dossier. */
   alias?: string;
+  /** Couleur de la pastille d'onglet (indice de palette) ; absente = automatique. */
+  color?: number;
 }
 
 export interface Session {
@@ -42,6 +44,14 @@ export interface Settings {
   pullStrategy?: PullStrategy;
   /** Fetch automatique du dépôt actif, en minutes (0 : désactivé ; défaut : 10). */
   autoFetchMinutes?: number;
+  /** Couleurs fixes par nom de branche ; absent = règles par défaut, vide = désactivé. */
+  branchColors?: BranchColorRule[];
+}
+
+/** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
+export interface BranchColorRule {
+  pattern: string;
+  color: number;
 }
 
 /** Pull : avance rapide uniquement, merge, ou rebase. */

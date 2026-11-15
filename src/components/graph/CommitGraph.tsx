@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { commitDate } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
+import { branchColorRules, chipFixedColor, fixedColorsByCommit } from "../../lib/branchColors";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
 import type { Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
@@ -159,6 +160,8 @@ function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
 function Chip({ chip, color, path, refs }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
+  const rules = branchColorRules(useApp((s) => s.settings.branchColors));
+  color = chipFixedColor(rules, chip.kind, chip.label) ?? color;
   const cls = chip.kind === "tag" ? "chip tag" : chip.kind === "remote" ? "chip remote" : "chip";
   const title = [chip.title, chip.current && t("graph.current"), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
   return (
@@ -239,7 +242,9 @@ export function CommitGraph({ path, changes }: Props) {
     }
     return list;
   }, [graph?.commits, changes, head]);
-  const layout = useMemo(() => layoutGraph(commits), [commits]);
+  const rules = branchColorRules(useApp((s) => s.settings.branchColors));
+  const fixed = useMemo(() => fixedColorsByCommit(rules, graph?.refs ?? null), [rules, graph?.refs]);
+  const layout = useMemo(() => layoutGraph(commits, fixed), [commits, fixed]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
   // Au moins la largeur du titre de la colonne.
