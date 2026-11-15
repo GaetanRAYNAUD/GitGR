@@ -6,9 +6,11 @@
 use crate::branches::{self, OpResult};
 use crate::git::{self, GitInfo, RepoSummary};
 use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
+use crate::profiles::{self, SshKeyInfo};
 use crate::worktree::{self, LineRef, WorkStatus};
 use crate::watch::RepoWatcher;
-use crate::store::{AppState, RepoEntry, RepoUi, Session, Settings, Store};
+use crate::store::{AppState, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -59,9 +61,11 @@ pub fn forget_repo(path: String, store: StoreState<'_>) -> Result<(), String> {
     s.state.repos.retain(|r| r.path != path);
     s.state.session.open_tabs.retain(|p| *p != path);
     s.state.repo_ui.remove(&path);
+    s.state.repo_profiles.remove(&path);
     if s.state.session.active.as_deref() == Some(path.as_str()) {
         s.state.session.active = None;
     }
+    sync_identities(&s.state);
     s.save()
 }
 
@@ -280,4 +284,72 @@ pub async fn watch_repo(path: Option<String>, app: AppHandle, watcher: State<'_,
     watcher.lock().unwrap().watch(path, move |repo| {
         let _ = app.emit("repo-changed", repo);
     })
+}
+
+// --- Profils ------------------------------------------------------------------
+
+/// Met à jour les identités injectées dans git (après tout changement de profils).
+pub fn sync_identities(state: &AppState) {
+    git::set_identities(state.identities());
+}
+
+/// Remplace la liste des profils ; renvoie les profils des dépôts, nettoyés de ceux supprimés.
+#[tauri::command]
+pub fn set_profiles(profiles: Vec<Profile>, store: StoreState<'_>) -> Result<HashMap<String, RepoProfiles>, String> {
+    let mut s = store.lock().unwrap();
+    s.state.profiles = profiles;
+    s.state.prune_profiles();
+    s.save()?;
+    sync_identities(&s.state);
+    Ok(s.state.repo_profiles.clone())
+}
+
+#[tauri::command]
+pub fn set_repo_profiles(path: String, profiles: RepoProfiles, store: StoreState<'_>) -> Result<(), String> {
+    let mut s = store.lock().unwrap();
+    s.state.repo_profiles.insert(path, profiles);
+    s.state.prune_profiles();
+    s.save()?;
+    sync_identities(&s.state);
+    Ok(())
+}
+
+/// Dossier personnel, avec des `/` (règles `~/…`, chemin proposé pour une nouvelle clé).
+#[tauri::command]
+pub fn home_dir() -> Option<String> {
+    git::home_dir().map(|h| h.to_string_lossy().replace('\\', "/"))
+}
+
+#[tauri::command]
+pub async fn ssh_key_info(path: String) -> Result<SshKeyInfo, String> {
+    profiles::key_info(&path)
+}
+
+/// Enregistre (après vérification) ou oublie (`None`) la phrase de passe d'une clé.
+#[tauri::command]
+pub async fn set_key_passphrase(path: String, passphrase: Option<String>) -> Result<SshKeyInfo, String> {
+    profiles::set_passphrase(&path, passphrase.as_deref())
+}
+
+#[tauri::command]
+pub async fn generate_ssh_key(path: String, comment: String, passphrase: Option<String>) -> Result<SshKeyInfo, String> {
+    profiles::generate_key(&path, &comment, passphrase.as_deref())
+}
+
+/// « Écrire l'identité dans .git/config » : identité et signature du profil actif, pour
+/// qu'elles vaillent aussi en ligne de commande.
+#[tauri::command]
+pub async fn apply_identity(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    let id = git::identity_for(p).ok_or("no_profile")?;
+    for (key, value) in id.config() {
+        git::run(Some(p), &["config", "--local", key, &value]).map_err(classify)?;
+    }
+    Ok(())
+}
+
+/// Clés GPG secrètes, pour choisir celle d'un profil.
+#[tauri::command]
+pub async fn gpg_keys() -> Result<Vec<crate::signing::GpgKey>, String> {
+    crate::signing::gpg_keys()
 }

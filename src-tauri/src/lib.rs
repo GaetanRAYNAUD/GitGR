@@ -5,13 +5,21 @@
 //! - `worktree` : copie de travail (status, indexation, commit).
 //! - `branches` : checkout (auto-stash), branches, fetch / pull / push, stash pop.
 //! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
+//! - `profiles` : clés SSH des profils (lecture, génération) ; l'identité est injectée par `git`.
+//! - `secrets`  : trousseau de l'OS (phrases de passe des clés).
+//! - `signing`  : clés GPG (signature des commits, injectée par `git`).
+//! - `askpass`  : l'exécutable répond à ssh (phrase de passe) quand ssh le lance.
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
+pub mod askpass;
 mod branches;
 mod commands;
 mod git;
 mod history;
+mod profiles;
+mod secrets;
+mod signing;
 mod store;
 mod watch;
 mod worktree;
@@ -54,7 +62,9 @@ pub fn run() {
                 Some(d) => std::path::PathBuf::from(d),
                 None => app.path().app_config_dir()?,
             };
-            app.manage(Mutex::new(store::Store::load(dir)));
+            let store = store::Store::load(dir);
+            commands::sync_identities(&store.state);
+            app.manage(Mutex::new(store));
             app.manage(Mutex::new(watch::RepoWatcher::default()));
             create_main_window(app)?;
             Ok(())
@@ -99,6 +109,14 @@ pub fn run() {
             commands::abort_operation,
             commands::continue_operation,
             commands::watch_repo,
+            commands::set_profiles,
+            commands::set_repo_profiles,
+            commands::home_dir,
+            commands::ssh_key_info,
+            commands::generate_ssh_key,
+            commands::apply_identity,
+            commands::set_key_passphrase,
+            commands::gpg_keys,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

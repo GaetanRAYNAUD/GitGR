@@ -5,19 +5,191 @@
 //! ou, à défaut, le message brut de git.
 
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{LazyLock, RwLock};
 
-/// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
-fn git_command() -> Command {
+/// Commande qui n'ouvre pas de fenêtre console sous Windows (git, ssh-keygen…).
+pub fn quiet_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     #[allow(unused_mut)]
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(program);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    cmd
+}
+
+/// Identité du profil actif d'un dépôt, injectée dans chaque commande git lancée dedans :
+/// `-c user.name=… -c user.email=…` (rien n'est écrit dans la config git) et, avec une clé,
+/// `GIT_SSH_COMMAND` pour que fetch / pull / push s'authentifient avec elle.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Identity {
+    pub name: String,
+    pub email: String,
+    /// Chemin de la clé privée (`~` accepté).
+    pub ssh_key: Option<String>,
+    pub signing: Signing,
+}
+
+/// Signature des commits du profil.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum Signing {
+    /// La configuration Git décide (`commit.gpgsign`, `user.signingkey`…).
+    #[default]
+    Config,
+    /// Jamais, même si la configuration Git le demande.
+    Off,
+    /// GPG ; clé (identifiant ou empreinte) facultative : sinon gpg choisit d'après l'e-mail.
+    Gpg(Option<String>),
+    /// SSH, avec cette clé (privée ou `.pub`, `~` accepté).
+    Ssh(String),
+}
+
+impl Identity {
+    /// Réglages git du profil : identité et signature (injectés en `-c`, ou écrits dans
+    /// `.git/config` par « Écrire l'identité dans .git/config »).
+    pub fn config(&self) -> Vec<(&'static str, String)> {
+        let clean = |v: &str| v.replace(['\n', '\r'], " ").trim().to_string();
+        let mut out = Vec::new();
+        for (key, value) in [("user.name", clean(&self.name)), ("user.email", clean(&self.email))] {
+            if !value.is_empty() {
+                out.push((key, value));
+            }
+        }
+        match &self.signing {
+            Signing::Config => {}
+            Signing::Off => out.push(("commit.gpgsign", "false".into())),
+            Signing::Gpg(key) => {
+                out.push(("commit.gpgsign", "true".into()));
+                out.push(("gpg.format", "openpgp".into()));
+                // Sans clé choisie : l'e-mail du profil (gpg prend la clé de cette identité), et
+                // surtout pas le `user.signingkey` de la config globale, qui peut viser une autre
+                // clé, voire une clé SSH.
+                let k = key.as_deref().map(clean).filter(|k| !k.is_empty()).unwrap_or_else(|| clean(&self.email));
+                if !k.is_empty() {
+                    out.push(("user.signingkey", k));
+                }
+            }
+            Signing::Ssh(key) => {
+                out.push(("commit.gpgsign", "true".into()));
+                out.push(("gpg.format", "ssh".into()));
+                // Clé privée pour ssh-keygen (`-Y sign -f`) : `/`, `~` développé, sans `.pub`.
+                let k = expand_home(key.trim().trim_end_matches(".pub")).to_string_lossy().replace('\\', "/");
+                out.push(("user.signingkey", k));
+            }
+        }
+        out
+    }
+
+    /// Clés dont ssh / ssh-keygen peuvent demander la phrase de passe (askpass).
+    fn askpass_keys(&self) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::new();
+        let mut add = |k: &str| {
+            let k = expand_home(k.trim().trim_end_matches(".pub")).to_string_lossy().to_string();
+            if !k.is_empty() && !keys.contains(&k) {
+                keys.push(k);
+            }
+        };
+        if let Some(k) = self.ssh_key.as_deref().filter(|k| !k.trim().is_empty()) {
+            add(k);
+        }
+        if let Signing::Ssh(k) = &self.signing {
+            add(k);
+        }
+        keys
+    }
+}
+
+/// Identités par dépôt, indexées par [`repo_key`] ; tenues à jour par `commands`.
+static IDENTITIES: LazyLock<RwLock<HashMap<String, Identity>>> = LazyLock::new(Default::default);
+
+/// Clé d'un dépôt dans [`IDENTITIES`] : `/` partout, sans `/` final, en minuscules sous Windows
+/// (le même dossier peut arriver écrit `C:\x` ou `c:/x`).
+pub fn repo_key(path: &Path) -> String {
+    let s = path.to_string_lossy().replace('\\', "/");
+    let s = s.trim_end_matches('/');
+    if cfg!(windows) { s.to_lowercase() } else { s.to_string() }
+}
+
+/// Remplace toutes les identités (clés : [`repo_key`]).
+pub fn set_identities(map: HashMap<String, Identity>) {
+    *IDENTITIES.write().unwrap() = map;
+}
+
+/// Identité injectée dans ce dépôt (profil actif), s'il y en a une.
+pub fn identity_for(cwd: &Path) -> Option<Identity> {
+    let map = IDENTITIES.read().unwrap();
+    if map.is_empty() {
+        return None;
+    }
+    map.get(&repo_key(cwd)).cloned()
+}
+
+/// Dossier personnel de l'utilisateur (`USERPROFILE` sous Windows, `HOME` ailleurs).
+pub fn home_dir() -> Option<PathBuf> {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(var).or_else(|| std::env::var_os("HOME")).filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+/// `~/x` → `<dossier personnel>/x`.
+pub fn expand_home(path: &str) -> PathBuf {
+    let rest = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\"));
+    match (rest, home_dir()) {
+        (Some(rest), Some(home)) => home.join(rest),
+        (None, Some(home)) if path == "~" => home,
+        _ => PathBuf::from(path),
+    }
+}
+
+/// Commande SSH qui n'utilise que cette clé. Interprétée par un shell (celui de Git pour
+/// Windows aussi) : chemin entre apostrophes, avec des `/` (un `\` y serait un échappement).
+pub fn ssh_command(key: &str) -> String {
+    let path = expand_home(key).to_string_lossy().replace('\\', "/").replace('\'', r"'\''");
+    format!("ssh -i '{path}' -o IdentitiesOnly=yes")
+}
+
+/// Ce qui est ajouté à une commande git lancée dans `cwd` : arguments placés avant la
+/// sous-commande, et variables d'environnement.
+fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
+    let Some(id) = cwd.and_then(identity_for) else { return (Vec::new(), Vec::new()) };
+    let args = id.config().into_iter().flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
+    let mut env = Vec::new();
+    if let Some(key) = id.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        env.push(("GIT_SSH_COMMAND", ssh_command(key)));
+    }
+    let keys = id.askpass_keys();
+    if !keys.is_empty() {
+        env.extend(askpass_env(&keys));
+    }
+    (args, env)
+}
+
+/// Phrase de passe d'une clé protégée : ssh n'a pas de terminal, il la demande au programme de
+/// `SSH_ASKPASS` — l'exécutable de GitGR lui-même, qui la lit dans le trousseau (cf. `askpass`).
+/// `SSH_ASKPASS_REQUIRE=force` (OpenSSH ≥ 8.4) l'impose ; `DISPLAY` pour les versions plus
+/// anciennes, qui n'appellent l'askpass qu'avec un affichage. Rien n'est lu dans le trousseau
+/// ici : seulement si ssh pose effectivement la question.
+/// Une clé par ligne dans `GITGR_ASKPASS_KEY` (clé SSH du profil, clé de signature SSH).
+fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
+    let Ok(exe) = std::env::current_exe() else { return Vec::new() };
+    let mut env = vec![
+        ("SSH_ASKPASS", exe.to_string_lossy().replace('\\', "/")),
+        ("SSH_ASKPASS_REQUIRE", "force".to_string()),
+        (crate::askpass::KEY_VAR, keys.join("\n")),
+    ];
+    if std::env::var_os("DISPLAY").is_none() {
+        env.push(("DISPLAY", ":0".to_string()));
+    }
+    env
+}
+
+/// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
+fn git_command() -> Command {
+    let mut cmd = quiet_command("git");
     // Sortie stable, non traduite, sans pager ni invite interactive.
     // GIT_OPTIONAL_LOCKS=0 : nos lectures en arrière-plan (status…) ne prennent pas
     // `.git/index.lock`, sinon elles feraient échouer les commandes git lancées en parallèle
@@ -89,7 +261,11 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    cmd.args(args);
+    let (identity_args, identity_env) = injected(cwd);
+    cmd.args(identity_args).args(args);
+    for (k, v) in identity_env {
+        cmd.env(k, v);
+    }
     for (k, v) in env {
         cmd.env(k, v);
     }
@@ -150,6 +326,18 @@ pub fn toplevel(path: &Path) -> Result<PathBuf, String> {
             None => "not_a_repo".to_string(),
         }),
     }
+}
+
+/// Le commit n'a pas pu être signé (gpg ou ssh-keygen en échec : clé introuvable, phrase de
+/// passe refusée…) ; git le dit par « gpg failed to sign » ou « failed to write commit object »
+/// après un message du programme de signature.
+pub fn is_sign_error(stderr: &str) -> bool {
+    let s = stderr.to_lowercase();
+    s.contains("failed to sign the data")
+        || (s.contains("failed to write commit object")
+            && ["gpg failed", "ssh-keygen", "signing file", "couldn't load", "couldn't sign", "signing failed"]
+                .iter()
+                .any(|p| s.contains(p)))
 }
 
 /// Reconnaît les erreurs git qui ont un code dédié (traduit côté interface).
@@ -302,6 +490,90 @@ pub(crate) mod tests {
         std::fs::write(repo.join(name), content).unwrap();
         run(Some(repo), &["add", name]).unwrap();
         run(Some(repo), &["commit", "-q", "-m", "test"]).unwrap();
+    }
+
+    /// Ajoute (ou retire) une seule identité : les tests tournent en parallèle, remplacer toute
+    /// la table effacerait celles des autres.
+    pub(crate) fn set_identity(repo: &Path, id: Option<Identity>) {
+        let mut map = IDENTITIES.write().unwrap();
+        match id {
+            Some(id) => map.insert(repo_key(repo), id),
+            None => map.remove(&repo_key(repo)),
+        };
+    }
+
+    #[test]
+    fn repo_keys_ignore_separators_and_trailing_slash() {
+        assert_eq!(repo_key(Path::new("/a/b/")), "/a/b");
+        if cfg!(windows) {
+            assert_eq!(repo_key(Path::new(r"C:\Users\X\Repo")), repo_key(Path::new("c:/users/x/repo/")));
+        }
+    }
+
+    #[test]
+    fn ssh_command_quotes_the_key_path() {
+        assert_eq!(ssh_command("/k/my key"), "ssh -i '/k/my key' -o IdentitiesOnly=yes");
+        assert_eq!(ssh_command(r"C:\Users\A B\.ssh\id"), "ssh -i 'C:/Users/A B/.ssh/id' -o IdentitiesOnly=yes");
+        assert_eq!(ssh_command("/k/l'x"), r"ssh -i '/k/l'\''x' -o IdentitiesOnly=yes");
+        let home = home_dir().unwrap().to_string_lossy().replace('\\', "/");
+        assert_eq!(ssh_command("~/.ssh/id"), format!("ssh -i '{home}/.ssh/id' -o IdentitiesOnly=yes"));
+    }
+
+    #[test]
+    fn signing_settings() {
+        let id = |signing| Identity { name: "N".into(), email: "n@exemple.fr".into(), ssh_key: None, signing };
+        let keys = |i: Identity| i.config().into_iter().skip(2).collect::<Vec<_>>();
+        let s = |v: &str| v.to_string();
+        assert_eq!(keys(id(Signing::Config)), []);
+        assert_eq!(keys(id(Signing::Off)), [("commit.gpgsign", s("false"))]);
+        // Clé GPG non choisie : celle de l'e-mail du profil, jamais celle de la config globale.
+        assert_eq!(
+            keys(id(Signing::Gpg(None))),
+            [("commit.gpgsign", s("true")), ("gpg.format", s("openpgp")), ("user.signingkey", s("n@exemple.fr"))]
+        );
+        assert_eq!(keys(id(Signing::Gpg(Some("ABCD".into()))))[2], ("user.signingkey", s("ABCD")));
+        assert_eq!(
+            keys(id(Signing::Ssh(r"C:\k\sign.pub".into()))),
+            [("commit.gpgsign", s("true")), ("gpg.format", s("ssh")), ("user.signingkey", s("C:/k/sign"))]
+        );
+    }
+
+    #[test]
+    fn signing_errors() {
+        assert!(is_sign_error("error: gpg failed to sign the data\nfatal: failed to write commit object"));
+        assert!(is_sign_error("error: Couldn't load public key /k/x: No such file or directory?\n\nfatal: failed to write commit object"));
+        assert!(!is_sign_error("hook: reassigned owner\nfatal: failed to write commit object"));
+        assert!(!is_sign_error("fatal: unable to write new index file"));
+    }
+
+    #[test]
+    fn identity_is_injected_only_in_its_repo() {
+        let repo = temp_repo();
+        let other = temp_repo();
+        let id = Identity { name: "Perso\nX".into(), email: " moi@perso.fr ".into(), ssh_key: Some("/k/id".into()), signing: Signing::Config };
+        set_identity(repo.path(), Some(id));
+        let (args, env) = injected(Some(repo.path()));
+        assert_eq!(args, ["-c", "user.name=Perso X", "-c", "user.email=moi@perso.fr"]);
+        let var = |k: &str| env.iter().find(|(name, _)| *name == k).map(|(_, v)| v.as_str());
+        assert_eq!(var("GIT_SSH_COMMAND"), Some("ssh -i '/k/id' -o IdentitiesOnly=yes"));
+        // Phrase de passe : ssh la demande à l'exécutable de GitGR (mode askpass).
+        let exe = std::env::current_exe().unwrap().to_string_lossy().replace('\\', "/");
+        assert_eq!(var("SSH_ASKPASS"), Some(exe.as_str()));
+        assert_eq!(var("SSH_ASKPASS_REQUIRE"), Some("force"));
+        assert_eq!(var(crate::askpass::KEY_VAR), Some("/k/id"));
+        assert_eq!(injected(Some(other.path())), (vec![], vec![]));
+        assert_eq!(injected(None), (vec![], vec![]));
+
+        // Le commit prend l'identité du profil, pas celle de la config du dépôt.
+        commit_file(repo.path(), "a.txt", "1");
+        assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an <%ae> / %cn <%ce>"]).unwrap(), "Perso X <moi@perso.fr> / Perso X <moi@perso.fr>");
+        assert_eq!(run(Some(repo.path()), &["config", "--local", "user.name"]).unwrap(), "Test", "config git intacte");
+        commit_file(other.path(), "a.txt", "1");
+        assert_eq!(run(Some(other.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
+
+        set_identity(repo.path(), None);
+        commit_file(repo.path(), "b.txt", "1");
+        assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
     }
 
     #[test]

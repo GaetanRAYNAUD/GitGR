@@ -38,15 +38,19 @@ import type {
   DiffArea,
   FileDiff,
   GitInfo,
+  GpgKey,
   LineRef,
   OpResult,
+  Profile,
   PullStrategy,
   RefsInfo,
   RepoEntry,
+  RepoProfiles,
   RepoSummary,
   RepoUi,
   Session,
   Settings,
+  SshKeyInfo,
   WorkStatus,
 } from "./types";
 
@@ -103,8 +107,26 @@ export interface Api {
   watchRepo(path: string | null): Promise<void>;
   /** Appelé quand le dépôt surveillé change sur disque ; renvoie de quoi se désabonner. */
   onRepoChanged(cb: (path: string) => void): Promise<() => void>;
+  // Profils
+  /** Remplace la liste des profils ; renvoie les profils des dépôts (ceux supprimés retirés). */
+  setProfiles(profiles: Profile[]): Promise<Record<string, RepoProfiles>>;
+  setRepoProfiles(path: string, profiles: RepoProfiles): Promise<void>;
+  /** Dossier personnel (avec des `/`), `null` s'il est inconnu. */
+  homeDir(): Promise<string | null>;
+  sshKeyInfo(path: string): Promise<SshKeyInfo>;
+  /** Clé ed25519 sans phrase de passe ; refuse d'écraser un fichier (`key_exists`). */
+  generateSshKey(path: string, comment: string, passphrase: string | null): Promise<SshKeyInfo>;
+  /** Vérifie puis range la phrase de passe dans le trousseau du système (`null` : l'oublie). */
+  setKeyPassphrase(path: string, passphrase: string | null): Promise<SshKeyInfo>;
+  /** Écrit l'identité dans `.git/config` du dépôt. */
+  /** Écrit l'identité et la signature du profil actif dans `.git/config` du dépôt. */
+  applyIdentity(path: string): Promise<void>;
+  /** Clés GPG secrètes de l'utilisateur. */
+  gpgKeys(): Promise<GpgKey[]>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
+  /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
+  pickFile(title: string, dir?: string | null): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   window: {
     minimize(): Promise<void>;
@@ -170,9 +192,22 @@ const tauriApi: Api = {
     const { listen } = await import("@tauri-apps/api/event");
     return listen<string>("repo-changed", (e) => cb(e.payload));
   },
+  setProfiles: (profiles) => invoke("set_profiles", { profiles }),
+  setRepoProfiles: (path, profiles) => invoke("set_repo_profiles", { path, profiles }),
+  homeDir: () => invoke("home_dir"),
+  sshKeyInfo: (path) => invoke("ssh_key_info", { path }),
+  generateSshKey: (path, comment, passphrase) => invoke("generate_ssh_key", { path, comment, passphrase }),
+  setKeyPassphrase: (path, passphrase) => invoke("set_key_passphrase", { path, passphrase }),
+  applyIdentity: (path) => invoke("apply_identity", { path }),
+  gpgKeys: () => invoke("gpg_keys"),
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
+    return typeof res === "string" ? res : null;
+  },
+  async pickFile(title, dir) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const res = await open({ directory: false, multiple: false, title, defaultPath: dir ?? undefined });
     return typeof res === "string" ? res : null;
   },
   async openUrl(url) {
@@ -225,6 +260,37 @@ function mockSave(s: AppState) {
   }
 }
 
+/** Backend simulé : clés générées (chemin → commentaire). `~/.ssh/id_ed25519` existe d'office,
+ *  `…locked…` est protégée par une phrase de passe. */
+const mockKeys = new Map<string, string>();
+/** Clés générées avec une phrase de passe, et phrases rangées « dans le trousseau ». La phrase
+ *  de passe des clés `…locked…` est `secret`. */
+const mockLocked = new Map<string, string>();
+const mockPassphrases = new Set<string>();
+
+function mockKeyInfo(path: string): SshKeyInfo;
+function mockKeyInfo(path: string, probe: true): SshKeyInfo | null;
+function mockKeyInfo(path: string, probe = false): SshKeyInfo | null {
+  const builtin = /[\\/]\.ssh[\\/](id_ed25519|locked_ed25519)$/.test(path);
+  if (!mockKeys.has(path) && !builtin) {
+    if (probe) return null;
+    throw "key_not_found";
+  }
+  const comment = mockKeys.get(path) ?? "demo@exemple.fr";
+  let h = 0;
+  for (const c of path) h = (h * 31 + c.charCodeAt(0)) | 0;
+  const fp = Math.abs(h).toString(36).padEnd(8, "x");
+  return {
+    kind: "ED25519",
+    bits: 256,
+    fingerprint: `SHA256:${fp}${fp}`,
+    comment,
+    publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI${fp} ${comment}`,
+    encrypted: path.includes("locked") || mockLocked.has(path),
+    passphraseStored: mockPassphrases.has(path),
+  };
+}
+
 /** Petite latence simulée, pour voir les états de chargement. */
 const mockDelay = () => new Promise((r) => setTimeout(r, 30));
 
@@ -245,6 +311,7 @@ const mockApi: Api = {
     s.repos = s.repos.filter((r) => r.path !== path);
     s.session.openTabs = s.session.openTabs.filter((p) => p !== path);
     if (s.repoUi) delete s.repoUi[path];
+    if (s.repoProfiles) delete s.repoProfiles[path];
     if (s.session.active === path) s.session.active = null;
     mockSave(s);
   },
@@ -361,10 +428,55 @@ const mockApi: Api = {
     mockRepoListeners.add(cb);
     return () => mockRepoListeners.delete(cb);
   },
+  async setProfiles(profiles) {
+    const s = mockLoad();
+    const ids = new Set(profiles.map((p) => p.id));
+    const repoProfiles: Record<string, RepoProfiles> = {};
+    for (const [path, b] of Object.entries(s.repoProfiles ?? {})) {
+      repoProfiles[path] = { active: b.active && ids.has(b.active) ? b.active : null, allowed: b.allowed.filter((id) => ids.has(id)) };
+    }
+    mockSave({ ...s, profiles, repoProfiles });
+    return repoProfiles;
+  },
+  async setRepoProfiles(path, profiles) {
+    const s = mockLoad();
+    mockSave({ ...s, repoProfiles: { ...s.repoProfiles, [path]: profiles } });
+  },
+  homeDir: async () => "C:/Users/demo",
+  async sshKeyInfo(path) {
+    return mockKeyInfo(path);
+  },
+  async generateSshKey(path, comment, passphrase) {
+    if (mockKeys.has(path) || mockKeyInfo(path, true)) throw "key_exists";
+    mockKeys.set(path, comment);
+    if (passphrase) {
+      mockLocked.set(path, passphrase);
+      mockPassphrases.add(path);
+    }
+    return mockKeyInfo(path);
+  },
+  async setKeyPassphrase(path, passphrase) {
+    const info = mockKeyInfo(path);
+    if (passphrase === null) mockPassphrases.delete(path);
+    else if (info.encrypted && passphrase !== (mockLocked.get(path) ?? "secret")) throw "wrong_passphrase";
+    else mockPassphrases.add(path);
+    return mockKeyInfo(path);
+  },
+  async applyIdentity() {},
+  async gpgKeys() {
+    return [
+      { id: "5E8B7C4CFAC5417C", fingerprint: "CD44BED4A958CD21393CB06C5E8B7C4CFAC5417C", uids: ["Camille Dupont <camille@boulot.fr>"], unusable: false },
+      { id: "1111222233334444", fingerprint: "9999999999999999999999991111222233334444", uids: ["Demo <demo@exemple.fr>"], unusable: false },
+      { id: "AAAA0000BBBB1111", fingerprint: "0000000000000000000000000000AAAA0000BBBB1111", uids: ["Ancienne <old@exemple.fr>"], unusable: true },
+    ];
+  },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];
     mockPick += 1;
     return p;
+  },
+  async pickFile() {
+    return "C:/Users/demo/.ssh/id_ed25519";
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener");

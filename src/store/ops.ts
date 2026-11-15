@@ -13,6 +13,7 @@ import type { OpResult, PullStrategy } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph, WIP } from "./graph";
+import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
 
 export type OpName = "checkout" | "branch" | "fetch" | "pull" | "push" | "stash" | "pop" | "operation";
@@ -227,6 +228,8 @@ export const useOps = create<OpsStore>((set, get) => {
     },
 
     async push(path, force = false) {
+      // Garde-fou : profil actif qui ne correspond pas au remote (une seule fois par session).
+      if (!force && !(await useProfiles.getState().confirmIdentity(path))) return false;
       const out = await exec(path, "push", () => api.push(path, force));
       if (!out.ok && out.error === "push_rejected" && !force) {
         const pick = await useDialogs.getState().choose({

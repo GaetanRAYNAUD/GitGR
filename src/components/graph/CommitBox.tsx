@@ -7,8 +7,10 @@ import type { Operation } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
+import { useProfiles } from "../../store/profiles";
 import { useWork } from "../../store/worktree";
 import { Icon } from "../Icon";
+import { ProfilePill } from "../ProfilePill";
 import { DEFAULT_REPO_UI } from "./RefsSidebar";
 
 /** Dernier message de merge proposé, par dépôt. */
@@ -84,6 +86,8 @@ export function CommitBox({ path }: { path: string }) {
 
   const submit = async () => {
     if (!canCommit) return;
+    // Garde-fou : profil actif qui ne correspond pas au remote.
+    if (!(await useProfiles.getState().confirmIdentity(path))) return;
     if ((await commit(path)) && pushAfter) await push(path);
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -154,6 +158,7 @@ export function CommitBox({ path }: { path: string }) {
           {t("commit.pushAfter")}
         </label>
         {hint && <span className="commit-hint">{hint}</span>}
+        <ProfilePill path={path} className="commit-profile" />
       </div>
       <button type="submit" className="btn primary commit-btn" disabled={!canCommit} title={t("commit.shortcut")}>
         {draft.amend ? t("commit.amendButton") : t("commit.button", { count: staged })}

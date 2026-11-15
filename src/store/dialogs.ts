@@ -27,6 +27,8 @@ export interface InputRequest {
   label: string;
   initial: string;
   submit: string;
+  /** Champ masqué (phrase de passe) : ni valeur initiale affichée, ni correction. */
+  secret?: boolean;
   /** Case à cocher facultative sous le champ. */
   checkbox?: { label: string; checked: boolean };
   /** Message d'erreur pour une valeur refusée, `null` si elle convient. */

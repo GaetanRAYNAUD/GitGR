@@ -63,6 +63,64 @@ export interface AppState {
   settings: Settings;
   /** Indexé par chemin de dépôt ; absent = valeurs par défaut. */
   repoUi?: Record<string, RepoUi>;
+  profiles?: Profile[];
+  /** Profils par dépôt (chemin) ; absent = jamais choisi (sélection automatique). */
+  repoProfiles?: Record<string, RepoProfiles>;
+}
+
+// --- Profils (src-tauri/src/store.rs, profiles.rs) ---------------------------
+
+/** Une identité Git complète, choisie par dépôt. */
+export interface Profile {
+  id: string;
+  /** Nom affiché (« Perso », « Boulot »). */
+  name: string;
+  userName: string;
+  userEmail: string;
+  /** Clé SSH privée pour fetch / pull / push (`null` : celle de SSH par défaut). */
+  sshKey: string | null;
+  /** Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers (`~/work/*`). */
+  rules: string[];
+  /** Index de couleur de la pastille. */
+  color: number;
+  /** Image (data URL, carré de 128 px) affichée à la place des initiales ; absente = aucune. */
+  image?: string | null;
+  /** Signature des commits ; absent ou "" : la configuration Git décide. */
+  signing?: SigningMode;
+  /** GPG : identifiant ou empreinte (vide : choisie par gpg d'après l'e-mail).
+   *  SSH : fichier de clé (vide : la clé SSH du profil). */
+  signingKey?: string | null;
+}
+
+/** "" : configuration Git ; "off" : jamais ; "gpg" ; "ssh". */
+export type SigningMode = "" | "off" | "gpg" | "ssh";
+
+export interface GpgKey {
+  /** Identifiant long. */
+  id: string;
+  fingerprint: string;
+  /** `Nom <e-mail>`. */
+  uids: string[];
+  /** Expirée ou révoquée. */
+  unusable: boolean;
+}
+
+/** Profils associés à un dépôt et profil actif (`null` : configuration Git). */
+export interface RepoProfiles {
+  active: string | null;
+  allowed: string[];
+}
+
+export interface SshKeyInfo {
+  kind: string;
+  bits: number;
+  fingerprint: string;
+  comment: string;
+  publicKey: string | null;
+  /** Protégée par une phrase de passe. */
+  encrypted: boolean;
+  /** Sa phrase de passe est dans le trousseau du système (ssh l'obtient par GitGR). */
+  passphraseStored: boolean;
 }
 
 export interface RepoSummary {

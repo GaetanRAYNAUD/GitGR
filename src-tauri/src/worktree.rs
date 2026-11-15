@@ -519,6 +519,8 @@ fn classify_commit_error(stderr: &str) -> String {
         "identity_missing".into()
     } else if stderr.contains("nothing to commit") || stderr.contains("no changes added to commit") {
         "nothing_to_commit".into()
+    } else if crate::git::is_sign_error(stderr) {
+        "sign_failed".into()
     } else {
         stderr.to_string()
     }

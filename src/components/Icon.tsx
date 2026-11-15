@@ -31,6 +31,9 @@ const PATHS = {
   tree: "M4 4h6v4H4zM13 10h7v4h-7zM13 17h7v4h-7zM7 8v11h6M7 12h6",
   file: "M14 3H6v18h12V7l-4-4ZM14 3v4h4",
   alert: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
+  image: "M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9.5h.01",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4.5 20a7.5 7.5 0 0 1 15 0",
+  key: "M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM11 11h10M18 11v3M15 11v2",
 } as const;
 
 export type IconName = keyof typeof PATHS;
