@@ -9,7 +9,8 @@ import { create } from "zustand";
 import i18n from "../i18n";
 import { api, errorCode } from "../lib/api";
 import { hostMismatch, parseRemote, remoteLabel, remoteProfile, suggestProfile } from "../lib/profiles";
-import type { AppState, Profile, RemoteInfo, RepoProfiles } from "../lib/types";
+import { withAccount } from "../lib/providers";
+import type { Account, AppState, Profile, ProviderKind, RemoteInfo, RepoProfiles } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph } from "./graph";
@@ -44,6 +45,11 @@ interface ProfilesStore {
   confirmIdentity(path: string): Promise<boolean>;
   /** Écrit l'identité du profil actif dans `.git/config`. */
   applyIdentity(path: string): Promise<void>;
+  /** Connecte un compte GitHub / GitLab au profil (token vérifié par le backend, rangé dans le
+   *  trousseau). Rejette avec le code d'erreur : la fenêtre de connexion l'affiche. */
+  connectAccount(profileId: string, kind: ProviderKind, url: string, token: string): Promise<Account>;
+  /** Retire un compte du profil (et oublie son token s'il ne sert plus). */
+  disconnectAccount(profileId: string, accountId: string): Promise<boolean>;
   /** Dépôt retiré de la liste. */
   forget(path: string): void;
   openPage(select?: string | null): void;
@@ -198,6 +204,23 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
       } catch (e) {
         useApp.setState({ error: errorCode(e) });
       }
+    },
+
+    async connectAccount(profileId, kind, url, token) {
+      const account = await api.connectAccount(profileId, kind, url, token);
+      set((s) => ({ profiles: s.profiles.map((p) => (p.id === profileId ? { ...p, accounts: withAccount(p.accounts, account) } : p)) }));
+      return account;
+    },
+
+    async disconnectAccount(profileId, accountId) {
+      try {
+        await api.disconnectAccount(profileId, accountId);
+      } catch (e) {
+        useApp.setState({ error: errorCode(e) });
+        return false;
+      }
+      set((s) => ({ profiles: s.profiles.map((p) => (p.id === profileId ? { ...p, accounts: (p.accounts ?? []).filter((a) => a.id !== accountId) } : p)) }));
+      return true;
     },
 
     forget(path) {

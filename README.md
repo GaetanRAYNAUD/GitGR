@@ -92,6 +92,7 @@ src/                 interface React
                      worktree.ts (copie de travail), ops.ts (branches, réseau), profiles.ts
                      (profils, profil actif par dépôt), dialogs.ts
   lib/profiles.ts    règles de sélection automatique des profils
+  lib/providers.ts   providers : adresse d'une instance, provider et compte d'un remote
   lib/api.ts         façade vers le backend (Tauri ou simulé)
   i18n/              traductions
   **/*.test.ts(x)    tests unitaires, à côté du code testé
@@ -104,8 +105,9 @@ src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque
   branches.rs        checkout (auto-stash), branches, fetch / pull / push, stash pop
   watch.rs           surveillance du dépôt actif
   profiles.rs        clés SSH des profils (lecture, génération, phrase de passe)
+  providers.rs       comptes GitHub / GitLab (token personnel vérifié auprès de l'API)
   signing.rs         clés GPG (signature des commits)
-  secrets.rs         trousseau du système (phrases de passe)
+  secrets.rs         trousseau du système (phrases de passe, tokens des comptes)
   askpass.rs         l'exécutable répond à ssh (phrase de passe) quand ssh le lance
   store.rs           état persistant (dépôts, onglets, réglages, profils)
   commands.rs        commandes exposées à l'interface

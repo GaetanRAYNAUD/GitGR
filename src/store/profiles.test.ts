@@ -193,3 +193,49 @@ describe("store : profils", () => {
     expect(s().pageOpen).toBe(false);
   });
 });
+
+describe("store : comptes providers", () => {
+  it("connecte un compte au profil, puis le recharge au démarrage", async () => {
+    await useApp.getState().init();
+    await s().save([profile("perso"), profile("boulot")]);
+    const account = await s().connectAccount("boulot", "gitlab", "gitlab.exemple.fr", "glpat-demo");
+    expect(account).toEqual({ id: "gitlab|https://gitlab.exemple.fr|camille.dupont", kind: "gitlab", url: "https://gitlab.exemple.fr", login: "camille.dupont", name: null });
+    expect(s().profiles.map((p) => p.accounts ?? [])).toEqual([[], [account]]);
+    // Jamais de token dans l'état.
+    expect(JSON.stringify(s().profiles)).not.toContain("glpat");
+
+    useProfiles.setState({ profiles: [] });
+    await useApp.getState().init();
+    expect(s().profiles[1].accounts).toEqual([account]);
+    await expect(api.checkAccount(account.id)).resolves.toEqual(account);
+  });
+
+  it("un second compte sur la même instance remplace le premier ; une autre instance s'ajoute", async () => {
+    await useApp.getState().init();
+    await s().save([profile("perso")]);
+    await s().connectAccount("perso", "github", "", "ghp-demo");
+    await s().connectAccount("perso", "gitlab", "", "glpat-demo");
+    await s().connectAccount("perso", "github", "https://github.com/", "as:autre");
+    expect(s().profiles[0].accounts?.map((a) => `${a.kind}:${a.login}`)).toEqual(["gitlab:camille.dupont", "github:autre"]);
+  });
+
+  it("un token ou une adresse refusés ne changent rien", async () => {
+    await useApp.getState().init();
+    await s().save([profile("perso")]);
+    await expect(s().connectAccount("perso", "github", "", "bad-token")).rejects.toBe("token_invalid");
+    await expect(s().connectAccount("perso", "gitlab", "ssh://gitlab.exemple.fr", "glpat-demo")).rejects.toBe("invalid_instance_url");
+    await expect(s().connectAccount("perso", "gitlab", "gitlab.injoignable.fr", "glpat-demo")).rejects.toBe("provider_unreachable");
+    await expect(s().connectAccount("absent", "github", "", "ghp-demo")).rejects.toBe("no_profile");
+    expect(s().profiles[0].accounts ?? []).toEqual([]);
+    expect(useApp.getState().error).toBeNull();
+  });
+
+  it("déconnecte un compte", async () => {
+    await useApp.getState().init();
+    await s().save([profile("perso")]);
+    const account = await s().connectAccount("perso", "github", "", "ghp-demo");
+    expect(await s().disconnectAccount("perso", account.id)).toBe(true);
+    expect(s().profiles[0].accounts).toEqual([]);
+    await expect(api.checkAccount(account.id)).rejects.toBe("account_not_found");
+  });
+});

@@ -378,7 +378,9 @@
     "removeTitle": "Remove remote {{remote}}?",
     "removeBody": "Its remote branches disappear from the sidebar, and local branches that tracked them no longer track anything. Nothing is deleted on the server.",
     "removeConfirm": "Remove",
-    "pushUrl": "Push: {{url}}"
+    "pushUrl": "Push: {{url}}",
+    "account": "{{provider}} account: {{login}}",
+    "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
     "not_a_repo": "This folder is not a Git repository.",
@@ -432,6 +434,16 @@
     "invalid_remote_name": "Invalid remote name.",
     "invalid_remote_url": "Invalid remote URL.",
     "remote_exists": "A remote with this name already exists.",
+    "unknown_provider": "Unknown provider.",
+    "invalid_instance_url": "Invalid instance address.",
+    "token_invalid": "Token rejected: it is wrong, expired or revoked.",
+    "token_forbidden": "Access denied with this token: missing scopes, missing SSO authorization or rate limit reached.",
+    "token_missing": "This account’s token is no longer in the system keychain: reconnect the account.",
+    "provider_unreachable": "Instance unreachable: check the address, the network connection and the server certificate.",
+    "provider_not_found": "This provider’s API does not answer at this address: check the instance address and the chosen provider.",
+    "provider_unexpected": "Unexpected answer: this address is not an instance of this provider.",
+    "provider_error": "The server answered with an error: try again later.",
+    "account_not_found": "Account not found.",
     "dismiss": "Dismiss"
   },
   "profiles": {
@@ -540,6 +552,32 @@
     "sshSigningKey": "SSH signing key",
     "sshSigningDefault": "Empty: the profile SSH key is used.",
     "sshSigningMissing": "Pick a signing key, or an SSH key for the profile.",
-    "appliedSigning": "Signing settings written too."
+    "appliedSigning": "Signing settings written too.",
+    "accounts": "GitHub / GitLab accounts",
+    "accountsHint": "The account is used for the provider’s API (repositories, PRs / MRs). In a repository, each remote uses its profile’s account on its instance. The token is kept in the system keychain.",
+    "accountsEmpty": "No account connected.",
+    "accountsNew": "Save the profile first to connect an account to it.",
+    "accountConnect": "Connect an account…",
+    "accountDisconnect": "Disconnect",
+    "accountDisconnectTitle": "Disconnect {{login}}?",
+    "accountDisconnectBody": "The account {{login}} ({{instance}}) is removed from the profile “{{profile}}” and its token is forgotten if no other profile uses it. Nothing is revoked on {{provider}}.",
+    "accountReconnect": "Reconnect…",
+    "accountChecking": "checking…",
+    "accountOk": "connected",
+    "accountConnected": "Account {{login}} connected ({{instance}}).",
+    "accountDisconnected": "Account {{login}} disconnected.",
+    "accountDialogTitle": "Connect an account to the profile “{{profile}}”",
+    "accountProvider": "Provider",
+    "accountInstance": "Instance",
+    "accountInstanceHint_github": "Empty: github.com. For GitHub Enterprise, the address of the instance.",
+    "accountInstanceHint_gitlab": "Empty: gitlab.com. For a self-hosted instance, its address.",
+    "accountInstanceInvalid": "Invalid address: a host (gitlab.example.com) or an http(s) URL.",
+    "accountInsecure": "Unencrypted connection (http): the token will travel in clear text over the network. Prefer https.",
+    "accountToken": "Personal access token",
+    "accountTokenCreate": "Create a token on {{host}}…",
+    "accountTokenHint_github": "Classic token, scopes: repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pre-selected by the link).",
+    "accountTokenHint_gitlab": "Scopes: api, read_user (pre-selected by the link).",
+    "accountSubmit": "Connect",
+    "accountConnecting": "Checking…"
   }
 }

@@ -1,8 +1,9 @@
 //! Secrets dans le trousseau de l'OS (Gestionnaire d'identification sous Windows, Secret
 //! Service sous Linux, trousseau sous macOS) : jamais dans `state.json`.
 //!
-//! Pour l'instant : la phrase de passe des clés SSH, rangée par fichier de clé (une clé
-//! partagée par deux profils n'a qu'une phrase de passe).
+//! - la phrase de passe des clés SSH, rangée par fichier de clé (une clé partagée par deux
+//!   profils n'a qu'une phrase de passe) ;
+//! - le token des comptes providers (GitHub, GitLab), rangé par compte.
 
 use crate::git::{expand_home, repo_key};
 
@@ -39,6 +40,30 @@ pub fn delete_passphrase(key: &str) -> Result<(), String> {
     }
 }
 
+// --- Tokens des comptes providers (GitHub, GitLab) -------------------------------
+
+/// Entrée du token d'un compte, par identifiant de compte (cf. `providers::account_id`).
+fn token_entry(account: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(SERVICE, &format!("token:{account}")).map_err(|_| "keyring_unavailable".to_string())
+}
+
+/// Token enregistré pour ce compte (`None` : aucun, ou trousseau indisponible).
+pub fn token(account: &str) -> Option<String> {
+    token_entry(account).ok()?.get_password().ok()
+}
+
+pub fn set_token(account: &str, value: &str) -> Result<(), String> {
+    token_entry(account)?.set_password(value).map_err(|_| "keyring_unavailable".to_string())
+}
+
+/// Oublie le token (rien à faire s'il n'était pas enregistré).
+pub fn delete_token(account: &str) -> Result<(), String> {
+    match token_entry(account)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(_) => Err("keyring_unavailable".into()),
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -51,6 +76,33 @@ pub(crate) mod tests {
             for key in &self.0 {
                 let _ = delete_passphrase(key);
             }
+        }
+    }
+
+    #[test]
+    fn tokens_are_stored_per_account() {
+        if !keyring_available() {
+            eprintln!("trousseau indisponible : test sauté");
+            return;
+        }
+        let account = format!("github|https://tests.invalid/{}|moi", std::process::id());
+        let _cleanup = ForgetToken(account.clone());
+        assert!(token(&account).is_none());
+        set_token(&account, "ghp_secret").unwrap();
+        assert_eq!(token(&account).as_deref(), Some("ghp_secret"));
+        // Une phrase de passe de clé ne se confond pas avec un token.
+        assert!(passphrase(&account).is_none());
+        delete_token(&account).unwrap();
+        assert!(token(&account).is_none());
+        delete_token(&account).unwrap();
+    }
+
+    /// Retire le token de ce compte du trousseau à la fin du test, même s'il échoue.
+    pub(crate) struct ForgetToken(pub String);
+
+    impl Drop for ForgetToken {
+        fn drop(&mut self) {
+            let _ = delete_token(&self.0);
         }
     }
 
