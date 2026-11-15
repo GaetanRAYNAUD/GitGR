@@ -129,6 +129,21 @@ pub fn identity_for(cwd: &Path) -> Option<Identity> {
     map.get(&repo_key(cwd)).cloned()
 }
 
+/// Écrit ces réglages dans `.git/config` (« Écrire l'identité dans .git/config ») et retire ceux
+/// de `previous` — les clés écrites la fois d'avant — que le profil ne définit plus : la
+/// signature d'un ancien profil ne survit pas au changement. Les réglages que l'utilisateur a
+/// posés lui-même ne sont jamais dans `previous`, donc jamais retirés. Renvoie les clés écrites.
+pub fn write_local_config(repo: &Path, settings: &[(&'static str, String)], previous: &[String]) -> Result<Vec<String>, String> {
+    for key in previous.iter().filter(|k| !settings.iter().any(|(s, _)| s == k)) {
+        // Déjà absente (retirée à la main) : rien à faire.
+        let _ = run(Some(repo), &["config", "--local", "--unset-all", key]);
+    }
+    for (key, value) in settings {
+        run(Some(repo), &["config", "--local", key, value])?;
+    }
+    Ok(settings.iter().map(|(key, _)| key.to_string()).collect())
+}
+
 /// Dossier personnel de l'utilisateur (`USERPROFILE` sous Windows, `HOME` ailleurs).
 pub fn home_dir() -> Option<PathBuf> {
     let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
@@ -630,6 +645,34 @@ pub(crate) mod tests {
         assert_eq!(out.split('\0').filter(|s| !s.is_empty()).count(), count);
         // git sort sans lire son entrée : c'est son résultat qui compte, pas l'écriture interrompue.
         assert!(run_input(None, &["--version"], &input).unwrap().starts_with("git version"));
+    }
+
+    #[test]
+    fn written_identity_replaces_the_previous_one() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let local = |key: &str| run(Some(p), &["config", "--local", "--get", key]).ok();
+        // Réglage posé à la main : jamais retiré.
+        run(Some(p), &["config", "core.hooksPath", "hooks"]).unwrap();
+        let id = |signing| Identity { name: "A".into(), email: "a@exemple.fr".into(), ssh_key: None, signing };
+
+        let written = write_local_config(p, &id(Signing::Ssh("/k/sign".into())).config(), &[]).unwrap();
+        assert_eq!(written, ["user.name", "user.email", "commit.gpgsign", "gpg.format", "user.signingkey"]);
+        assert_eq!(local("gpg.format").as_deref(), Some("ssh"));
+
+        // Profil suivant, signature laissée à Git : celle de l'ancien profil disparaît.
+        let mut next = id(Signing::Config);
+        next.name = "B".into();
+        let written = write_local_config(p, &next.config(), &written).unwrap();
+        assert_eq!(written, ["user.name", "user.email"]);
+        assert_eq!(local("user.name").as_deref(), Some("B"));
+        assert_eq!((local("commit.gpgsign"), local("gpg.format"), local("user.signingkey")), (None, None, None));
+        assert_eq!(local("core.hooksPath").as_deref(), Some("hooks"));
+
+        // Sans trace d'une écriture précédente, rien n'est retiré (signature posée à la main).
+        run(Some(p), &["config", "commit.gpgsign", "true"]).unwrap();
+        write_local_config(p, &next.config(), &[]).unwrap();
+        assert_eq!(local("commit.gpgsign").as_deref(), Some("true"));
     }
 
     #[test]

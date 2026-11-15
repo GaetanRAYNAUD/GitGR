@@ -143,6 +143,9 @@ pub struct AppState {
     pub profiles: Vec<Profile>,
     /// Profils par dépôt, indexés par chemin ; absent = jamais choisi (sélection automatique).
     pub repo_profiles: HashMap<String, RepoProfiles>,
+    /// Clés que « Écrire l'identité dans .git/config » a écrites, par dépôt : celles que le
+    /// profil suivant ne définit plus seront retirées (cf. `git::write_local_config`).
+    pub written_config: HashMap<String, Vec<String>>,
 }
 
 impl AppState {
