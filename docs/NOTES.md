@@ -177,6 +177,15 @@ Relation **repo ↔ profils : N–N**.
 - **Auto-suggestion** à l'ouverture/clone : selon l'host du remote (`github.com`, `gitlab.mon-entreprise.fr`) et/ou le dossier parent.
 - Garde-fou : alerte si on s'apprête à commiter/pousser avec un profil qui ne correspond pas au remote.
 
+**Profil du dépôt et profils des remotes** (décidé, à faire avec l'étape 6) :
+- Le **profil du dépôt** donne l'identité des commits (et leur signature) : un commit n'a qu'un auteur, même s'il est poussé sur plusieurs serveurs.
+- Chaque **remote** peut avoir son propre profil, pour la **clé SSH** et le **compte de l'API** (PR / MR). Par défaut : celui que désignent les règles sur l'URL du remote, sinon le profil du dépôt.
+- Clé par remote : au lieu de `ssh -i <clé>`, `GIT_SSH_COMMAND="ssh -F <config générée>"` avec un bloc `Host` par hôte de remote du dépôt (`IdentityFile`, `IdentitiesOnly yes`), puis `Include` du `~/.ssh/config` de l'utilisateur pour garder ses réglages. Fetch / pull / push prennent alors la bonne clé sans changer de remote. Limite : deux remotes d'un même dépôt sur le même hôte avec deux comptes (rare) demanderaient un alias d'hôte.
+- Le bouton Fetch, qui fait `fetch --all`, en dépend : avec une seule clé injectée, l'un des remotes échouerait.
+- Push : en plus du push vers l'upstream, menu **« Pousser vers… »** (un remote au choix) et **« Pousser vers tous les remotes »** (chacun avec sa clé). Pull : **« Tirer depuis… »**. Pas de copie automatique de branches vers un second remote : « Pousser vers tous » suffit.
+- Cas d'usage qui l'a motivé : un même dépôt avec un remote sur le GitLab self-hosted de l'entreprise (relecture des MR) et un sur celui du client (CI, seules `develop` / `main` y sont poussées). Profil du dépôt = Client (auteur des commits) ; remote entreprise → profil Entreprise (clé, compte), remote client → profil Client. Que l'instance de l'entreprise reçoive des commits signés de l'identité du client est accepté.
+- Autre cas déjà couvert par l'étape 5 : un seul github.com, trois comptes (perso, entreprise, client) distingués par le propriétaire du dépôt (`github.com/org-entreprise/*`…), une clé par compte (GitHub n'accepte une clé que sur un compte).
+
 Mise en œuvre envisagée (sans toucher au `~/.ssh/config` ni au `~/.gitconfig` global) :
 - Identité : `git -c user.name=… -c user.email=… commit`, injectée par l'app uniquement (acté). Bouton optionnel « Appliquer au repo » → écrit dans `.git/config` pour que l'identité vaille aussi en ligne de commande.
 - SSH : variable `GIT_SSH_COMMAND="ssh -i <clé> -o IdentitiesOnly=yes"` injectée par commande réseau.
@@ -187,7 +196,7 @@ Mise en œuvre envisagée (sans toucher au `~/.ssh/config` ni au `~/.gitconfig` 
 - **GitHub** (github.com + GitHub Enterprise, URL d'API configurable) : connexion via OAuth *device flow* (pas de secret embarqué dans l'app) ou token personnel.
 - **GitLab** (gitlab.com + instances self-hosted) : token personnel, URL d'instance configurable. Pas d'OAuth pour les instances self-hosted (application à enregistrer par un administrateur de l'instance) ; OAuth PKCE éventuellement plus tard pour gitlab.com seulement.
 - Token personnel : bouton qui ouvre la page de création du token sur le bon hôte, droits nécessaires pré-cochés quand le provider le permet. Tokens rangés dans le trousseau de l'OS (comme les phrases de passe), jamais dans `state.json`.
-- Comptes liés aux profils (§3) : les règles de remote d'un profil désignent aussi le compte à utiliser pour l'API.
+- Comptes liés aux profils (§3) : les règles de remote d'un profil désignent aussi le compte à utiliser pour l'API ; dans un dépôt à plusieurs remotes, chaque remote utilise le compte de son propre profil (§3, « profils des remotes »).
 
 Fonctionnalités :
 - Lister ses repos et **cloner** en choisissant le profil.
@@ -240,7 +249,7 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 3. **Working copy** : status, staging (fichier → hunk → ligne), commit, amend.
 4. **Branches & réseau** : checkout avec auto-stash, création/suppression, fetch/pull/push.
 5. **Profils** : CRUD, génération de clé SSH, association repo↔profils, injection identité + SSH.
-6. **Providers** : connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
+6. **Providers** : profils par remote (clé SSH par hôte, « Pousser vers… / vers tous », « Tirer depuis… ») en premier, puis connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
 7. **Distribution** : installeurs, updater, CI de release.
 8. Merge/rebase/cherry-pick, undo/redo, palette de commandes, puis v2.
 
