@@ -46,9 +46,10 @@ pub async fn open_repo(path: String, store: StoreState<'_>) -> Result<RepoEntry,
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| top_str.clone());
-    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms() };
-
     let mut s = store.lock().unwrap();
+    // Le nom choisi dans l'app survit à une réouverture.
+    let alias = s.state.repos.iter().find(|r| r.path == top_str).and_then(|r| r.alias.clone());
+    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms(), alias };
     s.state.repos.retain(|r| r.path != top_str);
     s.state.repos.insert(0, entry.clone());
     s.save()?;
@@ -68,6 +69,17 @@ pub fn forget_repo(path: String, store: StoreState<'_>) -> Result<(), String> {
         s.state.session.active = None;
     }
     sync_identities(&s.state);
+    s.save()
+}
+
+/// Change le nom affiché d'un dépôt (vide ou `None` = retour au nom du dossier).
+#[tauri::command]
+pub fn rename_repo(path: String, alias: Option<String>, store: StoreState<'_>) -> Result<(), String> {
+    let alias = alias.map(|a| a.trim().to_string()).filter(|a| !a.is_empty());
+    let mut s = store.lock().unwrap();
+    if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
+        r.alias = alias;
+    }
     s.save()
 }
 

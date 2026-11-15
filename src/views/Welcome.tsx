@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "../components/Icon";
 import { relativeTime } from "../lib/format";
-import { repoColor, useApp } from "../store/app";
+import { repoColor, repoName, useApp } from "../store/app";
 
 function useRelativeTime() {
   const { t } = useTranslation();
@@ -55,7 +55,7 @@ export function Welcome() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return repos;
-    return repos.filter((r) => r.name.toLowerCase().includes(needle) || r.path.toLowerCase().includes(needle));
+    return repos.filter((r) => repoName(r).toLowerCase().includes(needle) || r.path.toLowerCase().includes(needle));
   }, [repos, q]);
 
   return (
@@ -101,15 +101,15 @@ export function Welcome() {
                 <button className="repo-open" onClick={() => openPath(r.path)} title={r.path}>
                   <span className="dot lg" style={{ background: repoColor(r.path) }} />
                   <span className="repo-text">
-                    <span className="repo-name">{r.name}</span>
+                    <span className="repo-name">{repoName(r)}</span>
                     <span className="repo-path mono">{r.path}</span>
                   </span>
                   <span className="repo-when">{t("welcome.openedAt", { when: ago(r.lastOpened) })}</span>
                 </button>
                 <button
                   className="icon-btn"
-                  aria-label={t("welcome.forget", { name: r.name })}
-                  title={t("welcome.forget", { name: r.name })}
+                  aria-label={t("welcome.forget", { name: repoName(r) })}
+                  title={t("welcome.forget", { name: repoName(r) })}
                   onClick={() => forget(r.path)}
                 >
                   <Icon name="close" size={14} />

@@ -1,7 +1,7 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
-import { repoColor, useApp } from "../store/app";
+import { repoColor, repoName, useApp } from "../store/app";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { SettingsMenu } from "./SettingsMenu";
@@ -69,8 +69,14 @@ export function TitleBar() {
   const closeTab = useApp((s) => s.closeTab);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { dragging, onPointerDown } = useTabDrag(tabsRef);
+  /** Onglet en cours de renommage (double-clic). */
+  const [editing, setEditing] = useState<string | null>(null);
 
-  const nameOf = (path: string) => repos.find((r) => r.path === path)?.name ?? path;
+  const repoOf = (path: string) => repos.find((r) => r.path === path);
+  const nameOf = (path: string) => {
+    const r = repoOf(path);
+    return r ? repoName(r) : path;
+  };
 
   return (
     <header className="titlebar" data-tauri-drag-region>
@@ -102,10 +108,38 @@ export function TitleBar() {
                 aria-selected={on}
                 className="tab-main"
                 onClick={() => activate(path)}
-                onPointerDown={(e) => onPointerDown(e, path)}
+                onDoubleClick={() => setEditing(path)}
+                onPointerDown={(e) => editing !== path && onPointerDown(e, path)}
               >
                 <span className="dot" style={{ background: repoColor(path) }} />
-                <span className="tab-name">{name}</span>
+                {editing === path ? (
+                  <input
+                    className="tab-rename"
+                    autoFocus
+                    defaultValue={name}
+                    placeholder={repoOf(path)?.name}
+                    aria-label={t("tabs.rename")}
+                    title={t("tabs.renameHint")}
+                    size={Math.max(name.length, 4)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") {
+                        e.currentTarget.value = name;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = e.currentTarget.value.trim();
+                      if (v !== name) useApp.getState().rename(path, v === repoOf(path)?.name ? null : v);
+                      setEditing(null);
+                    }}
+                  />
+                ) : (
+                  <span className="tab-name" title={t("tabs.renameHint")}>{name}</span>
+                )}
               </button>
               <button className="tab-close" aria-label={t("tabs.close", { name })} onClick={() => closeTab(path)}>
                 <Icon name="close" size={13} />

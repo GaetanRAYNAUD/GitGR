@@ -11,6 +11,8 @@ export interface RepoEntry {
   name: string;
   /** Millisecondes depuis l'epoch Unix. */
   lastOpened: number;
+  /** Nom affiché choisi dans l'app ; absent = nom du dossier. */
+  alias?: string;
 }
 
 export interface Session {

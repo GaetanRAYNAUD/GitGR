@@ -5,7 +5,9 @@
   "tabs": {
     "home": "Accueil",
     "new": "Nouvel onglet",
-    "close": "Fermer l’onglet {{name}}"
+    "close": "Fermer l’onglet {{name}}",
+    "rename": "Renommer l’onglet",
+    "renameHint": "Double-clic pour renommer ; vide = nom du dossier"
   },
   "window": {
     "minimize": "Réduire",

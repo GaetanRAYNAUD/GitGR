@@ -18,6 +18,9 @@ pub struct RepoEntry {
     pub name: String,
     /// Dernière ouverture, en millisecondes depuis l'epoch Unix.
     pub last_opened: u64,
+    /// Nom affiché choisi dans l'app (onglet, récents) ; `None` = nom du dossier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -263,7 +266,7 @@ mod tests {
     fn save_then_load_round_trips() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::load(dir.path().join("cfg"));
-        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42 });
+        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42, alias: None });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
         store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true });

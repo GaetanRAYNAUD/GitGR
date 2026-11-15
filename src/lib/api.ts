@@ -67,6 +67,8 @@ export interface Api {
   getState(): Promise<AppState>;
   openRepo(path: string): Promise<RepoEntry>;
   forgetRepo(path: string): Promise<void>;
+  /** Nom affiché (vide / `null` = nom du dossier). */
+  renameRepo(path: string, alias: string | null): Promise<void>;
   setSession(session: Session): Promise<void>;
   setSettings(settings: Settings): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): Promise<void>;
@@ -177,6 +179,7 @@ const tauriApi: Api = {
   getState: () => invoke("get_state"),
   openRepo: (path) => invoke("open_repo", { path }),
   forgetRepo: (path) => invoke("forget_repo", { path }),
+  renameRepo: (path, alias) => invoke("rename_repo", { path, alias }),
   setSession: (session) => invoke("set_session", { session }),
   setSettings: (settings) => invoke("set_settings", { settings }),
   setRepoUi: (path, ui) => invoke("set_repo_ui", { path, ui }),
@@ -334,7 +337,8 @@ const mockApi: Api = {
     if (path.includes("pas-un-depot")) throw "not_a_repo";
     const s = mockLoad();
     const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-    const entry: RepoEntry = { path, name, lastOpened: Date.now() };
+    const alias = s.repos.find((r) => r.path === path)?.alias;
+    const entry: RepoEntry = { path, name, lastOpened: Date.now(), ...(alias ? { alias } : {}) };
     s.repos = [entry, ...s.repos.filter((r) => r.path !== path)];
     mockSave(s);
     return entry;
@@ -346,6 +350,12 @@ const mockApi: Api = {
     if (s.repoUi) delete s.repoUi[path];
     if (s.repoProfiles) delete s.repoProfiles[path];
     if (s.session.active === path) s.session.active = null;
+    mockSave(s);
+  },
+  async renameRepo(path, alias) {
+    const s = mockLoad();
+    const a = alias?.trim() || undefined;
+    s.repos = s.repos.map((r) => (r.path === path ? { ...r, alias: a } : r));
     mockSave(s);
   },
   async setSession(session) {

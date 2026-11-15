@@ -12,7 +12,7 @@ import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
 import { remoteHost } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
-import { useApp } from "../store/app";
+import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
 import { useOps, type OpName } from "../store/ops";
 import { changedCount, useWork } from "../store/worktree";
@@ -221,7 +221,7 @@ export function RepoView({ path }: { path: string }) {
     <div className="repo-view">
       <div className="toolbar">
         <div className="branch-chip" title={`${path}\n${tracking}`}>
-          <span className="branch-chip-repo">{repo?.name}</span>
+          <span className="branch-chip-repo">{repo && repoName(repo)}</span>
           <span className="branch-chip-name">{branchLabel}</span>
         </div>
 

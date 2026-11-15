@@ -5,7 +5,9 @@
   "tabs": {
     "home": "Home",
     "new": "New tab",
-    "close": "Close tab {{name}}"
+    "close": "Close tab {{name}}",
+    "rename": "Rename tab",
+    "renameHint": "Double-click to rename; empty = folder name"
   },
   "window": {
     "minimize": "Minimize",

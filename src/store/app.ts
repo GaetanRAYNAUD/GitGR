@@ -40,6 +40,8 @@ interface AppStore {
   /** Déplace l'onglet `path` à la position `index` (bornée). */
   moveTab(path: string, index: number): void;
   forget(path: string): Promise<void>;
+  /** Nom affiché d'un dépôt (vide / `null` = nom du dossier). */
+  rename(path: string, alias: string | null): void;
   updateSettings(patch: Partial<Settings>): void;
   /** Change des tailles (`null` = retour à la valeur par défaut). Pendant un glisser,
    *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
@@ -192,6 +194,12 @@ export const useApp = create<AppStore>((set, get) => ({
     useProfiles.getState().forget(path);
   },
 
+  rename(path, alias) {
+    const a = alias?.trim() || undefined;
+    set((s) => ({ repos: s.repos.map((r) => (r.path === path ? { ...r, alias: a } : r)) }));
+    api.renameRepo(path, a ?? null).catch((e) => set({ error: errorCode(e) }));
+  },
+
   updateSettings(patch) {
     const settings = { ...get().settings, ...patch };
     set({ settings });
@@ -272,6 +280,11 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ notice: null });
   },
 }));
+
+/** Nom affiché d'un dépôt : celui choisi dans l'app, sinon le nom du dossier. */
+export function repoName(r: RepoEntry): string {
+  return r.alias || r.name;
+}
 
 /** Couleur stable associée à un dépôt (pastille d'onglet, liste). */
 export function repoColor(path: string): string {
