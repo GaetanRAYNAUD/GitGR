@@ -26,6 +26,29 @@ npm run tauri dev     # application complète (Rust + interface)
 npm run dev           # interface seule dans le navigateur, avec un backend simulé
 ```
 
+## Compiler l'application
+
+Version release, à lancer à la main pour tester (la première compilation prend quelques minutes : optimisations et LTO ; les suivantes sont plus rapides) :
+
+```bash
+npm install
+npm run tauri build -- --no-bundle
+```
+
+L'exécutable est dans `src-tauri/target/release/` : `gitgr.exe` sous Windows, `gitgr` sous Linux. Il se lance tel quel, sans installation.
+
+Avec les installeurs (NSIS et MSI sous Windows ; AppImage, `.deb` et `.rpm` sous Linux), rangés dans `src-tauri/target/release/bundle/<format>/` :
+
+```bash
+npm run tauri build                      # tous les formats de la plateforme
+npm run tauri build -- --bundles nsis    # un seul format
+```
+
+À savoir :
+
+- L'app compilée utilise **votre vraie configuration** : dépôts récents, onglets, réglages et profils dans `state.json` (`%APPDATA%\fr.gitgr.app\` sous Windows, `~/.config/fr.gitgr.app/` sous Linux) ; les phrases de passe des clés SSH sont dans le trousseau du système. Pour tester sans y toucher, lancez-la avec un autre dossier de configuration, par exemple sous PowerShell : `$env:GITGR_CONFIG_DIR = "C:\temp\gitgr-test"; .\src-tauri\target\release\gitgr.exe`.
+- Ne lancez pas directement le binaire de **debug** (`src-tauri/target/debug/`, produit par `cargo build` ou `npm run test:app`) : il charge l'interface depuis le serveur Vite (`npm run dev`) au lieu de l'embarquer.
+
 ## Tests
 
 | Commande | Quoi | Outil |
@@ -64,9 +87,11 @@ En cas d'échec, les traces Playwright sont jointes au run (artefacts `playwrigh
 src/                 interface React
   components/        barre de titre, réglages, icônes…
   components/graph/  graphe des commits, détails, diff, barre latérale des branches
-  views/             écrans (accueil, dépôt)
+  views/             écrans (accueil, dépôt, profils)
   store/             état global (zustand) : app.ts (onglets, réglages), graph.ts (historique),
-                     worktree.ts (copie de travail), ops.ts (branches, réseau), dialogs.ts
+                     worktree.ts (copie de travail), ops.ts (branches, réseau), profiles.ts
+                     (profils, profil actif par dépôt), dialogs.ts
+  lib/profiles.ts    règles de sélection automatique des profils
   lib/api.ts         façade vers le backend (Tauri ou simulé)
   i18n/              traductions
   **/*.test.ts(x)    tests unitaires, à côté du code testé
@@ -78,7 +103,11 @@ src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque
   worktree.rs        copie de travail : état, indexation, commit
   branches.rs        checkout (auto-stash), branches, fetch / pull / push, stash pop
   watch.rs           surveillance du dépôt actif
-  store.rs           état persistant (dépôts, onglets, réglages)
+  profiles.rs        clés SSH des profils (lecture, génération, phrase de passe)
+  signing.rs         clés GPG (signature des commits)
+  secrets.rs         trousseau du système (phrases de passe)
+  askpass.rs         l'exécutable répond à ssh (phrase de passe) quand ssh le lance
+  store.rs           état persistant (dépôts, onglets, réglages, profils)
   commands.rs        commandes exposées à l'interface
 ```
 
