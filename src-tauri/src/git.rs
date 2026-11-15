@@ -274,11 +274,20 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let spawned = cmd.spawn().and_then(|mut child| {
-        if let Some(text) = input {
-            // Écrit puis ferme l'entrée (drop) pour que git voie la fin du flux.
-            child.stdin.take().expect("stdin").write_all(text.as_bytes())?;
-        }
-        child.wait_with_output()
+        let stdin = child.stdin.take();
+        // L'entrée est écrite par un autre fil pendant que les sorties sont lues : écrite d'abord,
+        // elle bloquerait dès que git remplit son tube de sortie sans avoir tout lu (les deux
+        // processus s'attendraient l'un l'autre). Fermée à la fin (drop) : git voit la fin du flux.
+        // Une erreur d'écriture (git sorti sans tout lire) est ignorée : son code de retour et
+        // son message disent pourquoi.
+        std::thread::scope(|scope| {
+            if let (Some(mut stdin), Some(text)) = (stdin, input) {
+                scope.spawn(move || {
+                    let _ = stdin.write_all(text.as_bytes());
+                });
+            }
+            child.wait_with_output()
+        })
     });
     let out = spawned.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
@@ -294,6 +303,26 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
         Err(if err.is_empty() { String::from_utf8_lossy(&out.stdout).trim().to_string() } else { err })
     }
+}
+
+/// Outil livré avec Git pour Windows (`ssh-keygen`, `gpg`…) : `<Git>/usr/bin/<nom>.exe`, hors
+/// du PATH de l'app en général. `None` ailleurs que sous Windows, ou sans git. La racine de Git
+/// n'est cherchée qu'une fois.
+pub fn git_for_windows_tool(name: &str) -> Option<PathBuf> {
+    static ROOT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    if !cfg!(windows) {
+        return None;
+    }
+    let root = match ROOT.get() {
+        Some(root) => root,
+        None => {
+            // C:/Program Files/Git/mingw64/libexec/git-core → C:/Program Files/Git
+            let exec = run(None, &["--exec-path"]).ok()?;
+            let root = Path::new(&exec).ancestors().nth(3)?.to_path_buf();
+            ROOT.get_or_init(|| root)
+        }
+    };
+    Some(root.join("usr").join("bin").join(format!("{name}.exe")))
 }
 
 #[derive(Serialize)]
@@ -574,6 +603,20 @@ pub(crate) mod tests {
         set_identity(repo.path(), None);
         commit_file(repo.path(), "b.txt", "1");
         assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
+    }
+
+    #[test]
+    fn large_input_does_not_block_on_large_output() {
+        // git répond au fil de la lecture : sans lecture de sa sortie pendant l'écriture de
+        // l'entrée, les deux tubes se rempliraient et la commande ne finirait jamais.
+        let repo = temp_repo();
+        std::fs::write(repo.path().join(".gitignore"), "*.o\n").unwrap();
+        let count = 20_000;
+        let input: String = (0..count).map(|i| format!("un/dossier/assez/long/pour/remplir/le/tube/{i}.o\0")).collect();
+        let out = run_input(Some(repo.path()), &["check-ignore", "-z", "--stdin"], &input).unwrap();
+        assert_eq!(out.split('\0').filter(|s| !s.is_empty()).count(), count);
+        // git sort sans lire son entrée : c'est son résultat qui compte, pas l'écriture interrompue.
+        assert!(run_input(None, &["--version"], &input).unwrap().starts_with("git version"));
     }
 
     #[test]

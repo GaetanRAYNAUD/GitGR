@@ -43,8 +43,6 @@ pub fn delete_passphrase(key: &str) -> Result<(), String> {
 pub(crate) mod tests {
     use super::*;
 
-    /// Trousseau utilisable ? (pas de Secret Service sur un runner Linux sans session) — les
-    /// tests qui en ont besoin sont alors sautés.
     /// Retire ces entrées du trousseau à la fin du test, même s'il échoue.
     pub(crate) struct Cleanup(pub Vec<String>);
 
@@ -56,11 +54,15 @@ pub(crate) mod tests {
         }
     }
 
+    /// Trousseau utilisable ? (pas de Secret Service sur un runner Linux sans session) — les
+    /// tests qui en ont besoin sont alors sautés. Une entrée sonde par appel : les tests tournent
+    /// en parallèle, et l'un effacerait celle de l'autre.
     pub(crate) fn keyring_available() -> bool {
-        let probe = format!("probe-{}", std::process::id());
-        let ok = set_passphrase(&probe, "x").is_ok() && passphrase(&probe).as_deref() == Some("x");
-        let _ = delete_passphrase(&probe);
-        ok
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let probe = format!("probe-{}-{n}", std::process::id());
+        let _cleanup = Cleanup(vec![probe.clone()]);
+        set_passphrase(&probe, "x").is_ok() && passphrase(&probe).as_deref() == Some("x")
     }
 
     #[test]

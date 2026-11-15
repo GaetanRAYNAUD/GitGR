@@ -182,13 +182,19 @@ pub struct Store {
 }
 
 impl Store {
-    /// Charge l'état depuis `dir/state.json` ; état vide si absent ou illisible.
+    /// Charge l'état depuis `dir/state.json` ; état vide si absent ou illisible. Un fichier
+    /// illisible est d'abord copié dans `state.json.bak` : la prochaine sauvegarde l'écrasera,
+    /// et avec lui les dépôts et les profils qu'on pouvait encore y retrouver.
     pub fn load(dir: PathBuf) -> Self {
         let file = dir.join("state.json");
-        let state = fs::read_to_string(&file)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let state = match fs::read_to_string(&file).map(|s| serde_json::from_str(&s)) {
+            Ok(Ok(state)) => state,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => AppState::default(),
+            _ => {
+                let _ = fs::copy(&file, file.with_extension("json.bak"));
+                AppState::default()
+            }
+        };
         Self { file, state }
     }
 
@@ -304,6 +310,10 @@ mod tests {
         fs::write(dir.path().join("state.json"), "{ pas du json").unwrap();
         let store = Store::load(dir.path().to_path_buf());
         assert!(store.state.repos.is_empty());
+        // L'ancien contenu reste récupérable après la sauvegarde suivante.
+        store.save().unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join("state.json.bak")).unwrap(), "{ pas du json");
+        assert!(Store::load(dir.path().to_path_buf()).state.repos.is_empty());
     }
 
     #[test]

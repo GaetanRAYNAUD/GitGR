@@ -6,7 +6,7 @@
 
 use crate::git::quiet_command;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -30,12 +30,7 @@ fn gpg_candidates() -> Vec<PathBuf> {
         }
     }
     list.push(PathBuf::from("gpg"));
-    if cfg!(windows)
-        && let Ok(exec) = crate::git::run(None, &["--exec-path"])
-        && let Some(root) = Path::new(&exec).ancestors().nth(3)
-    {
-        list.push(root.join("usr").join("bin").join("gpg.exe"));
-    }
+    list.extend(crate::git::git_for_windows_tool("gpg"));
     list
 }
 
@@ -111,6 +106,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::git::tests::{set_identity, temp_repo};
     use crate::git::{run, Identity, Signing};
+    use std::path::Path;
 
     /// Le gpg de Git pour Windows (msys) ne démarre son agent qu'avec un `GNUPGHOME` en chemin
     /// msys (`/c/…`) ; ailleurs, le chemin tel quel.

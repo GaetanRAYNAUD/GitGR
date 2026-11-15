@@ -364,20 +364,33 @@ pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, S
         _ => return Err("invalid_strategy".into()),
     };
     let branch = current_branch(path).ok_or("detached_head")?;
-    if upstream_of(path, &branch).is_none() {
+    let Some((remote, _)) = upstream_of(path, &branch) else {
         return Err("no_upstream".into());
-    }
+    };
     if operation(path).is_some() {
         return Err("operation_in_progress".into());
     }
     with_autostash(path, auto_stash, &branch, || {
         match run_env(Some(path), &["pull", "-q", mode, "--no-edit"], &[("GIT_EDITOR", "true")]) {
             Ok(_) => Ok(OpResult::default()),
-            Err(_) if operation(path).is_some() => Ok(OpResult { conflicts: true, ..Default::default() }),
+            Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
+            // Arrêt sans conflit (signature refusée, hook…) : il n'y a rien à résoudre. On revient
+            // à l'état d'avant le pull et l'erreur de git est rendue ; si l'annulation échoue,
+            // l'opération reste en cours, à poursuivre ou annuler depuis l'interface.
+            Err(e) if operation(path).is_some() => match abort_operation(path) {
+                Ok(()) => Err(classify(&e)),
+                Err(_) => Ok(OpResult { conflicts: true, ..Default::default() }),
+            },
             Err(e) => match classify(&e) {
-                // `pull --rebase` refuse une copie sale même sans rien à tirer : déjà à jour
-                // (la distante, tout juste récupérée, est contenue dans HEAD), rien à faire.
-                code if code == "local_changes_conflict" && contains_upstream(path) => Ok(OpResult::default()),
+                // `pull --rebase` refuse une copie sale même sans rien à tirer, et avant d'avoir
+                // récupéré la distante : on la récupère, pour ne pas conclure « déjà à jour »
+                // sur un état périmé. Contenue dans HEAD : rien à faire.
+                code if code == "local_changes_conflict" => {
+                    if mode == "--rebase" && remote != "." {
+                        run(Some(path), &["fetch", "-q", &remote]).map_err(|e| classify(&e))?;
+                    }
+                    if contains_upstream(path) { Ok(OpResult::default()) } else { Err(code) }
+                }
                 code => Err(code),
             },
         }
@@ -770,6 +783,17 @@ mod tests {
 
         assert_eq!(pull(a.path(), "autre", true).unwrap_err(), "invalid_strategy");
 
+        // Copie sale et distante pas encore récupérée : le commit est tiré, pas « déjà à jour ».
+        commit_file(b.path(), "b3.txt", "b3
+");
+        git(b.path(), &["push", "-q"]);
+        let r = pull(a.path(), "rebase", true).unwrap();
+        assert_eq!(r, OpResult { stashed: true, stash_kept: false, conflicts: false });
+        assert_eq!(read(a.path(), "b3.txt"), "b3
+");
+        assert_eq!(read(a.path(), "f.txt"), "local
+");
+
         // Déjà à jour avec une copie sale : rien n'est stashé, même en rebase.
         let r = pull(a.path(), "rebase", true).unwrap();
         assert_eq!(r, OpResult::default());
@@ -814,6 +838,35 @@ mod tests {
         assert_eq!(operation(a.path()), None);
         assert_eq!(current_branch(a.path()).as_deref(), Some("main"));
         assert_eq!(git(a.path(), &["log", "-1", "--format=%s"]), "test");
+    }
+
+    #[test]
+    fn pull_stopped_without_conflict_is_undone_and_reports_the_error() {
+        let (remote, a) = with_remote();
+        let b = clone_of(remote.path());
+        commit_file(b.path(), "b.txt", "b
+");
+        git(b.path(), &["push", "-q"]);
+        commit_file(a.path(), "a.txt", "a
+");
+        let before = git(a.path(), &["rev-parse", "HEAD"]);
+        // Modification locale gênante pour le rebase : passe par l'auto-stash.
+        std::fs::write(a.path().join("f.txt"), "local
+").unwrap();
+
+        // Le rebase doit re-signer le commit local, avec une clé qui n'existe pas.
+        let absent = a.path().join("absente").to_string_lossy().to_string();
+        let id = crate::git::Identity { name: "A".into(), email: "a@exemple.fr".into(), ssh_key: None, signing: crate::git::Signing::Ssh(absent) };
+        crate::git::tests::set_identity(a.path(), Some(id));
+        let res = pull(a.path(), "rebase", true);
+        crate::git::tests::set_identity(a.path(), None);
+
+        assert_eq!(res.unwrap_err(), "sign_failed");
+        assert_eq!(operation(a.path()), None, "pas de rebase laissé en cours");
+        assert_eq!(git(a.path(), &["rev-parse", "HEAD"]), before);
+        assert_eq!(read(a.path(), "f.txt"), "local
+", "modifications locales revenues");
+        assert_eq!(stash_list(a.path()), "");
     }
 
     #[test]

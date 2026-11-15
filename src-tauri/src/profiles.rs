@@ -29,22 +29,25 @@ pub struct SshKeyInfo {
 /// `ssh-keygen` du PATH, sinon celui de Git pour Windows (`<git>/usr/bin`, hors du PATH en
 /// général). Renvoie la sortie de la première qui a pu être lancée.
 fn ssh_keygen(args: &[&str]) -> Result<Output, String> {
-    let mut candidates = vec![PathBuf::from("ssh-keygen")];
-    if cfg!(windows)
-        && let Ok(exec) = crate::git::run(None, &["--exec-path"])
-        && let Some(root) = Path::new(&exec).ancestors().nth(3)
-    {
-        // C:/Program Files/Git/mingw64/libexec/git-core → C:/Program Files/Git
-        candidates.push(root.join("usr").join("bin").join("ssh-keygen.exe"));
+    let launch = |program: &Path| quiet_command(program).args(args).stdin(std::process::Stdio::null()).output();
+    let missing = |e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound;
+    match launch(Path::new("ssh-keygen")) {
+        Err(e) if missing(&e) => {}
+        other => return other.map_err(|e| e.to_string()),
     }
-    for program in candidates {
-        match quiet_command(&program).args(args).stdin(std::process::Stdio::null()).output() {
-            Ok(out) => return Ok(out),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(e) => return Err(e.to_string()),
-        }
+    // Celui de Git pour Windows n'est cherché que si le PATH n'en a pas.
+    match crate::git::git_for_windows_tool("ssh-keygen").map(|program| launch(&program)) {
+        Some(Ok(out)) => Ok(out),
+        Some(Err(e)) if !missing(&e) => Err(e.to_string()),
+        _ => Err("ssh_keygen_not_found".into()),
     }
-    Err("ssh_keygen_not_found".into())
+}
+
+/// Fichier de la clé publique : `<clé>.pub`.
+fn public_path(file: &Path) -> PathBuf {
+    let mut name = file.as_os_str().to_os_string();
+    name.push(".pub");
+    PathBuf::from(name)
 }
 
 fn text(bytes: &[u8]) -> String {
@@ -89,9 +92,7 @@ pub fn key_info(path: &str) -> Result<SshKeyInfo, String> {
             return Err(if err.is_empty() { "not_a_key".into() } else { err });
         }
     }
-    let mut pub_file = file.clone().into_os_string();
-    pub_file.push(".pub");
-    let public_key = std::fs::read_to_string(&pub_file)
+    let public_key = std::fs::read_to_string(public_path(&file))
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
@@ -125,13 +126,14 @@ pub fn set_passphrase(path: &str, passphrase: Option<&str>) -> Result<SshKeyInfo
 }
 
 /// Génère une clé ed25519 (et sa `.pub`), protégée par `passphrase` si elle est donnée (rangée
-/// aussitôt dans le trousseau) ; refuse d'écraser un fichier.
+/// aussitôt dans le trousseau, s'il est disponible) ; refuse d'écraser un fichier.
 pub fn generate_key(path: &str, comment: &str, passphrase: Option<&str>) -> Result<SshKeyInfo, String> {
     let file = expand_home(path.trim());
     if path.trim().is_empty() {
         return Err("key_not_found".into());
     }
-    if file.exists() {
+    // ssh-keygen ne demande confirmation que pour la clé privée : il écraserait la `.pub`.
+    if file.exists() || public_path(&file).exists() {
         return Err("key_exists".into());
     }
     if let Some(dir) = file.parent() {
@@ -144,7 +146,9 @@ pub fn generate_key(path: &str, comment: &str, passphrase: Option<&str>) -> Resu
         return Err(if err.is_empty() { text(&out.stdout) } else { err });
     }
     if let Some(pass) = passphrase.filter(|p| !p.is_empty()) {
-        crate::secrets::set_passphrase(path, pass)?;
+        // Trousseau indisponible : la clé existe déjà, ce n'est pas un échec. `passphrase_stored`
+        // le dit (faux) et l'interface propose alors d'enregistrer la phrase de passe.
+        let _ = crate::secrets::set_passphrase(path, pass);
     }
     key_info(path)
 }
@@ -191,8 +195,11 @@ mod tests {
         assert!(dir.path().join("sub").join("gitgr_test_ed25519.pub").is_file());
         // La clé publique n'est pas une identité utilisable.
         assert_eq!(key_info(&format!("{p}.pub")).unwrap_err(), "key_is_public");
-        // Jamais d'écrasement.
+        // Jamais d'écrasement, ni de la clé ni d'une `.pub` restée seule.
         assert_eq!(generate_key(&p, "x", None).unwrap_err(), "key_exists");
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(generate_key(&p, "x", None).unwrap_err(), "key_exists");
+        assert!(std::fs::read_to_string(format!("{p}.pub")).unwrap().trim_end().ends_with("moi@perso.fr"), "clé publique intacte");
     }
 
     #[test]
@@ -217,6 +224,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("locked");
         let p = path.to_string_lossy().to_string();
+        // Rien ne reste dans le trousseau, même si une assertion échoue.
+        let _cleanup = crate::secrets::tests::Cleanup(vec![p.clone()]);
         let out = ssh_keygen(&["-q", "-t", "ed25519", "-N", "bon secret", "-C", "c", "-f", &p]).unwrap();
         assert!(out.status.success(), "{}", text(&out.stderr));
         // Une mauvaise phrase est refusée sans rien écrire.
@@ -231,5 +240,19 @@ mod tests {
         assert_eq!(crate::secrets::passphrase(&p).as_deref(), Some("bon secret"));
         let info = set_passphrase(&p, None).unwrap();
         assert!(info.encrypted && !info.passphrase_stored);
+    }
+
+    #[test]
+    fn generated_key_with_a_passphrase() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("protégée").to_string_lossy().to_string();
+        let _cleanup = crate::secrets::tests::Cleanup(vec![p.clone()]);
+        // Avec ou sans trousseau, la clé est créée et lisible.
+        let info = generate_key(&p, "c", Some("phrase de passe")).unwrap();
+        assert!(info.encrypted);
+        assert_eq!(info.passphrase_stored, crate::secrets::tests::keyring_available());
+        if info.passphrase_stored {
+            assert_eq!(crate::secrets::passphrase(&p).as_deref(), Some("phrase de passe"));
+        }
     }
 }

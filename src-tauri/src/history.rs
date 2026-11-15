@@ -333,7 +333,7 @@ pub(crate) fn fingerprint(text: &str) -> String {
 }
 
 /// Les numéros de ligne (`DiffLine` d'indice i dans un hunk) servent aussi à désigner une
-/// sélection : `worktree::select_lines` parcourt la sortie brute avec les mêmes règles.
+/// sélection : `worktree::split_raw` parcourt la sortie brute avec les mêmes règles.
 pub(crate) fn parse_diff(out: &str) -> FileDiff {
     let mut d = FileDiff { fingerprint: fingerprint(out), ..FileDiff::default() };
     let (mut old, mut new) = (0u32, 0u32);
