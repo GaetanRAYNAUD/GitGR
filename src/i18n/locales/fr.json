@@ -68,7 +68,11 @@
     "popHint_one": "Réappliquer le dernier stash ({{count}} en réserve)",
     "popHint_other": "Réappliquer le dernier stash ({{count}} en réserve)",
     "popEmpty": "Aucun stash",
-    "running": "En cours…"
+    "running": "En cours…",
+    "pullFrom": "Tirer depuis {{remote}}",
+    "pushTo": "Pousser vers {{remote}}",
+    "pushAll": "Pousser vers tous les remotes",
+    "pushMenu": "Pousser vers…"
   },
   "graph": {
     "label": "Historique des commits",
@@ -273,13 +277,15 @@
     "divergedBody": "{{branch}} et sa branche distante ont chacune des commits que l’autre n’a pas. Comment les réunir ?",
     "ff-onlyShort": "Avance rapide",
     "mergeShort": "Merge",
-    "rebaseShort": "Rebase"
+    "rebaseShort": "Rebase",
+    "divergedFromBody": "{{branch}} et {{source}} ont chacune des commits que l’autre n’a pas. Comment les réunir ?"
   },
   "push": {
     "rejectedTitle": "Push refusé",
     "rejectedBody": "La branche distante contient des commits que vous n’avez pas. Faites d’abord un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch).",
     "pullFirst": "Pull",
-    "force": "Forcer le push"
+    "force": "Forcer le push",
+    "remoteFailed": "{{remote}} : {{error}}"
   },
   "branch": {
     "newTitle": "Nouvelle branche",
@@ -331,12 +337,48 @@
     "popConflict": "Le stash a été appliqué avec des conflits ; il est conservé.",
     "conflicts": "L’opération s’est arrêtée sur des conflits : résolvez-les dans les modifications en cours.",
     "pushed": "{{branch}} poussée.",
-    "fetched": "Fetch terminé."
+    "fetched": "Fetch terminé.",
+    "pushedTo": "{{branch}} poussée vers {{remote}}.",
+    "pulledFrom": "{{source}} tirée."
   },
   "autostash": {
     "pending": "Des modifications mises de côté par GitGR (« {{message}} ») n’ont pas été réappliquées.",
     "apply": "Réappliquer",
     "later": "Plus tard"
+  },
+  "remotes": {
+    "push": "Pousser {{branch}} vers {{remote}}",
+    "pull": "Tirer {{branch}} depuis {{remote}}",
+    "auto": "Profil automatique ({{name}})",
+    "autoNone": "Profil automatique (aucun)",
+    "none": "Aucun profil (configuration SSH)",
+    "copyUrl": "Copier l’URL",
+    "menuHint": "Clic droit : profil du remote, pousser, tirer",
+    "hint": {
+      "explicit": "Profil « {{name}} », choisi pour ce remote",
+      "rule": "Profil « {{name}} », d’après ses règles",
+      "repo": "Profil « {{name}} », celui du dépôt",
+      "none": "Aucun profil : SSH utilise sa configuration habituelle"
+    },
+    "addButton": "Ajouter un remote…",
+    "addTitle": "Ajouter un remote",
+    "add": "Ajouter",
+    "name": "Nom du remote",
+    "url": "URL",
+    "fetchNow": "Récupérer ses branches tout de suite (fetch)",
+    "added": "Remote {{remote}} ajouté.",
+    "invalidName": "Nom invalide (pas d’espace ni de caractères ~ ^ : ? * [ \\, pas de « .. »).",
+    "exists": "Un remote porte déjà ce nom.",
+    "rename": "Renommer…",
+    "renameTitle": "Renommer le remote {{remote}}",
+    "editUrl": "Modifier l’URL…",
+    "urlTitle": "URL de {{remote}}",
+    "save": "Enregistrer",
+    "remove": "Supprimer le remote…",
+    "removeTitle": "Supprimer le remote {{remote}} ?",
+    "removeBody": "Ses branches distantes disparaissent de la barre latérale, et les branches locales qui les suivaient ne suivent plus rien. Rien n’est supprimé sur le serveur.",
+    "removeConfirm": "Supprimer",
+    "pushUrl": "Push : {{url}}"
   },
   "errors": {
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
@@ -369,7 +411,7 @@
     "not_fast_forward": "Les branches ont divergé : une avance rapide est impossible.",
     "push_rejected": "Push refusé : la branche distante contient des commits que vous n’avez pas.",
     "push_stale": "Push forcé refusé : la branche distante a bougé depuis votre dernier fetch. Faites un fetch et vérifiez avant de forcer.",
-    "auth_failed": "Authentification refusée par le serveur (clé SSH ou identifiants). Vérifiez la clé SSH du profil actif et, si elle est protégée, sa phrase de passe.",
+    "auth_failed": "Authentification refusée par le serveur (clé SSH ou identifiants). Vérifiez la clé SSH du profil de ce remote (clic droit sur le remote, dans la barre latérale) et, si elle est protégée, sa phrase de passe.",
     "host_key_unknown": "Clé d’hôte SSH inconnue : connectez-vous une première fois au serveur en ligne de commande (ssh) pour l’accepter.",
     "network_unreachable": "Serveur injoignable : vérifiez la connexion réseau et l’adresse du remote.",
     "remote_not_found": "Dépôt distant introuvable (adresse du remote ou droits d’accès).",
@@ -386,11 +428,15 @@
     "sign_failed": "Le commit n’a pas pu être signé : vérifiez la clé de signature du profil (et sa phrase de passe).",
     "gpg_not_found": "gpg est introuvable (il est fourni avec Git pour Windows, ou par GnuPG / Gpg4win).",
     "no_profile": "Ce dépôt n’a pas de profil actif.",
+    "remote_ref_not_found": "Cette branche n’existe pas sur ce remote.",
+    "invalid_remote_name": "Nom de remote invalide.",
+    "invalid_remote_url": "URL de remote invalide.",
+    "remote_exists": "Un remote porte déjà ce nom.",
     "dismiss": "Fermer"
   },
   "profiles": {
     "title": "Profils",
-    "hint": "Un profil réunit l’identité Git (nom, e-mail) et la clé SSH à utiliser. GitGR les applique à chaque commande du dépôt, sans toucher à votre configuration Git.",
+    "hint": "Un profil réunit l’identité Git (nom, e-mail) et la clé SSH à utiliser. GitGR applique l’identité à chaque commande du dépôt et la clé à ses remotes, sans toucher à votre configuration Git.",
     "close": "Fermer les profils",
     "new": "Nouveau profil",
     "newName": "Nouveau profil",
@@ -426,7 +472,7 @@
     "keyEncrypted": "Protégée par une phrase de passe : enregistrez-la pour que GitGR puisse utiliser la clé.",
     "keyNoPublic": "Clé publique introuvable (fichier .pub absent).",
     "rules": "Sélection automatique",
-    "rulesHint": "Ce profil est choisi pour un dépôt dont le remote correspond à l’une de ces règles — un hôte (github.com, *.exemple.fr), éventuellement suivi d’une organisation ou d’un groupe (github.com/mon-org/*) — ou qui se trouve dans l’un de ces dossiers (~/work/*). Un dossier l’emporte sur un remote, puis la règle la plus précise.",
+    "rulesHint": "Ce profil est choisi pour un dépôt dont le remote correspond à l’une de ces règles — un hôte (github.com, *.exemple.fr), éventuellement suivi d’une organisation ou d’un groupe (github.com/mon-org/*) — ou qui se trouve dans l’un de ces dossiers (~/work/*). Un dossier l’emporte sur un remote, puis la règle la plus précise. Dans un dépôt à plusieurs remotes, une règle de remote désigne aussi le profil de chaque remote, donc sa clé SSH.",
     "rulePlaceholder": "github.com/mon-org/* ou ~/Projects/*",
     "ruleLabel": "Nouvelle règle",
     "addRule": "Ajouter",
@@ -454,7 +500,7 @@
     "none": "Config Git",
     "noneItem": "Aucun profil (configuration Git)",
     "pillHint": "Commit en tant que {{name}} · {{email}} — cliquer pour changer de profil",
-    "pillNoneHint": "Aucun profil : l’identité et la clé SSH viennent de la configuration Git — cliquer pour choisir un profil",
+    "pillNoneHint": "Aucun profil : l’identité vient de la configuration Git — cliquer pour choisir un profil",
     "menuLabel": "Profil du dépôt",
     "apply": "Écrire l’identité dans .git/config",
     "applied": "Identité écrite dans .git/config : {{name}} <{{email}}>.",

@@ -50,8 +50,11 @@ function InputDialog({ request }: { request: InputRequest }) {
   const [checked, setChecked] = useState(request.checkbox?.checked ?? false);
   const [touched, setTouched] = useState(false);
   useDismiss(ref, true, () => answer(null));
+  const [second, setSecond] = useState(request.second?.initial ?? "");
   const error = request.validate?.(value.trim()) ?? null;
-  const empty = value.trim() === "";
+  const secondError = request.second?.validate?.(second.trim()) ?? null;
+  const empty = value.trim() === "" || (!!request.second && second.trim() === "");
+  const invalid = !!error || !!secondError;
 
   return (
     <div className="overlay">
@@ -64,7 +67,7 @@ function InputDialog({ request }: { request: InputRequest }) {
         onSubmit={(e) => {
           e.preventDefault();
           setTouched(true);
-          if (!error && !empty) answer({ value: value.trim(), checked });
+          if (!invalid && !empty) answer({ value: value.trim(), checked, ...(request.second ? { second: second.trim() } : {}) });
         }}
       >
         <h2 id="dlg-title">{request.title}</h2>
@@ -90,6 +93,28 @@ function InputDialog({ request }: { request: InputRequest }) {
             {error}
           </p>
         )}
+        {request.second && (
+          <label className="input-field">
+            <span>{request.second.label}</span>
+            <input
+              type="text"
+              value={second}
+              placeholder={request.second.placeholder}
+              onChange={(e) => {
+                setSecond(e.target.value);
+                setTouched(true);
+              }}
+              spellCheck={false}
+              autoComplete="off"
+              aria-invalid={touched && !!secondError}
+            />
+          </label>
+        )}
+        {touched && !error && secondError && (
+          <p className="input-error" role="alert">
+            {secondError}
+          </p>
+        )}
         {request.checkbox && (
           <label className="menu-check">
             <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
@@ -100,7 +125,7 @@ function InputDialog({ request }: { request: InputRequest }) {
           <button type="button" className="btn" onClick={() => answer(null)}>
             {t("confirm.cancel")}
           </button>
-          <button type="submit" className="btn primary" disabled={empty || (touched && !!error)}>
+          <button type="submit" className="btn primary" disabled={empty || (touched && invalid)}>
             {request.submit}
           </button>
         </div>

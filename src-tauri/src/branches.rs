@@ -373,6 +373,22 @@ fn upstream_of(path: &Path, branch: &str) -> Option<(String, String)> {
 /// Tire la branche courante depuis sa branche distante. `strategy` : "ff-only" (avance
 /// rapide uniquement, `not_fast_forward` si les branches ont divergé), "merge" ou "rebase".
 pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, String> {
+    pull_source(path, strategy, auto_stash, None)
+}
+
+/// Tire la branche `branch` du remote `remote` dans la branche courante (« Tirer depuis… »),
+/// sans toucher à la branche distante suivie.
+pub fn pull_from(path: &Path, remote: &str, branch: &str, strategy: &str, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    if !remotes(path).iter().any(|r| r == remote) {
+        return Err("remote_not_found".into());
+    }
+    check_branch_name(path, branch)?;
+    pull_source(path, strategy, auto_stash, Some((remote, &format!("refs/heads/{branch}"))))
+}
+
+/// `source` : remote et ref à tirer ; absente : la branche distante suivie.
+fn pull_source(path: &Path, strategy: &str, auto_stash: bool, source: Option<(&str, &str)>) -> Result<OpResult, String> {
     check_dir(path)?;
     let mode = match strategy {
         "ff-only" => "--ff-only",
@@ -381,14 +397,23 @@ pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, S
         _ => return Err("invalid_strategy".into()),
     };
     let branch = current_branch(path).ok_or("detached_head")?;
-    let Some((remote, _)) = upstream_of(path, &branch) else {
-        return Err("no_upstream".into());
+    let remote = match source {
+        Some((remote, _)) => remote.to_string(),
+        None => upstream_of(path, &branch).ok_or("no_upstream")?.0,
     };
     if operation(path).is_some() {
         return Err("operation_in_progress".into());
     }
+    let mut pull_args = vec!["pull", "-q", mode, "--no-edit"];
+    let mut fetch_args = vec!["fetch", "-q", remote.as_str()];
+    if let Some((remote, source_ref)) = source {
+        pull_args.extend([remote, source_ref]);
+        fetch_args.push(source_ref);
+    }
+    // Ce qui est tiré, une fois récupéré : la branche suivie, ou ce que le fetch vient de lire.
+    let pulled = if source.is_some() { "FETCH_HEAD" } else { "@{u}" };
     with_autostash(path, auto_stash, &branch, || {
-        match run_env(Some(path), &["pull", "-q", mode, "--no-edit"], &[("GIT_EDITOR", "true")]) {
+        match run_env(Some(path), &pull_args, &[("GIT_EDITOR", "true")]) {
             Ok(_) => Ok(OpResult::default()),
             Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
             // Arrêt sans conflit (signature refusée, hook…) : il n'y a rien à résoudre. On revient
@@ -404,9 +429,9 @@ pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, S
                 // sur un état périmé. Contenue dans HEAD : rien à faire.
                 code if code == "local_changes_conflict" => {
                     if mode == "--rebase" && remote != "." {
-                        run(Some(path), &["fetch", "-q", &remote]).map_err(|e| classify(&e))?;
+                        run(Some(path), &fetch_args).map_err(|e| classify(&e))?;
                     }
-                    if contains_upstream(path) { Ok(OpResult::default()) } else { Err(code) }
+                    if contains(path, pulled) { Ok(OpResult::default()) } else { Err(code) }
                 }
                 code => Err(code),
             },
@@ -414,45 +439,45 @@ pub fn pull(path: &Path, strategy: &str, auto_stash: bool) -> Result<OpResult, S
     })
 }
 
-/// HEAD contient déjà la branche distante suivie (rien à tirer).
-fn contains_upstream(path: &Path) -> bool {
-    run(Some(path), &["merge-base", "--is-ancestor", "@{u}", "HEAD"]).is_ok()
+/// HEAD contient déjà ce commit (rien à tirer).
+fn contains(path: &Path, commit: &str) -> bool {
+    run(Some(path), &["merge-base", "--is-ancestor", commit, "HEAD"]).is_ok()
 }
 
-/// Pousse la branche courante vers sa branche distante. Sans branche distante, elle est
-/// créée sur `origin` (ou le premier remote) **et suivie** (`-u`). `force` : `--force-with-lease`
-/// (refusé si la distante a bougé depuis le dernier fetch).
-pub fn push(path: &Path, force: bool) -> Result<(), String> {
+/// Pousse la branche courante. `to` : remote choisi (« Pousser vers… ») ; absent : celui de la
+/// branche distante suivie, sinon `origin` (ou le premier remote). Sur le remote de la branche
+/// suivie, elle va vers celle-ci ; ailleurs, vers la branche du même nom. Une branche qui n'en
+/// suit aucune suit celle qui est créée (`-u`). `force` : `--force-with-lease` (refusé si la
+/// distante a bougé depuis le dernier fetch).
+pub fn push(path: &Path, force: bool, to: Option<&str>) -> Result<(), String> {
     check_dir(path)?;
     let branch = current_branch(path).ok_or("detached_head")?;
+    let all = remotes(path);
+    if to.is_some_and(|r| !all.iter().any(|x| x == r)) {
+        return Err("remote_not_found".into());
+    }
     let mut args = vec!["push", "-q"];
     if force {
         args.push("--force-with-lease");
     }
     let local = format!("refs/heads/{branch}");
-    let refspec;
-    let remote;
     // Branche qui suit une branche locale (remote « . ») : ce n'est pas une destination de
     // push — on y écraserait l'autre branche. Elle part vers le remote, sans changer ce suivi.
     let upstream = upstream_of(path, &branch);
     let tracks_local = upstream.as_ref().is_some_and(|(r, _)| r == ".");
-    match upstream.filter(|_| !tracks_local) {
-        Some((r, merge)) => {
-            remote = r;
-            refspec = format!("{local}:{merge}");
-        }
-        None => {
-            let all = remotes(path);
-            remote = if all.iter().any(|r| r == "origin") {
-                "origin".to_string()
-            } else {
-                all.first().cloned().ok_or("no_remote")?
-            };
-            refspec = format!("{local}:{local}");
-            if !tracks_local {
-                args.push("-u");
-            }
-        }
+    let upstream = upstream.filter(|_| !tracks_local);
+    let remote = match (to, &upstream) {
+        (Some(r), _) => r.to_string(),
+        (None, Some((r, _))) => r.clone(),
+        (None, None) if all.iter().any(|r| r == "origin") => "origin".to_string(),
+        (None, None) => all.first().cloned().ok_or("no_remote")?,
+    };
+    let refspec = match &upstream {
+        Some((r, merge)) if *r == remote => format!("{local}:{merge}"),
+        _ => format!("{local}:{local}"),
+    };
+    if upstream.is_none() && !tracks_local {
+        args.push("-u");
     }
     args.push(&remote);
     args.push(&refspec);
@@ -558,6 +583,8 @@ pub fn classify(stderr: &str) -> String {
         || has("Network is unreachable")
     {
         "network_unreachable"
+    } else if has("couldn't find remote ref") || has("Couldn't find remote ref") {
+        "remote_ref_not_found"
     } else if has("Repository not found") || has("does not appear to be a git repository") {
         "remote_not_found"
     } else if let Some(code) = crate::git::classify_error(s) {
@@ -618,6 +645,7 @@ mod tests {
         assert_eq!(classify("fatal: could not read Username for 'https://github.com': terminal prompts disabled"), "auth_failed");
         assert_eq!(classify("ssh: Could not resolve hostname gitlab.local: Name or service not known"), "network_unreachable");
         assert_eq!(classify("Host key verification failed."), "host_key_unknown");
+        assert_eq!(classify("fatal: couldn't find remote ref refs/heads/x"), "remote_ref_not_found");
         assert_eq!(classify("fatal: autre chose"), "fatal: autre chose");
     }
 
@@ -756,12 +784,12 @@ mod tests {
         let p = a.path();
         git(p, &["switch", "-q", "-c", "nouvelle"]);
         commit_file(p, "n.txt", "n\n");
-        push(p, false).unwrap();
+        push(p, false, None).unwrap();
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "origin/nouvelle");
         assert_eq!(git(remote.path(), &["rev-parse", "nouvelle"]), git(p, &["rev-parse", "HEAD"]));
 
         git(p, &["switch", "-q", "--detach"]);
-        assert_eq!(push(p, false).unwrap_err(), "detached_head");
+        assert_eq!(push(p, false, None).unwrap_err(), "detached_head");
     }
 
     #[test]
@@ -771,7 +799,7 @@ mod tests {
         let main = git(p, &["rev-parse", "main"]);
         git(p, &["switch", "-q", "-c", "suite", "--track", "main"]);
         commit_file(p, "s.txt", "s\n");
-        push(p, true).unwrap();
+        push(p, true, None).unwrap();
         assert_eq!(git(remote.path(), &["rev-parse", "suite"]), git(p, &["rev-parse", "HEAD"]));
         assert_eq!(git(p, &["rev-parse", "main"]), main, "la branche locale suivie n'a pas bougé");
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "main", "le suivi est inchangé");
@@ -812,11 +840,11 @@ mod tests {
         git(b.path(), &["push", "-q"]);
 
         commit_file(a.path(), "a.txt", "a\n");
-        assert_eq!(push(a.path(), false).unwrap_err(), "push_rejected");
+        assert_eq!(push(a.path(), false, None).unwrap_err(), "push_rejected");
         // Le lease se base sur origin/main connu localement : périmé tant qu'on n'a pas fetch.
-        assert_eq!(push(a.path(), true).unwrap_err(), "push_stale");
+        assert_eq!(push(a.path(), true, None).unwrap_err(), "push_stale");
         fetch(a.path()).unwrap();
-        push(a.path(), true).unwrap();
+        push(a.path(), true, None).unwrap();
         assert_eq!(git(remote.path(), &["rev-parse", "main"]), git(a.path(), &["rev-parse", "HEAD"]));
     }
 
@@ -948,12 +976,99 @@ mod tests {
         assert_eq!(fetch(alone.path()).unwrap_err(), "no_remote");
     }
 
+    /// Un second remote nu (`client`) ajouté au clone, avec `main` poussée dessus.
+    fn add_remote(repo: &Path, name: &str) -> tempfile::TempDir {
+        let remote = tempfile::tempdir().unwrap();
+        git(remote.path(), &["init", "-q", "--bare", "-b", "main"]);
+        git(repo, &["remote", "add", name, &remote.path().to_string_lossy()]);
+        git(repo, &["push", "-q", name, "main"]);
+        remote
+    }
+
+    #[test]
+    fn push_to_a_chosen_remote() {
+        let (origin, a) = with_remote();
+        let p = a.path();
+        let client = add_remote(p, "client");
+        let head = |repo: &Path, branch: &str| git(repo, &["rev-parse", branch]);
+        commit_file(p, "a.txt", "a\n");
+
+        // Vers l'autre remote : même nom de branche, le suivi (origin/main) ne change pas.
+        push(p, false, Some("client")).unwrap();
+        assert_eq!(head(client.path(), "main"), head(p, "HEAD"));
+        assert_ne!(head(origin.path(), "main"), head(p, "HEAD"), "origin n'a rien reçu");
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "origin/main");
+        // Vers le remote de la branche suivie : comme un push ordinaire.
+        push(p, false, Some("origin")).unwrap();
+        assert_eq!(head(origin.path(), "main"), head(p, "HEAD"));
+        assert_eq!(push(p, false, Some("absent")).unwrap_err(), "remote_not_found");
+
+        // Branche suivie sous un autre nom : ce nom sur son remote, le sien ailleurs.
+        git(p, &["switch", "-q", "-c", "locale", "--track", "origin/main"]);
+        commit_file(p, "b.txt", "b\n");
+        push(p, false, Some("client")).unwrap();
+        assert_eq!(head(client.path(), "locale"), head(p, "HEAD"));
+        push(p, false, Some("origin")).unwrap();
+        assert_eq!(head(origin.path(), "main"), head(p, "HEAD"));
+
+        // Branche sans suivi poussée vers un remote choisi : elle le suit.
+        git(p, &["switch", "-q", "-c", "nouvelle"]);
+        push(p, false, Some("client")).unwrap();
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "client/nouvelle");
+    }
+
+    #[test]
+    fn pull_from_a_chosen_remote() {
+        let (_origin, a) = with_remote();
+        let p = a.path();
+        let client = add_remote(p, "client");
+        let b = clone_of(client.path());
+        commit_file(b.path(), "b.txt", "b\n");
+        git(b.path(), &["push", "-q"]);
+
+        assert_eq!(pull_from(p, "absent", "main", "ff-only", true).unwrap_err(), "remote_not_found");
+        assert_eq!(pull_from(p, "client", "--all", "ff-only", true).unwrap_err(), "invalid_branch_name");
+        assert_eq!(pull_from(p, "client", "absente", "ff-only", true).unwrap_err(), "remote_ref_not_found");
+
+        // Avance rapide depuis l'autre remote ; la branche suivie reste origin/main.
+        assert_eq!(pull_from(p, "client", "main", "ff-only", true).unwrap(), OpResult::default());
+        assert_eq!(read(p, "b.txt"), "b\n");
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "origin/main");
+
+        // Branches divergentes, copie sale : refusé en ff-only, rebase avec auto-stash.
+        commit_file(b.path(), "b2.txt", "b2\n");
+        git(b.path(), &["push", "-q"]);
+        commit_file(p, "a.txt", "a\n");
+        assert_eq!(pull_from(p, "client", "main", "ff-only", true).unwrap_err(), "not_fast_forward");
+        std::fs::write(p.join("f.txt"), "local\n").unwrap();
+        let r = pull_from(p, "client", "main", "rebase", true).unwrap();
+        assert_eq!(r, OpResult { stashed: true, stash_kept: false, conflicts: false });
+        assert_eq!(git(p, &["rev-parse", "HEAD~1"]), git(b.path(), &["rev-parse", "HEAD"]));
+        assert_eq!(read(p, "f.txt"), "local\n");
+
+        // Déjà à jour avec une copie sale : rien n'est stashé, même en rebase.
+        assert_eq!(pull_from(p, "client", "main", "rebase", true).unwrap(), OpResult::default());
+        assert_eq!(stash_list(p), "");
+    }
+
+    #[test]
+    fn fetch_reads_every_remote() {
+        let (_origin, a) = with_remote();
+        let p = a.path();
+        let client = add_remote(p, "client");
+        let b = clone_of(client.path());
+        commit_file(b.path(), "b.txt", "b\n");
+        git(b.path(), &["push", "-q"]);
+        fetch(p).unwrap();
+        assert_eq!(git(p, &["rev-parse", "client/main"]), git(b.path(), &["rev-parse", "HEAD"]));
+    }
+
     #[test]
     fn pull_without_upstream() {
         let repo = temp_repo();
         commit_file(repo.path(), "a.txt", "a\n");
         assert_eq!(pull(repo.path(), "ff-only", true).unwrap_err(), "no_upstream");
-        assert_eq!(push(repo.path(), false).unwrap_err(), "no_remote");
+        assert_eq!(push(repo.path(), false, None).unwrap_err(), "no_remote");
     }
 
     #[test]

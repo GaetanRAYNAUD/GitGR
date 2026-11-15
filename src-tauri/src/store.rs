@@ -130,6 +130,10 @@ pub struct RepoProfiles {
     /// `None` : aucun profil, la configuration Git s'applique.
     pub active: Option<String>,
     pub allowed: Vec<String>,
+    /// Profil choisi à la main pour un remote (clé SSH, compte de l'API), par nom de remote ;
+    /// `null` : aucun profil. Absent : celui que désignent les règles sur l'URL du remote,
+    /// sinon le profil du dépôt.
+    pub remotes: HashMap<String, Option<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -158,7 +162,21 @@ impl AppState {
             if binding.active.as_deref().is_some_and(|id| !ids.contains(id)) {
                 binding.active = None;
             }
+            // Le remote d'un profil supprimé retrouve le choix automatique.
+            binding.remotes.retain(|_, choice| choice.as_deref().is_none_or(|id| ids.contains(id)));
         }
+    }
+
+    /// Profils et choix par remote, pour la clé SSH de chaque remote (cf. `remotes::Table`).
+    pub fn remote_table(&self) -> crate::remotes::Table {
+        let profiles = self.profiles.iter().map(|p| crate::remotes::KeyProfile { id: p.id.clone(), rules: p.rules.clone(), ssh_key: p.ssh_key.clone() }).collect();
+        let choices = self
+            .repo_profiles
+            .iter()
+            .filter(|(_, binding)| !binding.remotes.is_empty())
+            .map(|(path, binding)| (crate::git::repo_key(std::path::Path::new(path)), binding.remotes.clone()))
+            .collect();
+        crate::remotes::Table { profiles, choices }
     }
 
     /// Identité à injecter par dépôt (cf. `git::Identity`), d'après son profil actif.
@@ -274,8 +292,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::load(dir.path().to_path_buf());
         store.state.profiles = vec![profile("perso", Some("~/.ssh/perso")), profile("boulot", None)];
-        store.state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()] });
-        store.state.repo_profiles.insert("/s".into(), RepoProfiles { active: None, allowed: vec!["boulot".into()] });
+        store.state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()], ..Default::default() });
+        store.state.repo_profiles.insert("/s".into(), RepoProfiles { active: None, allowed: vec!["boulot".into()], ..Default::default() });
         store.save().unwrap();
 
         let again = Store::load(dir.path().to_path_buf());
@@ -309,10 +327,29 @@ mod tests {
     #[test]
     fn deleted_profiles_are_pruned_from_repos() {
         let mut state = AppState { profiles: vec![profile("boulot", None)], ..Default::default() };
-        state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()] });
+        state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()], ..Default::default() });
+        state.repo_profiles.get_mut("/r").unwrap().remotes =
+            HashMap::from([("origin".to_string(), Some("perso".to_string())), ("client".to_string(), Some("boulot".to_string())), ("autre".to_string(), None)]);
         state.prune_profiles();
-        assert_eq!(state.repo_profiles["/r"], RepoProfiles { active: None, allowed: vec!["boulot".into()] });
+        let remotes = HashMap::from([("client".to_string(), Some("boulot".to_string())), ("autre".to_string(), None)]);
+        assert_eq!(state.repo_profiles["/r"], RepoProfiles { active: None, allowed: vec!["boulot".into()], remotes: remotes.clone() });
         assert!(state.identities().is_empty());
+
+        // Choix par remote transmis à la couche git, par dépôt.
+        let table = state.remote_table();
+        assert_eq!(table.profiles, [crate::remotes::KeyProfile { id: "boulot".into(), rules: vec!["github.com".into()], ssh_key: None }]);
+        assert_eq!(table.choices, HashMap::from([(crate::git::repo_key(std::path::Path::new("/r")), remotes)]));
+    }
+
+    #[test]
+    fn remote_choices_round_trip() {
+        // `null` (aucun profil) n'est pas confondu avec l'absence de choix.
+        let json = r#"{"repoProfiles":{"/r":{"active":"p","allowed":["p"],"remotes":{"origin":"p","client":null}},"/s":{"active":null,"allowed":[]}}}"#;
+        let state: AppState = serde_json::from_str(json).unwrap();
+        assert_eq!(state.repo_profiles["/r"].remotes, HashMap::from([("origin".to_string(), Some("p".to_string())), ("client".to_string(), None)]));
+        assert!(state.repo_profiles["/s"].remotes.is_empty(), "état écrit par une version antérieure");
+        let again: AppState = serde_json::from_str(&serde_json::to_string(&state).unwrap()).unwrap();
+        assert_eq!(again.repo_profiles, state.repo_profiles);
     }
 
     #[test]

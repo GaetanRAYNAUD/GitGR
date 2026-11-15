@@ -3,76 +3,19 @@
 // (trousseau de Windows), puis fetch et push par ssh — ssh obtient la phrase de passe en
 // relançant GitGR en mode askpass.
 
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import type { Page } from "@playwright/test";
 import { expect, git, launchApp, test, type Sandbox } from "./app";
+import { msys, sshdAvailable, startServer, useSsh, type Server } from "./sshd";
 
-const SSHD = "C:/Program Files/Git/usr/bin/sshd.exe";
-const KEYGEN = "C:/Program Files/Git/usr/bin/ssh-keygen.exe";
-// Côté serveur (shell de Git pour Windows) : chemins msys, sans espace.
-const UPLOAD_PACK = "/mingw64/bin/git-upload-pack";
-const RECEIVE_PACK = "/mingw64/bin/git-receive-pack";
 const PASSPHRASE = "une phrase de passe";
 
-test.skip(!existsSync(SSHD), "sshd de Git pour Windows introuvable");
-
-/** `C:\x\y` → `/c/x/y` (chemins vus par le sshd de Git pour Windows). */
-const msys = (p: string) => p.replace(/\\/g, "/").replace(/^([A-Za-z]):/, (_, d: string) => `/${d.toLowerCase()}`);
-
-function keygen(...args: string[]) {
-  execFileSync(KEYGEN, ["-q", ...args], { stdio: "ignore" });
-}
-
-interface Server {
-  port: number;
-  /** Clé privée protégée, autorisée par le serveur. */
-  key: string;
-  /** Dossier personnel pour l'app (known_hosts du serveur, sans toucher au vrai ~/.ssh). */
-  home: string;
-  stop(): void;
-}
-
-async function startServer(sandbox: Sandbox): Promise<Server> {
-  const dir = join(sandbox.root, "sshd");
-  const home = join(sandbox.root, "home");
-  mkdirSync(dir);
-  mkdirSync(join(home, ".ssh"), { recursive: true });
-  const key = join(dir, "profil_ed25519");
-  keygen("-t", "ed25519", "-N", "", "-f", join(dir, "hostkey"));
-  keygen("-t", "ed25519", "-N", PASSPHRASE, "-C", "profil", "-f", key);
-  writeFileSync(join(dir, "authorized_keys"), readFileSync(`${key}.pub`));
-  const port = 23000 + Math.floor(Math.random() * 2000);
-  writeFileSync(
-    join(dir, "sshd_config"),
-    [
-      `Port ${port}`,
-      "ListenAddress 127.0.0.1",
-      `HostKey ${msys(join(dir, "hostkey"))}`,
-      `AuthorizedKeysFile ${msys(join(dir, "authorized_keys"))}`,
-      "StrictModes no",
-      "PasswordAuthentication no",
-      "KbdInteractiveAuthentication no",
-      `PidFile ${msys(join(dir, "sshd.pid"))}`,
-    ].join("\n") + "\n",
-  );
-  const hostPub = readFileSync(join(dir, "hostkey.pub"), "utf8").trim().split(" ").slice(0, 2).join(" ");
-  writeFileSync(join(home, ".ssh", "known_hosts"), `[127.0.0.1]:${port} ${hostPub}\n`);
-
-  const proc: ChildProcess = spawn(SSHD, ["-D", "-e", "-f", msys(join(dir, "sshd_config"))], { stdio: ["ignore", "pipe", "pipe"] });
-  let log = "";
-  proc.stderr?.on("data", (d: Buffer) => (log += d.toString()));
-  await expect.poll(() => log, { timeout: 10_000 }).toContain("Server listening");
-  return { port, key, home, stop: () => proc.kill() };
-}
+test.skip(!sshdAvailable, "sshd de Git pour Windows introuvable");
 
 /** Clone dont `origin` passe par le serveur SSH local. */
 function sshClone(sandbox: Sandbox, server: Server, name: string): string {
   const dir = sandbox.clone(name);
-  git(dir, "remote", "set-url", "origin", `ssh://127.0.0.1:${server.port}${msys(sandbox.remote)}`);
-  git(dir, "config", "remote.origin.uploadpack", UPLOAD_PACK);
-  git(dir, "config", "remote.origin.receivepack", RECEIVE_PACK);
+  useSsh(dir, "origin", `ssh://127.0.0.1:${server.port}${msys(sandbox.remote)}`);
   return dir;
 }
 
@@ -90,7 +33,7 @@ function forgetPassphrase(key: string) {
 const tool = (page: Page, name: string) => page.locator(".tools").getByRole("button", { name: new RegExp(`^${name}`) });
 
 test("clé protégée : phrase de passe saisie dans l'app, puis fetch et push par ssh", async ({ sandbox }) => {
-  const server = await startServer(sandbox);
+  const server = await startServer(sandbox, "sshd", PASSPHRASE);
   const mine = sshClone(sandbox, server, "mine");
   const other = sandbox.clone("other");
   sandbox.commit(other, "b.txt", "distant\n", "distant: b");

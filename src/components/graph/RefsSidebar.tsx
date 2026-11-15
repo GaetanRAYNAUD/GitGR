@@ -3,15 +3,19 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { profileColor, remoteProfile } from "../../lib/profiles";
 import { refSections, refTree, type RefNode, type RefSection } from "../../lib/refs";
-import type { GitRef, RepoUi } from "../../lib/types";
+import type { GitRef, RemoteInfo, RepoUi } from "../../lib/types";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
+import { useOps } from "../../store/ops";
+import { useProfiles } from "../../store/profiles";
 import { openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
-import { checkoutRef, refMenu } from "./menus";
+import { ProfileAvatar } from "../ProfileAvatar";
+import { checkoutRef, refMenu, remoteMenu } from "./menus";
 import { ResizableBlock } from "../Splitter";
 
 /** Par défaut, les tags sont repliés (souvent nombreux). */
@@ -36,7 +40,13 @@ export function RefsSidebar({ path }: { path: string }) {
   const [missing, setMissing] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const profiles = useProfiles((s) => s.profiles);
+  const binding = useProfiles((s) => s.repoProfiles[path]);
+
   const sections = useMemo(() => refSections(refs), [refs]);
+  /** Remote d'une section distante (sans URL connue si git ne le liste plus). */
+  const remoteOf = (s: RefSection): RemoteInfo | null =>
+    s.kind === "remote" ? (refs?.remotes.find((r) => r.name === s.remote) ?? { name: s.remote!, url: null, pushUrl: null }) : null;
   const title = (s: RefSection) => (s.kind === "local" ? t("sidebar.local") : s.kind === "tags" ? t("sidebar.tags") : s.remote!);
   const shown = sections.filter((s) => !ui.hidden.includes(s.key));
   const hiddenCount = sections.length - shown.length;
@@ -103,6 +113,9 @@ export function RefsSidebar({ path }: { path: string }) {
           <Icon name="search" size={15} />
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("sidebar.filter")} aria-label={t("sidebar.filter")} />
         </label>
+        <button className="icon-btn bordered" aria-label={t("remotes.addButton")} title={t("remotes.addButton")} onClick={() => useOps.getState().addRemote(path)}>
+          <Icon name="plus" size={15} />
+        </button>
         <button
           className="icon-btn bordered"
           aria-label={t("sidebar.sections")}
@@ -134,16 +147,32 @@ export function RefsSidebar({ path }: { path: string }) {
         const items = q ? s.items.filter((r) => r.short.toLowerCase().includes(q)) : s.items;
         if (q && items.length === 0) return null;
         const open = q !== "" || !ui.collapsed.includes(s.key);
+        // Remote : son profil (clé SSH) en pastille, à changer par un clic droit.
+        const remote = remoteOf(s);
+        const rp = remote && remoteProfile(profiles, binding, remote);
+        const profileHint = rp && (rp.profile ? t(`remotes.hint.${rp.source}`, { name: rp.profile.name }) : t("remotes.hint.none"));
         return (
           <div className="side-group" key={s.key}>
             <button
               className="section-h section-btn"
               aria-expanded={open}
+              title={remote ? [remote.url, remote.pushUrl && t("remotes.pushUrl", { url: remote.pushUrl }), profileHint, t("remotes.menuHint")].filter(Boolean).join("\n") : undefined}
               onClick={() => setUi(path, { ...ui, collapsed: toggle(ui.collapsed, s.key) })}
+              onContextMenu={remote ? (e) => openContextMenu(e, remoteMenu(t, path, remote, refs)) : undefined}
             >
               <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
               <Icon name={ICONS[s.kind]} size={15} />
-              <span>{title(s)}</span>
+              <span className="section-name">{title(s)}</span>
+              {rp?.profile && (
+                <span className="section-profile" data-source={rp.source}>
+                  {rp.profile.image ? (
+                    <ProfileAvatar profile={rp.profile} className="pill-avatar" />
+                  ) : (
+                    <span className="dot" style={{ background: profileColor(rp.profile) }} />
+                  )}
+                  <span className="section-profile-name">{rp.profile.name}</span>
+                </span>
+              )}
               <span className="section-count">{items.length}</span>
             </button>
             {open &&

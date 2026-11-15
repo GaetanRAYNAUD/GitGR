@@ -24,8 +24,8 @@ pub fn quiet_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
 }
 
 /// Identité du profil actif d'un dépôt, injectée dans chaque commande git lancée dedans :
-/// `-c user.name=… -c user.email=…` (rien n'est écrit dans la config git) et, avec une clé,
-/// `GIT_SSH_COMMAND` pour que fetch / pull / push s'authentifient avec elle.
+/// `-c user.name=… -c user.email=…` (rien n'est écrit dans la config git). Sa clé SSH sert aux
+/// remotes qui n'ont pas leur propre profil (cf. `remotes`).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Identity {
     pub name: String,
@@ -160,23 +160,31 @@ pub fn expand_home(path: &str) -> PathBuf {
     }
 }
 
-/// Commande SSH qui n'utilise que cette clé. Interprétée par un shell (celui de Git pour
-/// Windows aussi) : chemin entre apostrophes, avec des `/` (un `\` y serait un échappement).
-pub fn ssh_command(key: &str) -> String {
-    let path = expand_home(key).to_string_lossy().replace('\\', "/").replace('\'', r"'\''");
-    format!("ssh -i '{path}' -o IdentitiesOnly=yes")
+/// Sous-commandes qui parlent à un remote : elles reçoivent la clé SSH de chaque remote.
+fn is_network(args: &[&str]) -> bool {
+    matches!(args.first(), Some(&("fetch" | "pull" | "push" | "ls-remote" | "clone")))
 }
 
 /// Ce qui est ajouté à une commande git lancée dans `cwd` : arguments placés avant la
-/// sous-commande, et variables d'environnement.
-fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
-    let Some(id) = cwd.and_then(identity_for) else { return (Vec::new(), Vec::new()) };
-    let args = id.config().into_iter().flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
+/// sous-commande, et variables d'environnement. Identité et signature du profil du dépôt pour
+/// toutes les commandes ; pour une commande réseau (`network`), `GIT_SSH_COMMAND` avec la clé
+/// du profil de chaque remote (cf. `remotes::ssh_setup`).
+fn injected(cwd: Option<&Path>, network: bool) -> (Vec<String>, Vec<(&'static str, String)>) {
+    let Some(dir) = cwd else { return (Vec::new(), Vec::new()) };
+    let id = identity_for(dir);
+    let args = id.iter().flat_map(Identity::config).flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
+    let mut keys = id.as_ref().map(Identity::askpass_keys).unwrap_or_default();
     let mut env = Vec::new();
-    if let Some(key) = id.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
-        env.push(("GIT_SSH_COMMAND", ssh_command(key)));
+    if network {
+        if let Some(ssh) = crate::remotes::ssh_setup(dir, id.as_ref().and_then(|i| i.ssh_key.as_deref())) {
+            env.push(("GIT_SSH_COMMAND", ssh.command));
+            for key in ssh.keys {
+                if !keys.contains(&key) {
+                    keys.push(key);
+                }
+            }
+        }
     }
-    let keys = id.askpass_keys();
     if !keys.is_empty() {
         env.extend(askpass_env(&keys));
     }
@@ -188,7 +196,8 @@ fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
 /// `SSH_ASKPASS_REQUIRE=force` (OpenSSH ≥ 8.4) l'impose ; `DISPLAY` pour les versions plus
 /// anciennes, qui n'appellent l'askpass qu'avec un affichage. Rien n'est lu dans le trousseau
 /// ici : seulement si ssh pose effectivement la question.
-/// Une clé par ligne dans `GITGR_ASKPASS_KEY` (clé SSH du profil, clé de signature SSH).
+/// Une clé par ligne dans `GITGR_ASKPASS_KEY` (clé SSH du profil du dépôt, clé de signature
+/// SSH, clés des profils des remotes).
 fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
     let Ok(exe) = std::env::current_exe() else { return Vec::new() };
     let mut env = vec![
@@ -285,7 +294,7 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    let (identity_args, identity_env) = injected(cwd);
+    let (identity_args, identity_env) = injected(cwd, is_network(args));
     cmd.args(identity_args).args(args);
     for (k, v) in identity_env {
         cmd.env(k, v);
@@ -568,15 +577,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn ssh_command_quotes_the_key_path() {
-        assert_eq!(ssh_command("/k/my key"), "ssh -i '/k/my key' -o IdentitiesOnly=yes");
-        assert_eq!(ssh_command(r"C:\Users\A B\.ssh\id"), "ssh -i 'C:/Users/A B/.ssh/id' -o IdentitiesOnly=yes");
-        assert_eq!(ssh_command("/k/l'x"), r"ssh -i '/k/l'\''x' -o IdentitiesOnly=yes");
-        let home = home_dir().unwrap().to_string_lossy().replace('\\', "/");
-        assert_eq!(ssh_command("~/.ssh/id"), format!("ssh -i '{home}/.ssh/id' -o IdentitiesOnly=yes"));
-    }
-
-    #[test]
     fn signing_settings() {
         let id = |signing| Identity { name: "N".into(), email: "n@exemple.fr".into(), ssh_key: None, signing };
         let keys = |i: Identity| i.config().into_iter().skip(2).collect::<Vec<_>>();
@@ -609,17 +609,29 @@ pub(crate) mod tests {
         let other = temp_repo();
         let id = Identity { name: "Perso\nX".into(), email: " moi@perso.fr ".into(), ssh_key: Some("/k/id".into()), signing: Signing::Config };
         set_identity(repo.path(), Some(id));
-        let (args, env) = injected(Some(repo.path()));
+        let (args, env) = injected(Some(repo.path()), false);
         assert_eq!(args, ["-c", "user.name=Perso X", "-c", "user.email=moi@perso.fr"]);
-        let var = |k: &str| env.iter().find(|(name, _)| *name == k).map(|(_, v)| v.as_str());
-        assert_eq!(var("GIT_SSH_COMMAND"), Some("ssh -i '/k/id' -o IdentitiesOnly=yes"));
+        let var = |env: &[(&'static str, String)], k: &str| env.iter().find(|(name, _)| *name == k).map(|(_, v)| v.clone());
+        // Hors commande réseau : pas de réglage ssh.
+        assert_eq!(var(&env, "GIT_SSH_COMMAND"), None);
         // Phrase de passe : ssh la demande à l'exécutable de GitGR (mode askpass).
         let exe = std::env::current_exe().unwrap().to_string_lossy().replace('\\', "/");
-        assert_eq!(var("SSH_ASKPASS"), Some(exe.as_str()));
-        assert_eq!(var("SSH_ASKPASS_REQUIRE"), Some("force"));
-        assert_eq!(var(crate::askpass::KEY_VAR), Some("/k/id"));
-        assert_eq!(injected(Some(other.path())), (vec![], vec![]));
-        assert_eq!(injected(None), (vec![], vec![]));
+        assert_eq!(var(&env, "SSH_ASKPASS"), Some(exe));
+        assert_eq!(var(&env, "SSH_ASKPASS_REQUIRE").as_deref(), Some("force"));
+        assert_eq!(var(&env, crate::askpass::KEY_VAR).as_deref(), Some("/k/id"));
+        assert_eq!(injected(Some(other.path()), true), (vec![], vec![]));
+        assert_eq!(injected(None, true), (vec![], vec![]));
+
+        // Commande réseau : sans remote ssh, rien ; avec, la clé du profil du dépôt pour son hôte.
+        assert_eq!(var(&injected(Some(repo.path()), true).1, "GIT_SSH_COMMAND"), None);
+        let host = format!("depot-{}.exemple.fr", std::process::id());
+        run(Some(repo.path()), &["remote", "add", "origin", &format!("git@{host}:g/r.git")]).unwrap();
+        let env = injected(Some(repo.path()), true).1;
+        let command = var(&env, "GIT_SSH_COMMAND").unwrap();
+        let file = command.strip_prefix("ssh -F '").and_then(|c| c.strip_suffix('\'')).unwrap();
+        assert!(std::fs::read_to_string(file).unwrap().contains(&format!("Host {host}\n  IdentityFile \"/k/id\"\n  IdentitiesOnly yes")));
+        assert_eq!(var(&env, crate::askpass::KEY_VAR).as_deref(), Some("/k/id"));
+        assert!(is_network(&["fetch", "-q", "--all"]) && is_network(&["push"]) && !is_network(&["status"]) && !is_network(&[]));
 
         // Le commit prend l'identité du profil, pas celle de la config du dépôt.
         commit_file(repo.path(), "a.txt", "1");

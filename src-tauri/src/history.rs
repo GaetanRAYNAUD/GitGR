@@ -115,6 +115,8 @@ pub struct RefsInfo {
     pub stashes: u32,
     /// Dernier stash s'il vient de l'auto-stash (pas encore réappliqué).
     pub autostash: Option<crate::branches::AutoStash>,
+    /// Remotes du dépôt, avec leur URL (même sans branche récupérée).
+    pub remotes: Vec<crate::remotes::Remote>,
 }
 
 pub fn refs(path: &Path) -> Result<RefsInfo, String> {
@@ -136,6 +138,7 @@ pub fn refs(path: &Path) -> Result<RefsInfo, String> {
         refs: parse_refs(&out),
         stashes,
         autostash,
+        remotes: crate::remotes::list(path),
     })
 }
 

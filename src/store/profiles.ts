@@ -1,16 +1,18 @@
 // Profils (identités Git) et profil actif de chaque dépôt.
 //
-// L'identité et la clé SSH du profil actif sont injectées par le backend dans chaque commande
-// git du dépôt (src-tauri/src/git.rs) ; ici : la liste, l'association dépôt ↔ profils, la
-// sélection automatique et le garde-fou avant un commit / push.
+// L'identité du profil actif est injectée par le backend dans chaque commande git du dépôt
+// (src-tauri/src/git.rs), et la clé SSH du profil de chaque remote dans les commandes réseau
+// (src-tauri/src/remotes.rs) ; ici : la liste, l'association dépôt ↔ profils, le profil choisi
+// pour un remote, la sélection automatique et le garde-fou avant un commit / push.
 
 import { create } from "zustand";
 import i18n from "../i18n";
 import { api, errorCode } from "../lib/api";
-import { hostMismatch, parseRemote, remoteLabel, suggestProfile } from "../lib/profiles";
-import type { AppState, Profile, RepoProfiles } from "../lib/types";
+import { hostMismatch, parseRemote, remoteLabel, remoteProfile, suggestProfile } from "../lib/profiles";
+import type { AppState, Profile, RemoteInfo, RepoProfiles } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
+import { useGraph } from "./graph";
 
 const t = (key: string, opts: Record<string, unknown> = {}) => i18n.t(key, opts);
 
@@ -31,6 +33,11 @@ interface ProfilesStore {
   setActive(path: string, id: string | null): Promise<boolean>;
   /** Retire un profil des profils associés au dépôt (et du profil actif). */
   dissociate(path: string, id: string): Promise<void>;
+  /** Profil d'un remote du dépôt (clé SSH, compte de l'API) : un profil, `null` (aucun) ou
+   *  `undefined` (automatique : règles sur l'URL du remote, sinon le profil du dépôt). */
+  setRemoteProfile(path: string, remote: string, id: string | null | undefined): Promise<boolean>;
+  /** Remote renommé (`next`) ou supprimé (`null`) : le profil choisi pour lui suit, ou est oublié. */
+  moveRemoteProfile(path: string, remote: string, next: string | null): Promise<boolean>;
   /** Dépôt sans profil choisi : prend celui que désignent les règles (hôte du remote, dossier). */
   autoSelect(path: string): Promise<void>;
   /** Garde-fou : profil actif qui ne correspond pas au remote. `false` : l'utilisateur annule. */
@@ -109,13 +116,34 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
     async setActive(path, id) {
       const cur = get().repoProfiles[path] ?? { active: null, allowed: [] };
       const allowed = id && !cur.allowed.includes(id) ? [...cur.allowed, id] : cur.allowed;
-      return bind(path, { active: id, allowed });
+      return bind(path, { ...cur, active: id, allowed });
     },
 
     async dissociate(path, id) {
       const cur = get().repoProfiles[path];
       if (!cur) return;
-      await bind(path, { active: cur.active === id ? null : cur.active, allowed: cur.allowed.filter((a) => a !== id) });
+      await bind(path, { ...cur, active: cur.active === id ? null : cur.active, allowed: cur.allowed.filter((a) => a !== id) });
+    },
+
+    async setRemoteProfile(path, remote, id) {
+      const cur = get().repoProfiles[path];
+      const remotes = { ...cur?.remotes };
+      if (id === undefined) delete remotes[remote];
+      else remotes[remote] = id;
+      // Dépôt sans profil choisi et retour à l'automatique : rien à enregistrer (un dépôt
+      // enregistré ne passe plus par la sélection automatique de son profil).
+      if (!cur && id === undefined) return true;
+      return bind(path, { active: cur?.active ?? null, allowed: cur?.allowed ?? [], remotes });
+    },
+
+    async moveRemoteProfile(path, remote, next) {
+      const cur = get().repoProfiles[path];
+      const choice = cur?.remotes?.[remote];
+      if (!cur || choice === undefined) return true;
+      const remotes = { ...cur.remotes };
+      delete remotes[remote];
+      if (next !== null) remotes[next] = choice;
+      return bind(path, { ...cur, remotes });
     },
 
     async autoSelect(path) {
@@ -137,7 +165,15 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
       const remote = remoteOf(path);
       const other = hostMismatch(profiles, active?.id ?? null, { path, remote, home });
       if (!active || !other) return true;
-      const key = `${path}\n${active.id}`;
+      // Dépôt à plusieurs remotes : le profil du dépôt est attendu s'il est celui que les règles
+      // désignent pour l'un d'eux (auteur « client », origin chez l'entreprise).
+      const remotes = useGraph.getState().graphs[path]?.refs?.remotes ?? [];
+      const designated = (r: RemoteInfo) => {
+        const rp = remoteProfile(profiles, undefined, r);
+        return rp.source === "rule" && rp.profile?.id === active.id;
+      };
+      if (remotes.some(designated)) return true;
+      const key =`${path}\n${active.id}`;
       if (acknowledged.has(key)) return true;
       const pick = await useDialogs.getState().choose({
         title: t("profiles.mismatchTitle"),

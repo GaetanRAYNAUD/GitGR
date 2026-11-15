@@ -1,8 +1,10 @@
 // Menus contextuels des branches, tags et commits (barre latérale et graphe).
 
 import type { TFunction } from "i18next";
-import type { GitRef, RefsInfo } from "../../lib/types";
+import { remoteProfile } from "../../lib/profiles";
+import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { useOps } from "../../store/ops";
+import { useProfiles } from "../../store/profiles";
 import type { MenuItem } from "../ContextMenu";
 
 const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => {});
@@ -56,6 +58,45 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
     "sep",
     copyName,
   ];
+}
+
+/** Clic droit sur un remote (en-tête de sa section) : pousser / tirer la branche courante,
+ *  profil du remote — celui dont la clé SSH (et le compte) sert pour ce remote —, puis le
+ *  gérer (renommer, changer l'URL, supprimer). */
+export function remoteMenu(t: TFunction, path: string, remote: RemoteInfo, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const store = useProfiles.getState();
+  const binding = store.repoProfiles[path];
+  const choice = binding?.remotes?.[remote.name];
+  // Ce que donnerait le choix automatique (règles sur l'URL, sinon profil du dépôt).
+  const auto = remoteProfile(store.profiles, { active: binding?.active ?? null, allowed: [] }, remote).profile;
+  const branch = refs?.headBranch;
+  const set = (id: string | null | undefined) => () => void store.setRemoteProfile(path, remote.name, id);
+  const items: MenuItem[] = [];
+  if (branch) {
+    items.push(
+      { label: t("remotes.push", { branch, remote: remote.name }), onClick: () => ops.push(path, false, remote.name) },
+      { label: t("remotes.pull", { branch, remote: remote.name }), onClick: () => ops.pullFrom(path, remote.name) },
+      "sep",
+    );
+  }
+  if (store.profiles.length) {
+    items.push(
+      { label: auto ? t("remotes.auto", { name: auto.name }) : t("remotes.autoNone"), checked: choice === undefined, onClick: set(undefined) },
+      ...store.profiles.map((p): MenuItem => ({ label: `${p.name} · ${p.userEmail}`, checked: choice === p.id, onClick: set(p.id) })),
+      { label: t("remotes.none"), checked: choice === null, onClick: set(null) },
+      "sep",
+    );
+  }
+  items.push(
+    { label: t("remotes.rename"), onClick: () => ops.renameRemote(path, remote.name) },
+    { label: t("remotes.editUrl"), onClick: () => ops.editRemoteUrl(path, remote.name) },
+    { label: t("remotes.remove"), danger: true, onClick: () => ops.removeRemote(path, remote.name) },
+    "sep",
+    { label: t("remotes.copyUrl"), disabled: !remote.url, onClick: () => copy(remote.url ?? "") },
+    { label: t("remotes.addButton"), onClick: () => ops.addRemote(path) },
+  );
+  return items;
 }
 
 /** Clic droit sur un commit du graphe. */

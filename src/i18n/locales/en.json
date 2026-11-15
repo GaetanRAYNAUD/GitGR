@@ -68,7 +68,11 @@
     "popHint_one": "Reapply the latest stash ({{count}} stored)",
     "popHint_other": "Reapply the latest stash ({{count}} stored)",
     "popEmpty": "No stash",
-    "running": "Working…"
+    "running": "Working…",
+    "pullFrom": "Pull from {{remote}}",
+    "pushTo": "Push to {{remote}}",
+    "pushAll": "Push to all remotes",
+    "pushMenu": "Push to…"
   },
   "graph": {
     "label": "Commit history",
@@ -273,13 +277,15 @@
     "divergedBody": "{{branch}} and its remote branch each have commits the other lacks. How should they be combined?",
     "ff-onlyShort": "Fast-forward",
     "mergeShort": "Merge",
-    "rebaseShort": "Rebase"
+    "rebaseShort": "Rebase",
+    "divergedFromBody": "{{branch}} and {{source}} each have commits the other doesn’t. How should they be brought together?"
   },
   "push": {
     "rejectedTitle": "Push rejected",
     "rejectedBody": "The remote branch has commits you don’t have. Pull first, or overwrite it (force with lease: refused if someone pushed since your last fetch).",
     "pullFirst": "Pull",
-    "force": "Force push"
+    "force": "Force push",
+    "remoteFailed": "{{remote}}: {{error}}"
   },
   "branch": {
     "newTitle": "New branch",
@@ -331,12 +337,48 @@
     "popConflict": "The stash was applied with conflicts; it is kept.",
     "conflicts": "The operation stopped on conflicts: resolve them in the current changes.",
     "pushed": "{{branch}} pushed.",
-    "fetched": "Fetch complete."
+    "fetched": "Fetch complete.",
+    "pushedTo": "{{branch}} pushed to {{remote}}.",
+    "pulledFrom": "{{source}} pulled."
   },
   "autostash": {
     "pending": "Changes put aside by GitGR (“{{message}}”) have not been reapplied.",
     "apply": "Reapply",
     "later": "Later"
+  },
+  "remotes": {
+    "push": "Push {{branch}} to {{remote}}",
+    "pull": "Pull {{branch}} from {{remote}}",
+    "auto": "Automatic profile ({{name}})",
+    "autoNone": "Automatic profile (none)",
+    "none": "No profile (SSH configuration)",
+    "copyUrl": "Copy URL",
+    "menuHint": "Right-click: remote profile, push, pull",
+    "hint": {
+      "explicit": "Profile “{{name}}”, chosen for this remote",
+      "rule": "Profile “{{name}}”, from its rules",
+      "repo": "Profile “{{name}}”, the repository’s",
+      "none": "No profile: SSH uses its usual configuration"
+    },
+    "addButton": "Add a remote…",
+    "addTitle": "Add a remote",
+    "add": "Add",
+    "name": "Remote name",
+    "url": "URL",
+    "fetchNow": "Fetch its branches right away",
+    "added": "Remote {{remote}} added.",
+    "invalidName": "Invalid name (no spaces, no ~ ^ : ? * [ \\ characters, no “..”).",
+    "exists": "A remote with this name already exists.",
+    "rename": "Rename…",
+    "renameTitle": "Rename remote {{remote}}",
+    "editUrl": "Edit URL…",
+    "urlTitle": "URL of {{remote}}",
+    "save": "Save",
+    "remove": "Remove remote…",
+    "removeTitle": "Remove remote {{remote}}?",
+    "removeBody": "Its remote branches disappear from the sidebar, and local branches that tracked them no longer track anything. Nothing is deleted on the server.",
+    "removeConfirm": "Remove",
+    "pushUrl": "Push: {{url}}"
   },
   "errors": {
     "not_a_repo": "This folder is not a Git repository.",
@@ -369,7 +411,7 @@
     "not_fast_forward": "The branches have diverged: a fast-forward is not possible.",
     "push_rejected": "Push rejected: the remote branch has commits you don’t have.",
     "push_stale": "Force push refused: the remote branch moved since your last fetch. Fetch and check before forcing.",
-    "auth_failed": "The server refused authentication (SSH key or credentials). Check the SSH key of the active profile and, if it is protected, its passphrase.",
+    "auth_failed": "The server refused authentication (SSH key or credentials). Check the SSH key of this remote’s profile (right-click the remote in the sidebar) and, if it is protected, its passphrase.",
     "host_key_unknown": "Unknown SSH host key: connect to the server once from the command line (ssh) to accept it.",
     "network_unreachable": "Server unreachable: check the network connection and the remote address.",
     "remote_not_found": "Remote repository not found (remote address or access rights).",
@@ -386,11 +428,15 @@
     "sign_failed": "The commit could not be signed: check the profile signing key (and its passphrase).",
     "gpg_not_found": "gpg was not found (it ships with Git for Windows, or with GnuPG / Gpg4win).",
     "no_profile": "This repository has no active profile.",
+    "remote_ref_not_found": "This branch does not exist on this remote.",
+    "invalid_remote_name": "Invalid remote name.",
+    "invalid_remote_url": "Invalid remote URL.",
+    "remote_exists": "A remote with this name already exists.",
     "dismiss": "Dismiss"
   },
   "profiles": {
     "title": "Profiles",
-    "hint": "A profile combines a Git identity (name, email) and the SSH key to use. GitGR applies them to every command in the repository, without touching your Git configuration.",
+    "hint": "A profile combines a Git identity (name, email) and the SSH key to use. GitGR applies the identity to every command in the repository and the key to its remotes, without touching your Git configuration.",
     "close": "Close profiles",
     "new": "New profile",
     "newName": "New profile",
@@ -426,7 +472,7 @@
     "keyEncrypted": "Protected by a passphrase: save it so GitGR can use the key.",
     "keyNoPublic": "Public key not found (no .pub file).",
     "rules": "Automatic selection",
-    "rulesHint": "This profile is picked for a repository whose remote matches one of these rules — a host (github.com, *.example.com), optionally followed by an organization or group (github.com/my-org/*) — or that lives in one of these folders (~/work/*). A folder wins over a remote, then the most specific rule.",
+    "rulesHint": "This profile is picked for a repository whose remote matches one of these rules — a host (github.com, *.example.com), optionally followed by an organization or group (github.com/my-org/*) — or that lives in one of these folders (~/work/*). A folder wins over a remote, then the most specific rule. In a repository with several remotes, a remote rule also picks the profile of each remote, hence its SSH key.",
     "rulePlaceholder": "github.com/my-org/* or ~/Projects/*",
     "ruleLabel": "New rule",
     "addRule": "Add",
@@ -454,7 +500,7 @@
     "none": "Git config",
     "noneItem": "No profile (Git configuration)",
     "pillHint": "Committing as {{name}} · {{email}} — click to change profile",
-    "pillNoneHint": "No profile: identity and SSH key come from the Git configuration — click to pick a profile",
+    "pillNoneHint": "No profile: the identity comes from the Git configuration — click to pick a profile",
     "menuLabel": "Repository profile",
     "apply": "Write the identity to .git/config",
     "applied": "Identity written to .git/config: {{name}} <{{email}}>.",
