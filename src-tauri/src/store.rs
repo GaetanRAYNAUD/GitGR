@@ -80,6 +80,12 @@ pub enum ColorValue {
     Custom(String),
 }
 
+impl Default for ColorValue {
+    fn default() -> Self {
+        ColorValue::Palette(0)
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -124,8 +130,8 @@ pub struct Profile {
     /// Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers
     /// (`~/work/*`). Interprétées par l'interface (lib/profiles.ts).
     pub rules: Vec<String>,
-    /// Couleur de la pastille (index de palette).
-    pub color: u32,
+    /// Couleur de la pastille : index de palette, ou couleur libre `#rrggbb`.
+    pub color: ColorValue,
     /// Image (data URL d'un carré de 128 px, quelques Ko) à la place des initiales.
     pub image: Option<String>,
     /// Signature des commits : "" (la configuration Git décide), "off", "gpg" ou "ssh".
@@ -326,7 +332,7 @@ mod tests {
             user_email: format!("{id}@exemple.fr"),
             ssh_key: key.map(str::to_string),
             rules: vec!["github.com".into()],
-            color: 2,
+            color: ColorValue::Palette(2),
             image: Some("data:image/png;base64,AAAA".into()),
             ..Default::default()
         }

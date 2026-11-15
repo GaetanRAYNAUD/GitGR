@@ -1,12 +1,15 @@
 // Profils : règles de sélection automatique (remote du dépôt, dossier du dépôt) et petites
 // fonctions pures (testées dans profiles.test.ts).
 
+import { colorCss } from "./colors";
 import type { Profile, RemoteInfo, RepoProfiles } from "./types";
 
-/** Nombre de couleurs de pastille (`--l0` … `--l3`). */
+/** Couleurs attribuées d'office à un nouveau profil (les 4 premières de la palette du graphe,
+ *  identiques aux anciennes `--l0` … `--l3`). On peut ensuite en choisir une autre. */
 export const PROFILE_COLORS = 4;
 
-export const profileColor = (p: Pick<Profile, "color">) => `var(--l${Math.abs(p.color) % PROFILE_COLORS})`;
+/** Couleur CSS de la pastille d'un profil : palette du graphe, ou couleur libre. */
+export const profileColor = (p: Pick<Profile, "color">) => colorCss(p.color);
 
 /** Une règle est un dossier si elle commence par `~`, `/`, `\` ou une lettre de lecteur (`C:`),
  *  ou contient un `\` ; sinon c'est un remote : un hôte, suivi ou non d'un chemin
@@ -198,7 +201,7 @@ export function newProfileId(): string {
 /** Première couleur pas encore prise (ou la moins utilisée). */
 export function nextColor(profiles: Profile[]): number {
   const used = new Array(PROFILE_COLORS).fill(0);
-  for (const p of profiles) used[Math.abs(p.color) % PROFILE_COLORS] += 1;
+  for (const p of profiles) if (typeof p.color === "number" && p.color < PROFILE_COLORS) used[p.color] += 1;
   return used.indexOf(Math.min(...used));
 }
 

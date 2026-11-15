@@ -6,11 +6,6 @@ import { PALETTE_SIZE } from "../lib/graph";
 import type { ColorValue } from "../lib/types";
 import { Icon } from "./Icon";
 
-/** Couleur CSS d'une valeur : indice de palette ou `#rrggbb`. */
-export function colorCss(color: ColorValue): string {
-  return typeof color === "number" ? `var(--g${Math.abs(color) % PALETTE_SIZE})` : color;
-}
-
 /** Couleur de la palette en `#rrggbb` (point de départ du sélecteur). */
 function paletteHex(index: number): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(`--g${index % PALETTE_SIZE}`).trim();
@@ -63,7 +58,7 @@ export function ColorChoice({ value, onChange, auto, label }: Props) {
         title={t("colors.custom")}
         style={custom ? { background: value } : undefined}
       >
-        <Icon name="pipette" size={11} />
+        <Icon name="pipette" size={12} />
         <input
           type="color"
           role="radio"

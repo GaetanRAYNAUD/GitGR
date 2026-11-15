@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
-import { PALETTE_SIZE } from "../lib/graph";
+import { colorCss } from "../lib/colors";
 import type { ColorValue, GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
 import { useProfiles } from "./profiles";
@@ -326,14 +326,10 @@ export function repoName(r: RepoEntry): string {
   return r.alias || r.name;
 }
 
-/** Nombre de couleurs proposées pour un onglet : la palette du graphe (`--g0`…). */
-export const TAB_COLORS = PALETTE_SIZE;
-
 /** Couleur d'un dépôt (pastille d'onglet, liste) : celle choisie, sinon une couleur stable
  *  tirée du chemin. */
 export function repoColor(path: string, color?: ColorValue): string {
-  if (typeof color === "string") return color;
-  if (color !== undefined) return `var(--g${Math.abs(color) % TAB_COLORS})`;
+  if (color !== undefined) return colorCss(color);
   let h = 0;
   for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) | 0;
   return `var(--l${Math.abs(h) % 4})`;

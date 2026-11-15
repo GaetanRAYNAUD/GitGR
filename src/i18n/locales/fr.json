@@ -598,7 +598,8 @@
     "accountTokenHint_github": "Token classique, droits : repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pré-cochés par le lien).",
     "accountTokenHint_gitlab": "Droits : api, read_user (pré-cochés par le lien).",
     "accountSubmit": "Connecter",
-    "accountConnecting": "Vérification…"
+    "accountConnecting": "Vérification…",
+    "color": "Couleur"
   },
   "branchColors": {
     "title": "Couleurs par nom de branche",

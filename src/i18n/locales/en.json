@@ -598,7 +598,8 @@
     "accountTokenHint_github": "Classic token, scopes: repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pre-selected by the link).",
     "accountTokenHint_gitlab": "Scopes: api, read_user (pre-selected by the link).",
     "accountSubmit": "Connect",
-    "accountConnecting": "Checking…"
+    "accountConnecting": "Checking…",
+    "color": "Color"
   },
   "branchColors": {
     "title": "Colors by branch name",

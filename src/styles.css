@@ -2795,7 +2795,8 @@ body.resizing-y * {
   min-width: 0;
 }
 
-.pf-field > label {
+.pf-field > label,
+.pf-field > .pf-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);

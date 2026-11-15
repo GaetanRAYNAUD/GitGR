@@ -99,7 +99,7 @@ export interface Profile {
   /** Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers (`~/work/*`). */
   rules: string[];
   /** Index de couleur de la pastille. */
-  color: number;
+  color: ColorValue;
   /** Image (data URL, carré de 128 px) affichée à la place des initiales ; absente = aucune. */
   image?: string | null;
   /** Signature des commits ; absent ou "" : la configuration Git décide. */
