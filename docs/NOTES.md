@@ -11,6 +11,7 @@
 | Nature du projet | Perso, **open source** |
 | Signature de code Windows | **Non** — avertissement SmartScreen accepté |
 | Self-hosted | **GitLab self-hosted** et **GitHub Enterprise** supportés très tôt (URL d'instance configurable dès la conception). Test réel possible sur un GitLab self-hosted ; GitHub Enterprise non testable pour l'instant |
+| Connexion aux providers | **Token personnel** partout (GitHub, GitHub Enterprise, gitlab.com, GitLab self-hosted) + **OAuth GitHub** (*device flow*). **Pas d'OAuth pour GitLab self-hosted** : il faudrait qu'un administrateur de chaque instance enregistre une application GitGR. OAuth gitlab.com : peut-être plus tard |
 | Identité Git | Injectée **uniquement par l'app** (`-c user.name/-c user.email`). Bouton optionnel « Appliquer au repo » qui écrit dans `.git/config` |
 | Licence | **MIT** |
 | Git requis | Au démarrage, détection de `git`. Absent → proposer de l'installer **ou** utiliser un Git embarqué (Windows : MinGit portable téléchargé à la demande) |
@@ -184,7 +185,9 @@ Mise en œuvre envisagée (sans toucher au `~/.ssh/config` ni au `~/.gitconfig` 
 ## 4. Intégrations providers
 
 - **GitHub** (github.com + GitHub Enterprise, URL d'API configurable) : connexion via OAuth *device flow* (pas de secret embarqué dans l'app) ou token personnel.
-- **GitLab** (gitlab.com + instances self-hosted) : OAuth PKCE ou token personnel, URL d'instance configurable.
+- **GitLab** (gitlab.com + instances self-hosted) : token personnel, URL d'instance configurable. Pas d'OAuth pour les instances self-hosted (application à enregistrer par un administrateur de l'instance) ; OAuth PKCE éventuellement plus tard pour gitlab.com seulement.
+- Token personnel : bouton qui ouvre la page de création du token sur le bon hôte, droits nécessaires pré-cochés quand le provider le permet. Tokens rangés dans le trousseau de l'OS (comme les phrases de passe), jamais dans `state.json`.
+- Comptes liés aux profils (§3) : les règles de remote d'un profil désignent aussi le compte à utiliser pour l'API.
 
 Fonctionnalités :
 - Lister ses repos et **cloner** en choisissant le profil.
@@ -237,7 +240,7 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 3. **Working copy** : status, staging (fichier → hunk → ligne), commit, amend.
 4. **Branches & réseau** : checkout avec auto-stash, création/suppression, fetch/pull/push.
 5. **Profils** : CRUD, génération de clé SSH, association repo↔profils, injection identité + SSH.
-6. **Providers** : connexion GitHub/GitLab, clone depuis la liste, ajout de clé SSH, PR/MR.
+6. **Providers** : connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
 7. **Distribution** : installeurs, updater, CI de release.
 8. Merge/rebase/cherry-pick, undo/redo, palette de commandes, puis v2.
 
