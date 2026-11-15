@@ -73,6 +73,7 @@ function InputDialog({ request }: { request: InputRequest }) {
           <span>{request.label}</span>
           <input
             autoFocus
+            type={request.secret ? "password" : "text"}
             value={value}
             onChange={(e) => {
               setValue(e.target.value);

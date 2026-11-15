@@ -5,19 +5,123 @@
 //! ou, à défaut, le message brut de git.
 
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{LazyLock, RwLock};
 
-/// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
-fn git_command() -> Command {
+/// Commande qui n'ouvre pas de fenêtre console sous Windows (git, ssh-keygen…).
+pub fn quiet_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     #[allow(unused_mut)]
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(program);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    cmd
+}
+
+/// Identité du profil actif d'un dépôt, injectée dans chaque commande git lancée dedans :
+/// `-c user.name=… -c user.email=…` (rien n'est écrit dans la config git) et, avec une clé,
+/// `GIT_SSH_COMMAND` pour que fetch / pull / push s'authentifient avec elle.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Identity {
+    pub name: String,
+    pub email: String,
+    /// Chemin de la clé privée (`~` accepté).
+    pub ssh_key: Option<String>,
+}
+
+/// Identités par dépôt, indexées par [`repo_key`] ; tenues à jour par `commands`.
+static IDENTITIES: LazyLock<RwLock<HashMap<String, Identity>>> = LazyLock::new(Default::default);
+
+/// Clé d'un dépôt dans [`IDENTITIES`] : `/` partout, sans `/` final, en minuscules sous Windows
+/// (le même dossier peut arriver écrit `C:\x` ou `c:/x`).
+pub fn repo_key(path: &Path) -> String {
+    let s = path.to_string_lossy().replace('\\', "/");
+    let s = s.trim_end_matches('/');
+    if cfg!(windows) { s.to_lowercase() } else { s.to_string() }
+}
+
+/// Remplace toutes les identités (clés : [`repo_key`]).
+pub fn set_identities(map: HashMap<String, Identity>) {
+    *IDENTITIES.write().unwrap() = map;
+}
+
+fn identity_for(cwd: &Path) -> Option<Identity> {
+    let map = IDENTITIES.read().unwrap();
+    if map.is_empty() {
+        return None;
+    }
+    map.get(&repo_key(cwd)).cloned()
+}
+
+/// Dossier personnel de l'utilisateur (`USERPROFILE` sous Windows, `HOME` ailleurs).
+pub fn home_dir() -> Option<PathBuf> {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(var).or_else(|| std::env::var_os("HOME")).filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+/// `~/x` → `<dossier personnel>/x`.
+pub fn expand_home(path: &str) -> PathBuf {
+    let rest = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\"));
+    match (rest, home_dir()) {
+        (Some(rest), Some(home)) => home.join(rest),
+        (None, Some(home)) if path == "~" => home,
+        _ => PathBuf::from(path),
+    }
+}
+
+/// Commande SSH qui n'utilise que cette clé. Interprétée par un shell (celui de Git pour
+/// Windows aussi) : chemin entre apostrophes, avec des `/` (un `\` y serait un échappement).
+pub fn ssh_command(key: &str) -> String {
+    let path = expand_home(key).to_string_lossy().replace('\\', "/").replace('\'', r"'\''");
+    format!("ssh -i '{path}' -o IdentitiesOnly=yes")
+}
+
+/// Ce qui est ajouté à une commande git lancée dans `cwd` : arguments placés avant la
+/// sous-commande, et variables d'environnement.
+fn injected(cwd: Option<&Path>) -> (Vec<String>, Vec<(&'static str, String)>) {
+    let Some(id) = cwd.and_then(identity_for) else { return (Vec::new(), Vec::new()) };
+    let clean = |v: &str| v.replace(['\n', '\r'], " ").trim().to_string();
+    let mut args = Vec::new();
+    for (key, value) in [("user.name", clean(&id.name)), ("user.email", clean(&id.email))] {
+        if !value.is_empty() {
+            args.push("-c".to_string());
+            args.push(format!("{key}={value}"));
+        }
+    }
+    let mut env = Vec::new();
+    if let Some(key) = id.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        env.push(("GIT_SSH_COMMAND", ssh_command(key)));
+        env.extend(askpass_env(key));
+    }
+    (args, env)
+}
+
+/// Phrase de passe d'une clé protégée : ssh n'a pas de terminal, il la demande au programme de
+/// `SSH_ASKPASS` — l'exécutable de GitGR lui-même, qui la lit dans le trousseau (cf. `askpass`).
+/// `SSH_ASKPASS_REQUIRE=force` (OpenSSH ≥ 8.4) l'impose ; `DISPLAY` pour les versions plus
+/// anciennes, qui n'appellent l'askpass qu'avec un affichage. Rien n'est lu dans le trousseau
+/// ici : seulement si ssh pose effectivement la question.
+fn askpass_env(key: &str) -> Vec<(&'static str, String)> {
+    let Ok(exe) = std::env::current_exe() else { return Vec::new() };
+    let mut env = vec![
+        ("SSH_ASKPASS", exe.to_string_lossy().replace('\\', "/")),
+        ("SSH_ASKPASS_REQUIRE", "force".to_string()),
+        (crate::askpass::KEY_VAR, expand_home(key).to_string_lossy().to_string()),
+    ];
+    if std::env::var_os("DISPLAY").is_none() {
+        env.push(("DISPLAY", ":0".to_string()));
+    }
+    env
+}
+
+/// Prépare une commande `git` qui n'ouvre pas de fenêtre console sous Windows.
+fn git_command() -> Command {
+    let mut cmd = quiet_command("git");
     // Sortie stable, non traduite, sans pager ni invite interactive.
     // GIT_OPTIONAL_LOCKS=0 : nos lectures en arrière-plan (status…) ne prennent pas
     // `.git/index.lock`, sinon elles feraient échouer les commandes git lancées en parallèle
@@ -89,7 +193,11 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    cmd.args(args);
+    let (identity_args, identity_env) = injected(cwd);
+    cmd.args(identity_args).args(args);
+    for (k, v) in identity_env {
+        cmd.env(k, v);
+    }
     for (k, v) in env {
         cmd.env(k, v);
     }
@@ -302,6 +410,63 @@ pub(crate) mod tests {
         std::fs::write(repo.join(name), content).unwrap();
         run(Some(repo), &["add", name]).unwrap();
         run(Some(repo), &["commit", "-q", "-m", "test"]).unwrap();
+    }
+
+    /// Ajoute (ou retire) une seule identité : les tests tournent en parallèle, remplacer toute
+    /// la table effacerait celles des autres.
+    pub(crate) fn set_identity(repo: &Path, id: Option<Identity>) {
+        let mut map = IDENTITIES.write().unwrap();
+        match id {
+            Some(id) => map.insert(repo_key(repo), id),
+            None => map.remove(&repo_key(repo)),
+        };
+    }
+
+    #[test]
+    fn repo_keys_ignore_separators_and_trailing_slash() {
+        assert_eq!(repo_key(Path::new("/a/b/")), "/a/b");
+        if cfg!(windows) {
+            assert_eq!(repo_key(Path::new(r"C:\Users\X\Repo")), repo_key(Path::new("c:/users/x/repo/")));
+        }
+    }
+
+    #[test]
+    fn ssh_command_quotes_the_key_path() {
+        assert_eq!(ssh_command("/k/my key"), "ssh -i '/k/my key' -o IdentitiesOnly=yes");
+        assert_eq!(ssh_command(r"C:\Users\A B\.ssh\id"), "ssh -i 'C:/Users/A B/.ssh/id' -o IdentitiesOnly=yes");
+        assert_eq!(ssh_command("/k/l'x"), r"ssh -i '/k/l'\''x' -o IdentitiesOnly=yes");
+        let home = home_dir().unwrap().to_string_lossy().replace('\\', "/");
+        assert_eq!(ssh_command("~/.ssh/id"), format!("ssh -i '{home}/.ssh/id' -o IdentitiesOnly=yes"));
+    }
+
+    #[test]
+    fn identity_is_injected_only_in_its_repo() {
+        let repo = temp_repo();
+        let other = temp_repo();
+        let id = Identity { name: "Perso\nX".into(), email: " moi@perso.fr ".into(), ssh_key: Some("/k/id".into()) };
+        set_identity(repo.path(), Some(id));
+        let (args, env) = injected(Some(repo.path()));
+        assert_eq!(args, ["-c", "user.name=Perso X", "-c", "user.email=moi@perso.fr"]);
+        let var = |k: &str| env.iter().find(|(name, _)| *name == k).map(|(_, v)| v.as_str());
+        assert_eq!(var("GIT_SSH_COMMAND"), Some("ssh -i '/k/id' -o IdentitiesOnly=yes"));
+        // Phrase de passe : ssh la demande à l'exécutable de GitGR (mode askpass).
+        let exe = std::env::current_exe().unwrap().to_string_lossy().replace('\\', "/");
+        assert_eq!(var("SSH_ASKPASS"), Some(exe.as_str()));
+        assert_eq!(var("SSH_ASKPASS_REQUIRE"), Some("force"));
+        assert_eq!(var(crate::askpass::KEY_VAR), Some("/k/id"));
+        assert_eq!(injected(Some(other.path())), (vec![], vec![]));
+        assert_eq!(injected(None), (vec![], vec![]));
+
+        // Le commit prend l'identité du profil, pas celle de la config du dépôt.
+        commit_file(repo.path(), "a.txt", "1");
+        assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an <%ae> / %cn <%ce>"]).unwrap(), "Perso X <moi@perso.fr> / Perso X <moi@perso.fr>");
+        assert_eq!(run(Some(repo.path()), &["config", "--local", "user.name"]).unwrap(), "Test", "config git intacte");
+        commit_file(other.path(), "a.txt", "1");
+        assert_eq!(run(Some(other.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
+
+        set_identity(repo.path(), None);
+        commit_file(repo.path(), "b.txt", "1");
+        assert_eq!(run(Some(repo.path()), &["log", "-1", "--format=%an"]).unwrap(), "Test");
     }
 
     #[test]

@@ -2514,3 +2514,502 @@ body.resizing-y * {
   flex: 1;
   min-width: 0;
 }
+
+/* ------------------------------------------------------------------ */
+/* Profils                                                             */
+/* ------------------------------------------------------------------ */
+
+/* Pastille du profil actif (zone de commit, barre d'état) */
+.profile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.profile-pill:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.commit-profile {
+  margin-left: auto;
+}
+
+.commit-hint + .commit-profile {
+  margin-left: 0;
+}
+
+.status-profile {
+  min-height: 20px;
+  color: var(--muted);
+}
+
+/* Page des profils */
+.profiles-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--panel);
+}
+
+.pf-list {
+  width: 270px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--side);
+  overflow-y: auto;
+}
+
+.pf-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px 8px;
+}
+
+.pf-list-head h1 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pf-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.pf-item:hover {
+  background: var(--hover);
+}
+
+.pf-item.on {
+  background: var(--sel);
+}
+
+.pf-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pf-item-text strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-item-text span {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.pf-avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pf-avatar.lg {
+  width: 46px;
+  height: 46px;
+  font-size: 15px;
+}
+
+.pf-new {
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pf-hint {
+  margin: 14px 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+.pf-editor {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 32px 32px;
+}
+
+.pf-form,
+.pf-empty {
+  max-width: 760px;
+}
+
+.pf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 40px;
+  color: var(--faint);
+}
+
+.pf-empty p {
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.pf-empty p:first-of-type {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pf-empty .btn {
+  margin-top: 8px;
+}
+
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.pf-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-head-text h2 {
+  font-size: 20px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-head-text .muted {
+  font-size: 12.5px;
+}
+
+.pf-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+.pf-sec h3 {
+  margin: 0;
+}
+
+.pf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pf-field > label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pf-field .input-error {
+  font-size: 12px;
+  color: var(--del);
+}
+
+.pf-input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  outline: 0;
+}
+
+.pf-input.mono {
+  font-size: 12.5px;
+}
+
+.pf-input:focus {
+  border-color: var(--accent);
+}
+
+.pf-input[aria-invalid="true"] {
+  border-color: var(--del);
+}
+
+.pf-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pf-row .btn {
+  flex: none;
+}
+
+.pf-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.pf-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel2);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pf-key .ico {
+  color: var(--add);
+}
+
+.pf-key.warn .ico {
+  color: var(--mod);
+}
+
+.pf-key.bad {
+  color: var(--del);
+}
+
+.pf-key.bad .ico {
+  color: var(--del);
+}
+
+.pf-key-fp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.pf-chip > .ico {
+  color: var(--faint);
+}
+
+.pf-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--faint);
+}
+
+.pf-chip-x:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.pf-repos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.pf-repos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+
+.pf-repo-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-repo-status {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pf-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.pf-spacer {
+  flex: 1;
+}
+
+@media (max-width: 720px) {
+  .profiles-page {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .pf-list {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    overflow: visible;
+  }
+
+  .pf-editor {
+    overflow: visible;
+    padding: 20px 16px;
+  }
+}
+
+/* Image d'un profil */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pf-avatar.img {
+  object-fit: cover;
+  background: var(--panel2);
+}
+
+.pf-image {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pf-image:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pf-image-edit {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel2);
+  color: var(--muted);
+}
+
+.pf-image:hover .pf-image-edit {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.pf-image-remove {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pill-avatar {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+.pf-key-action {
+  margin-left: auto;
+}

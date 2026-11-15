@@ -10,6 +10,8 @@ import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
 import { useOps } from "./store/ops";
+import { useProfiles } from "./store/profiles";
+import { ProfilesPage } from "./views/ProfilesPage";
 import { RepoView } from "./views/RepoView";
 import { Welcome } from "./views/Welcome";
 
@@ -174,6 +176,7 @@ export default function App() {
   const error = useApp((s) => s.error);
   const dismissError = useApp((s) => s.dismissError);
   const init = useApp((s) => s.init);
+  const profilesOpen = useProfiles((s) => s.pageOpen);
 
   useEffect(() => {
     init();
@@ -189,7 +192,9 @@ export default function App() {
   return (
     <div className="app">
       <TitleBar />
-      <main className="content">{ready && (active ? <RepoView key={active} path={active} /> : <Welcome />)}</main>
+      <main className="content">
+        {ready && (profilesOpen ? <ProfilesPage /> : active ? <RepoView key={active} path={active} /> : <Welcome />)}
+      </main>
 
       {!error && <Notice />}
       {error && (

@@ -3,6 +3,7 @@ import { useApp } from "../store/app";
 import { useDialogs } from "../store/dialogs";
 import { useGraph } from "../store/graph";
 import { useOps } from "../store/ops";
+import { resetProfileGuards, useProfiles } from "../store/profiles";
 import { useWork } from "../store/worktree";
 
 const initial = useApp.getState();
@@ -11,6 +12,7 @@ const initialWork = useWork.getState();
 const initialOps = useOps.getState();
 const initialDialogs = useDialogs.getState();
 const initialMenu = useContextMenu.getState();
+const initialProfiles = useProfiles.getState();
 
 /** Remet les stores zustand dans leur état de départ (entre deux tests). */
 export function resetStore() {
@@ -20,6 +22,8 @@ export function resetStore() {
   useOps.setState(initialOps, true);
   useDialogs.setState(initialDialogs, true);
   useContextMenu.setState(initialMenu, true);
+  useProfiles.setState(initialProfiles, true);
+  resetProfileGuards();
 }
 
 /** Chemins acceptés par le backend simulé (voir lib/api.ts). */

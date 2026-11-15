@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
+import { useProfiles } from "../store/profiles";
 import { Flag } from "./Flag";
 import { Icon } from "./Icon";
 
@@ -107,6 +108,19 @@ export function SettingsMenu() {
             <input type="checkbox" checked={settings.autoStash ?? true} onChange={(e) => update({ autoStash: e.target.checked })} />
             {t("settings.autoStash")}
           </label>
+          <div className="field">
+            <span className="field-label">{t("settings.profiles")}</span>
+            <button
+              className="btn"
+              onClick={() => {
+                setOpen(false);
+                useProfiles.getState().openPage();
+              }}
+            >
+              <Icon name="user" size={15} />
+              {t("settings.manageProfiles")}
+            </button>
+          </div>
         </div>
       )}
     </div>

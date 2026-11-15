@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
+import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
 
 export interface SummaryState {
@@ -79,9 +80,9 @@ export const useApp = create<AppStore>((set, get) => ({
   notice: null,
 
   async init() {
-    let state, git;
+    let state, git, home;
     try {
-      [state, git] = await Promise.all([api.getState(), api.gitInfo()]);
+      [state, git, home] = await Promise.all([api.getState(), api.gitInfo(), api.homeDir().catch(() => null)]);
     } catch (e) {
       // Ne jamais laisser une fenêtre vide : on démarre sur l'accueil avec l'erreur affichée.
       set({ ready: true, error: errorCode(e) });
@@ -90,6 +91,7 @@ export const useApp = create<AppStore>((set, get) => ({
     const known = new Set(state.repos.map((r) => r.path));
     const tabs = state.session.openTabs.filter((p) => known.has(p));
     const active = state.session.active && tabs.includes(state.session.active) ? state.session.active : null;
+    useProfiles.getState().load(state, home);
     set({ ready: true, git, repos: state.repos, tabs, active, settings: state.settings, repoUi: state.repoUi ?? {} });
     if (active) get().refreshSummary(active);
   },
@@ -109,6 +111,7 @@ export const useApp = create<AppStore>((set, get) => ({
         active: entry.path,
         error: null,
       });
+      useProfiles.getState().closePage();
       persistSession(nextTabs, entry.path);
       get().refreshSummary(entry.path);
     } catch (e) {
@@ -129,6 +132,7 @@ export const useApp = create<AppStore>((set, get) => ({
 
   activate(path) {
     set({ active: path });
+    useProfiles.getState().closePage();
     persistSession(get().tabs, path);
     if (path) get().refreshSummary(path);
   },
@@ -185,6 +189,7 @@ export const useApp = create<AppStore>((set, get) => ({
     });
     useGraph.getState().drop(path);
     useWork.getState().drop(path);
+    useProfiles.getState().forget(path);
   },
 
   updateSettings(patch) {
@@ -215,6 +220,8 @@ export const useApp = create<AppStore>((set, get) => ({
     set((s) => ({ summaries: { ...s.summaries, [path]: { ...s.summaries[path], loading: true } } }));
     try {
       apply({ loading: false, data: await api.repoSummary(path) });
+      // Le remote est connu : profil choisi d'après les règles si le dépôt n'en a pas.
+      if (summaryRequest[path] === req) useProfiles.getState().autoSelect(path);
     } catch (e) {
       apply({ loading: false, error: errorCode(e) });
     }

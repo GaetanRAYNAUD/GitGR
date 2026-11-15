@@ -118,8 +118,15 @@ export interface App {
   close(): Promise<void>;
 }
 
-/** Lance l'app avec ces dépôts ouverts en onglets (le dernier actif). */
-export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App> {
+/** Lance l'app avec ces dépôts ouverts en onglets (le dernier actif). `extra` : champs ajoutés
+ *  au state.json (profils…), avec les chemins des dépôts tels que l'app les connaît (`top`). */
+export async function launchApp(
+  sandbox: Sandbox,
+  repos: string[],
+  extra: Record<string, unknown> = {},
+  /** Variables d'environnement en plus pour l'app (HOME de test pour ssh…). */
+  env: Record<string, string> = {},
+): Promise<App> {
   if (!existsSync(EXE)) throw new Error(`Binaire absent : ${EXE} (lancer « npm run test:app »)`);
   const config = join(sandbox.root, "config");
   mkdirSync(config, { recursive: true });
@@ -129,6 +136,7 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
     session: { openTabs: tops, active: tops[tops.length - 1] ?? null },
     // Pas de fetch automatique pendant les tests : rien ne bouge sans qu'on le demande.
     settings: { theme: "dark", language: "fr", autoFetchMinutes: 0 },
+    ...extra,
   };
   writeFileSync(join(config, "state.json"), JSON.stringify(state));
 
@@ -140,6 +148,7 @@ export async function launchApp(sandbox: Sandbox, repos: string[]): Promise<App>
       WEBVIEW2_USER_DATA_FOLDER: join(sandbox.root, "webview2"),
       // Port de débogage ouvert par l'app elle-même (build de debug, cf. src-tauri/src/lib.rs).
       GITGR_DEVTOOLS_PORT: String(port),
+      ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

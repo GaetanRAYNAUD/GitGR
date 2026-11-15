@@ -1,7 +1,8 @@
 //! État persistant de l'application, stocké en JSON dans le dossier de config.
 //!
-//! Volontairement simple pour l'instant ; on passera à SQLite quand les
-//! profils et les liaisons dépôt ↔ profils arriveront.
+//! Volontairement simple : quelques dizaines de dépôts et de profils tiennent sans peine
+//! dans un JSON écrit d'un bloc. SQLite ne vaudra le coup qu'avec un vrai cache (avatars,
+//! PR / MR des providers). Les secrets n'y sont jamais écrits.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -80,6 +81,35 @@ pub struct RepoUi {
     pub push_after_commit: bool,
 }
 
+/// Un profil : une identité Git complète, choisie par dépôt.
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Profile {
+    pub id: String,
+    /// Nom affiché (« Perso », « Boulot »).
+    pub name: String,
+    pub user_name: String,
+    pub user_email: String,
+    /// Clé SSH privée utilisée pour fetch / pull / push (`None` : celle de SSH par défaut).
+    pub ssh_key: Option<String>,
+    /// Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers
+    /// (`~/work/*`). Interprétées par l'interface (lib/profiles.ts).
+    pub rules: Vec<String>,
+    /// Couleur de la pastille (index de palette).
+    pub color: u32,
+    /// Image (data URL d'un carré de 128 px, quelques Ko) à la place des initiales.
+    pub image: Option<String>,
+}
+
+/// Profils d'un dépôt : ceux qui lui sont associés et celui qui sert (relation N–N).
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RepoProfiles {
+    /// `None` : aucun profil, la configuration Git s'applique.
+    pub active: Option<String>,
+    pub allowed: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppState {
@@ -88,6 +118,39 @@ pub struct AppState {
     pub settings: Settings,
     /// Préférences par dépôt, indexées par chemin.
     pub repo_ui: HashMap<String, RepoUi>,
+    pub profiles: Vec<Profile>,
+    /// Profils par dépôt, indexés par chemin ; absent = jamais choisi (sélection automatique).
+    pub repo_profiles: HashMap<String, RepoProfiles>,
+}
+
+impl AppState {
+    /// Retire des dépôts les profils qui n'existent plus ; un dépôt dont le profil actif a
+    /// disparu repasse sur la configuration Git.
+    pub fn prune_profiles(&mut self) {
+        let ids: std::collections::HashSet<&str> = self.profiles.iter().map(|p| p.id.as_str()).collect();
+        for binding in self.repo_profiles.values_mut() {
+            binding.allowed.retain(|id| ids.contains(id.as_str()));
+            if binding.active.as_deref().is_some_and(|id| !ids.contains(id)) {
+                binding.active = None;
+            }
+        }
+    }
+
+    /// Identité à injecter par dépôt (cf. `git::Identity`), d'après son profil actif.
+    pub fn identities(&self) -> HashMap<String, crate::git::Identity> {
+        self.repo_profiles
+            .iter()
+            .filter_map(|(path, binding)| {
+                let profile = self.profiles.iter().find(|p| Some(&p.id) == binding.active.as_ref())?;
+                let id = crate::git::Identity {
+                    name: profile.user_name.clone(),
+                    email: profile.user_email.clone(),
+                    ssh_key: profile.ssh_key.clone(),
+                };
+                Some((crate::git::repo_key(std::path::Path::new(path)), id))
+            })
+            .collect()
+    }
 }
 
 pub struct Store {
@@ -150,6 +213,46 @@ mod tests {
         assert!(again.state.repo_ui["/r"].push_after_commit);
         // Le fichier temporaire ne doit pas traîner.
         assert!(!dir.path().join("cfg").join("state.json.tmp").exists());
+    }
+
+    fn profile(id: &str, key: Option<&str>) -> Profile {
+        Profile {
+            id: id.into(),
+            name: id.to_uppercase(),
+            user_name: format!("Nom {id}"),
+            user_email: format!("{id}@exemple.fr"),
+            ssh_key: key.map(str::to_string),
+            rules: vec!["github.com".into()],
+            color: 2,
+            image: Some("data:image/png;base64,AAAA".into()),
+        }
+    }
+
+    #[test]
+    fn profiles_round_trip_and_give_identities() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::load(dir.path().to_path_buf());
+        store.state.profiles = vec![profile("perso", Some("~/.ssh/perso")), profile("boulot", None)];
+        store.state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()] });
+        store.state.repo_profiles.insert("/s".into(), RepoProfiles { active: None, allowed: vec!["boulot".into()] });
+        store.save().unwrap();
+
+        let again = Store::load(dir.path().to_path_buf());
+        assert_eq!(again.state.profiles, store.state.profiles);
+        assert_eq!(again.state.repo_profiles, store.state.repo_profiles);
+        let ids = again.state.identities();
+        assert_eq!(ids.len(), 1, "un dépôt sans profil actif n'a pas d'identité");
+        let id = &ids[&crate::git::repo_key(std::path::Path::new("/r"))];
+        assert_eq!((id.name.as_str(), id.email.as_str(), id.ssh_key.as_deref()), ("Nom perso", "perso@exemple.fr", Some("~/.ssh/perso")));
+    }
+
+    #[test]
+    fn deleted_profiles_are_pruned_from_repos() {
+        let mut state = AppState { profiles: vec![profile("boulot", None)], ..Default::default() };
+        state.repo_profiles.insert("/r".into(), RepoProfiles { active: Some("perso".into()), allowed: vec!["perso".into(), "boulot".into()] });
+        state.prune_profiles();
+        assert_eq!(state.repo_profiles["/r"], RepoProfiles { active: None, allowed: vec!["boulot".into()] });
+        assert!(state.identities().is_empty());
     }
 
     #[test]

@@ -7,6 +7,7 @@ import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
 import { openMenuBelow } from "../components/ContextMenu";
 import { Icon, type IconName } from "../components/Icon";
+import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
 import { remoteHost } from "../lib/format";
@@ -240,6 +241,7 @@ export function RepoView({ path }: { path: string }) {
           </span>
         )}
         <span className="status-spacer" />
+        <ProfilePill path={path} className="status-profile" />
         {count > 0 && <span>{done ? t("graph.count", { count }) : t("graph.countMore", { count })}</span>}
         {data && (
           <span className="mono" title={tracking}>
