@@ -1,0 +1,25 @@
+{
+  "comment": "Adresse d'instance saisie → URL de l'instance et de son API. Cas partagés par providers.rs (Rust) et lib/providers.ts (interface) : les deux lectures doivent donner le même résultat. `url: null` : adresse refusée.",
+  "cases": [
+    { "kind": "github", "input": "", "url": "https://github.com", "api": "https://api.github.com" },
+    { "kind": "github", "input": "github.com", "url": "https://github.com", "api": "https://api.github.com" },
+    { "kind": "github", "input": " https://www.GitHub.com/ ", "url": "https://github.com", "api": "https://api.github.com" },
+    { "kind": "github", "input": "api.github.com", "url": "https://github.com", "api": "https://api.github.com" },
+    { "kind": "github", "input": "github.exemple.fr", "url": "https://github.exemple.fr", "api": "https://github.exemple.fr/api/v3" },
+    { "kind": "github", "input": "https://GHE.exemple.fr:8443/", "url": "https://ghe.exemple.fr:8443", "api": "https://ghe.exemple.fr:8443/api/v3" },
+    { "kind": "gitlab", "input": "", "url": "https://gitlab.com", "api": "https://gitlab.com/api/v4" },
+    { "kind": "gitlab", "input": "gitlab.exemple.fr", "url": "https://gitlab.exemple.fr", "api": "https://gitlab.exemple.fr/api/v4" },
+    { "kind": "gitlab", "input": "http://gitlab.local:8080", "url": "http://gitlab.local:8080", "api": "http://gitlab.local:8080/api/v4" },
+    { "kind": "gitlab", "input": "https://exemple.fr/GitLab/", "url": "https://exemple.fr/GitLab", "api": "https://exemple.fr/GitLab/api/v4" },
+    { "kind": "gitlab", "input": "exemple.fr/outils/gitlab", "url": "https://exemple.fr/outils/gitlab", "api": "https://exemple.fr/outils/gitlab/api/v4" },
+    { "kind": "gitlab", "input": "ssh://gitlab.exemple.fr", "url": null, "api": null },
+    { "kind": "gitlab", "input": "https://moi@gitlab.exemple.fr", "url": null, "api": null },
+    { "kind": "gitlab", "input": "gitlab exemple.fr", "url": null, "api": null },
+    { "kind": "gitlab", "input": "https://", "url": null, "api": null },
+    { "kind": "gitlab", "input": "gitlab.exemple.fr?x=1", "url": null, "api": null },
+    { "kind": "gitlab", "input": "exemple.fr/été", "url": null, "api": null },
+    { "kind": "gitlab", "input": "gitlab.exemple.fr/a\u0085b", "url": null, "api": null },
+    { "kind": "gitlab", "input": "gitlab.exemple.fr\\x", "url": null, "api": null },
+    { "kind": "github", "input": "ghe.exemple.fr:abc", "url": null, "api": null }
+  ]
+}

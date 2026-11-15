@@ -104,6 +104,8 @@ pub struct Profile {
     /// GPG : identifiant ou empreinte (vide : choisie par gpg d'après l'e-mail).
     /// SSH : fichier de clé (vide : la clé SSH du profil).
     pub signing_key: Option<String>,
+    /// Comptes providers (GitHub, GitLab) liés au profil ; leur token est dans le trousseau.
+    pub accounts: Vec<crate::providers::Account>,
 }
 
 impl Profile {
@@ -165,6 +167,11 @@ impl AppState {
             // Le remote d'un profil supprimé retrouve le choix automatique.
             binding.remotes.retain(|_, choice| choice.as_deref().is_none_or(|id| ids.contains(id)));
         }
+    }
+
+    /// Identifiants des comptes providers portés par au moins un profil.
+    pub fn account_ids(&self) -> std::collections::HashSet<String> {
+        self.profiles.iter().flat_map(|p| p.accounts.iter().map(|a| a.id.clone())).collect()
     }
 
     /// Profils et choix par remote, pour la clé SSH de chaque remote (cf. `remotes::Table`).
@@ -303,6 +310,22 @@ mod tests {
         assert_eq!(ids.len(), 1, "un dépôt sans profil actif n'a pas d'identité");
         let id = &ids[&crate::git::repo_key(std::path::Path::new("/r"))];
         assert_eq!((id.name.as_str(), id.email.as_str(), id.ssh_key.as_deref()), ("Nom perso", "perso@exemple.fr", Some("~/.ssh/perso")));
+    }
+
+    #[test]
+    fn accounts_round_trip_and_are_listed_once() {
+        use crate::providers::Account;
+        let account = |login: &str| Account { id: format!("github|https://github.com|{login}"), kind: "github".into(), url: "https://github.com".into(), login: login.into(), name: None };
+        let mut state = AppState { profiles: vec![profile("perso", None), profile("boulot", None), profile("vide", None)], ..Default::default() };
+        state.profiles[0].accounts = vec![account("moi")];
+        state.profiles[1].accounts = vec![account("moi"), account("pro")];
+        let again: AppState = serde_json::from_str(&serde_json::to_string(&state).unwrap()).unwrap();
+        assert_eq!(again.profiles, state.profiles);
+        assert_eq!(again.account_ids(), ["github|https://github.com|moi".to_string(), "github|https://github.com|pro".to_string()].into());
+        // État écrit par une version antérieure : pas de comptes, et rien de secret dans le JSON.
+        let old: AppState = serde_json::from_str(r#"{"profiles":[{"id":"p","name":"P"}]}"#).unwrap();
+        assert!(old.profiles[0].accounts.is_empty());
+        assert!(!serde_json::to_string(&state).unwrap().contains("token"));
     }
 
     #[test]

@@ -7,7 +7,8 @@
 //! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
 //! - `remotes`  : remotes du dépôt et profil de chacun (clé SSH par hôte, config ssh générée).
 //! - `profiles` : clés SSH des profils (lecture, génération) ; l'identité est injectée par `git`.
-//! - `secrets`  : trousseau de l'OS (phrases de passe des clés).
+//! - `providers`: comptes GitHub / GitLab (token personnel vérifié auprès de l'API).
+//! - `secrets`  : trousseau de l'OS (phrases de passe des clés, tokens des comptes).
 //! - `signing`  : clés GPG (signature des commits, injectée par `git`).
 //! - `askpass`  : l'exécutable répond à ssh (phrase de passe) quand ssh le lance.
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
@@ -19,6 +20,7 @@ mod commands;
 mod git;
 mod history;
 mod profiles;
+mod providers;
 mod remotes;
 mod secrets;
 mod signing;
@@ -125,6 +127,9 @@ pub fn run() {
             commands::apply_identity,
             commands::set_key_passphrase,
             commands::gpg_keys,
+            commands::connect_account,
+            commands::disconnect_account,
+            commands::check_account,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

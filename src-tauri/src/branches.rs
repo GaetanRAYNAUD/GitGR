@@ -786,7 +786,7 @@ mod tests {
         commit_file(p, "n.txt", "n\n");
         push(p, false, None).unwrap();
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "origin/nouvelle");
-        assert_eq!(git(remote.path(), &["rev-parse", "nouvelle"]), git(p, &["rev-parse", "HEAD"]));
+        assert_eq!(git(remote.path(), &["--git-dir=.", "rev-parse", "nouvelle"]), git(p, &["rev-parse", "HEAD"]));
 
         git(p, &["switch", "-q", "--detach"]);
         assert_eq!(push(p, false, None).unwrap_err(), "detached_head");
@@ -800,7 +800,7 @@ mod tests {
         git(p, &["switch", "-q", "-c", "suite", "--track", "main"]);
         commit_file(p, "s.txt", "s\n");
         push(p, true, None).unwrap();
-        assert_eq!(git(remote.path(), &["rev-parse", "suite"]), git(p, &["rev-parse", "HEAD"]));
+        assert_eq!(git(remote.path(), &["--git-dir=.", "rev-parse", "suite"]), git(p, &["rev-parse", "HEAD"]));
         assert_eq!(git(p, &["rev-parse", "main"]), main, "la branche locale suivie n'a pas bougé");
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "main", "le suivi est inchangé");
     }
@@ -845,7 +845,7 @@ mod tests {
         assert_eq!(push(a.path(), true, None).unwrap_err(), "push_stale");
         fetch(a.path()).unwrap();
         push(a.path(), true, None).unwrap();
-        assert_eq!(git(remote.path(), &["rev-parse", "main"]), git(a.path(), &["rev-parse", "HEAD"]));
+        assert_eq!(git(remote.path(), &["--git-dir=.", "rev-parse", "main"]), git(a.path(), &["rev-parse", "HEAD"]));
     }
 
     #[test]
@@ -968,7 +968,7 @@ mod tests {
         assert!(ref_exists(b.path(), "refs/remotes/origin/temp"));
 
         delete_remote_branch(a.path(), "origin/temp").unwrap();
-        assert!(run(Some(remote.path()), &["rev-parse", "-q", "--verify", "refs/heads/temp"]).is_err());
+        assert!(run(Some(remote.path()), &["--git-dir=.", "rev-parse", "-q", "--verify", "refs/heads/temp"]).is_err());
         fetch(b.path()).unwrap();
         assert!(!ref_exists(b.path(), "refs/remotes/origin/temp"), "branche distante supprimée retirée");
 
@@ -991,25 +991,27 @@ mod tests {
         let p = a.path();
         let client = add_remote(p, "client");
         let head = |repo: &Path, branch: &str| git(repo, &["rev-parse", branch]);
+        // Remote nu : lu avec `--git-dir` (accepté même avec `safe.bareRepository = explicit`).
+        let remote_head = |repo: &Path, branch: &str| git(repo, &["--git-dir=.", "rev-parse", branch]);
         commit_file(p, "a.txt", "a\n");
 
         // Vers l'autre remote : même nom de branche, le suivi (origin/main) ne change pas.
         push(p, false, Some("client")).unwrap();
-        assert_eq!(head(client.path(), "main"), head(p, "HEAD"));
-        assert_ne!(head(origin.path(), "main"), head(p, "HEAD"), "origin n'a rien reçu");
+        assert_eq!(remote_head(client.path(), "main"), head(p, "HEAD"));
+        assert_ne!(remote_head(origin.path(), "main"), head(p, "HEAD"), "origin n'a rien reçu");
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "@{u}"]), "origin/main");
         // Vers le remote de la branche suivie : comme un push ordinaire.
         push(p, false, Some("origin")).unwrap();
-        assert_eq!(head(origin.path(), "main"), head(p, "HEAD"));
+        assert_eq!(remote_head(origin.path(), "main"), head(p, "HEAD"));
         assert_eq!(push(p, false, Some("absent")).unwrap_err(), "remote_not_found");
 
         // Branche suivie sous un autre nom : ce nom sur son remote, le sien ailleurs.
         git(p, &["switch", "-q", "-c", "locale", "--track", "origin/main"]);
         commit_file(p, "b.txt", "b\n");
         push(p, false, Some("client")).unwrap();
-        assert_eq!(head(client.path(), "locale"), head(p, "HEAD"));
+        assert_eq!(remote_head(client.path(), "locale"), head(p, "HEAD"));
         push(p, false, Some("origin")).unwrap();
-        assert_eq!(head(origin.path(), "main"), head(p, "HEAD"));
+        assert_eq!(remote_head(origin.path(), "main"), head(p, "HEAD"));
 
         // Branche sans suivi poussée vers un remote choisi : elle le suit.
         git(p, &["switch", "-q", "-c", "nouvelle"]);

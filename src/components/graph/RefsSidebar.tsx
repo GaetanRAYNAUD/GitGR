@@ -3,7 +3,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { profileColor, remoteProfile } from "../../lib/profiles";
+import { parseRemote, profileColor, remoteProfile } from "../../lib/profiles";
+import { PROVIDER_NAMES, remoteAccount, remoteProvider } from "../../lib/providers";
 import { refSections, refTree, type RefNode, type RefSection } from "../../lib/refs";
 import type { GitRef, RemoteInfo, RepoUi } from "../../lib/types";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
@@ -151,17 +152,27 @@ export function RefsSidebar({ path }: { path: string }) {
         const remote = remoteOf(s);
         const rp = remote && remoteProfile(profiles, binding, remote);
         const profileHint = rp && (rp.profile ? t(`remotes.hint.${rp.source}`, { name: rp.profile.name }) : t("remotes.hint.none"));
+        // Provider reconnu d'après l'hôte : son icône, et le compte du profil du remote (API).
+        const parsed = remote && parseRemote(remote.url);
+        const provider = remoteProvider(profiles, parsed);
+        const account = rp && remoteAccount(rp.profile, parsed);
+        const accountHint =
+          provider &&
+          rp?.profile &&
+          (account ? t("remotes.account", { provider: PROVIDER_NAMES[provider], login: account.login }) : t("remotes.accountNone", { provider: PROVIDER_NAMES[provider] }));
         return (
           <div className="side-group" key={s.key}>
             <button
               className="section-h section-btn"
               aria-expanded={open}
-              title={remote ? [remote.url, remote.pushUrl && t("remotes.pushUrl", { url: remote.pushUrl }), profileHint, t("remotes.menuHint")].filter(Boolean).join("\n") : undefined}
+              title={remote ? [remote.url, remote.pushUrl && t("remotes.pushUrl", { url: remote.pushUrl }), profileHint, accountHint, t("remotes.menuHint")].filter(Boolean).join("\n") : undefined}
               onClick={() => setUi(path, { ...ui, collapsed: toggle(ui.collapsed, s.key) })}
               onContextMenu={remote ? (e) => openContextMenu(e, remoteMenu(t, path, remote, refs)) : undefined}
             >
               <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
-              <Icon name={ICONS[s.kind]} size={15} />
+              <span className="section-icon" data-provider={provider ?? undefined}>
+                <Icon name={provider ?? ICONS[s.kind]} size={15} />
+              </span>
               <span className="section-name">{title(s)}</span>
               {rp?.profile && (
                 <span className="section-profile" data-source={rp.source}>
