@@ -10,6 +10,11 @@
 //!   On ne surveille donc que les dossiers non ignorés (`git ls-files --ignored --directory`),
 //!   sans `.git/objects`, et on ajoute à la volée les dossiers créés ensuite.
 //!
+//! **Worktree lié** : git y a deux dossiers — le sien (`<principal>/.git/worktrees/<nom>` :
+//! HEAD, index…) et le dossier commun (`<principal>/.git` : refs, `packed-refs`, config). Les
+//! deux sont surveillés, mais du dossier commun seules les refs et la config comptent : l'index
+//! et le HEAD du dépôt principal ou des autres worktrees bougent sans rien changer ici.
+//!
 //! Les événements sont regroupés (`DEBOUNCE`) puis triés : objets, verrous et fichiers du
 //! démon fsmonitor de `.git`, fichiers ignorés (`git check-ignore`) ne déclenchent rien.
 
@@ -68,23 +73,39 @@ impl RepoWatcher {
 
         let root = PathBuf::from(&path);
         let git_dir = PathBuf::from(git::run(Some(&root), &["rev-parse", "--absolute-git-dir"])?);
+        // Dossier commun : le même hors worktree lié (ou si git est trop ancien pour le donner
+        // en absolu : on surveille alors comme avant).
+        let common_dir = git::run(Some(&root), &["rev-parse", "--path-format=absolute", "--git-common-dir"])
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| git_dir.clone());
         let (tx, rx) = mpsc::channel();
         let watcher = Arc::new(Mutex::new(notify::recommended_watcher(tx).map_err(|e| e.to_string())?));
-        let mut tree = Tree { root, git_dir, mode, watched: HashSet::new() };
+        let mut tree = Tree { root, git_dir, common_dir, mode, watched: HashSet::new() };
         {
             let mut w = watcher.lock().unwrap();
             match mode {
                 Mode::Recursive => {
-                    w.watch(&tree.root, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
-                    // Worktree lié ou `.git` déplacé : le dossier git n'est pas sous la racine.
-                    if !tree.git_dir.starts_with(&tree.root) {
-                        w.watch(&tree.git_dir, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+                    // Worktree lié ou `.git` déplacé : les dossiers git ne sont pas sous la racine
+                    // (et celui d'un worktree lié est dans le dossier commun).
+                    let mut covered = vec![&tree.root];
+                    for dir in [&tree.common_dir, &tree.git_dir] {
+                        if !covered.iter().any(|c| dir.starts_with(c)) {
+                            covered.push(dir);
+                        }
+                    }
+                    for dir in covered {
+                        w.watch(dir, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
                     }
                 }
                 Mode::PerDirectory => {
                     let ignored = ignored_dirs(&tree.root);
                     let mut dirs = tree.dirs_under(&tree.root, &ignored);
                     dirs.extend(tree.git_dirs(&tree.git_dir));
+                    if tree.linked() {
+                        // Du dossier commun : lui-même (`packed-refs`, `config`) et ses refs.
+                        dirs.push(tree.common_dir.clone());
+                        dirs.extend(tree.git_dirs(&tree.common_dir.join("refs")));
+                    }
                     // Une veille refusée (limite inotify atteinte) : on garde celles qui ont
                     // été acceptées plutôt que de ne rien surveiller du tout.
                     if let Err(e) = tree.add_all(&mut w, dirs) {
@@ -140,7 +161,7 @@ fn process(rx: Receiver<notify::Result<Event>>, watcher: Weak<Mutex<RecommendedW
             // Une veille refusée (limite inotify atteinte) : on garde les autres, et on rafraîchit.
             lost |= tree.track_new_dirs(&mut w, &paths).is_err();
         }
-        if lost || relevant(&tree.root, &tree.git_dir, &paths) {
+        if lost || tree.relevant(&paths) {
             notify();
         }
     }
@@ -149,12 +170,56 @@ fn process(rx: Receiver<notify::Result<Event>>, watcher: Weak<Mutex<RecommendedW
 /// Dossiers surveillés en mode par dossier.
 struct Tree {
     root: PathBuf,
+    /// Dossier git de cette copie de travail (HEAD, index…).
     git_dir: PathBuf,
+    /// Dossier git commun (refs, config) : différent de `git_dir` dans un worktree lié.
+    common_dir: PathBuf,
     mode: Mode,
     watched: HashSet<PathBuf>,
 }
 
 impl Tree {
+    /// Worktree lié : son dossier git n'est pas le dossier commun.
+    fn linked(&self) -> bool {
+        self.git_dir != self.common_dir
+    }
+
+    /// `p` est dans un dossier git : ce changement compte-t-il ? `None` : pas un chemin de git.
+    fn git_event(&self, p: &Path) -> Option<bool> {
+        if !self.linked() {
+            return p.strip_prefix(&self.git_dir).ok().map(git_change);
+        }
+        // Le dossier du worktree d'abord : il est dans le dossier commun.
+        if let Ok(inside) = p.strip_prefix(&self.git_dir) {
+            return Some(git_change(inside));
+        }
+        p.strip_prefix(&self.common_dir).ok().map(shared_change)
+    }
+
+    /// Ce lot de chemins modifiés change-t-il ce qu'on affiche ?
+    fn relevant(&self, paths: &[PathBuf]) -> bool {
+        let mut work: Vec<String> = Vec::new();
+        for p in paths {
+            if let Some(counts) = self.git_event(p) {
+                if counts {
+                    return true;
+                }
+            } else if p.starts_with(&self.root) {
+                let rel = rel_path(&self.root, p);
+                if !rel.is_empty() {
+                    work.push(rel);
+                }
+            }
+        }
+        if work.is_empty() {
+            return false;
+        }
+        if work.len() > MAX_CHECKED {
+            return true;
+        }
+        any_not_ignored(&self.root, &work)
+    }
+
     /// Surveille ces dossiers (non récursivement) ; continue après un refus, renvoie le premier.
     fn add_all(&mut self, w: &mut RecommendedWatcher, dirs: Vec<PathBuf>) -> Result<(), String> {
         let mut first_err = None;
@@ -196,6 +261,9 @@ impl Tree {
                 if !skipped_in_git_dir(inside) {
                     new.extend(self.git_dirs(p));
                 }
+            } else if self.linked() && p.starts_with(self.common_dir.join("refs")) {
+                // Branche rangée dans un nouveau dossier (`refs/heads/feature/`).
+                new.extend(self.git_dirs(p));
             } else if let Ok(rel) = p.strip_prefix(&self.root) {
                 if !has_dot_git(rel) {
                     let ignored = ignored.get_or_insert_with(|| ignored_dirs(&self.root));
@@ -274,29 +342,6 @@ fn skipped_in_git_dir(inside: &Path) -> bool {
     inside.components().any(|c| matches!(c.as_os_str().to_str(), Some("objects" | "fsmonitor--daemon")))
 }
 
-/// Ce lot de chemins modifiés change-t-il ce qu'on affiche ?
-pub fn relevant(root: &Path, git_dir: &Path, paths: &[PathBuf]) -> bool {
-    let mut work: Vec<String> = Vec::new();
-    for p in paths {
-        if let Ok(inside) = p.strip_prefix(git_dir) {
-            if git_change(inside) {
-                return true;
-            }
-        } else if p.starts_with(root) {
-            let rel = rel_path(root, p);
-            if !rel.is_empty() {
-                work.push(rel);
-            }
-        }
-    }
-    if work.is_empty() {
-        return false;
-    }
-    if work.len() > MAX_CHECKED {
-        return true;
-    }
-    any_not_ignored(root, &work)
-}
 
 /// L'événement peut changer ce qu'on affiche. Une simple lecture (ouverture, fermeture
 /// sans écriture) ne compte pas : inotify (Linux) les signale, et nos propres commandes git
@@ -315,6 +360,14 @@ fn changes_content(kind: &EventKind) -> bool {
 /// sans fin.
 fn git_change(inside: &Path) -> bool {
     !skipped_in_git_dir(inside) && !inside.extension().is_some_and(|e| e == "lock")
+}
+
+/// Changement dans le dossier commun, vu d'un worktree lié : seules les refs (`refs/…`,
+/// `packed-refs`) et la config comptent. Le reste (HEAD, index, journal du dépôt principal,
+/// dossiers des autres worktrees) ne change rien à ce qu'on affiche ici.
+fn shared_change(inside: &Path) -> bool {
+    let shared = inside.starts_with("refs") || inside == Path::new("packed-refs") || inside == Path::new("config");
+    shared && git_change(inside)
 }
 
 /// Au moins un de ces chemins (relatifs à la racine) n'est pas ignoré par git.
@@ -363,12 +416,40 @@ mod tests {
         let root = dir.path();
         fs::write(root.join(".gitignore"), "target/\n").unwrap();
         let git_dir = root.join(".git");
+        let tree = Tree { root: root.to_path_buf(), git_dir: git_dir.clone(), common_dir: git_dir, mode: DEFAULT_MODE, watched: HashSet::new() };
         let p = |s: &str| root.join(s);
-        assert!(!relevant(root, &git_dir, &[p("target/debug/x.o"), p("target/y")]));
-        assert!(relevant(root, &git_dir, &[p("target/y"), p("src/main.rs")]));
-        assert!(relevant(root, &git_dir, &[p(".git/refs/heads/main")]));
-        assert!(!relevant(root, &git_dir, &[p(".git/objects/ab/cd"), p(".git/index.lock")]));
-        assert!(!relevant(root, &git_dir, &[root.to_path_buf()]));
+        assert!(!tree.relevant(&[p("target/debug/x.o"), p("target/y")]));
+        assert!(tree.relevant(&[p("target/y"), p("src/main.rs")]));
+        assert!(tree.relevant(&[p(".git/refs/heads/main")]));
+        assert!(!tree.relevant(&[p(".git/objects/ab/cd"), p(".git/index.lock")]));
+        assert!(!tree.relevant(&[root.to_path_buf()]));
+    }
+
+    #[test]
+    fn linked_worktree_sorts_shared_git_dir_changes() {
+        let common = PathBuf::from("/depot/.git");
+        let tree = Tree {
+            root: PathBuf::from("/ailleurs/wt"),
+            git_dir: common.join("worktrees/wt"),
+            common_dir: common.clone(),
+            mode: DEFAULT_MODE,
+            watched: HashSet::new(),
+        };
+        let p = |s: &str| common.join(s);
+        // Son propre dossier git : comme un dépôt ordinaire.
+        assert_eq!(tree.git_event(&p("worktrees/wt/HEAD")), Some(true));
+        assert_eq!(tree.git_event(&p("worktrees/wt/index.lock")), Some(false));
+        // Dossier commun : les refs et la config, rien d'autre.
+        assert_eq!(tree.git_event(&p("refs/heads/nouvelle")), Some(true));
+        assert_eq!(tree.git_event(&p("refs/remotes/origin/main")), Some(true));
+        assert_eq!(tree.git_event(&p("packed-refs")), Some(true));
+        assert_eq!(tree.git_event(&p("config")), Some(true));
+        assert_eq!(tree.git_event(&p("refs/heads/nouvelle.lock")), Some(false));
+        assert_eq!(tree.git_event(&p("index")), Some(false), "index du dépôt principal");
+        assert_eq!(tree.git_event(&p("HEAD")), Some(false));
+        assert_eq!(tree.git_event(&p("worktrees/autre/index")), Some(false), "autre worktree");
+        assert_eq!(tree.git_event(&p("objects/ab/cd")), Some(false));
+        assert_eq!(tree.git_event(Path::new("/ailleurs/wt/a.txt")), None);
     }
 
     #[test]
@@ -380,7 +461,7 @@ mod tests {
             fs::create_dir_all(root.join(d)).unwrap();
         }
         let git_dir = PathBuf::from(git::run(Some(&root), &["rev-parse", "--absolute-git-dir"]).unwrap());
-        let tree = Tree { root: root.clone(), git_dir: git_dir.clone(), mode: Mode::PerDirectory, watched: HashSet::new() };
+        let tree = Tree { root: root.clone(), git_dir: git_dir.clone(), common_dir: git_dir.clone(), mode: Mode::PerDirectory, watched: HashSet::new() };
         let rels = |v: Vec<PathBuf>, base: &Path| -> Vec<String> {
             let mut r: Vec<String> = v.iter().map(|p| rel_path(base, p)).collect();
             r.sort();
@@ -444,6 +525,50 @@ mod tests {
         while rx.try_recv().is_ok() {}
         fs::write(root.join("d.txt"), "x").unwrap();
         assert!(!notified(&rx, 1200), "{mode:?} : arrêté");
+    }
+
+    /// Worktree lié : ce qui bouge dans le dépôt principal n'y compte que si ce sont des refs.
+    fn check_linked_worktree(mode: Mode) {
+        let main = temp_repo();
+        commit_file(main.path(), "a.txt", "1");
+        let holder = tempfile::tempdir().unwrap();
+        let wt = holder.path().join("wt");
+        git::run(Some(main.path()), &["worktree", "add", "-q", "-b", "liee", &wt.to_string_lossy()]).unwrap();
+        let (tx, rx) = mpsc::channel();
+        let mut w = RepoWatcher::default();
+        let path = wt.to_string_lossy().to_string();
+        w.watch_with(Some(path.clone()), mode, move |p| tx.send(p.to_string()).unwrap()).unwrap();
+        drain(&rx);
+
+        // Branche créée depuis le dépôt principal, puis dans un nouveau dossier de refs.
+        git::run(Some(main.path()), &["branch", "nouvelle"]).unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), path, "{mode:?} : branche créée ailleurs");
+        drain(&rx);
+        git::run(Some(main.path()), &["branch", "feature/x"]).unwrap();
+        assert!(notified(&rx, 5000), "{mode:?} : branche dans un nouveau dossier");
+        drain(&rx);
+        // L'index du dépôt principal ne change rien à ce worktree.
+        fs::write(main.path().join("b.txt"), "x").unwrap();
+        git::run(Some(main.path()), &["add", "b.txt"]).unwrap();
+        assert!(!notified(&rx, 1200), "{mode:?} : index du dépôt principal");
+
+        // Ses propres changements : comme un dépôt ordinaire.
+        commit_file(&wt, "c.txt", "1");
+        assert!(notified(&rx, 5000), "{mode:?} : commit dans le worktree");
+
+        w.watch_with(None, mode, |_| {}).unwrap();
+        // Le worktree est retiré avant ses dossiers temporaires (veilles fermées).
+        let _ = git::run(Some(main.path()), &["worktree", "remove", "--force", &path]);
+    }
+
+    #[test]
+    fn recursive_mode_follows_a_linked_worktree() {
+        check_linked_worktree(Mode::Recursive);
+    }
+
+    #[test]
+    fn per_directory_mode_follows_a_linked_worktree() {
+        check_linked_worktree(Mode::PerDirectory);
     }
 
     #[test]
