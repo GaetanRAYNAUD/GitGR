@@ -8,7 +8,7 @@ import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { branchColorRules, chipFixedColor, fixedColorsByCommit } from "../../lib/branchColors";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
-import type { Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
+import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
@@ -157,10 +157,9 @@ function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
   return refs?.refs.find((r) => r.kind === chip.kind && r.short === chip.label);
 }
 
-function Chip({ chip, color, path, refs }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null }) {
+function Chip({ chip, color, path, refs, rules }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null; rules: BranchColorRule[] }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
-  const rules = branchColorRules(useApp((s) => s.settings.branchColors));
   color = chipFixedColor(rules, chip.kind, chip.label) ?? color;
   const cls = chip.kind === "tag" ? "chip tag" : chip.kind === "remote" ? "chip remote" : "chip";
   const title = [chip.title, chip.current && t("graph.current"), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
@@ -348,7 +347,7 @@ export function CommitGraph({ path, changes }: Props) {
         return (
           <span key={col} className="commit-refs">
             {(chips.get(c.sha) ?? []).map((chip) => (
-              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} />
+              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} rules={rules} />
             ))}
           </span>
         );

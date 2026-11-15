@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
+import { PALETTE_SIZE } from "../lib/graph";
 import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
 import { useProfiles } from "./profiles";
@@ -198,13 +199,11 @@ export const useApp = create<AppStore>((set, get) => ({
 
   rename(path, alias) {
     const a = alias?.trim() || undefined;
-    set((s) => ({ repos: s.repos.map((r) => (r.path === path ? { ...r, alias: a } : r)) }));
-    api.renameRepo(path, a ?? null).catch((e) => set({ error: errorCode(e) }));
+    patchRepo(set, get, path, { alias: a }, () => api.renameRepo(path, a ?? null));
   },
 
   setRepoColor(path, color) {
-    set((s) => ({ repos: s.repos.map((r) => (r.path === path ? { ...r, color: color ?? undefined } : r)) }));
-    api.setRepoColor(path, color).catch((e) => set({ error: errorCode(e) }));
+    patchRepo(set, get, path, { color: color ?? undefined }, () => api.setRepoColor(path, color));
   },
 
   updateSettings(patch) {
@@ -288,13 +287,32 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 }));
 
+/** Change une entrée de dépôt tout de suite, l'enregistre, et revient en arrière si
+ *  l'enregistrement échoue (l'interface ne montre pas un nom ou une couleur perdus). */
+function patchRepo(
+  set: (p: Partial<AppStore>) => void,
+  get: () => AppStore,
+  path: string,
+  patch: Pick<RepoEntry, "alias" | "color">,
+  save: () => Promise<void>,
+) {
+  const before = get().repos.find((r) => r.path === path);
+  if (!before) return;
+  const swap = (entry: RepoEntry) => set({ repos: get().repos.map((r) => (r.path === path ? entry : r)) });
+  swap({ ...before, ...patch });
+  save().catch((e) => {
+    swap(before);
+    set({ error: errorCode(e) });
+  });
+}
+
 /** Nom affiché d'un dépôt : celui choisi dans l'app, sinon le nom du dossier. */
 export function repoName(r: RepoEntry): string {
   return r.alias || r.name;
 }
 
-/** Nombre de couleurs proposées pour un onglet (palette du graphe `--g0`…). */
-export const TAB_COLORS = 8;
+/** Nombre de couleurs proposées pour un onglet : la palette du graphe (`--g0`…). */
+export const TAB_COLORS = PALETTE_SIZE;
 
 /** Couleur d'un dépôt (pastille d'onglet, liste) : celle choisie, sinon une couleur stable
  *  tirée du chemin. */

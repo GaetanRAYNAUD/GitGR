@@ -115,6 +115,7 @@ export function TitleBar() {
         {tabs.map((path) => {
           const name = nameOf(path);
           const on = path === active;
+          const Main = editing === path ? "div" : "button";
           return (
             <div
               key={path}
@@ -124,13 +125,15 @@ export function TitleBar() {
               onAuxClick={(e) => e.button === 1 && closeTab(path)}
               onContextMenu={(e) => openContextMenu(e, tabMenu(path))}
             >
-              <button
+              {/* Pendant le renommage, pas de <button> autour du champ (contenu interactif
+                  imbriqué : clics et sélection du texte pris par le bouton). */}
+              <Main
                 role="tab"
                 aria-selected={on}
                 className="tab-main"
-                onClick={() => activate(path)}
+                onClick={editing === path ? undefined : () => activate(path)}
                 onDoubleClick={() => setEditing(path)}
-                onPointerDown={(e) => editing !== path && onPointerDown(e, path)}
+                onPointerDown={editing === path ? undefined : (e: ReactPointerEvent) => onPointerDown(e, path)}
               >
                 <span className="dot" style={{ background: repoColor(path, repoOf(path)?.color) }} />
                 {editing === path ? (
@@ -143,7 +146,6 @@ export function TitleBar() {
                     title={t("tabs.renameHint")}
                     size={Math.max(name.length, 4)}
                     onFocus={(e) => e.currentTarget.select()}
-                    onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
                       e.stopPropagation();
                       if (e.key === "Enter") e.currentTarget.blur();
@@ -161,7 +163,7 @@ export function TitleBar() {
                 ) : (
                   <span className="tab-name" title={t("tabs.renameHint")}>{name}</span>
                 )}
-              </button>
+              </Main>
               <button className="tab-close" aria-label={t("tabs.close", { name })} onClick={() => closeTab(path)}>
                 <Icon name="close" size={13} />
               </button>

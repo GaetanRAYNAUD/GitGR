@@ -19,9 +19,16 @@ export function branchColorRules(rules: BranchColorRule[] | undefined): BranchCo
 
 /** Motif simple : `*` remplace n'importe quelle suite de caractères. */
 function matches(pattern: string, name: string): boolean {
-  const re = new RegExp(`^${pattern.split("*").map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
+  let re = compiled.get(pattern);
+  if (!re) {
+    re = new RegExp(`^${pattern.split("*").map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
+    compiled.set(pattern, re);
+  }
   return re.test(name);
 }
+
+/** Motifs déjà compilés (quelques règles, appelées à chaque rendu des étiquettes). */
+const compiled = new Map<string, RegExp>();
 
 /** Couleur fixe d'une branche (nom court, sans le remote), ou `undefined`. */
 export function fixedColor(rules: BranchColorRule[], branch: string): number | undefined {
