@@ -41,6 +41,7 @@ import type {
   Account,
   AppState,
   Commit,
+  ColorValue,
   CommitDetails,
   DiffArea,
   FileDiff,
@@ -70,7 +71,7 @@ export interface Api {
   /** Nom affiché (vide / `null` = nom du dossier). */
   renameRepo(path: string, alias: string | null): Promise<void>;
   /** Couleur de la pastille d'onglet (`null` = automatique). */
-  setRepoColor(path: string, color: number | null): Promise<void>;
+  setRepoColor(path: string, color: ColorValue | null): Promise<void>;
   setSession(session: Session): Promise<void>;
   setSettings(settings: Settings): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): Promise<void>;

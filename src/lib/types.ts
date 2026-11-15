@@ -13,8 +13,8 @@ export interface RepoEntry {
   lastOpened: number;
   /** Nom affiché choisi dans l'app ; absent = nom du dossier. */
   alias?: string;
-  /** Couleur de la pastille d'onglet (indice de palette) ; absente = automatique. */
-  color?: number;
+  /** Couleur de la pastille d'onglet ; absente = automatique. */
+  color?: ColorValue;
 }
 
 export interface Session {
@@ -53,9 +53,11 @@ export interface Settings {
 /** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
 export interface BranchColorRule {
   pattern: string;
-  /** Indice de la palette du graphe, ou couleur libre `#rrggbb`. */
-  color: number | string;
+  color: ColorValue;
 }
+
+/** Indice de la palette du graphe (`--g0`…), ou couleur libre `#rrggbb`. */
+export type ColorValue = number | string;
 
 /** Pull : avance rapide uniquement, merge, ou rebase. */
 export type PullStrategy = "ff-only" | "merge" | "rebase";

@@ -10,7 +10,7 @@ use crate::profiles::{self, SshKeyInfo};
 use crate::providers::{self, Account};
 use crate::worktree::{self, LineRef, WorkStatus};
 use crate::watch::RepoWatcher;
-use crate::store::{AppState, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
+use crate::store::{AppState, ColorValue, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -50,7 +50,7 @@ pub async fn open_repo(path: String, store: StoreState<'_>) -> Result<RepoEntry,
     // Le nom choisi dans l'app survit à une réouverture.
     let prev = s.state.repos.iter().find(|r| r.path == top_str);
     let alias = prev.and_then(|r| r.alias.clone());
-    let color = prev.and_then(|r| r.color);
+    let color = prev.and_then(|r| r.color.clone());
     let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms(), alias, color };
     s.state.repos.retain(|r| r.path != top_str);
     s.state.repos.insert(0, entry.clone());
@@ -87,7 +87,7 @@ pub fn rename_repo(path: String, alias: Option<String>, store: StoreState<'_>) -
 
 /// Couleur de la pastille d'onglet d'un dépôt (`None` = automatique).
 #[tauri::command]
-pub fn set_repo_color(path: String, color: Option<u8>, store: StoreState<'_>) -> Result<(), String> {
+pub fn set_repo_color(path: String, color: Option<ColorValue>, store: StoreState<'_>) -> Result<(), String> {
     let mut s = store.lock().unwrap();
     if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
         r.color = color;

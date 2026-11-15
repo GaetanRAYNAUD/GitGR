@@ -8,13 +8,8 @@ import { PALETTE_SIZE } from "../lib/graph";
 import type { BranchColorRule } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
+import { ColorChoice } from "./ColorChoice";
 import { Icon } from "./Icon";
-
-/** Couleur de la palette en `#rrggbb` (point de départ du sélecteur de couleur). */
-function paletteHex(index: number): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(`--g${index % PALETTE_SIZE}`).trim();
-  return /^#[0-9a-f]{6}$/i.test(v) ? v : "#888888";
-}
 
 export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -63,33 +58,11 @@ export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
                 autoComplete="off"
                 onChange={(e) => patch(i, { pattern: e.target.value })}
               />
-              <div className="bc-swatches" role="radiogroup" aria-label={t("branchColors.color")}>
-                {Array.from({ length: PALETTE_SIZE }, (_, c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    role="radio"
-                    aria-checked={r.color === c}
-                    aria-label={t(`tabs.colors.${c}`)}
-                    title={t(`tabs.colors.${c}`)}
-                    className="bc-swatch"
-                    style={{ background: `var(--g${c})` }}
-                    onClick={() => patch(i, { color: c })}
-                  />
-                ))}
-                <label
-                  className={typeof r.color === "string" ? "bc-swatch bc-custom on" : "bc-swatch bc-custom"}
-                  title={t("branchColors.custom")}
-                  style={typeof r.color === "string" ? { background: r.color } : undefined}
-                >
-                  <input
-                    type="color"
-                    aria-label={t("branchColors.custom")}
-                    value={typeof r.color === "string" ? r.color : paletteHex(r.color)}
-                    onChange={(e) => patch(i, { color: e.target.value })}
-                  />
-                </label>
-              </div>
+              <ColorChoice
+                value={r.color}
+                label={t("branchColors.color")}
+                onChange={(c) => c !== undefined && patch(i, { color: c })}
+              />
               <button type="button" className="icon-btn bc-up" disabled={i === 0} aria-label={t("branchColors.up")} onClick={() => move(i, -1)}>
                 <Icon name="chevron" size={14} />
               </button>

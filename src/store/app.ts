@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import { PALETTE_SIZE } from "../lib/graph";
-import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
+import type { ColorValue, GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
 import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
@@ -44,7 +44,7 @@ interface AppStore {
   /** Nom affiché d'un dépôt (vide / `null` = nom du dossier). */
   rename(path: string, alias: string | null): void;
   /** Couleur de la pastille d'onglet (`null` = automatique). */
-  setRepoColor(path: string, color: number | null): void;
+  setRepoColor(path: string, color: ColorValue | null): void;
   updateSettings(patch: Partial<Settings>): void;
   /** Change des tailles (`null` = retour à la valeur par défaut). Pendant un glisser,
    *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
@@ -316,7 +316,8 @@ export const TAB_COLORS = PALETTE_SIZE;
 
 /** Couleur d'un dépôt (pastille d'onglet, liste) : celle choisie, sinon une couleur stable
  *  tirée du chemin. */
-export function repoColor(path: string, color?: number): string {
+export function repoColor(path: string, color?: ColorValue): string {
+  if (typeof color === "string") return color;
   if (color !== undefined) return `var(--g${Math.abs(color) % TAB_COLORS})`;
   let h = 0;
   for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) | 0;

@@ -3160,34 +3160,66 @@ body.resizing-y * {
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
-.bc-swatches {
+/* Choix de couleur (cf. ColorChoice) */
+.color-choice {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
 }
 
-.bc-swatch {
-  width: 18px;
-  height: 18px;
+.swatch {
+  position: relative;
+  width: 20px;
+  height: 20px;
   padding: 0;
-  border: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
   border-radius: 50%;
   cursor: pointer;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
 }
 
-.bc-swatch[aria-checked="true"],
-.bc-custom.on {
-  border-color: var(--text);
+.swatch[aria-checked="true"],
+.swatch-custom.on {
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text);
 }
 
-/* Couleur libre : roue de couleurs tant qu'aucune n'est choisie ; le vrai sélecteur
-   (input color) est invisible par-dessus. */
-.bc-custom {
-  position: relative;
-  overflow: hidden;
-  background: conic-gradient(#f55, #fd5, #5d5, #5df, #55f, #f5f, #f55);
+.swatch:focus-visible,
+.swatch-custom:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-.bc-custom input {
+/* Automatique / couleur libre : cercle en pointillés tant qu'il n'est pas choisi. */
+.swatch-auto,
+.swatch-custom {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed var(--border-strong);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.swatch-auto:hover,
+.swatch-custom:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.swatch-custom.on {
+  border: 0;
+  color: #fff;
+}
+
+.swatch-custom.on svg {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
+}
+
+.swatch-custom input {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -3196,11 +3228,6 @@ body.resizing-y * {
   cursor: pointer;
   border: 0;
   padding: 0;
-}
-
-.bc-custom:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .bc-rule .icon-btn {
@@ -3216,4 +3243,14 @@ body.resizing-y * {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.color-popover {
+  position: fixed;
+  z-index: 50;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
 }

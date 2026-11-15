@@ -1,7 +1,8 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
-import { repoColor, repoName, TAB_COLORS, useApp } from "../store/app";
+import { repoColor, repoName, useApp } from "../store/app";
+import { TabColorPopover } from "./TabColorPopover";
 import { type MenuItem, openContextMenu } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -72,6 +73,8 @@ export function TitleBar() {
   const { dragging, onPointerDown } = useTabDrag(tabsRef);
   /** Onglet en cours de renommage (double-clic). */
   const [editing, setEditing] = useState<string | null>(null);
+  /** Onglet dont on choisit la couleur (fenêtre sous l'onglet). */
+  const [coloring, setColoring] = useState<string | null>(null);
 
   const repoOf = (path: string) => repos.find((r) => r.path === path);
   const nameOf = (path: string) => {
@@ -81,18 +84,11 @@ export function TitleBar() {
 
   const tabMenu = (path: string): MenuItem[] => {
     const r = repoOf(path);
-    const { rename, setRepoColor } = useApp.getState();
-    const colors: MenuItem[] = Array.from({ length: TAB_COLORS }, (_, i) => ({
-      label: t(`tabs.colors.${i}`),
-      checked: r?.color === i,
-      onClick: () => setRepoColor(path, i),
-    }));
+    const { rename } = useApp.getState();
     return [
       { label: t("tabs.rename"), onClick: () => setEditing(path) },
       { label: t("tabs.originalName"), disabled: !r?.alias, onClick: () => rename(path, null) },
-      "sep",
-      { label: t("tabs.colorAuto"), checked: r?.color === undefined, onClick: () => setRepoColor(path, null) },
-      ...colors,
+      { label: t("tabs.color"), onClick: () => setColoring(path) },
       "sep",
       { label: t("tabs.closeTab"), onClick: () => closeTab(path) },
     ];
@@ -179,6 +175,14 @@ export function TitleBar() {
           <Icon name="plus" size={15} />
         </button>
       </div>
+
+      {coloring && repoOf(coloring) && (
+        <TabColorPopover
+          anchor={tabsRef.current?.querySelector<HTMLElement>(`[data-tab-path="${CSS.escape(coloring)}"]`) ?? null}
+          repo={repoOf(coloring)!}
+          onClose={() => setColoring(null)}
+        />
+      )}
 
       <div className="titlebar-spacer" data-tauri-drag-region />
 

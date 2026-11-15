@@ -21,9 +21,9 @@ pub struct RepoEntry {
     /// Nom affiché choisi dans l'app (onglet, récents) ; `None` = nom du dossier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
-    /// Couleur de la pastille d'onglet (indice de palette) ; `None` = automatique.
+    /// Couleur de la pastille d'onglet ; `None` = automatique.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<u8>,
+    pub color: Option<ColorValue>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -69,13 +69,13 @@ pub struct Settings {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct BranchColorRule {
     pub pattern: String,
-    pub color: RuleColor,
+    pub color: ColorValue,
 }
 
-/// Couleur d'une règle : indice de la palette du graphe, ou couleur libre `#rrggbb`.
+/// Couleur choisie : indice de la palette du graphe, ou couleur libre `#rrggbb`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(untagged)]
-pub enum RuleColor {
+pub enum ColorValue {
     Palette(u8),
     Custom(String),
 }
@@ -283,8 +283,8 @@ mod tests {
     fn branch_color_rules_accept_palette_index_and_hex() {
         let rules: Vec<BranchColorRule> =
             serde_json::from_str(r##"[{"pattern":"main","color":0},{"pattern":"x/*","color":"#12ab34"}]"##).unwrap();
-        assert_eq!(rules[0].color, RuleColor::Palette(0));
-        assert_eq!(rules[1].color, RuleColor::Custom("#12ab34".into()));
+        assert_eq!(rules[0].color, ColorValue::Palette(0));
+        assert_eq!(rules[1].color, ColorValue::Custom("#12ab34".into()));
         assert_eq!(serde_json::to_string(&rules[1]).unwrap(), r##"{"pattern":"x/*","color":"#12ab34"}"##);
     }
 

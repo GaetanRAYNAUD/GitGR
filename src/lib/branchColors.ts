@@ -55,11 +55,6 @@ export function laneCss(index: number, custom: string[]): string {
   return index >= PALETTE_SIZE && custom[index - PALETTE_SIZE] ? custom[index - PALETTE_SIZE] : `var(--g${index % PALETTE_SIZE})`;
 }
 
-/** Couleur CSS d'une couleur de règle (pour l'éditeur). */
-export function ruleCss(color: number | string): string {
-  return typeof color === "number" ? `var(--g${color % PALETTE_SIZE})` : color;
-}
-
 /** Indice de couleur fixe d'une branche (nom court, sans le remote), ou `undefined`. */
 export function fixedColor(rules: BranchColorRule[], branch: string): number | undefined {
   const rule = rules.find((r) => matches(r.pattern, branch));

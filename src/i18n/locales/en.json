@@ -9,7 +9,7 @@
     "rename": "Rename tab",
     "renameHint": "Double-click to rename; empty = folder name",
     "originalName": "Original name",
-    "colorAuto": "Automatic color",
+    "colorAuto": "Automatic",
     "closeTab": "Close tab",
     "colors": {
       "0": "Blue",
@@ -20,7 +20,8 @@
       "5": "Green",
       "6": "Yellow",
       "7": "Cyan"
-    }
+    },
+    "color": "Color…"
   },
   "window": {
     "minimize": "Minimize",
@@ -607,7 +608,9 @@
     "down": "Move down",
     "remove": "Remove rule",
     "add": "Add rule",
-    "reset": "Default rules",
+    "reset": "Default rules"
+  },
+  "colors": {
     "custom": "Custom color…"
   }
 }

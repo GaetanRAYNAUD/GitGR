@@ -9,7 +9,7 @@
     "rename": "Renommer l’onglet",
     "renameHint": "Double-clic pour renommer ; vide = nom du dossier",
     "originalName": "Nom d’origine",
-    "colorAuto": "Couleur automatique",
+    "colorAuto": "Automatique",
     "closeTab": "Fermer l’onglet",
     "colors": {
       "0": "Bleu",
@@ -20,7 +20,8 @@
       "5": "Vert",
       "6": "Jaune",
       "7": "Cyan"
-    }
+    },
+    "color": "Couleur…"
   },
   "window": {
     "minimize": "Réduire",
@@ -607,7 +608,9 @@
     "down": "Descendre",
     "remove": "Supprimer la règle",
     "add": "Ajouter une règle",
-    "reset": "Règles par défaut",
+    "reset": "Règles par défaut"
+  },
+  "colors": {
     "custom": "Couleur personnalisée…"
   }
 }
