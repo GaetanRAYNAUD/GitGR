@@ -3174,8 +3174,33 @@ body.resizing-y * {
   cursor: pointer;
 }
 
-.bc-swatch[aria-checked="true"] {
+.bc-swatch[aria-checked="true"],
+.bc-custom.on {
   border-color: var(--text);
+}
+
+/* Couleur libre : roue de couleurs tant qu'aucune n'est choisie ; le vrai sélecteur
+   (input color) est invisible par-dessus. */
+.bc-custom {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(#f55, #fd5, #5d5, #5df, #55f, #f5f, #f55);
+}
+
+.bc-custom input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+.bc-custom:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .bc-rule .icon-btn {

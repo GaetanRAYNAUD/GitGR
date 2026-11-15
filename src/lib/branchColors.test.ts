@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipFixedColor, DEFAULT_BRANCH_COLORS, fixedColor, fixedColorsByCommit } from "./branchColors";
+import { chipFixedColor, customColors, DEFAULT_BRANCH_COLORS, fixedColor, fixedColorsByCommit, laneCss } from "./branchColors";
 import { layoutGraph } from "./graph";
 import type { RefsInfo } from "./types";
 
@@ -11,6 +11,21 @@ describe("branchColors", () => {
     expect(fixedColor(rules, "release/1.2")).toBe(1);
     expect(fixedColor(rules, "mainline")).toBeUndefined();
     expect(fixedColor(rules, "feature/x")).toBeUndefined();
+  });
+
+  it("place les couleurs libres après la palette", () => {
+    const custom = [
+      { pattern: "a", color: "#123456" },
+      { pattern: "b", color: 2 },
+      { pattern: "c", color: "#abcdef" },
+      { pattern: "d", color: "#123456" },
+    ];
+    expect(fixedColor(custom, "a")).toBe(8);
+    expect(fixedColor(custom, "b")).toBe(2);
+    expect(fixedColor(custom, "c")).toBe(9);
+    expect(fixedColor(custom, "d")).toBe(8);
+    expect(laneCss(9, customColors(custom))).toBe("#abcdef");
+    expect(laneCss(2, customColors(custom))).toBe("var(--g2)");
   });
 
   it("ignore le remote et les tags", () => {

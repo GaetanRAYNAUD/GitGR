@@ -10,6 +10,12 @@ import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
 import { Icon } from "./Icon";
 
+/** Couleur de la palette en `#rrggbb` (point de départ du sélecteur de couleur). */
+function paletteHex(index: number): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(`--g${index % PALETTE_SIZE}`).trim();
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : "#888888";
+}
+
 export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLFormElement>(null);
@@ -71,6 +77,18 @@ export function BranchColorsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => patch(i, { color: c })}
                   />
                 ))}
+                <label
+                  className={typeof r.color === "string" ? "bc-swatch bc-custom on" : "bc-swatch bc-custom"}
+                  title={t("branchColors.custom")}
+                  style={typeof r.color === "string" ? { background: r.color } : undefined}
+                >
+                  <input
+                    type="color"
+                    aria-label={t("branchColors.custom")}
+                    value={typeof r.color === "string" ? r.color : paletteHex(r.color)}
+                    onChange={(e) => patch(i, { color: e.target.value })}
+                  />
+                </label>
               </div>
               <button type="button" className="icon-btn bc-up" disabled={i === 0} aria-label={t("branchColors.up")} onClick={() => move(i, -1)}>
                 <Icon name="chevron" size={14} />

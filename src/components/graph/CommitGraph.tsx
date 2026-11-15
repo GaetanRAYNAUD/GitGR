@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { commitDate } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
-import { branchColorRules, chipFixedColor, fixedColorsByCommit } from "../../lib/branchColors";
+import { branchColorRules, chipFixedColor, customColors, fixedColorsByCommit, laneCss } from "../../lib/branchColors";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
 import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
@@ -88,7 +88,8 @@ function drawGraph(
   ctx.clearRect(0, 0, width, height);
   ctx.lineWidth = 2;
   ctx.lineCap = "round";
-  const color = (i: number) => palette[i % PALETTE_SIZE];
+  // Au-delà de la palette : couleurs libres des règles de branches (cf. lib/branchColors).
+  const color = (i: number) => palette[i] ?? palette[i % PALETTE_SIZE];
 
   const curve = (x1: number, y1: number, x2: number, y2: number) => {
     ctx.beginPath();
@@ -166,7 +167,7 @@ function Chip({ chip, color, path, refs, rules }: { chip: RefChip; color: number
   return (
     <span
       className={cls}
-      style={{ "--chip": `var(--g${color % PALETTE_SIZE})` } as React.CSSProperties}
+      style={{ "--chip": laneCss(color, customColors(rules)) } as React.CSSProperties}
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
@@ -226,7 +227,6 @@ export function CommitGraph({ path, changes }: Props) {
   const loadMore = useGraph((s) => s.loadMore);
   const themeVersion = useThemeVersion();
   // Couleurs relues uniquement quand le thème change.
-  const palette = useMemo(() => readPalette(), [themeVersion]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -247,6 +247,7 @@ export function CommitGraph({ path, changes }: Props) {
   );
   const fixed = useMemo(() => fixedColorsByCommit(rules, graph?.refs ?? null), [rules, graph?.refs]);
   const layout = useMemo(() => layoutGraph(commits, fixed), [commits, fixed]);
+  const palette = useMemo(() => [...readPalette(), ...customColors(rules)], [themeVersion, rules]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
   // Au moins la largeur du titre de la colonne.

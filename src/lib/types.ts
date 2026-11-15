@@ -53,7 +53,8 @@ export interface Settings {
 /** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
 export interface BranchColorRule {
   pattern: string;
-  color: number;
+  /** Indice de la palette du graphe, ou couleur libre `#rrggbb`. */
+  color: number | string;
 }
 
 /** Pull : avance rapide uniquement, merge, ou rebase. */

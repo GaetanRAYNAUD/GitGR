@@ -69,7 +69,15 @@ pub struct Settings {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct BranchColorRule {
     pub pattern: String,
-    pub color: u8,
+    pub color: RuleColor,
+}
+
+/// Couleur d'une règle : indice de la palette du graphe, ou couleur libre `#rrggbb`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum RuleColor {
+    Palette(u8),
+    Custom(String),
 }
 
 impl Default for Settings {
@@ -270,6 +278,15 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn branch_color_rules_accept_palette_index_and_hex() {
+        let rules: Vec<BranchColorRule> =
+            serde_json::from_str(r##"[{"pattern":"main","color":0},{"pattern":"x/*","color":"#12ab34"}]"##).unwrap();
+        assert_eq!(rules[0].color, RuleColor::Palette(0));
+        assert_eq!(rules[1].color, RuleColor::Custom("#12ab34".into()));
+        assert_eq!(serde_json::to_string(&rules[1]).unwrap(), r##"{"pattern":"x/*","color":"#12ab34"}"##);
+    }
 
     #[test]
     fn missing_file_gives_default_state() {

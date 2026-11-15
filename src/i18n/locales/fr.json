@@ -607,6 +607,7 @@
     "down": "Descendre",
     "remove": "Supprimer la règle",
     "add": "Ajouter une règle",
-    "reset": "Règles par défaut"
+    "reset": "Règles par défaut",
+    "custom": "Couleur personnalisée…"
   }
 }

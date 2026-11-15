@@ -1,6 +1,7 @@
 // Couleurs fixes par nom de branche (réglage global) : `main` toujours en bleu, etc.
 // Les couleurs sont des indices de la palette du graphe (`--g0`…`--g7`).
 
+import { PALETTE_SIZE } from "./graph";
 import type { BranchColorRule, RefsInfo } from "./types";
 
 /** Règles utilisées tant que l'utilisateur n'a rien changé. */
@@ -32,9 +33,37 @@ function matches(pattern: string, name: string): boolean {
 /** Motifs déjà compilés (quelques règles, appelées à chaque rendu des étiquettes). */
 const compiled = new Map<string, RegExp>();
 
-/** Couleur fixe d'une branche (nom court, sans le remote), ou `undefined`. */
+/** Couleurs libres (`#rrggbb`) des règles, sans doublon, dans l'ordre des règles.
+ *  Dans le graphe, la couleur libre n° k a l'indice `PALETTE_SIZE + k`. */
+export function customColors(rules: BranchColorRule[]): string[] {
+  let list = customCache.get(rules);
+  if (!list) {
+    list = [...new Set(rules.map((r) => r.color).filter((c): c is string => typeof c === "string"))];
+    customCache.set(rules, list);
+  }
+  return list;
+}
+const customCache = new WeakMap<BranchColorRule[], string[]>();
+
+/** Indice de couleur du graphe d'une règle (palette, ou couleur libre après la palette). */
+function colorIndex(rules: BranchColorRule[], color: number | string): number {
+  return typeof color === "number" ? color : PALETTE_SIZE + customColors(rules).indexOf(color);
+}
+
+/** Couleur CSS d'un indice de couleur du graphe. */
+export function laneCss(index: number, custom: string[]): string {
+  return index >= PALETTE_SIZE && custom[index - PALETTE_SIZE] ? custom[index - PALETTE_SIZE] : `var(--g${index % PALETTE_SIZE})`;
+}
+
+/** Couleur CSS d'une couleur de règle (pour l'éditeur). */
+export function ruleCss(color: number | string): string {
+  return typeof color === "number" ? `var(--g${color % PALETTE_SIZE})` : color;
+}
+
+/** Indice de couleur fixe d'une branche (nom court, sans le remote), ou `undefined`. */
 export function fixedColor(rules: BranchColorRule[], branch: string): number | undefined {
-  return rules.find((r) => matches(r.pattern, branch))?.color;
+  const rule = rules.find((r) => matches(r.pattern, branch));
+  return rule && colorIndex(rules, rule.color);
 }
 
 /** Couleur fixe d'une étiquette du graphe : branche locale, ou distante sans son remote. */

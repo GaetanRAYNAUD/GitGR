@@ -607,6 +607,7 @@
     "down": "Move down",
     "remove": "Remove rule",
     "add": "Add rule",
-    "reset": "Default rules"
+    "reset": "Default rules",
+    "custom": "Custom color…"
   }
 }
