@@ -4,6 +4,15 @@ Client Git de bureau visuel, léger et fluide — multi-profils, multi-dépôts 
 
 > En cours de développement. Notes de cadrage : [docs/NOTES.md](docs/NOTES.md).
 
+## Présentation (textes réutilisables)
+
+Site : https://git.gaetanraynaud.fr (à venir : page de téléchargement des installateurs).
+
+Description courte (application OAuth GitHub, fiches de store, métadonnées des installateurs) :
+
+- EN : *A fast, lightweight desktop Git client with a visual commit graph, multiple identities per repository and built-in GitHub / GitLab support.*
+- FR : *Client Git de bureau rapide et léger : graphe des commits, plusieurs identités par dépôt, GitHub et GitLab intégrés.*
+
 ## Stack
 
 - [Tauri 2](https://tauri.app) (Rust) pour l'application et l'accès à Git
