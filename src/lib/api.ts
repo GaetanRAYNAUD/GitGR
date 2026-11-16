@@ -44,6 +44,8 @@ import type {
   AccountKeyKind,
   AppState,
   CloneProgress,
+  DevicePollResult,
+  DeviceStart,
   Commit,
   ColorValue,
   CommitDetails,
@@ -159,6 +161,15 @@ export interface Api {
   disconnectAccount(profile: string, account: string): Promise<void>;
   /** Le token enregistré est-il toujours valable ? (`token_missing`, `token_invalid`…) */
   checkAccount(account: string): Promise<Account>;
+  /** Connexion OAuth à github.com (device flow) : code à saisir sur GitHub. */
+  githubDeviceStart(): Promise<DeviceStart>;
+  /** Le token est-il prêt ? Une fois donné, le compte est lié au profil. Rejette avec
+   *  `device_expired` / `device_denied`. */
+  githubDevicePoll(profile: string, flowId: number): Promise<DevicePollResult>;
+  githubDeviceCancel(flowId: number): Promise<void>;
+  /** Avatar (data URL) d'un propriétaire de dépôt sur une instance ; `null` s'il n'en a pas.
+   *  `account` : compte dont le token est joint (seulement s'il est de cette instance). */
+  ownerAvatar(kind: ProviderKind, url: string, owner: string, account: string | null): Promise<string | null>;
   /** Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes…). */
   listAccountRepos(account: string): Promise<RepoList>;
   /** Clés du profil (enregistré) et leur présence sur le compte. */
@@ -261,6 +272,10 @@ const tauriApi: Api = {
   disconnectAccount: (profile, account) => invoke("disconnect_account", { profile, account }),
   checkAccount: (account) => invoke("check_account", { account }),
   listAccountRepos: (account) => invoke("list_account_repos", { account }),
+  githubDeviceStart: () => invoke("github_device_start"),
+  githubDevicePoll: (profile, flowId) => invoke("github_device_poll", { profile, flowId }),
+  githubDeviceCancel: (flowId) => invoke("github_device_cancel", { flowId }),
+  ownerAvatar: (kind, url, owner, account) => invoke("owner_avatar", { kind, url, owner, account }),
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -359,6 +374,10 @@ function mockKeyInfo(path: string, probe = false): SshKeyInfo | null {
     passphraseStored: mockPassphrases.has(path),
   };
 }
+
+/** Backend simulé : connexions GitHub en cours (identifiant → demandes déjà faites). */
+let mockDeviceSeq = 0;
+const mockDevicePolls = new Map<number, number>();
 
 /** Backend simulé : clés ajoutées aux comptes (`compte|type|clé`). */
 const mockAccountKeys = new Set<string>();
@@ -662,6 +681,50 @@ const mockApi: Api = {
       mockCloneCancel = null;
     }
     return path;
+  },
+  // Backend simulé : la connexion GitHub aboutit à la 4e demande (compte `octo-demo`).
+  async githubDeviceStart() {
+    await mockDelay();
+    const flowId = ++mockDeviceSeq;
+    mockDevicePolls.set(flowId, 0);
+    return { flowId, userCode: "WDJB-MJHT", verificationUri: "https://github.com/login/device", expiresIn: 900, interval: 0.3 };
+  },
+  async githubDevicePoll(profile, flowId) {
+    await mockDelay();
+    const n = mockDevicePolls.get(flowId);
+    if (n === undefined) throw "device_expired";
+    const s = mockLoad();
+    const p = s.profiles?.find((x) => x.id === profile);
+    if (!p) throw "no_profile";
+    if (n < 3) {
+      mockDevicePolls.set(flowId, n + 1);
+      return { account: null, interval: null };
+    }
+    mockDevicePolls.delete(flowId);
+    const account: Account = { id: "github|https://github.com|octo-demo", kind: "github", url: "https://github.com", login: "octo-demo", name: "Octo Démo" };
+    mockSave({ ...s, profiles: s.profiles?.map((x) => (x.id === profile ? { ...x, accounts: withAccount(x.accounts, account) } : x)) });
+    return { account, interval: null };
+  },
+  async githubDeviceCancel(flowId) {
+    mockDevicePolls.delete(flowId);
+  },
+  // Backend simulé : un avatar coloré d'après le nom, sauf pour un propriétaire `sans-avatar`.
+  async ownerAvatar(_kind, _url, owner) {
+    if (owner.includes("sans-avatar") || typeof document === "undefined") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    let h = 0;
+    for (const c of owner) h = (h * 31 + c.charCodeAt(0)) % 360;
+    ctx.fillStyle = `hsl(${h} 60% 45%)`;
+    ctx.fillRect(0, 0, 32, 32);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(owner[0]?.toUpperCase() ?? "?", 16, 17);
+    return canvas.toDataURL();
   },
   // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
   // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient

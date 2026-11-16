@@ -9,6 +9,7 @@
 //! - `remotes`  : remotes du dépôt et profil de chacun (clé SSH par hôte, config ssh générée).
 //! - `profiles` : clés SSH des profils (lecture, génération) ; l'identité est injectée par `git`.
 //! - `providers`: comptes GitHub / GitLab (token personnel vérifié auprès de l'API).
+//! - `avatars`  : avatars des propriétaires de dépôts (API du provider, cache sur disque).
 //! - `secrets`  : trousseau de l'OS (phrases de passe des clés, tokens des comptes).
 //! - `signing`  : clés GPG (signature des commits, injectée par `git`).
 //! - `askpass`  : l'exécutable répond à ssh (phrase de passe) quand ssh le lance.
@@ -16,6 +17,7 @@
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
 pub mod askpass;
+mod avatars;
 mod branches;
 mod clone;
 mod commands;
@@ -69,6 +71,7 @@ pub fn run() {
                 None => app.path().app_config_dir()?,
             };
             remotes::set_config_dir(dir.join("ssh"));
+            avatars::set_cache_dir(dir.join("avatars"));
             let store = store::Store::load(dir);
             commands::sync_identities(&store.state);
             app.manage(Mutex::new(store));
@@ -139,6 +142,10 @@ pub fn run() {
             commands::cancel_clone,
             commands::account_keys,
             commands::add_account_key,
+            commands::owner_avatar,
+            commands::github_device_start,
+            commands::github_device_poll,
+            commands::github_device_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

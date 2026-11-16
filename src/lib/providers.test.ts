@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseRemote } from "./profiles";
-import { instance, instanceHost, instanceLabel, remoteAccount, remoteProvider, tokenPageUrl, withAccount } from "./providers";
+import { instance, instanceHost, instanceLabel, remoteAccount, remoteInstance, remoteOwner, remoteProvider, tokenPageUrl, withAccount } from "./providers";
 import cases from "./providerUrls.cases.json";
 import type { Account, Profile, ProviderKind } from "./types";
 
@@ -92,5 +92,20 @@ describe("withAccount", () => {
     const gl = account("gitlab", "https://gitlab.com", "octo");
     expect(withAccount(undefined, octo)).toEqual([octo]);
     expect(withAccount([octo, gl], autre)).toEqual([gl, autre]);
+  });
+
+  it("propriétaire et instance d'un remote, pour son avatar", () => {
+    expect(remoteOwner(parseRemote("git@github.com:WikiForge-fr/wikiforge-fo.git"))).toBe("wikiforge-fr");
+    expect(remoteOwner(parseRemote("https://gitlab.exemple.fr/groupe/sous/projet.git"))).toBe("groupe/sous");
+    expect(remoteOwner(parseRemote("https://h/seul"))).toBeNull();
+    expect(remoteOwner(null)).toBeNull();
+
+    const gl = account("gitlab", "https://gitlab.exemple.fr:8443", "camille");
+    const remote = parseRemote("git@gitlab.exemple.fr:g/r.git");
+    // Le compte du remote, sinon un compte connecté sur cet hôte, sinon https://<hôte>.
+    expect(remoteInstance([], remote, gl)).toBe("https://gitlab.exemple.fr:8443");
+    expect(remoteInstance([profile("p", [gl])], remote, null)).toBe("https://gitlab.exemple.fr:8443");
+    expect(remoteInstance([], parseRemote("git@github.com:o/r.git"), null)).toBe("https://github.com");
+    expect(remoteInstance([], null, null)).toBeNull();
   });
 });

@@ -512,7 +512,9 @@
     "key_in_use": "Cette clé est déjà enregistrée, sur ce compte ou sur un autre (GitHub n’accepte une clé SSH que sur un seul compte).",
     "gpg_key_not_found": "Clé GPG du profil introuvable dans le trousseau gpg.",
     "public_key_missing": "Clé publique introuvable : la clé est protégée et n’a pas de fichier .pub à côté.",
-    "unknown_key_kind": "Type de clé inconnu."
+    "unknown_key_kind": "Type de clé inconnu.",
+    "device_expired": "Le code a expiré avant d’être validé sur GitHub : recommencez.",
+    "device_denied": "Connexion refusée sur GitHub."
   },
   "profiles": {
     "title": "Profils",
@@ -657,7 +659,14 @@
     "keyAbsent": "absente du compte",
     "keyAdd": "Ajouter au compte",
     "keyAdding": "Ajout…",
-    "keysUnsaved": "Enregistrez le profil pour vérifier ses nouvelles clés sur le compte."
+    "keysUnsaved": "Enregistrez le profil pour vérifier ses nouvelles clés sur le compte.",
+    "accountOAuth": "Se connecter avec GitHub",
+    "accountOAuthHint": "Recommandé : GitGR reçoit un accès à votre compte sans que vous ayez à créer de token.",
+    "accountOr": "ou avec un token personnel",
+    "accountOAuthCode": "Saisissez ce code sur la page de GitHub :",
+    "accountOAuthOpen": "Copier le code et ouvrir GitHub",
+    "accountOAuthWaiting": "En attente de votre validation sur GitHub…",
+    "accountOAuthCopied": "Code copié."
   },
   "branchColors": {
     "title": "Couleurs par nom de branche",

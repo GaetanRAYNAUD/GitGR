@@ -48,6 +48,8 @@ interface ProfilesStore {
   /** Connecte un compte GitHub / GitLab au profil (token vérifié par le backend, rangé dans le
    *  trousseau). Rejette avec le code d'erreur : la fenêtre de connexion l'affiche. */
   connectAccount(profileId: string, kind: ProviderKind, url: string, token: string): Promise<Account>;
+  /** Compte connecté au profil par un autre chemin (OAuth GitHub) : l'état suit le backend. */
+  accountConnected(profileId: string, account: Account): void;
   /** Retire un compte du profil (et oublie son token s'il ne sert plus). */
   disconnectAccount(profileId: string, accountId: string): Promise<boolean>;
   /** Dépôt retiré de la liste. */
@@ -210,6 +212,10 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
       const account = await api.connectAccount(profileId, kind, url, token);
       set((s) => ({ profiles: s.profiles.map((p) => (p.id === profileId ? { ...p, accounts: withAccount(p.accounts, account) } : p)) }));
       return account;
+    },
+
+    accountConnected(profileId, account) {
+      set((s) => ({ profiles: s.profiles.map((p) => (p.id === profileId ? { ...p, accounts: withAccount(p.accounts, account) } : p)) }));
     },
 
     async disconnectAccount(profileId, accountId) {

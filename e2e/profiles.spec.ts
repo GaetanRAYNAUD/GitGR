@@ -349,3 +349,42 @@ test("compte provider : pas avant d'avoir enregistré le profil ; token perdu si
   await expect(dialog).toBeHidden();
   await expect(page$(page).getByRole("heading", { name: "Profils" })).toBeVisible();
 });
+
+test("se connecter avec GitHub (OAuth) : code à saisir, puis compte connecté ; avatar du remote", async ({ page }) => {
+  await createBoulot(page);
+  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
+
+  // github.com seulement : pas pour GitLab ni pour GitHub Enterprise.
+  await dialog.getByRole("radio", { name: "GitLab" }).click();
+  await expect(dialog.getByRole("button", { name: "Se connecter avec GitHub" })).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "GitHub" }).click();
+  await dialog.getByLabel("Instance").fill("github.entreprise.fr");
+  await expect(dialog.getByRole("button", { name: "Se connecter avec GitHub" })).toHaveCount(0);
+  await dialog.getByLabel("Instance").fill("");
+
+  await dialog.getByRole("button", { name: "Se connecter avec GitHub" }).click();
+  await expect(dialog.getByRole("status")).toContainText("WDJB-MJHT");
+  await expect(dialog.getByRole("button", { name: "Copier le code et ouvrir GitHub" })).toBeVisible();
+  // Validé sur GitHub (backend simulé : à la 4e demande) : la fenêtre se ferme, compte lié.
+  await expect(dialog).toBeHidden();
+  const row = accounts.getByRole("listitem").filter({ hasText: "octo-demo" }).first();
+  await expect(row.getByRole("status").first()).toHaveText("connecté");
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem("gitgr.mock-state") ?? "{}").profiles[0].accounts);
+  expect(state.map((a: { id: string }) => a.id)).toEqual(["github|https://github.com|octo-demo"]);
+
+  // Annuler une connexion en cours : retour au formulaire.
+  await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+  await dialog.getByRole("button", { name: "Se connecter avec GitHub" }).click();
+  await expect(dialog.getByRole("status")).toContainText("WDJB-MJHT");
+  await dialog.getByRole("button", { name: "Retour" }).click();
+  await expect(dialog.getByRole("button", { name: "Se connecter avec GitHub" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // Dans le dépôt : l'avatar du propriétaire du dépôt devant le remote.
+  await page.getByRole("button", { name: "Fermer les profils" }).click();
+  const origin = page.locator(".refs-sidebar .section-btn").filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
+  await expect(origin.locator(".remote-avatar")).toHaveAttribute("src", /^data:image\/png;base64,/);
+});

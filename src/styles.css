@@ -3094,6 +3094,34 @@ body.resizing-y * {
   flex: none;
 }
 
+/* Avatar du propriétaire du dépôt d'un remote, marque du provider en petit. */
+.remote-mark {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+.remote-avatar,
+.owner-avatar {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.remote-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  display: inline-flex;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text);
+}
+
 .pf-accounts {
   display: flex;
   flex-direction: column;
@@ -3196,6 +3224,64 @@ p.pf-account-keys.bad,
 
 .account-dialog .account-hint .link:disabled {
   opacity: 0.5;
+}
+
+/* Connexion OAuth à GitHub (device flow) */
+.oauth-start {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oauth-start > .btn {
+  justify-content: center;
+}
+
+.account-dialog .oauth-start .account-hint {
+  margin: 0;
+}
+
+.oauth-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.oauth-or::before,
+.oauth-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.oauth-device {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.oauth-device > p {
+  margin: 0;
+}
+
+.oauth-code {
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel2);
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  user-select: all;
+}
+
+.oauth-device .dialog-actions {
+  align-self: stretch;
 }
 
 /* Fenêtre de clone ------------------------------------------------------------ */

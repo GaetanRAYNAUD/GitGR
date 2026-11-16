@@ -316,6 +316,23 @@ export interface LineRef {
   line: number;
 }
 
+/** Connexion OAuth à github.com en cours : code à saisir sur la page de GitHub. */
+export interface DeviceStart {
+  flowId: number;
+  userCode: string;
+  verificationUri: string;
+  /** Validité du code, en secondes. */
+  expiresIn: number;
+  /** Délai minimal entre deux demandes du token, en secondes. */
+  interval: number;
+}
+
+/** Demande du token : compte connecté, sinon toujours en attente (`interval` : nouveau délai). */
+export interface DevicePollResult {
+  account: Account | null;
+  interval: number | null;
+}
+
 /** Clé du profil à mettre sur un compte : SSH d'authentification, SSH de signature, GPG. */
 export type AccountKeyKind = "auth" | "signing" | "gpg";
 
