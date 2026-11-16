@@ -132,6 +132,10 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
 
 - [ ] **Double-clic sur une branche distante qui a déjà une locale du même nom** : aujourd'hui on se contente de checkout la locale. Il faudrait en plus la mettre à jour depuis la distante, comme le bouton Pull (même stratégie de pull, auto-stash, et gestion des conflits éventuels identique : arrêt sur le merge / rebase en cours avec la vue de conflits).
 
+### Étape 5 — profils (compléments)
+
+- [ ] **Où garder les secrets (phrases de passe des clés, tokens, autres mots de passe)** : au choix, le **trousseau du système** (comme aujourd'hui, retrouvé au redémarrage) ou **la mémoire de l'application seulement** (jamais écrit sur le disque, oublié à la fermeture : redemandé à chaque lancement, au premier usage). Réglage global, avec éventuellement une exception par secret. Tant qu'il n'est pas configuré, l'app **demande le choix au premier usage** (première phrase de passe ou premier token saisi), avec une explication courte des deux options. À prévoir : l'askpass (`askpass.rs`) lit aujourd'hui le trousseau — en mémoire, il faudra que le processus principal lui donne la phrase (canal local, jamais une variable d'environnement ni un fichier) ; un trousseau indisponible (Linux sans Secret Service) propose d'office la mémoire.
+
 ### Étape 6 — providers (suite)
 
 - [x] **Cloner un dépôt** : par URL ou depuis la liste des dépôts d'un compte connecté (cf. « État d'avancement », étape 6, troisième partie). Reste : identifiants HTTPS tirés du token du compte.
