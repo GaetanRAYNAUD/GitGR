@@ -1,4 +1,4 @@
-# Tous les tests, sur main et sur chaque pull request.
+# Tous les tests, sur main (sauf commit de doc seule) et sur chaque pull request.
 #
 # - interface : typage, tests unitaires (Vitest), E2E sur le backend simulé (Playwright) ;
 # - rust : tests du backend sur de vrais dépôts git, sous Linux et sous Windows ;
@@ -9,6 +9,11 @@ name: CI
 on:
   push:
     branches: [main]
+    # Un commit qui ne touche que la doc (poussée directement sur main) ne relance rien.
+    # Pas sur les PR : les vérifications exigées pour merger ne se lanceraient jamais.
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   pull_request:
 
 # Un nouveau push sur une PR annule la série précédente, devenue inutile.
