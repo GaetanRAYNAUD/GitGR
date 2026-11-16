@@ -79,7 +79,7 @@ fn check_name(path: &Path, name: &str) -> Result<(), String> {
 }
 
 /// URL (ou chemin) non vide, sur une ligne, jamais prise pour une option.
-fn check_url(url: &str) -> Result<(), String> {
+pub(crate) fn check_url(url: &str) -> Result<(), String> {
     if url.is_empty() || url.starts_with('-') || url.trim() != url || url.contains(['\n', '\r']) {
         return Err("invalid_remote_url".into());
     }
@@ -498,15 +498,35 @@ pub fn ssh_setup(cwd: &Path, repo_profile_key: Option<&str>) -> Option<SshSetup>
     }
     let remotes = list(cwd);
     let hosts = host_keys(&TABLE.read().unwrap(), &repo_key(cwd), &remotes, fallback);
+    setup_for_hosts(&hosts)
+}
+
+/// Clé SSH du profil `id` (`None` : profil inconnu, ou sans clé).
+pub fn profile_key(id: &str) -> Option<String> {
+    let table = TABLE.read().unwrap();
+    let key = table.profiles.iter().find(|p| p.id == id)?.ssh_key.as_deref()?.trim();
+    (!key.is_empty()).then(|| key.to_string())
+}
+
+/// Réglage ssh d'un clone : pas encore de dépôt ni de remote, seulement l'URL à cloner et la
+/// clé du profil choisi. `None` si l'URL n'est pas en ssh, ou sans clé.
+pub fn ssh_setup_for_url(url: &str, key: Option<&str>) -> Option<SshSetup> {
+    let key = key.map(str::trim).filter(|k| !k.is_empty() && !k.contains(['"', '\n', '\r']))?;
+    let url = parse_url(url).filter(|u| u.ssh && plain_host(&u.raw_host))?;
+    setup_for_hosts(&[(url.raw_host, key.to_string())])
+}
+
+/// Config générée pour ces (hôte, clé), et la commande ssh qui la lit.
+fn setup_for_hosts(hosts: &[(String, String)]) -> Option<SshSetup> {
     if hosts.is_empty() {
         return None;
     }
-    let file = write_config(&config_text(&hosts))?;
+    let file = write_config(&config_text(hosts))?;
     // Interprétée par un shell (celui de Git pour Windows aussi) : chemin entre apostrophes,
     // avec des `/` (un `\` y serait un échappement).
     let path = file.to_string_lossy().replace('\\', "/").replace('\'', r"'\''");
     let mut keys: Vec<String> = Vec::new();
-    for (_, key) in &hosts {
+    for (_, key) in hosts {
         let key = expand_home(key).to_string_lossy().to_string();
         if !keys.contains(&key) {
             keys.push(key);
@@ -785,5 +805,25 @@ pub(crate) mod tests {
         assert_eq!(ssh_setup(p, Some("/k/depot")).unwrap(), setup);
         // Un dépôt sans remote ssh : ssh garde sa configuration.
         assert_eq!(ssh_setup(other.path(), Some("/k/depot")), None);
+    }
+
+    #[test]
+    fn clone_gets_the_key_of_the_chosen_profile() {
+        let id = std::process::id();
+        add_to_table(vec![profile(&format!("clone-{id}"), &[], Some("/k/clone")), profile(&format!("sans-{id}"), &[], Some("  "))], Path::new("/clone"), HashMap::new());
+        assert_eq!(profile_key(&format!("clone-{id}")).as_deref(), Some("/k/clone"));
+        assert_eq!(profile_key(&format!("sans-{id}")), None);
+        assert_eq!(profile_key("inconnu"), None);
+
+        let setup = ssh_setup_for_url("git@Gitlab.Exemple.fr:g/r.git", Some("/k/clone")).unwrap();
+        assert_eq!(setup.keys, [expand_home("/k/clone").to_string_lossy().to_string()]);
+        let file = setup.command.strip_prefix("ssh -F '").and_then(|c| c.strip_suffix('\'')).unwrap();
+        let text = std::fs::read_to_string(file).unwrap();
+        // Hôte écrit comme dans l'URL (ssh compare en respectant la casse).
+        assert!(text.starts_with("# Genere") && text.contains("Host Gitlab.Exemple.fr\n"), "{text}");
+        // https, chemin local, sans clé : rien.
+        assert_eq!(ssh_setup_for_url("https://gitlab.exemple.fr/g/r.git", Some("/k/clone")), None);
+        assert_eq!(ssh_setup_for_url("C:/depots/r.git", Some("/k/clone")), None);
+        assert_eq!(ssh_setup_for_url("git@gitlab.exemple.fr:g/r.git", None), None);
     }
 }

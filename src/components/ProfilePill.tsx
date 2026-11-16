@@ -26,6 +26,7 @@ export function ProfilePill({ path, className }: { path: string; className?: str
       label: `${p.name} · ${p.userEmail}`,
       checked: p.id === active?.id,
       swatch: profileColor(p),
+      image: p.image,
       onClick: () => store.setActive(path, p.id),
     }));
     if (profiles.length) {

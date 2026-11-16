@@ -198,7 +198,7 @@ fn injected(cwd: Option<&Path>, network: bool) -> (Vec<String>, Vec<(&'static st
 /// ici : seulement si ssh pose effectivement la question.
 /// Une clé par ligne dans `GITGR_ASKPASS_KEY` (clé SSH du profil du dépôt, clé de signature
 /// SSH, clés des profils des remotes).
-fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
+pub(crate) fn askpass_env(keys: &[String]) -> Vec<(&'static str, String)> {
     let Ok(exe) = std::env::current_exe() else { return Vec::new() };
     let mut env = vec![
         ("SSH_ASKPASS", exe.to_string_lossy().replace('\\', "/")),
@@ -340,6 +340,104 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
         Err(if err.is_empty() { String::from_utf8_lossy(&out.stdout).trim().to_string() } else { err })
     }
+}
+
+/// Lance `git <args>` hors de tout dépôt (clone), avec `env` en plus, en lisant sa sortie
+/// d'erreur au fil de l'eau : `on_line` reçoit chaque ligne, coupée sur `\r` comme sur `\n`
+/// (git réécrit sa progression sur la même ligne). `cancel` passé à vrai arrête git :
+/// `Err("cancelled")`. En échec, l'erreur est faite des lignes que `is_progress` n'écarte pas.
+pub fn run_streaming(
+    args: &[&str],
+    env: &[(&str, String)],
+    cancel: &std::sync::atomic::AtomicBool,
+    is_progress: impl Fn(&str) -> bool + Send,
+    on_line: impl FnMut(&str) + Send,
+) -> Result<(), String> {
+    use std::io::Read;
+    use std::process::Stdio;
+    use std::sync::atomic::Ordering;
+    let mut cmd = git_command();
+    cmd.args(args);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    // Groupe de processus à part : l'annulation arrête aussi ce que git a lancé (ssh,
+    // git-remote-https, index-pack), sinon ils garderaient la sortie ouverte et le dossier occupé.
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+    let mut child = cmd.spawn().map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { "git_not_found".to_string() } else { e.to_string() })?;
+    let mut stderr = child.stderr.take().expect("stderr capturée");
+    let mut on_line = on_line;
+    std::thread::scope(|scope| {
+        let reader = scope.spawn(move || {
+            // Lignes qui ne sont pas de la progression : le message d'erreur, à la fin.
+            let mut kept: Vec<String> = Vec::new();
+            let mut pending: Vec<u8> = Vec::new();
+            let mut buf = [0u8; 4096];
+            let mut flush = |pending: &mut Vec<u8>, kept: &mut Vec<String>| {
+                let line = String::from_utf8_lossy(pending).trim().to_string();
+                pending.clear();
+                if line.is_empty() {
+                    return;
+                }
+                on_line(&line);
+                if !is_progress(&line) {
+                    kept.push(line);
+                    // Une sortie sans fin ne remplit pas la mémoire.
+                    if kept.len() > 50 {
+                        kept.remove(0);
+                    }
+                }
+            };
+            loop {
+                match stderr.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        for &b in &buf[..n] {
+                            if b == b'\r' || b == b'\n' {
+                                flush(&mut pending, &mut kept);
+                            } else {
+                                pending.push(b);
+                            }
+                        }
+                    }
+                }
+            }
+            flush(&mut pending, &mut kept);
+            kept
+        });
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Ok(status),
+                Ok(None) if cancel.load(Ordering::Relaxed) => {
+                    kill_tree(child.id());
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    break Err("cancelled".to_string());
+                }
+                Ok(None) => std::thread::sleep(std::time::Duration::from_millis(50)),
+                Err(e) => break Err(e.to_string()),
+            }
+        };
+        let kept = reader.join().unwrap_or_default();
+        match status? {
+            s if s.success() => Ok(()),
+            _ if cancel.load(Ordering::Relaxed) => Err("cancelled".to_string()),
+            // Arrêté sans rien dire (tué de l'extérieur) : au moins son code de sortie.
+            s if kept.is_empty() => Err(format!("git: {s}")),
+            _ => Err(kept.join("\n")),
+        }
+    })
+}
+
+/// Arrête un processus et tous ceux qu'il a lancés (git → ssh, git-remote-https…).
+fn kill_tree(pid: u32) {
+    #[cfg(windows)]
+    let _ = quiet_command("taskkill").args(["/T", "/F", "/PID", &pid.to_string()]).output();
+    // Sous Unix, le processus est chef de son groupe (`process_group(0)`).
+    #[cfg(unix)]
+    let _ = Command::new("kill").args(["-KILL", "--", &format!("-{pid}")]).output();
 }
 
 /// Outil livré avec Git pour Windows (`ssh-keygen`, `gpg`…) : `<Git>/usr/bin/<nom>.exe`, hors

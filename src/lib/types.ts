@@ -48,6 +48,8 @@ export interface Settings {
   branchColors?: BranchColorRule[];
   /** Couleurs fixes désactivées (les règles sont gardées pour une réactivation). */
   branchColorsOff?: boolean;
+  /** Dossier du dernier clone, proposé pour le suivant. */
+  cloneDir?: string | null;
 }
 
 /** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
@@ -312,4 +314,34 @@ export type DiffArea = "unstaged" | "staged" | "untracked" | "conflicted";
 export interface LineRef {
   hunk: number;
   line: number;
+}
+
+/** Un dépôt d'un compte GitHub / GitLab, à cloner (src-tauri/src/providers.rs). */
+export interface ProviderRepo {
+  /** `propriétaire/nom` (GitLab : avec les sous-groupes). */
+  fullName: string;
+  name: string;
+  description: string | null;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  httpUrl: string;
+  sshUrl: string | null;
+  /** Dernière activité (ISO 8601). */
+  updatedAt: string | null;
+}
+
+export interface RepoList {
+  repos: ProviderRepo[];
+  /** Le compte a plus de dépôts que ceux lus. */
+  truncated: boolean;
+}
+
+/** Phase d'un clone, telle que git l'écrit. */
+export type ClonePhase = "counting" | "compressing" | "receiving" | "resolving" | "checkout";
+
+export interface CloneProgress {
+  phase: ClonePhase;
+  /** Pourcentage de la phase, s'il est donné. */
+  percent: number | null;
 }

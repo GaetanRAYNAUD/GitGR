@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CloneDialog } from "../components/CloneDialog";
 import { Icon, type IconName } from "../components/Icon";
 import { relativeTime } from "../lib/format";
 import { repoColor, repoName, useApp } from "../store/app";
@@ -50,6 +51,7 @@ export function Welcome() {
   const pickAndOpen = useApp((s) => s.pickAndOpen);
   const forget = useApp((s) => s.forget);
   const [q, setQ] = useState("");
+  const [cloning, setCloning] = useState(false);
   const ago = useRelativeTime();
 
   const filtered = useMemo(() => {
@@ -73,7 +75,7 @@ export function Welcome() {
             hint={t("welcome.openHint")}
             onClick={() => pickAndOpen(t("welcome.pickTitle"))}
           />
-          <Action icon="pull" title={t("welcome.clone")} hint={t("welcome.cloneHint")} soon={t("welcome.soon")} />
+          <Action icon="pull" title={t("welcome.clone")} hint={t("welcome.cloneHint")} onClick={() => setCloning(true)} />
           <Action icon="plus" title={t("welcome.init")} hint={t("welcome.initHint")} soon={t("welcome.soon")} />
         </div>
 
@@ -126,6 +128,7 @@ export function Welcome() {
           </p>
         )}
       </div>
+      {cloning && <CloneDialog onClose={() => setCloning(false)} />}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { expect, git, type Sandbox } from "./app";
 const SSHD = "C:/Program Files/Git/usr/bin/sshd.exe";
 const KEYGEN = "C:/Program Files/Git/usr/bin/ssh-keygen.exe";
 // Côté serveur (shell de Git pour Windows) : chemins msys, sans espace.
-const UPLOAD_PACK = "/mingw64/bin/git-upload-pack";
+export const UPLOAD_PACK = "/mingw64/bin/git-upload-pack";
 const RECEIVE_PACK = "/mingw64/bin/git-receive-pack";
 
 /** Le sshd de Git pour Windows est installé (sinon les tests SSH sont sautés). */

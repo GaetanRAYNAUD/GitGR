@@ -479,3 +479,33 @@ pub async fn check_account(account: String, store: StoreState<'_>) -> Result<Acc
     let found = store.lock().unwrap().state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned();
     providers::check(&found.ok_or("account_not_found")?)
 }
+
+/// Dépôts accessibles au compte (fenêtre de clone).
+#[tauri::command]
+pub async fn list_account_repos(account: String, store: StoreState<'_>) -> Result<providers::RepoList, String> {
+    let found = store.lock().unwrap().state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned();
+    providers::list_repos(&found.ok_or("account_not_found")?)
+}
+
+// --- Clone ----------------------------------------------------------------------
+
+/// Clone `url` dans `parent/name` avec la clé SSH du profil `profile` ; l'interface reçoit
+/// l'événement `clone-progress` pendant le clone. Renvoie la racine du nouveau dépôt (à ouvrir
+/// avec `open_repo`). Le dossier parent est retenu par l'interface (`settings.cloneDir`).
+#[tauri::command]
+pub async fn clone_repo(url: String, parent: String, name: String, profile: Option<String>, app: AppHandle) -> Result<String, String> {
+    // Un clone peut durer des minutes : sur un fil à part, pas sur ceux du runtime async.
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::clone::clone(&url, &parent, &name, profile.as_deref(), |progress| {
+            let _ = app.emit("clone-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Arrête le clone en cours ; il échoue avec `clone_cancelled`.
+#[tauri::command]
+pub fn cancel_clone() {
+    crate::clone::cancel();
+}
