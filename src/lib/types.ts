@@ -316,6 +316,19 @@ export interface LineRef {
   line: number;
 }
 
+/** Clé du profil à mettre sur un compte : SSH d'authentification, SSH de signature, GPG. */
+export type AccountKeyKind = "auth" | "signing" | "gpg";
+
+/** Clé du profil et sa présence sur le compte (src-tauri/src/providers.rs). */
+export interface AccountKey {
+  kind: AccountKeyKind;
+  /** Empreinte SSH (`SHA256:…`) ou identifiant long GPG. */
+  label: string;
+  present: boolean;
+  /** La clé du profil n'a pas pu être lue. */
+  error: string | null;
+}
+
 /** Un dépôt d'un compte GitHub / GitLab, à cloner (src-tauri/src/providers.rs). */
 export interface ProviderRepo {
   /** `propriétaire/nom` (GitLab : avec les sous-groupes). */

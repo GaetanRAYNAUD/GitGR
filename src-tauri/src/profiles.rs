@@ -153,6 +153,24 @@ pub fn generate_key(path: &str, comment: &str, passphrase: Option<&str>) -> Resu
     key_info(path)
 }
 
+/// Clé publique (`type base64 commentaire`) et empreinte d'une clé SSH : la clé privée (sa
+/// `.pub` à côté, sinon dérivée) ou directement une `.pub` (clé de signature donnée ainsi).
+pub fn public_key(path: &str) -> Result<(String, String), String> {
+    let file = expand_home(path.trim());
+    if !file.is_file() {
+        return Err("key_not_found".into());
+    }
+    if file.extension().is_some_and(|e| e == "pub") {
+        let f = file.to_string_lossy();
+        let out = ssh_keygen(&["-l", "-f", &f])?;
+        let (_, fingerprint, _, _) = parse_fingerprint(&text(&out.stdout)).filter(|_| out.status.success()).ok_or("not_a_key")?;
+        let public = std::fs::read_to_string(&file).map_err(|e| e.to_string())?.trim().to_string();
+        return Ok((public, fingerprint));
+    }
+    let info = key_info(path)?;
+    Ok((info.public_key.ok_or("public_key_missing")?, info.fingerprint))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +213,11 @@ mod tests {
         assert!(dir.path().join("sub").join("gitgr_test_ed25519.pub").is_file());
         // La clé publique n'est pas une identité utilisable.
         assert_eq!(key_info(&format!("{p}.pub")).unwrap_err(), "key_is_public");
+        // Clé publique pour un compte : depuis la clé privée comme depuis la `.pub`.
+        let (from_private, fpr) = public_key(&p).unwrap();
+        assert_eq!((from_private.as_str(), fpr.as_str()), (public.as_str(), info.fingerprint.as_str()));
+        assert_eq!(public_key(&format!("{p}.pub")).unwrap(), (public.clone(), info.fingerprint.clone()));
+        assert_eq!(public_key(&format!("{p}.absente")).unwrap_err(), "key_not_found");
         // Jamais d'écrasement, ni de la clé ni d'une `.pub` restée seule.
         assert_eq!(generate_key(&p, "x", None).unwrap_err(), "key_exists");
         std::fs::remove_file(&path).unwrap();

@@ -160,13 +160,18 @@ fn get(kind: Kind, api: &str, path: &str, token: &str) -> Result<serde_json::Val
     get_limited(kind, api, path, token, MAX_BODY)
 }
 
-fn get_limited(kind: Kind, api: &str, path: &str, token: &str, limit: u64) -> Result<serde_json::Value, String> {
-    check_token(token)?;
-    let mut request = agent().get(format!("{api}{path}")).header("Authorization", format!("Bearer {token}"));
-    request = match kind {
+/// En-têtes communs : token (jamais dans l'URL), format de réponse et version d'API.
+fn headers<B>(kind: Kind, request: ureq::RequestBuilder<B>, token: &str) -> ureq::RequestBuilder<B> {
+    let request = request.header("Authorization", format!("Bearer {token}"));
+    match kind {
         Kind::GitHub => request.header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28"),
         Kind::GitLab => request.header("Accept", "application/json"),
-    };
+    }
+}
+
+fn get_limited(kind: Kind, api: &str, path: &str, token: &str, limit: u64) -> Result<serde_json::Value, String> {
+    check_token(token)?;
+    let request = headers(kind, agent().get(format!("{api}{path}")), token);
     let mut response = request.call().map_err(|_| "provider_unreachable".to_string())?;
     match response.status().as_u16() {
         200..=299 => {}
@@ -310,6 +315,197 @@ pub fn list_repos(account: &Account) -> Result<RepoList, String> {
     list_repos_with(kind, &instance.api, &token)
 }
 
+// ---------------------------------------------------------------------------
+// Clés du profil sur le compte (SSH d'authentification, SSH de signature, GPG)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum KeyKind {
+    /// Clé SSH d'authentification (clone, push).
+    Auth,
+    /// Clé SSH de signature des commits.
+    Signing,
+    /// Clé GPG de signature des commits.
+    Gpg,
+}
+
+impl KeyKind {
+    pub fn parse(kind: &str) -> Result<Self, String> {
+        match kind {
+            "auth" => Ok(Self::Auth),
+            "signing" => Ok(Self::Signing),
+            "gpg" => Ok(Self::Gpg),
+            _ => Err("unknown_key_kind".into()),
+        }
+    }
+}
+
+/// Une clé du profil, prête à être comparée à celles du compte ou envoyée.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocalKey {
+    pub kind: KeyKind,
+    /// SSH : `type base64 commentaire` ; GPG : bloc armuré.
+    pub public: String,
+    /// SSH : `type base64` ; GPG : empreinte en majuscules.
+    pub id: String,
+    /// Affiché : empreinte SSH (`SHA256:…`) ou identifiant long GPG.
+    pub label: String,
+}
+
+impl LocalKey {
+    pub fn ssh(kind: KeyKind, public: &str, fingerprint: &str) -> Self {
+        Self { kind, public: public.trim().to_string(), id: ssh_id(public), label: fingerprint.to_string() }
+    }
+
+    pub fn gpg(armored: &str, fingerprint: &str) -> Self {
+        let fpr = fingerprint.to_ascii_uppercase();
+        let long = fpr[fpr.len().saturating_sub(16)..].to_string();
+        Self { kind: KeyKind::Gpg, public: armored.to_string(), id: fpr, label: long }
+    }
+}
+
+/// Une clé SSH se compare sur son type et son contenu, sans le commentaire.
+fn ssh_id(public: &str) -> String {
+    public.split_whitespace().take(2).collect::<Vec<_>>().join(" ")
+}
+
+/// Clé du profil et sa présence sur le compte.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyEntry {
+    pub kind: KeyKind,
+    pub label: String,
+    pub present: bool,
+    /// La clé du profil n'a pas pu être lue (`key_not_found`, `gpg_key_not_found`…).
+    pub error: Option<String>,
+}
+
+/// Les droits du token ne couvrent pas les clés : GitHub répond 404 (ou 403 pour un token
+/// *fine-grained*), GitLab 403.
+fn scope_error(e: String) -> String {
+    match e.as_str() {
+        "token_forbidden" | "provider_not_found" => "token_scope_missing".into(),
+        _ => e,
+    }
+}
+
+/// Clés SSH du compte : (identifiant `type base64`, sert à l'authentification, sert à la
+/// signature). GitHub range les clés de signature à part ; GitLab donne l'usage de chacune.
+fn remote_ssh_keys(kind: Kind, api: &str, token: &str, signing: bool) -> Result<Vec<(String, bool, bool)>, String> {
+    let list = |path: &str| -> Result<Vec<serde_json::Value>, String> {
+        let body = get(kind, api, path, token).map_err(scope_error)?;
+        Ok(body.as_array().cloned().unwrap_or_default())
+    };
+    let key = |v: &serde_json::Value| v["key"].as_str().map(ssh_id);
+    Ok(match kind {
+        Kind::GitHub => {
+            let mut keys: Vec<(String, bool, bool)> = list("/user/keys?per_page=100")?.iter().filter_map(key).map(|k| (k, true, false)).collect();
+            if signing {
+                keys.extend(list("/user/ssh_signing_keys?per_page=100")?.iter().filter_map(key).map(|k| (k, false, true)));
+            }
+            keys
+        }
+        Kind::GitLab => list("/user/keys?per_page=100")?
+            .iter()
+            .filter_map(|v| {
+                // Sans `usage_type` (GitLab avant 15.7) : authentification et signature.
+                let usage = v["usage_type"].as_str().unwrap_or("auth_and_signing");
+                Some((key(v)?, usage != "signing", usage != "auth"))
+            })
+            .collect(),
+    })
+}
+
+/// Empreintes des clés GPG du compte (GitHub donne les identifiants longs ; GitLab, le bloc
+/// armuré, lu par gpg).
+fn remote_gpg_keys(kind: Kind, api: &str, token: &str) -> Result<Vec<String>, String> {
+    let body = get(kind, api, "/user/gpg_keys?per_page=100", token).map_err(scope_error)?;
+    let items = body.as_array().cloned().unwrap_or_default();
+    Ok(match kind {
+        Kind::GitHub => items
+            .iter()
+            .flat_map(|v| {
+                let subkeys = v["subkeys"].as_array().cloned().unwrap_or_default();
+                std::iter::once(v["key_id"].clone()).chain(subkeys.into_iter().map(|s| s["key_id"].clone())).collect::<Vec<_>>()
+            })
+            .filter_map(|id| id.as_str().map(str::to_ascii_uppercase))
+            .collect(),
+        Kind::GitLab => items.iter().filter_map(|v| v["key"].as_str()).flat_map(crate::signing::fingerprints_in).collect(),
+    })
+}
+
+/// Présence de chaque clé du profil sur le compte (`token` et `api` : ceux du compte).
+fn key_entries_with(kind: Kind, api: &str, token: &str, keys: &[LocalKey]) -> Result<Vec<KeyEntry>, String> {
+    let wants = |k: KeyKind| keys.iter().any(|l| l.kind == k);
+    let ssh = if wants(KeyKind::Auth) || wants(KeyKind::Signing) { remote_ssh_keys(kind, api, token, wants(KeyKind::Signing))? } else { Vec::new() };
+    let gpg = if wants(KeyKind::Gpg) { remote_gpg_keys(kind, api, token)? } else { Vec::new() };
+    Ok(keys
+        .iter()
+        .map(|l| {
+            let present = match l.kind {
+                KeyKind::Auth => ssh.iter().any(|(id, auth, _)| *auth && *id == l.id),
+                KeyKind::Signing => ssh.iter().any(|(id, _, signing)| *signing && *id == l.id),
+                // GitHub ne donne que l'identifiant long : comparé à la fin de l'empreinte.
+                KeyKind::Gpg => gpg.iter().any(|g| l.id.ends_with(g.as_str()) && g.len() >= 16),
+            };
+            KeyEntry { kind: l.kind, label: l.label.clone(), present, error: None }
+        })
+        .collect())
+}
+
+pub fn key_entries(account: &Account, keys: &[LocalKey]) -> Result<Vec<KeyEntry>, String> {
+    let token = crate::secrets::token(&account.id).ok_or("token_missing")?;
+    let kind = Kind::parse(&account.kind)?;
+    key_entries_with(kind, &instance(kind, &account.url)?.api, &token, keys)
+}
+
+/// `POST <api><path>` d'un corps JSON. Une clé déjà enregistrée (sur ce compte ou, chez GitHub,
+/// sur un autre) donne `key_in_use`.
+fn post(kind: Kind, api: &str, path: &str, token: &str, body: &serde_json::Value) -> Result<(), String> {
+    check_token(token)?;
+    let request = headers(kind, agent().post(format!("{api}{path}")), token).header("Content-Type", "application/json");
+    let mut response = request.send(body.to_string()).map_err(|_| "provider_unreachable".to_string())?;
+    let status = response.status().as_u16();
+    let text = response.body_mut().with_config().limit(MAX_BODY).read_to_string().unwrap_or_default().to_lowercase();
+    match status {
+        200..=299 => Ok(()),
+        401 => Err("token_invalid".into()),
+        403 | 404 => Err("token_scope_missing".into()),
+        400 | 409 | 422 if ["already", "taken", "in use"].iter().any(|w| text.contains(w)) => Err("key_in_use".into()),
+        300..=399 => Err("provider_not_found".into()),
+        _ => Err("provider_error".into()),
+    }
+}
+
+/// Ajoute la clé au compte. `all` : toutes les clés du profil — chez GitLab, une même clé SSH
+/// d'authentification et de signature est envoyée une fois, pour les deux usages.
+fn add_key_with(kind: Kind, api: &str, token: &str, key: &LocalKey, all: &[LocalKey], title: &str) -> Result<(), String> {
+    use serde_json::json;
+    let twin = |other: KeyKind| all.iter().any(|l| l.kind == other && l.id == key.id);
+    match (kind, key.kind) {
+        (Kind::GitHub, KeyKind::Auth) => post(kind, api, "/user/keys", token, &json!({ "title": title, "key": key.public })),
+        (Kind::GitHub, KeyKind::Signing) => post(kind, api, "/user/ssh_signing_keys", token, &json!({ "title": title, "key": key.public })),
+        (Kind::GitHub, KeyKind::Gpg) => post(kind, api, "/user/gpg_keys", token, &json!({ "name": title, "armored_public_key": key.public })),
+        (Kind::GitLab, KeyKind::Auth | KeyKind::Signing) => {
+            let usage = match key.kind {
+                KeyKind::Auth if twin(KeyKind::Signing) => "auth_and_signing",
+                KeyKind::Signing if twin(KeyKind::Auth) => "auth_and_signing",
+                KeyKind::Auth => "auth",
+                _ => "signing",
+            };
+            post(kind, api, "/user/keys", token, &json!({ "title": title, "key": key.public, "usage_type": usage }))
+        }
+        (Kind::GitLab, KeyKind::Gpg) => post(kind, api, "/user/gpg_keys", token, &json!({ "key": key.public })),
+    }
+}
+
+pub fn add_key(account: &Account, key: &LocalKey, all: &[LocalKey], title: &str) -> Result<(), String> {
+    let token = crate::secrets::token(&account.id).ok_or("token_missing")?;
+    let kind = Kind::parse(&account.kind)?;
+    add_key_with(kind, &instance(kind, &account.url)?.api, &token, key, all, title)
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -329,6 +525,19 @@ pub(crate) mod tests {
                 let mut request = Vec::new();
                 let mut buf = [0u8; 1024];
                 while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match stream.read(&mut buf) {
+                        Ok(n) if n > 0 => request.extend_from_slice(&buf[..n]),
+                        _ => break,
+                    }
+                }
+                // Corps d'un POST lu en entier : laissé dans le tampon, sa fermeture ferait
+                // couper la connexion avant que le client n'ait lu la réponse.
+                let head_len = request.windows(4).position(|w| w == b"\r\n\r\n").map_or(request.len(), |i| i + 4);
+                let length = String::from_utf8_lossy(&request[..head_len])
+                    .lines()
+                    .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").and_then(|v| v.trim().parse::<usize>().ok()))
+                    .unwrap_or(0);
+                while request.len() < head_len + length {
                     match stream.read(&mut buf) {
                         Ok(n) if n > 0 => request.extend_from_slice(&buf[..n]),
                         _ => break,
@@ -501,5 +710,84 @@ pub(crate) mod tests {
         let (url, _r) = serve(vec![(200, page); MAX_PAGES]);
         let list = list_repos_with(Kind::GitHub, &url, "ghp_x").unwrap();
         assert_eq!((list.repos.len(), list.truncated), (100 * MAX_PAGES, true));
+    }
+
+    const ED: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc";
+
+    fn keys() -> Vec<LocalKey> {
+        vec![
+            LocalKey::ssh(KeyKind::Auth, &format!("{ED} moi@pc"), "SHA256:aaa"),
+            LocalKey::ssh(KeyKind::Signing, &format!("{ED} moi@pc"), "SHA256:aaa"),
+            LocalKey::gpg("-----BEGIN PGP PUBLIC KEY BLOCK-----", "cd44bed4a958cd21393cb06c5e8b7c4cfac5417c"),
+        ]
+    }
+
+    #[test]
+    fn github_keys_are_compared_without_comment() {
+        // Clé d'authentification présente (autre commentaire), pas de clé de signature, la
+        // sous-clé GPG présente.
+        let (url, requests) = serve(vec![
+            (200, leak(format!(r#"[{{"id":1,"key":"{ED}"}},{{"id":2,"key":"ssh-rsa AAAAB3 autre"}}]"#))),
+            (200, "[]"),
+            (200, r#"[{"key_id":"1111222233334444","subkeys":[{"key_id":"5E8B7C4CFAC5417C"}]}]"#),
+        ]);
+        let entries = key_entries_with(Kind::GitHub, &url, "ghp_x", &keys()).unwrap();
+        assert_eq!(entries.iter().map(|e| (e.kind, e.present)).collect::<Vec<_>>(), [(KeyKind::Auth, true), (KeyKind::Signing, false), (KeyKind::Gpg, true)]);
+        assert_eq!(entries[2].label, "5E8B7C4CFAC5417C");
+        assert!(requests.recv().unwrap().starts_with("GET /user/keys?per_page=100 "));
+        assert!(requests.recv().unwrap().starts_with("GET /user/ssh_signing_keys?per_page=100 "));
+        assert!(requests.recv().unwrap().starts_with("GET /user/gpg_keys?per_page=100 "));
+    }
+
+    #[test]
+    fn gitlab_keys_follow_their_usage() {
+        let only_ssh = &keys()[..2];
+        let (url, _r) = serve(vec![(200, leak(format!(r#"[{{"key":"{ED} x","usage_type":"signing"}}]"#)))]);
+        let entries = key_entries_with(Kind::GitLab, &url, "glpat", only_ssh).unwrap();
+        assert_eq!(entries.iter().map(|e| e.present).collect::<Vec<_>>(), [false, true]);
+        // Sans `usage_type` (ancien GitLab) : les deux.
+        let (url, _r) = serve(vec![(200, leak(format!(r#"[{{"key":"{ED}"}}]"#)))]);
+        assert!(key_entries_with(Kind::GitLab, &url, "glpat", only_ssh).unwrap().iter().all(|e| e.present));
+    }
+
+    #[test]
+    fn missing_scope_is_reported() {
+        let (url, _r) = serve(vec![(404, r#"{"message":"Not Found"}"#)]);
+        assert_eq!(key_entries_with(Kind::GitHub, &url, "ghp_x", &keys()[..1]).unwrap_err(), "token_scope_missing");
+        let (url, _r) = serve(vec![(403, "{}")]);
+        assert_eq!(add_key_with(Kind::GitLab, &url, "glpat", &keys()[0], &keys(), "t").unwrap_err(), "token_scope_missing");
+    }
+
+    #[test]
+    fn keys_are_posted_where_each_provider_expects_them() {
+        let all = keys();
+        let (url, requests) = serve(vec![(201, "{}"), (201, "{}"), (201, "{}")]);
+        add_key_with(Kind::GitHub, &url, "ghp_x", &all[0], &all, "GitGR · Perso").unwrap();
+        add_key_with(Kind::GitHub, &url, "ghp_x", &all[1], &all, "GitGR · Perso").unwrap();
+        add_key_with(Kind::GitHub, &url, "ghp_x", &all[2], &all, "GitGR · Perso").unwrap();
+        let first = requests.recv().unwrap();
+        assert!(first.starts_with("POST /user/keys "), "{first}");
+        assert!(first.to_lowercase().contains("content-type: application/json"), "{first}");
+        assert!(requests.recv().unwrap().starts_with("POST /user/ssh_signing_keys "));
+        assert!(requests.recv().unwrap().starts_with("POST /user/gpg_keys "));
+
+        // GitLab : la même clé pour les deux usages part une seule fois, `auth_and_signing`.
+        let (url, requests) = serve(vec![(201, "{}"), (201, "{}")]);
+        add_key_with(Kind::GitLab, &url, "glpat", &all[0], &all, "t").unwrap();
+        add_key_with(Kind::GitLab, &url, "glpat", &all[0], &all[..1], "t").unwrap();
+        let both = requests.recv().unwrap();
+        assert!(both.starts_with("POST /user/keys ") && both.contains(r#""usage_type":"auth_and_signing""#), "{both}");
+        let auth = requests.recv().unwrap();
+        assert!(auth.contains(r#""usage_type":"auth""#), "{auth}");
+    }
+
+    #[test]
+    fn key_already_used_is_recognised() {
+        let (url, _r) = serve(vec![(422, r#"{"message":"Validation Failed","errors":[{"message":"key is already in use"}]}"#)]);
+        assert_eq!(add_key_with(Kind::GitHub, &url, "ghp_x", &keys()[0], &keys(), "t").unwrap_err(), "key_in_use");
+        let (url, _r) = serve(vec![(400, r#"{"message":{"fingerprint_sha256":["has already been taken"]}}"#)]);
+        assert_eq!(add_key_with(Kind::GitLab, &url, "glpat", &keys()[0], &keys(), "t").unwrap_err(), "key_in_use");
+        let (url, _r) = serve(vec![(422, r#"{"message":"key is invalid"}"#)]);
+        assert_eq!(add_key_with(Kind::GitHub, &url, "ghp_x", &keys()[0], &keys(), "t").unwrap_err(), "provider_error");
     }
 }

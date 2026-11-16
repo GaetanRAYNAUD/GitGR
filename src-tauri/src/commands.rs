@@ -509,3 +509,65 @@ pub async fn clone_repo(url: String, parent: String, name: String, profile: Opti
 pub fn cancel_clone() {
     crate::clone::cancel();
 }
+
+// --- Clés du profil sur ses comptes ----------------------------------------------
+
+/// Clés du profil (enregistré) à mettre sur ses comptes : clé SSH, et clé de signature (SSH ou
+/// GPG). Une clé illisible donne son erreur à la place.
+fn local_keys(profile: &Profile) -> Vec<Result<providers::LocalKey, (providers::KeyKind, String)>> {
+    use crate::git::Signing;
+    use providers::{KeyKind, LocalKey};
+    let ssh = |kind: KeyKind, path: &str| profiles::public_key(path).map(|(public, fpr)| LocalKey::ssh(kind, &public, &fpr)).map_err(|e| (kind, e));
+    let mut keys = Vec::new();
+    if let Some(path) = profile.ssh_key.as_deref().filter(|k| !k.trim().is_empty()) {
+        keys.push(ssh(KeyKind::Auth, path));
+    }
+    match profile.signing() {
+        Signing::Ssh(path) => keys.push(ssh(KeyKind::Signing, &path)),
+        Signing::Gpg(wanted) => keys.push(
+            crate::signing::gpg_keys()
+                .and_then(|all| crate::signing::resolve_key(&all, wanted.as_deref(), &profile.user_email).ok_or_else(|| "gpg_key_not_found".to_string()))
+                .and_then(|key| crate::signing::export_public(&key.fingerprint).map(|armored| LocalKey::gpg(&armored, &key.fingerprint)))
+                .map_err(|e| (KeyKind::Gpg, e)),
+        ),
+        Signing::Config | Signing::Off => {}
+    }
+    keys
+}
+
+/// Profil enregistré et l'un de ses comptes.
+fn profile_account(store: &StoreState<'_>, profile: &str, account: &str) -> Result<(Profile, Account), String> {
+    let s = store.lock().unwrap();
+    let p = s.state.profiles.iter().find(|p| p.id == profile).cloned().ok_or("no_profile")?;
+    let a = p.accounts.iter().find(|a| a.id == account).cloned().ok_or("account_not_found")?;
+    Ok((p, a))
+}
+
+/// Clés du profil et leur présence sur le compte.
+#[tauri::command]
+pub async fn account_keys(profile: String, account: String, store: StoreState<'_>) -> Result<Vec<providers::KeyEntry>, String> {
+    let (p, a) = profile_account(&store, &profile, &account)?;
+    let keys = local_keys(&p);
+    let ok: Vec<providers::LocalKey> = keys.iter().filter_map(|k| k.as_ref().ok().cloned()).collect();
+    let mut found = if ok.is_empty() { Vec::new() } else { providers::key_entries(&a, &ok)? }.into_iter();
+    Ok(keys
+        .into_iter()
+        .map(|k| match k {
+            Ok(_) => found.next().expect("une entrée par clé lue"),
+            Err((kind, e)) => providers::KeyEntry { kind, label: String::new(), present: false, error: Some(e) },
+        })
+        .collect())
+}
+
+/// Ajoute au compte la clé `kind` ("auth" | "signing" | "gpg") du profil, nommée d'après le
+/// profil et la machine.
+#[tauri::command]
+pub async fn add_account_key(profile: String, account: String, kind: String, store: StoreState<'_>) -> Result<(), String> {
+    let kind = providers::KeyKind::parse(&kind)?;
+    let (p, a) = profile_account(&store, &profile, &account)?;
+    let keys: Vec<providers::LocalKey> = local_keys(&p).into_iter().filter_map(Result::ok).collect();
+    let key = keys.iter().find(|k| k.kind == kind).ok_or("key_not_found")?;
+    let machine = std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_default();
+    let title = if machine.trim().is_empty() { format!("GitGR · {}", p.name) } else { format!("GitGR · {} · {}", p.name, machine.trim()) };
+    providers::add_key(&a, key, &keys, &title)
+}

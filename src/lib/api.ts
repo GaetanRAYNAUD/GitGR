@@ -40,6 +40,8 @@ import { joinPath, validFolderName } from "./clone";
 import { instance, withAccount } from "./providers";
 import type {
   Account,
+  AccountKey,
+  AccountKeyKind,
   AppState,
   CloneProgress,
   Commit,
@@ -159,6 +161,10 @@ export interface Api {
   checkAccount(account: string): Promise<Account>;
   /** Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes…). */
   listAccountRepos(account: string): Promise<RepoList>;
+  /** Clés du profil (enregistré) et leur présence sur le compte. */
+  accountKeys(profile: string, account: string): Promise<AccountKey[]>;
+  /** Ajoute au compte la clé `kind` du profil. */
+  addAccountKey(profile: string, account: string, kind: AccountKeyKind): Promise<void>;
   // Clone
   /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
    *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
@@ -255,6 +261,8 @@ const tauriApi: Api = {
   disconnectAccount: (profile, account) => invoke("disconnect_account", { profile, account }),
   checkAccount: (account) => invoke("check_account", { account }),
   listAccountRepos: (account) => invoke("list_account_repos", { account }),
+  accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
+  addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
   cancelClone: () => invoke("cancel_clone"),
   async onCloneProgress(cb) {
@@ -351,6 +359,9 @@ function mockKeyInfo(path: string, probe = false): SshKeyInfo | null {
     passphraseStored: mockPassphrases.has(path),
   };
 }
+
+/** Backend simulé : clés ajoutées aux comptes (`compte|type|clé`). */
+const mockAccountKeys = new Set<string>();
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
 const mockCloneListeners = new Set<(p: CloneProgress) => void>();
@@ -651,6 +662,32 @@ const mockApi: Api = {
       mockCloneCancel = null;
     }
     return path;
+  },
+  // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
+  // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient
+  // `ailleurs` est déjà sur un autre compte.
+  async accountKeys(profile, account) {
+    await mockDelay();
+    const p = mockLoad().profiles?.find((x) => x.id === profile);
+    const a = p?.accounts?.find((x) => x.id === account);
+    if (!p || !a) throw "account_not_found";
+    if (a.login.startsWith("noscope")) throw "token_scope_missing";
+    const keys: AccountKey[] = [];
+    const entry = (kind: AccountKeyKind, path: string, label: string): AccountKey => ({ kind, label, present: mockAccountKeys.has(`${account}|${kind}|${path}`), error: null });
+    if (p.sshKey) keys.push(entry("auth", p.sshKey, mockKeyInfo(p.sshKey, true)?.fingerprint ?? "SHA256:demo"));
+    const signing = p.signing === "ssh" ? (p.signingKey || p.sshKey) : null;
+    if (signing) keys.push(entry("signing", signing, mockKeyInfo(signing.replace(/\.pub$/, ""), true)?.fingerprint ?? "SHA256:demo"));
+    if (p.signing === "gpg") keys.push(entry("gpg", p.signingKey || p.userEmail, "5E8B7C4CFAC5417C"));
+    return keys;
+  },
+  async addAccountKey(profile, account, kind) {
+    await mockDelay();
+    const p = mockLoad().profiles?.find((x) => x.id === profile);
+    if (!p) throw "no_profile";
+    const path = kind === "auth" ? p.sshKey : kind === "signing" ? p.signingKey || p.sshKey : p.signingKey || p.userEmail;
+    if (!path) throw "key_not_found";
+    if (path.includes("ailleurs")) throw "key_in_use";
+    mockAccountKeys.add(`${account}|${kind}|${path}`);
   },
   async cancelClone() {
     mockCloneCancel?.();

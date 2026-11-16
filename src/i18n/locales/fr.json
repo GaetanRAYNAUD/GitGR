@@ -507,7 +507,12 @@
     "clone_dest_exists": "Le dossier de destination existe déjà et n’est pas vide.",
     "clone_cancelled": "Clone arrêté : rien n’a été gardé.",
     "clone_busy": "Un clone est déjà en cours.",
-    "invalid_folder_name": "Nom de dossier invalide."
+    "invalid_folder_name": "Nom de dossier invalide.",
+    "token_scope_missing": "Le token n’a pas les droits sur les clés (GitHub : admin:public_key, admin:ssh_signing_key, write:gpg_key ; GitLab : api). Reconnectez le compte avec un token qui les a.",
+    "key_in_use": "Cette clé est déjà enregistrée, sur ce compte ou sur un autre (GitHub n’accepte une clé SSH que sur un seul compte).",
+    "gpg_key_not_found": "Clé GPG du profil introuvable dans le trousseau gpg.",
+    "public_key_missing": "Clé publique introuvable : la clé est protégée et n’a pas de fichier .pub à côté.",
+    "unknown_key_kind": "Type de clé inconnu."
   },
   "profiles": {
     "title": "Profils",
@@ -642,7 +647,17 @@
     "accountTokenHint_gitlab": "Droits : api, read_user (pré-cochés par le lien).",
     "accountSubmit": "Connecter",
     "accountConnecting": "Vérification…",
-    "color": "Couleur"
+    "color": "Couleur",
+    "keysChecking": "Vérification des clés sur le compte…",
+    "keysOn": "Clés du profil sur le compte {{login}}",
+    "keyKind_auth": "Clé SSH",
+    "keyKind_signing": "Clé de signature SSH",
+    "keyKind_gpg": "Clé GPG",
+    "keyPresent": "sur le compte",
+    "keyAbsent": "absente du compte",
+    "keyAdd": "Ajouter au compte",
+    "keyAdding": "Ajout…",
+    "keysUnsaved": "Enregistrez le profil pour vérifier ses nouvelles clés sur le compte."
   },
   "branchColors": {
     "title": "Couleurs par nom de branche",

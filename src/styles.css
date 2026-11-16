@@ -3104,11 +3104,62 @@ body.resizing-y * {
   font-size: 13px;
 }
 
-.pf-accounts li {
+.pf-accounts > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-account-row {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 34px;
+}
+
+/* Clés du profil sur un compte, sous la ligne du compte. */
+.pf-account-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 6px 26px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+p.pf-account-keys.bad,
+.pf-account-keys li.bad .pf-key-state {
+  color: var(--del);
+}
+
+.pf-account-keys li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: var(--muted);
+}
+
+.pf-account-keys li.ok .ico {
+  color: var(--add);
+}
+
+.pf-key-kind {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.pf-key-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-key-state {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .pf-account-instance {
@@ -3124,7 +3175,7 @@ body.resizing-y * {
   color: var(--muted);
 }
 
-.pf-accounts li.bad .pf-account-status {
+.pf-accounts li.bad .pf-account-row .pf-account-status {
   flex: 2;
   color: var(--del);
 }
