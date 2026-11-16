@@ -124,6 +124,11 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
   // Rangés par propriétaire : le compte d'abord, puis ses organisations.
   await expect(list.locator(".clone-owner-name")).toHaveText(["octo-demo", "acme"]);
   await expect(list.getByRole("group", { name: "acme" }).getByRole("option")).toHaveCount(3);
+  // Une section se replie ; une recherche montre ses dépôts quand même.
+  const acme = list.getByRole("button", { name: /^acme/ });
+  await acme.click();
+  await expect(acme).toHaveAttribute("aria-expanded", "false");
+  await expect(list.getByRole("option")).toHaveCount(3);
   await d.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("acme front");
   await expect(list.getByRole("option")).toHaveCount(1);
   await list.getByRole("group", { name: "acme" }).getByRole("option", { name: /^front/ }).click();

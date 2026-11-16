@@ -169,6 +169,17 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
 
   const visible = repos.status === "ready" ? filterRepos(repos.list.repos, query) : [];
   const groups = groupByOwner(visible, linked?.account.login ?? "");
+  /** Propriétaires repliés (casse ignorée). Pendant une recherche, tout est déplié : les
+   *  dépôts trouvés restent visibles. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const isCollapsed = (owner: string) => !query.trim() && collapsed.has(owner.toLowerCase());
+  const toggleOwner = (owner: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      const key = owner.toLowerCase();
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
 
   return (
     <div className="overlay">
@@ -304,11 +315,18 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
               )}
               {groups.map((g) => (
                 <div key={g.owner} role="group" aria-labelledby={`clone-owner-${g.owner}`} className="clone-group">
-                  <div id={`clone-owner-${g.owner}`} className="clone-owner">
+                  <button
+                    id={`clone-owner-${g.owner}`}
+                    type="button"
+                    className="clone-owner"
+                    aria-expanded={!isCollapsed(g.owner)}
+                    onClick={() => toggleOwner(g.owner)}
+                  >
+                    <Icon name="chevron" size={13} className={isCollapsed(g.owner) ? "chev closed" : "chev"} />
                     <span className="clone-owner-name">{g.owner}</span>
                     <span className="clone-owner-count">{g.repos.length}</span>
-                  </div>
-                  {g.repos.map((r) => (
+                  </button>
+                  {!isCollapsed(g.owner) && g.repos.map((r) => (
                     <button
                       key={r.fullName}
                       type="button"

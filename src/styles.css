@@ -3289,13 +3289,30 @@ body.resizing-y * {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  width: 100%;
+  padding: 6px 12px 6px 8px;
+  border: 0;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
+  text-align: left;
+  font: inherit;
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--muted);
+}
+
+.clone-owner:hover {
+  color: var(--text);
+}
+
+.clone-owner .chev {
+  flex: none;
+  transition: transform 0.12s;
+}
+
+.clone-owner .chev.closed {
+  transform: rotate(-90deg);
 }
 
 .clone-owner-name {
