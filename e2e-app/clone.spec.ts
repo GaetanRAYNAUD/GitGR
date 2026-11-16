@@ -20,7 +20,7 @@ test("cloner un dépôt local : il s'ouvre dans un onglet, le dossier est retenu
   sandbox.clone("seed");
   const parent = join(sandbox.root, "clones");
   mkdirSync(parent);
-  const app = await launchApp(sandbox, [], { settings: { theme: "dark", language: "fr", autoFetchMinutes: 0, graphAvatarsOff: true, cloneDir: parent } });
+  const app = await launchApp(sandbox, [], { settings: { theme: "dark", language: "fr", autoFetchMinutes: 0, cloneDir: parent } });
   const { page } = app;
   try {
     await cloneByUrl(page, sandbox.remote, "copie");
@@ -62,7 +62,7 @@ test("cloner par ssh avec la clé du profil proposé par les règles", async ({ 
     sandbox,
     [],
     {
-      settings: { theme: "dark", language: "fr", autoFetchMinutes: 0, graphAvatarsOff: true, cloneDir: parent },
+      settings: { theme: "dark", language: "fr", autoFetchMinutes: 0, cloneDir: parent },
       profiles: [profile("autre", "Autre", null, []), profile("serveur", "Serveur", server.key, ["serveur-clone"])],
     },
     // Le serveur de test sert git-upload-pack à un chemin msys.

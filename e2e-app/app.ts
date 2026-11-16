@@ -137,8 +137,7 @@ export async function launchApp(
     repos: tops.map((path, i) => ({ path, name: path.split("/").pop(), lastOpened: i + 1 })),
     session: { openTabs: tops, active: tops[tops.length - 1] ?? null },
     // Pas de fetch automatique pendant les tests : rien ne bouge sans qu'on le demande.
-    // Ni avatars des auteurs : les dépôts de test n'ont pas de provider, ce serait Gravatar.
-    settings: { theme: "dark", language: "fr", autoFetchMinutes: 0, graphAvatarsOff: true },
+    settings: { theme: "dark", language: "fr", autoFetchMinutes: 0 },
     ...extra,
   };
   writeFileSync(join(config, "state.json"), JSON.stringify(state));

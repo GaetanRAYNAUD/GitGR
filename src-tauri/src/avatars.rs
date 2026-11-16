@@ -188,14 +188,6 @@ fn github_noreply(email: &str) -> Option<String> {
     }
 }
 
-/// Gravatar, par l'empreinte SHA-256 de l'adresse ; `d=404` : pas d'image par défaut.
-fn gravatar(email: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let hash = Sha256::digest(email.trim().to_lowercase().as_bytes());
-    let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
-    format!("https://gravatar.com/avatar/{hex}?s=64&d=404")
-}
-
 /// Auteurs des 100 derniers commits d'un dépôt GitHub (adresse → adresse de l'avatar), lus une
 /// fois par heure : chaque paquet d'adresses du graphe en a besoin, la réponse est la même.
 fn repo_authors(api: &str, repo: &str, token: Option<&str>) -> Vec<(String, String)> {
@@ -239,6 +231,10 @@ fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Vec<(String, St
                 let path = format!("/avatar?email={}&size=64", email.replace('%', "%25").replace('+', "%2B").replace('@', "%40"));
                 let body = api_get(ctx.kind, &inst.api, &path, ctx.token).ok()??;
                 let url = body["avatar_url"].as_str()?.trim();
+                // Utilisateur inconnu de l'instance : GitLab renvoie une adresse Gravatar.
+                if host_of(url).ends_with("gravatar.com") {
+                    return None;
+                }
                 let url = if url.starts_with('/') { format!("{}{url}", inst.url) } else { url.to_string() };
                 Some((email.clone(), url))
             })
@@ -247,8 +243,9 @@ fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Vec<(String, St
 }
 
 /// Avatars des auteurs `emails` (en minuscules dans la réponse), en data URL ; `None` : pas
-/// d'avatar. Dans l'ordre : cache (un jour), adresse noreply de GitHub, API du provider du
-/// dépôt (`ctx`), Gravatar.
+/// d'avatar (l'interface affiche alors les initiales). Dans l'ordre : cache (un jour), adresse
+/// noreply de GitHub, API du provider du dépôt (`ctx`). Jamais Gravatar : l'adresse d'un auteur
+/// ne part pas vers un service tiers.
 pub fn author_avatars(ctx: Option<&RepoContext>, emails: &[String]) -> Vec<(String, Option<String>)> {
     let mut wanted: Vec<String> = Vec::new();
     for e in emails.iter().map(|e| e.trim().to_lowercase()).filter(|e| valid_email(e)) {
@@ -272,16 +269,18 @@ pub fn author_avatars(ctx: Option<&RepoContext>, emails: &[String]) -> Vec<(Stri
     if todo.is_empty() {
         return out;
     }
-    // Adresse de l'image de chaque auteur : noreply, puis API du provider, puis Gravatar.
+    // Adresse de l'image de chaque auteur : noreply, puis API du provider.
     let mut urls: Vec<(String, String)> = todo.iter().filter_map(|e| github_noreply(e).map(|u| (e.clone(), u))).collect();
     let rest: Vec<String> = todo.iter().filter(|e| !urls.iter().any(|(x, _)| x == *e)).cloned().collect();
     if let Some(ctx) = ctx {
         urls.extend(provider_avatar_urls(ctx, &rest));
     }
-    for e in &todo {
-        if !urls.iter().any(|(x, _)| x == e) {
-            urls.push((e.clone(), gravatar(e)));
+    // Sans avatar connu : gardé comme tel, pour ne pas redemander avant un jour.
+    for e in todo.iter().filter(|e| !urls.iter().any(|(x, _)| x == *e)) {
+        if let Some(f) = file(e) {
+            write_cache(&f, None);
         }
+        out.push((e.clone(), None));
     }
     // Téléchargements en parallèle, par paquets. Le token n'est joint que pour l'instance.
     let (instance_url, kind) = ctx.and_then(|c| instance(c.kind, c.url).ok().map(|i| (i.url, c.kind))).unwrap_or((String::new(), Kind::GitHub));
@@ -364,11 +363,6 @@ mod tests {
         assert_eq!(github_noreply("octo-cat@users.noreply.github.com").as_deref(), Some("https://avatars.githubusercontent.com/octo-cat?s=64"));
         assert_eq!(github_noreply("x/y@users.noreply.github.com"), None);
         assert_eq!(github_noreply("octo@exemple.fr"), None);
-        // Empreinte de l'adresse nettoyée (minuscules, sans blancs) : jamais l'adresse elle-même.
-        let g = gravatar(" Camille@Exemple.fr ");
-        assert_eq!(g, gravatar("camille@exemple.fr"));
-        assert!(g.starts_with("https://gravatar.com/avatar/") && g.ends_with("?s=64&d=404") && !g.contains('@'), "{g}");
-        assert_eq!(g.len(), "https://gravatar.com/avatar/".len() + 64 + "?s=64&d=404".len());
     }
 
     #[test]
