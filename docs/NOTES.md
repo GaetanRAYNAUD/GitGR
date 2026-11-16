@@ -105,33 +105,17 @@
 
 ## À faire / plus tard
 
-Retours d'utilisation, à caser dans une prochaine étape :
+Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 5 sont terminées ; les éléments faits sont regroupés en bas.
 
-- [x] **Hauteur des sections** : pouvoir redimensionner la hauteur de chaque section dans chaque panneau (ex. Local / origin / Tags à gauche, détails / fichiers à droite).
-- [x] **Largeur des panneaux** : pouvoir redimensionner la barre latérale, le graphe et le panneau de détails (poignées de glisser, largeurs mémorisées).
-- [x] **Colonnes du graphe** : choisir les colonnes affichées (branche/tag, graphe, message, auteur, date, SHA) et leur largeur.
-- [x] **Compteurs de fichiers** : distinguer ajoutés / modifiés / renommés / supprimés (ex. `+2 ~3 →1 −1`) au lieu d'un seul total.
-- [x] **Détails d'un commit plus compacts** : le bloc auteur (avatar, nom, e-mail, date) prend beaucoup de place pour une info déjà visible dans le graphe, et repousse la liste des fichiers vers le bas. Le rendre discret (ex. une seule ligne « auteur · date », e-mail et committer en infobulle) pour que les fichiers modifiés remontent.
-- [x] **Logo = onglet Accueil** : le logo en haut à gauche (retour à l'accueil) doit avoir le même style que les onglets de dépôts, mais sans bouton de fermeture.
-- [x] **Diff côte à côte redimensionnable** : pouvoir déplacer le séparateur entre l'ancienne et la nouvelle version.
-- [x] **Bloquer le menu contextuel du navigateur** : le clic droit ouvre aujourd'hui le menu de la WebView (Recharger, Inspecter…). Le désactiver partout, sauf dans les champs de saisie (copier / coller) ; nos propres menus contextuels (graphe, branches, fichiers) viendront à la place.
-- [ ] **Changements cumulés de plusieurs commits** (comme GitKraken) : Ctrl+clic pour ajouter / retirer un commit de la sélection, Maj+clic pour une plage. Le panneau de droite liste les commits choisis puis les fichiers modifiés cumulés (compteurs `~ + −`, liste ou arborescence), et un clic sur un fichier montre le diff cumulé. Limites, comme GitKraken : diff cumulé seulement pour une **plage contiguë** (un parent → un descendant : `git diff <parent du plus ancien>..<plus récent>`) ou pour **deux commits** quelconques (diff de l'un à l'autre) ; pour une sélection éparse, seulement la liste des commits avec un message « sélectionnez une plage contiguë, ou un ou deux commits ». Décidé :
-  - **Plage qui traverse un merge** : comme GitKraken, la plage suit les commits du graphe jusqu'à la sélection ; on peut donc sélectionner un commit au milieu d'une branche fusionnée et obtenir le cumul de cette portion.
-  - **Clavier** : Maj+↑ / Maj+↓ étendent la sélection.
-  - **Actions groupées** : oui, en commençant par le cherry-pick des commits choisis (dans l'ordre de l'historique) ; squash, revert… ensuite.
-- [ ] **Résolution de conflits : composer le résultat librement** (défaut de GitKraken à ne pas reproduire). Pour prendre des morceaux de chaque côté, GitKraken ajoute les lignes choisies une par une **à la suite**, dans l'ordre des clics, sans pouvoir ensuite en remonter ou en descendre une. Dans GitGR : chaque ligne (ou bloc) choisie arrive à sa place logique dans le résultat, que l'on peut réordonner (glisser-déposer, Alt+↑ / Alt+↓), et le panneau du résultat reste **éditable directement** (taper, corriger, supprimer). Choix rapides en plus : « tout le côté A », « tout le côté B », « A puis B », « B puis A » pour un bloc. À faire avec la vue 3 panneaux (§2.3).
-- [x] **Gérer les remotes** (fait avec l'étape 6, sauf la reconnaissance du provider à l'ajout) : ajouter un remote (nom + URL, fetch immédiat proposé), renommer, changer l'URL (fetch / push séparées si besoin), supprimer (confirmation : ses branches distantes disparaissent de la barre latérale). Depuis la barre latérale (bouton « + » de la section des remotes, clic droit sur une section de remote) et les réglages du dépôt. Préparer le terrain des providers (étape 6) : reconnaître l'hôte (GitHub / GitLab / self-hosted) à l'ajout, et proposer le bon profil.
-- [ ] **Gérer les worktrees** : lister les worktrees du dépôt (section dédiée de la barre latérale : chemin, branche, verrouillé / à nettoyer), en créer un depuis une branche ou un commit (nouvelle branche ou existante, dossier proposé à côté du dépôt), l'ouvrir dans un onglet (même dépôt, autre copie de travail), le supprimer (`worktree remove`, confirmation si modifications) et nettoyer ceux dont le dossier a disparu (`worktree prune`). Dans le graphe, signaler les branches extraites dans un autre worktree (git refuse de les checkout ici : proposer d'ouvrir le worktree à la place). À vérifier : la surveillance (`watch.rs`) et `git_dir` gèrent déjà un `.git` hors de la racine, utile pour les worktrees liés.
-- [x] **Renommer un onglet** : double-clic sur l’onglet, Entrée pour valider, Échap pour annuler ; champ vide = nom du dossier. Nom gardé à la réouverture, affiché aussi dans les récents de l’accueil. Clic droit : renommer, nom d’origine, couleur, fermer.
-- [x] **Personnaliser un onglet** : couleur du rond au clic droit → « Couleur… » (automatique, 8 couleurs de la palette du graphe, ou couleur libre au sélecteur), gardée à la réouverture et affichée dans les récents. Reste à faire : image / icône (fichier local, avatar du dépôt).
-- [x] **Couleurs fixes par nom de branche** (réglage global, case dans les réglages) : `main` / `master` en bleu, `develop` en vert, `release/*` en orange, `hotfix/*` en rose, pour les lanes (à partir du commit de la branche) et les étiquettes. Règles modifiables (page Réglages, section Graphe : motif, couleur de la palette ou couleur libre au sélecteur, ordre, ajout / suppression, règles par défaut), la case les désactive sans les perdre.
-- [ ] **Groupes de dépôts** : rassembler des dépôts d'un même projet (ex. front + back), pour les voir ensemble à l'accueil et les distinguer dans les onglets (onglets groupés ou couleur / icône commune, cf. personnalisation des onglets). Rejoint « groupes / workspaces » du §5 ; à articuler avec les profils (étape 5 : un groupe pourrait porter le profil par défaut de ses dépôts).
-  - **Contrainte : ne pas prendre plus de place dans la barre d'onglets**, le but est de la décharger. Pas de dossier qui, déplié, remet tous ses dépôts dans la barre principale.
-  - Piste retenue : **un seul onglet par groupe** dans la barre principale (nom + couleur au choix, comme les onglets de dépôt). Il affiche aussi le dépôt actif du groupe (« Client X · front ») pour savoir où on est sans ouvrir quoi que ce soit.
-  - **Deuxième niveau de barre**, sous la principale, visible seulement quand le groupe est l'onglet actif : les dépôts du groupe y sont listés. Quitter le groupe la fait disparaître ; revenir dessus rouvre le dernier dépôt consulté du groupe.
-  - Raccourcis : Ctrl+Tab / Ctrl+1..9 parcourent la barre principale ; un autre raccourci (ex. Alt+1..9 ou Ctrl+Shift+Tab) parcourt les dépôts du groupe.
-  - Les badges (commits à tirer / pousser, conflits) des dépôts d'un groupe remontent, agrégés, sur l'onglet du groupe.
+### Étape 4 — branches et réseau (compléments)
+
 - [ ] **Double-clic sur une branche distante qui a déjà une locale du même nom** : aujourd'hui on se contente de checkout la locale. Il faudrait en plus la mettre à jour depuis la distante, comme le bouton Pull (même stratégie de pull, auto-stash, et gestion des conflits éventuels identique : arrêt sur le merge / rebase en cours avec la vue de conflits).
+
+### Étape 6 — providers (suite)
+
+- [ ] **Cloner un dépôt** : par URL (https ou ssh), ou en le choisissant dans la liste des dépôts d'un compte connecté (recherche, propriétaire / organisation). Dossier de destination proposé, profil choisi d'office d'après les règles (modifiable), dépôt ouvert dans un onglet à la fin.
+- [ ] **Ajouter la clé SSH et la clé de signature du profil au compte** en un clic (droits déjà demandés à la création du token).
+- [ ] **OAuth GitHub** (*device flow*) : demande d'abord d'enregistrer une application OAuth « GitGR » chez GitHub (identifiant client).
 - [ ] **Avatars des remotes** (avec les providers, étape 6) : icône GitHub / GitLab / autre devant chaque remote dans la barre latérale, et, comme GitKraken, l'avatar de l'organisation / du groupe quand le dépôt en fait partie (sinon celui du propriétaire). Mis en cache localement.
 - [ ] **PR / MR depuis la vue du dépôt** (étape 6, avec le compte du remote) : tout faire sans quitter GitGR, pour GitHub (PR) comme pour GitLab (MR), instances self-hosted comprises.
   - **Créer** : depuis une branche (clic droit dans la barre latérale ou sur son étiquette dans le graphe, bouton de la barre d'outils pour la branche courante, et glisser-déposer d'une branche sur une autre : menu « Merge / Rebase / Créer une PR »). Branche poussée d'abord si elle ne l'est pas (avec son suivi). Formulaire : remote et **branche cible** (par défaut la branche par défaut du dépôt distant), titre et description pré-remplis d'après les commits (un seul commit : son message ; sinon le nom de la branche et la liste des commits), modèle de PR / MR du dépôt s'il existe, **brouillon**, relecteurs, assignés, étiquettes. Vers un fork : choix du dépôt cible.
@@ -142,7 +126,46 @@ Retours d'utilisation, à caser dans une prochaine étape :
   - Notifications dans l'app : relecture demandée, nouveaux commentaires, checks en échec, PR prête à merger.
   - À prévoir : compte = celui du **profil du remote** (cf. §3) ; droits du token à contrôler (GitHub : `repo` ; GitLab : `api`) avec un message clair s'ils manquent ; limites de requêtes des API (cache local — c'est là que SQLite se justifiera — et requêtes conditionnelles) ; différences GitHub / GitLab à masquer derrière un même modèle (relecture GitHub ↔ approbation GitLab, checks ↔ pipelines, fils de discussion) ; actions destructives ou visibles des autres (merge, fermeture, commentaire) jamais lancées sans un clic explicite.
 - [ ] **Publier un dépôt local sur GitHub / GitLab** (comme GitKraken) : pour un dépôt sans remote, créer le dépôt distant via l'API du provider (nom, description, public/privé, groupe/organisation, instance self-hosted), ajouter `origin` et pousser la branche courante **en configurant son suivi** (`push -u`). À noter : GitKraken a créé `origin` et poussé `main` pour GitGR, mais sans configurer l'upstream de `main` (pas d'ahead/behind tant qu'on ne fait pas `git branch -u origin/main`) — à ne pas reproduire. Dépend des étapes 5 (profils) et 6 (providers).
+
+### Étape 8 — historique avancé
+
+- [ ] **Changements cumulés de plusieurs commits** (comme GitKraken) : Ctrl+clic pour ajouter / retirer un commit de la sélection, Maj+clic pour une plage. Le panneau de droite liste les commits choisis puis les fichiers modifiés cumulés (compteurs `~ + −`, liste ou arborescence), et un clic sur un fichier montre le diff cumulé. Limites, comme GitKraken : diff cumulé seulement pour une **plage contiguë** (un parent → un descendant : `git diff <parent du plus ancien>..<plus récent>`) ou pour **deux commits** quelconques (diff de l'un à l'autre) ; pour une sélection éparse, seulement la liste des commits avec un message « sélectionnez une plage contiguë, ou un ou deux commits ». Décidé :
+  - **Plage qui traverse un merge** : comme GitKraken, la plage suit les commits du graphe jusqu'à la sélection ; on peut donc sélectionner un commit au milieu d'une branche fusionnée et obtenir le cumul de cette portion.
+  - **Clavier** : Maj+↑ / Maj+↓ étendent la sélection.
+  - **Actions groupées** : oui, en commençant par le cherry-pick des commits choisis (dans l'ordre de l'historique) ; squash, revert… ensuite.
+
+### Étape 9 — organisation multi-dépôt
+
+- [ ] **Groupes de dépôts** : rassembler des dépôts d'un même projet (ex. front + back), pour les voir ensemble à l'accueil et les distinguer dans les onglets (onglets groupés ou couleur / icône commune, cf. personnalisation des onglets). Rejoint « groupes / workspaces » du §5 ; à articuler avec les profils (étape 5 : un groupe pourrait porter le profil par défaut de ses dépôts).
+  - **Contrainte : ne pas prendre plus de place dans la barre d'onglets**, le but est de la décharger. Pas de dossier qui, déplié, remet tous ses dépôts dans la barre principale.
+  - Piste retenue : **un seul onglet par groupe** dans la barre principale (nom + couleur au choix, comme les onglets de dépôt). Il affiche aussi le dépôt actif du groupe (« Client X · front ») pour savoir où on est sans ouvrir quoi que ce soit.
+  - **Deuxième niveau de barre**, sous la principale, visible seulement quand le groupe est l'onglet actif : les dépôts du groupe y sont listés. Quitter le groupe la fait disparaître ; revenir dessus rouvre le dernier dépôt consulté du groupe.
+  - Raccourcis : Ctrl+Tab / Ctrl+1..9 parcourent la barre principale ; un autre raccourci (ex. Alt+1..9 ou Ctrl+Shift+Tab) parcourt les dépôts du groupe.
+  - Les badges (commits à tirer / pousser, conflits) des dépôts d'un groupe remontent, agrégés, sur l'onglet du groupe.
+- [ ] **Gérer les worktrees** : lister les worktrees du dépôt (section dédiée de la barre latérale : chemin, branche, verrouillé / à nettoyer), en créer un depuis une branche ou un commit (nouvelle branche ou existante, dossier proposé à côté du dépôt), l'ouvrir dans un onglet (même dépôt, autre copie de travail), le supprimer (`worktree remove`, confirmation si modifications) et nettoyer ceux dont le dossier a disparu (`worktree prune`). Dans le graphe, signaler les branches extraites dans un autre worktree (git refuse de les checkout ici : proposer d'ouvrir le worktree à la place). À vérifier : la surveillance (`watch.rs`) et `git_dir` gèrent déjà un `.git` hors de la racine, utile pour les worktrees liés.
+
+### Étape 10 — conflits et v2
+
+- [ ] **Résolution de conflits : composer le résultat librement** (défaut de GitKraken à ne pas reproduire). Pour prendre des morceaux de chaque côté, GitKraken ajoute les lignes choisies une par une **à la suite**, dans l'ordre des clics, sans pouvoir ensuite en remonter ou en descendre une. Dans GitGR : chaque ligne (ou bloc) choisie arrive à sa place logique dans le résultat, que l'on peut réordonner (glisser-déposer, Alt+↑ / Alt+↓), et le panneau du résultat reste **éditable directement** (taper, corriger, supprimer). Choix rapides en plus : « tout le côté A », « tout le côté B », « A puis B », « B puis A » pour un bloc. À faire avec la vue 3 panneaux (§2.3).
+
+### Étape 11 — agents
+
 - [ ] **Serveur MCP** : exposer les actions de GitGR via un serveur MCP (Model Context Protocol) pour qu'un agent (Claude Code, etc.) puisse faire commit / push / pull / fetch / checkout… **avec les préférences configurées dans l'app** : profil actif du dépôt (identité injectée, clé SSH), auto-stash au changement de branche, stratégie de pull, push après commit… Outils en lecture aussi (status, log, branches, diff). À prévoir : activation explicite dans les réglages, actions destructives (reset, suppression de branche, push --force) refusées ou soumises à confirmation dans l'app, journal des actions faites par l'agent (et undo via le reflog). Dépend des étapes 3-5.
+
+### Faits
+
+- [x] **Hauteur des sections** : pouvoir redimensionner la hauteur de chaque section dans chaque panneau (ex. Local / origin / Tags à gauche, détails / fichiers à droite).
+- [x] **Largeur des panneaux** : pouvoir redimensionner la barre latérale, le graphe et le panneau de détails (poignées de glisser, largeurs mémorisées).
+- [x] **Colonnes du graphe** : choisir les colonnes affichées (branche/tag, graphe, message, auteur, date, SHA) et leur largeur.
+- [x] **Compteurs de fichiers** : distinguer ajoutés / modifiés / renommés / supprimés (ex. `+2 ~3 →1 −1`) au lieu d'un seul total.
+- [x] **Détails d'un commit plus compacts** : le bloc auteur (avatar, nom, e-mail, date) prend beaucoup de place pour une info déjà visible dans le graphe, et repousse la liste des fichiers vers le bas. Le rendre discret (ex. une seule ligne « auteur · date », e-mail et committer en infobulle) pour que les fichiers modifiés remontent.
+- [x] **Logo = onglet Accueil** : le logo en haut à gauche (retour à l'accueil) doit avoir le même style que les onglets de dépôts, mais sans bouton de fermeture.
+- [x] **Diff côte à côte redimensionnable** : pouvoir déplacer le séparateur entre l'ancienne et la nouvelle version.
+- [x] **Bloquer le menu contextuel du navigateur** : le clic droit ouvre aujourd'hui le menu de la WebView (Recharger, Inspecter…). Le désactiver partout, sauf dans les champs de saisie (copier / coller) ; nos propres menus contextuels (graphe, branches, fichiers) viendront à la place.
+- [x] **Gérer les remotes** (fait avec l'étape 6, sauf la reconnaissance du provider à l'ajout) : ajouter un remote (nom + URL, fetch immédiat proposé), renommer, changer l'URL (fetch / push séparées si besoin), supprimer (confirmation : ses branches distantes disparaissent de la barre latérale). Depuis la barre latérale (bouton « + » de la section des remotes, clic droit sur une section de remote) et les réglages du dépôt. Préparer le terrain des providers (étape 6) : reconnaître l'hôte (GitHub / GitLab / self-hosted) à l'ajout, et proposer le bon profil.
+- [x] **Renommer un onglet** : double-clic sur l’onglet, Entrée pour valider, Échap pour annuler ; champ vide = nom du dossier. Nom gardé à la réouverture, affiché aussi dans les récents de l’accueil. Clic droit : renommer, nom d’origine, couleur, fermer.
+- [x] **Personnaliser un onglet** : couleur du rond au clic droit → « Couleur… » (automatique, 8 couleurs de la palette du graphe, ou couleur libre au sélecteur), gardée à la réouverture et affichée dans les récents. Reste à faire : image / icône (fichier local, avatar du dépôt).
+- [x] **Couleurs fixes par nom de branche** (réglage global, case dans les réglages) : `main` / `master` en bleu, `develop` en vert, `release/*` en orange, `hotfix/*` en rose, pour les lanes (à partir du commit de la branche) et les étiquettes. Règles modifiables (page Réglages, section Graphe : motif, couleur de la palette ou couleur libre au sélecteur, ordre, ajout / suppression, règles par défaut), la case les désactive sans les perdre.
 
 ## 1. Vision
 
@@ -283,7 +306,12 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 5. **Profils** : CRUD, génération de clé SSH, association repo↔profils, injection identité + SSH.
 6. **Providers** : profils par remote (clé SSH par hôte, « Pousser vers… / vers tous », « Tirer depuis… ») en premier, puis connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
 7. **Distribution** : installeurs, updater, CI de release.
-8. Merge/rebase/cherry-pick, undo/redo, palette de commandes, puis v2.
+8. **Historique avancé** : merge / rebase / cherry-pick / revert / reset depuis le graphe (et glisser-déposer d'une branche sur une autre), sélection de plusieurs commits (changements cumulés), liste des stash, recherche / filtre et masquer / solo des branches dans le graphe, undo/redo, palette de commandes.
+9. **Organisation multi-dépôt** : groupes de dépôts (un onglet par groupe, barre de second niveau), worktrees, sélecteur rapide de tous les dépôts connus, fetch en arrière-plan des dépôts ouverts avec badges, image / icône d'onglet.
+10. **Conflits et v2** : résolution de conflits intégrée (3 panneaux, résultat éditable), rebase interactif visuel, blame et historique d'un fichier, submodules, LFS.
+11. **Agents** : serveur MCP qui expose les actions de GitGR avec les préférences de l'app.
+
+Le détail de ce qui reste dans chaque étape est dans « À faire / plus tard ».
 
 ## 8. Tests
 
