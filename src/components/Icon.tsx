@@ -9,6 +9,7 @@ const PATHS = {
   pop: "M4 11h16v9H4zM12 16V3m-4 4 4-4 4 4",
   folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z",
   plus: "M12 5v14M5 12h14",
+  pipette: "m2 22 1-1h3l9-9M3 21v-3l9-9m3-3 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z",
   close: "M6 6l12 12M18 6 6 18",
   minimize: "M5 12h14",
   maximize: "M6 6h12v12H6z",

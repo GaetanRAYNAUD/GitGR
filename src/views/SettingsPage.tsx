@@ -1,11 +1,13 @@
-import { type ReactNode, useCallback, useRef, useState } from "react";
+// Page des paramètres de l'app (bouton ⚙ de la barre de titre). Chaque changement est
+// enregistré tout de suite.
+
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { BranchColorsEditor } from "../components/BranchColorsEditor";
+import { Flag } from "../components/Flag";
+import { Icon } from "../components/Icon";
 import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
-import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
-import { useProfiles } from "../store/profiles";
-import { Flag } from "./Flag";
-import { Icon } from "./Icon";
 
 function Segmented<T extends string>({
   label,
@@ -43,30 +45,33 @@ function Segmented<T extends string>({
 /** Intervalles proposés pour le fetch automatique (0 : désactivé). */
 const FETCH_MINUTES = ["0", "5", "10", "30"] as const;
 
-/** Menu rapide de réglages (thème, langue, git) dans la barre de titre. */
-export function SettingsMenu() {
+export function SettingsPage() {
   const { t } = useTranslation();
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const close = useApp((s) => s.closeSettings);
 
-  const close = useCallback(() => setOpen(false), []);
-  useDismiss(ref, open, close);
+  // Échap ferme la page, où que soit le focus (sauf dans un champ de saisie).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("input, textarea")) close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
 
   return (
-    <div className="settings" ref={ref}>
-      <button
-        className="wc"
-        aria-label={t("settings.title")}
-        aria-expanded={open}
-        title={t("settings.title")}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <Icon name="settings" size={16} />
-      </button>
-      {open && (
-        <div className="popover" role="dialog" aria-label={t("settings.title")}>
+    <div className="settings-page" role="region" aria-labelledby="st-title">
+      <div className="settings-inner">
+        <div className="settings-head">
+          <h1 id="st-title">{t("settings.title")}</h1>
+          <button className="icon-btn" aria-label={t("settings.close")} title={t("settings.close")} onClick={close}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+
+        <section className="settings-sec" aria-labelledby="st-look">
+          <h2 id="st-look" className="eyebrow">{t("settings.sectionLook")}</h2>
           <Segmented<ThemeSetting>
             label={t("settings.theme")}
             value={settings.theme}
@@ -87,6 +92,10 @@ export function SettingsMenu() {
               { value: "en", label: "English", icon: <Flag lang="en" /> },
             ]}
           />
+        </section>
+
+        <section className="settings-sec" aria-labelledby="st-git">
+          <h2 id="st-git" className="eyebrow">{t("settings.sectionGit")}</h2>
           <Segmented<PullStrategy>
             label={t("settings.pullStrategy")}
             value={settings.pullStrategy ?? "ff-only"}
@@ -108,21 +117,17 @@ export function SettingsMenu() {
             <input type="checkbox" checked={settings.autoStash ?? true} onChange={(e) => update({ autoStash: e.target.checked })} />
             {t("settings.autoStash")}
           </label>
-          <div className="field">
-            <span className="field-label">{t("settings.profiles")}</span>
-            <button
-              className="btn"
-              onClick={() => {
-                setOpen(false);
-                useProfiles.getState().openPage();
-              }}
-            >
-              <Icon name="user" size={15} />
-              {t("settings.manageProfiles")}
-            </button>
-          </div>
-        </div>
-      )}
+        </section>
+
+        <section className="settings-sec" aria-labelledby="st-graph">
+          <h2 id="st-graph" className="eyebrow">{t("settings.sectionGraph")}</h2>
+          <label className="menu-check">
+            <input type="checkbox" checked={!settings.branchColorsOff} onChange={(e) => update({ branchColorsOff: !e.target.checked })} />
+            {t("settings.branchColors")}
+          </label>
+          <BranchColorsEditor disabled={settings.branchColorsOff} />
+        </section>
+      </div>
     </div>
   );
 }

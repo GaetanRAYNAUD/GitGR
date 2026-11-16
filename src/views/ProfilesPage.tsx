@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AccountDialog } from "../components/AccountDialog";
+import { ColorChoice } from "../components/ColorChoice";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../components/Icon";
 import { ProfileAvatar } from "../components/ProfileAvatar";
@@ -444,6 +445,10 @@ export function ProfilesPage() {
                 {field("pf-email", t("profiles.userEmail"), draft.userEmail, (userEmail) => patch({ userEmail }), emailError, { type: "email" })}
               </div>
               <p className="pf-note">{t("profiles.identityHint")}</p>
+              <div className="pf-field">
+                <span className="pf-label">{t("profiles.color")}</span>
+                <ColorChoice value={draft.color} label={t("profiles.color")} onChange={(color) => color !== undefined && patch({ color })} />
+              </div>
             </section>
 
             <section className="pf-sec" aria-labelledby="pf-ssh">

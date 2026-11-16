@@ -5,7 +5,23 @@
   "tabs": {
     "home": "Accueil",
     "new": "Nouvel onglet",
-    "close": "Fermer l’onglet {{name}}"
+    "close": "Fermer l’onglet {{name}}",
+    "rename": "Renommer l’onglet",
+    "renameHint": "Double-clic pour renommer ; vide = nom du dossier",
+    "originalName": "Nom d’origine",
+    "colorAuto": "Automatique",
+    "closeTab": "Fermer l’onglet",
+    "colors": {
+      "0": "Bleu",
+      "1": "Orange",
+      "2": "Turquoise",
+      "3": "Violet",
+      "4": "Rose",
+      "5": "Vert",
+      "6": "Jaune",
+      "7": "Cyan"
+    },
+    "color": "Couleur…"
   },
   "window": {
     "minimize": "Réduire",
@@ -25,8 +41,12 @@
     "autoFetch": "Fetch automatique",
     "autoFetchOff": "Non",
     "minutes": "{{count}} min",
-    "profiles": "Profils",
-    "manageProfiles": "Gérer les profils…"
+    "branchColors": "Couleurs fixes par nom de branche",
+    "close": "Fermer les paramètres",
+    "accounts": "Profils et comptes",
+    "sectionLook": "Apparence",
+    "sectionGit": "Git",
+    "sectionGraph": "Graphe"
   },
   "welcome": {
     "title": "Dépôts",
@@ -578,6 +598,21 @@
     "accountTokenHint_github": "Token classique, droits : repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pré-cochés par le lien).",
     "accountTokenHint_gitlab": "Droits : api, read_user (pré-cochés par le lien).",
     "accountSubmit": "Connecter",
-    "accountConnecting": "Vérification…"
+    "accountConnecting": "Vérification…",
+    "color": "Couleur"
+  },
+  "branchColors": {
+    "title": "Couleurs par nom de branche",
+    "help": "Une branche prend la couleur de la première règle qui correspond à son nom (sans le remote). « * » remplace n’importe quelle suite de caractères.",
+    "pattern": "Motif du nom de branche",
+    "color": "Couleur",
+    "up": "Monter",
+    "down": "Descendre",
+    "remove": "Supprimer la règle",
+    "add": "Ajouter une règle",
+    "reset": "Règles par défaut"
+  },
+  "colors": {
+    "custom": "Couleur personnalisée…"
   }
 }

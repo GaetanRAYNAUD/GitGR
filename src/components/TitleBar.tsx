@@ -1,10 +1,12 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
-import { repoColor, useApp } from "../store/app";
+import { repoColor, repoName, useApp } from "../store/app";
+import { TabColorPopover } from "./TabColorPopover";
+import { type MenuItem, openContextMenu } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
-import { SettingsMenu } from "./SettingsMenu";
+import { useProfiles } from "../store/profiles";
 
 /** Distance (px) à parcourir avant qu'un appui devienne un glisser. */
 const DRAG_THRESHOLD = 5;
@@ -67,10 +69,32 @@ export function TitleBar() {
   const repos = useApp((s) => s.repos);
   const activate = useApp((s) => s.activate);
   const closeTab = useApp((s) => s.closeTab);
+  const settingsOpen = useApp((s) => s.settingsOpen);
+  const profilesOpen = useProfiles((s) => s.pageOpen);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { dragging, onPointerDown } = useTabDrag(tabsRef);
+  /** Onglet en cours de renommage (double-clic). */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** Onglet dont on choisit la couleur (fenêtre sous l'onglet). */
+  const [coloring, setColoring] = useState<string | null>(null);
 
-  const nameOf = (path: string) => repos.find((r) => r.path === path)?.name ?? path;
+  const repoOf = (path: string) => repos.find((r) => r.path === path);
+  const nameOf = (path: string) => {
+    const r = repoOf(path);
+    return r ? repoName(r) : path;
+  };
+
+  const tabMenu = (path: string): MenuItem[] => {
+    const r = repoOf(path);
+    const { rename } = useApp.getState();
+    return [
+      { label: t("tabs.rename"), onClick: () => setEditing(path) },
+      { label: t("tabs.originalName"), disabled: !r?.alias, onClick: () => rename(path, null) },
+      { label: t("tabs.color"), onClick: () => setColoring(path) },
+      "sep",
+      { label: t("tabs.closeTab"), onClick: () => closeTab(path) },
+    ];
+  };
 
   return (
     <header className="titlebar" data-tauri-drag-region>
@@ -89,6 +113,7 @@ export function TitleBar() {
         {tabs.map((path) => {
           const name = nameOf(path);
           const on = path === active;
+          const Main = editing === path ? "div" : "button";
           return (
             <div
               key={path}
@@ -96,17 +121,47 @@ export function TitleBar() {
               className={["tab", on && "on", dragging === path && "dragged"].filter(Boolean).join(" ")}
               title={path}
               onAuxClick={(e) => e.button === 1 && closeTab(path)}
+              onContextMenu={(e) => openContextMenu(e, tabMenu(path))}
             >
-              <button
+              {/* Pendant le renommage, pas de <button> autour du champ (contenu interactif
+                  imbriqué : clics et sélection du texte pris par le bouton). */}
+              <Main
                 role="tab"
                 aria-selected={on}
                 className="tab-main"
-                onClick={() => activate(path)}
-                onPointerDown={(e) => onPointerDown(e, path)}
+                onClick={editing === path ? undefined : () => activate(path)}
+                onDoubleClick={() => setEditing(path)}
+                onPointerDown={editing === path ? undefined : (e: ReactPointerEvent) => onPointerDown(e, path)}
               >
-                <span className="dot" style={{ background: repoColor(path) }} />
-                <span className="tab-name">{name}</span>
-              </button>
+                <span className="dot" style={{ background: repoColor(path, repoOf(path)?.color) }} />
+                {editing === path ? (
+                  <input
+                    className="tab-rename"
+                    autoFocus
+                    defaultValue={name}
+                    placeholder={repoOf(path)?.name}
+                    aria-label={t("tabs.rename")}
+                    title={t("tabs.renameHint")}
+                    size={Math.max(name.length, 4)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") {
+                        e.currentTarget.value = name;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = e.currentTarget.value.trim();
+                      if (v !== name) useApp.getState().rename(path, v === repoOf(path)?.name ? null : v);
+                      setEditing(null);
+                    }}
+                  />
+                ) : (
+                  <span className="tab-name" title={t("tabs.renameHint")}>{name}</span>
+                )}
+              </Main>
               <button className="tab-close" aria-label={t("tabs.close", { name })} onClick={() => closeTab(path)}>
                 <Icon name="close" size={13} />
               </button>
@@ -123,9 +178,34 @@ export function TitleBar() {
         </button>
       </div>
 
+      {coloring && repoOf(coloring) && (
+        <TabColorPopover
+          anchor={tabsRef.current?.querySelector<HTMLElement>(`[data-tab-path="${CSS.escape(coloring)}"]`) ?? null}
+          repo={repoOf(coloring)!}
+          onClose={() => setColoring(null)}
+        />
+      )}
+
       <div className="titlebar-spacer" data-tauri-drag-region />
 
-      <SettingsMenu />
+      <button
+        className={profilesOpen ? "wc on" : "wc"}
+        aria-label={t("settings.accounts")}
+        aria-pressed={profilesOpen}
+        title={t("settings.accounts")}
+        onClick={() => (profilesOpen ? useProfiles.getState().closePage() : useProfiles.getState().openPage())}
+      >
+        <Icon name="user" size={16} />
+      </button>
+      <button
+        className={settingsOpen ? "wc on" : "wc"}
+        aria-label={t("settings.title")}
+        aria-pressed={settingsOpen}
+        title={t("settings.title")}
+        onClick={() => (settingsOpen ? useApp.getState().closeSettings() : useApp.getState().openSettings())}
+      >
+        <Icon name="settings" size={16} />
+      </button>
 
       <div className="window-controls">
         <button className="wc" aria-label={t("window.minimize")} onClick={() => api.window.minimize()}>

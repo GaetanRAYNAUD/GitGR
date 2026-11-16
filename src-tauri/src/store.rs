@@ -18,6 +18,12 @@ pub struct RepoEntry {
     pub name: String,
     /// Dernière ouverture, en millisecondes depuis l'epoch Unix.
     pub last_opened: u64,
+    /// Nom affiché choisi dans l'app (onglet, récents) ; `None` = nom du dossier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    /// Couleur de la pastille d'onglet ; `None` = automatique.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<ColorValue>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -51,6 +57,33 @@ pub struct Settings {
     pub pull_strategy: String,
     /// Fetch automatique du dépôt actif, en minutes (0 : désactivé).
     pub auto_fetch_minutes: u32,
+    /// Couleurs fixes par nom de branche ; `None` = règles par défaut (côté interface).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_colors: Option<Vec<BranchColorRule>>,
+    /// Couleurs fixes désactivées (les règles sont gardées).
+    pub branch_colors_off: bool,
+}
+
+/// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`
+/// (indice de la palette du graphe).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct BranchColorRule {
+    pub pattern: String,
+    pub color: ColorValue,
+}
+
+/// Couleur choisie : indice de la palette du graphe, ou couleur libre `#rrggbb`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum ColorValue {
+    Palette(u8),
+    Custom(String),
+}
+
+impl Default for ColorValue {
+    fn default() -> Self {
+        ColorValue::Palette(0)
+    }
 }
 
 impl Default for Settings {
@@ -65,6 +98,8 @@ impl Default for Settings {
             auto_stash: true,
             pull_strategy: "ff-only".into(),
             auto_fetch_minutes: 10,
+            branch_colors: None,
+            branch_colors_off: false,
         }
     }
 }
@@ -95,8 +130,8 @@ pub struct Profile {
     /// Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers
     /// (`~/work/*`). Interprétées par l'interface (lib/profiles.ts).
     pub rules: Vec<String>,
-    /// Couleur de la pastille (index de palette).
-    pub color: u32,
+    /// Couleur de la pastille : index de palette, ou couleur libre `#rrggbb`.
+    pub color: ColorValue,
     /// Image (data URL d'un carré de 128 px, quelques Ko) à la place des initiales.
     pub image: Option<String>,
     /// Signature des commits : "" (la configuration Git décide), "off", "gpg" ou "ssh".
@@ -251,6 +286,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn branch_color_rules_accept_palette_index_and_hex() {
+        let rules: Vec<BranchColorRule> =
+            serde_json::from_str(r##"[{"pattern":"main","color":0},{"pattern":"x/*","color":"#12ab34"}]"##).unwrap();
+        assert_eq!(rules[0].color, ColorValue::Palette(0));
+        assert_eq!(rules[1].color, ColorValue::Custom("#12ab34".into()));
+        assert_eq!(serde_json::to_string(&rules[1]).unwrap(), r##"{"pattern":"x/*","color":"#12ab34"}"##);
+    }
+
+    #[test]
     fn missing_file_gives_default_state() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::load(dir.path().join("absent"));
@@ -263,7 +307,7 @@ mod tests {
     fn save_then_load_round_trips() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::load(dir.path().join("cfg"));
-        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42 });
+        store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42, alias: None, color: None });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
         store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true });
@@ -288,7 +332,7 @@ mod tests {
             user_email: format!("{id}@exemple.fr"),
             ssh_key: key.map(str::to_string),
             rules: vec!["github.com".into()],
-            color: 2,
+            color: ColorValue::Palette(2),
             image: Some("data:image/png;base64,AAAA".into()),
             ..Default::default()
         }

@@ -10,7 +10,7 @@ use crate::profiles::{self, SshKeyInfo};
 use crate::providers::{self, Account};
 use crate::worktree::{self, LineRef, WorkStatus};
 use crate::watch::RepoWatcher;
-use crate::store::{AppState, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
+use crate::store::{AppState, ColorValue, Profile, RepoEntry, RepoProfiles, RepoUi, Session, Settings, Store};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -46,9 +46,12 @@ pub async fn open_repo(path: String, store: StoreState<'_>) -> Result<RepoEntry,
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| top_str.clone());
-    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms() };
-
     let mut s = store.lock().unwrap();
+    // Le nom choisi dans l'app survit à une réouverture.
+    let prev = s.state.repos.iter().find(|r| r.path == top_str);
+    let alias = prev.and_then(|r| r.alias.clone());
+    let color = prev.and_then(|r| r.color.clone());
+    let entry = RepoEntry { path: top_str.clone(), name, last_opened: now_ms(), alias, color };
     s.state.repos.retain(|r| r.path != top_str);
     s.state.repos.insert(0, entry.clone());
     s.save()?;
@@ -68,6 +71,27 @@ pub fn forget_repo(path: String, store: StoreState<'_>) -> Result<(), String> {
         s.state.session.active = None;
     }
     sync_identities(&s.state);
+    s.save()
+}
+
+/// Change le nom affiché d'un dépôt (vide ou `None` = retour au nom du dossier).
+#[tauri::command]
+pub fn rename_repo(path: String, alias: Option<String>, store: StoreState<'_>) -> Result<(), String> {
+    let alias = alias.map(|a| a.trim().to_string()).filter(|a| !a.is_empty());
+    let mut s = store.lock().unwrap();
+    if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
+        r.alias = alias;
+    }
+    s.save()
+}
+
+/// Couleur de la pastille d'onglet d'un dépôt (`None` = automatique).
+#[tauri::command]
+pub fn set_repo_color(path: String, color: Option<ColorValue>, store: StoreState<'_>) -> Result<(), String> {
+    let mut s = store.lock().unwrap();
+    if let Some(r) = s.state.repos.iter_mut().find(|r| r.path == path) {
+        r.color = color;
+    }
     s.save()
 }
 

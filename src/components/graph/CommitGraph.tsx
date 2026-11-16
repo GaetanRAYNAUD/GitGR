@@ -6,8 +6,9 @@ import { useTranslation } from "react-i18next";
 import { commitDate } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
+import { branchColorRules, chipFixedColor, customColors, fixedColorsByCommit, laneCss } from "../../lib/branchColors";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
-import type { Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
+import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
@@ -87,7 +88,8 @@ function drawGraph(
   ctx.clearRect(0, 0, width, height);
   ctx.lineWidth = 2;
   ctx.lineCap = "round";
-  const color = (i: number) => palette[i % PALETTE_SIZE];
+  // Au-delà de la palette : couleurs libres des règles de branches (cf. lib/branchColors).
+  const color = (i: number) => palette[i] ?? palette[i % PALETTE_SIZE];
 
   const curve = (x1: number, y1: number, x2: number, y2: number) => {
     ctx.beginPath();
@@ -156,15 +158,16 @@ function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
   return refs?.refs.find((r) => r.kind === chip.kind && r.short === chip.label);
 }
 
-function Chip({ chip, color, path, refs }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null }) {
+function Chip({ chip, color, path, refs, rules }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null; rules: BranchColorRule[] }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
+  color = chipFixedColor(rules, chip.kind, chip.label) ?? color;
   const cls = chip.kind === "tag" ? "chip tag" : chip.kind === "remote" ? "chip remote" : "chip";
   const title = [chip.title, chip.current && t("graph.current"), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
   return (
     <span
       className={cls}
-      style={{ "--chip": `var(--g${color % PALETTE_SIZE})` } as React.CSSProperties}
+      style={{ "--chip": laneCss(color, customColors(rules)) } as React.CSSProperties}
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
@@ -224,7 +227,6 @@ export function CommitGraph({ path, changes }: Props) {
   const loadMore = useGraph((s) => s.loadMore);
   const themeVersion = useThemeVersion();
   // Couleurs relues uniquement quand le thème change.
-  const palette = useMemo(() => readPalette(), [themeVersion]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -239,7 +241,13 @@ export function CommitGraph({ path, changes }: Props) {
     }
     return list;
   }, [graph?.commits, changes, head]);
-  const layout = useMemo(() => layoutGraph(commits), [commits]);
+  const rules = branchColorRules(
+    useApp((s) => s.settings.branchColors),
+    useApp((s) => s.settings.branchColorsOff),
+  );
+  const fixed = useMemo(() => fixedColorsByCommit(rules, graph?.refs ?? null), [rules, graph?.refs]);
+  const layout = useMemo(() => layoutGraph(commits, fixed), [commits, fixed]);
+  const palette = useMemo(() => [...readPalette(), ...customColors(rules)], [themeVersion, rules]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
   // Au moins la largeur du titre de la colonne.
@@ -343,7 +351,7 @@ export function CommitGraph({ path, changes }: Props) {
         return (
           <span key={col} className="commit-refs">
             {(chips.get(c.sha) ?? []).map((chip) => (
-              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} />
+              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} rules={rules} />
             ))}
           </span>
         );

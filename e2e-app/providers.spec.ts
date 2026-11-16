@@ -42,8 +42,7 @@ test("connecter un compte GitLab par token : vérifié, rangé dans le trousseau
   const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
   const row = accounts.getByRole("listitem").filter({ hasText: "camille" });
   try {
-    await page.getByRole("button", { name: "Réglages" }).click();
-    await page.getByRole("button", { name: "Gérer les profils…" }).click();
+    await page.getByRole("button", { name: "Profils et comptes" }).click();
     await expect(accounts).toContainText("Aucun compte connecté.");
 
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();

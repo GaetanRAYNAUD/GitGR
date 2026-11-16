@@ -11,6 +11,10 @@ export interface RepoEntry {
   name: string;
   /** Millisecondes depuis l'epoch Unix. */
   lastOpened: number;
+  /** Nom affiché choisi dans l'app ; absent = nom du dossier. */
+  alias?: string;
+  /** Couleur de la pastille d'onglet ; absente = automatique. */
+  color?: ColorValue;
 }
 
 export interface Session {
@@ -40,7 +44,20 @@ export interface Settings {
   pullStrategy?: PullStrategy;
   /** Fetch automatique du dépôt actif, en minutes (0 : désactivé ; défaut : 10). */
   autoFetchMinutes?: number;
+  /** Couleurs fixes par nom de branche ; absent = règles par défaut. */
+  branchColors?: BranchColorRule[];
+  /** Couleurs fixes désactivées (les règles sont gardées pour une réactivation). */
+  branchColorsOff?: boolean;
 }
+
+/** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
+export interface BranchColorRule {
+  pattern: string;
+  color: ColorValue;
+}
+
+/** Indice de la palette du graphe (`--g0`…), ou couleur libre `#rrggbb`. */
+export type ColorValue = number | string;
 
 /** Pull : avance rapide uniquement, merge, ou rebase. */
 export type PullStrategy = "ff-only" | "merge" | "rebase";
@@ -82,7 +99,7 @@ export interface Profile {
   /** Sélection automatique : hôtes de remote (`github.com`, `*.exemple.fr`) ou dossiers (`~/work/*`). */
   rules: string[];
   /** Index de couleur de la pastille. */
-  color: number;
+  color: ColorValue;
   /** Image (data URL, carré de 128 px) affichée à la place des initiales ; absente = aucune. */
   image?: string | null;
   /** Signature des commits ; absent ou "" : la configuration Git décide. */

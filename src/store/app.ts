@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
-import type { GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
+import { colorCss } from "../lib/colors";
+import type { ColorValue, GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
 import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
@@ -21,6 +22,8 @@ interface AppStore {
   tabs: string[];
   /** Onglet actif ; `null` = écran d'accueil. */
   active: string | null;
+  /** Page des paramètres affichée (par-dessus l'onglet actif). */
+  settingsOpen: boolean;
   settings: Settings;
   summaries: Record<string, SummaryState>;
   /** Préférences d'affichage par dépôt (absent = valeurs par défaut). */
@@ -35,11 +38,17 @@ interface AppStore {
   openPath(path: string): Promise<void>;
   pickAndOpen(title: string): Promise<void>;
   activate(path: string | null): void;
+  openSettings(): void;
+  closeSettings(): void;
   closeTab(path: string): void;
   cycleTab(delta: number): void;
   /** Déplace l'onglet `path` à la position `index` (bornée). */
   moveTab(path: string, index: number): void;
   forget(path: string): Promise<void>;
+  /** Nom affiché d'un dépôt (vide / `null` = nom du dossier). */
+  rename(path: string, alias: string | null): void;
+  /** Couleur de la pastille d'onglet (`null` = automatique). */
+  setRepoColor(path: string, color: ColorValue | null): void;
   updateSettings(patch: Partial<Settings>): void;
   /** Change des tailles (`null` = retour à la valeur par défaut). Pendant un glisser,
    *  `persist: false` évite d'écrire l'état à chaque mouvement ; on enregistre au relâcher. */
@@ -72,6 +81,7 @@ export const useApp = create<AppStore>((set, get) => ({
   git: null,
   repos: [],
   tabs: [],
+  settingsOpen: false,
   active: null,
   settings: { theme: "system", language: "system" },
   summaries: {},
@@ -110,6 +120,7 @@ export const useApp = create<AppStore>((set, get) => ({
         tabs: nextTabs,
         active: entry.path,
         error: null,
+        settingsOpen: false,
       });
       useProfiles.getState().closePage();
       persistSession(nextTabs, entry.path);
@@ -130,8 +141,17 @@ export const useApp = create<AppStore>((set, get) => ({
     if (path) await get().openPath(path);
   },
 
+  openSettings() {
+    useProfiles.getState().closePage();
+    set({ settingsOpen: true });
+  },
+
+  closeSettings() {
+    set({ settingsOpen: false });
+  },
+
   activate(path) {
-    set({ active: path });
+    set({ active: path, settingsOpen: false });
     useProfiles.getState().closePage();
     persistSession(get().tabs, path);
     if (path) get().refreshSummary(path);
@@ -190,6 +210,15 @@ export const useApp = create<AppStore>((set, get) => ({
     useGraph.getState().drop(path);
     useWork.getState().drop(path);
     useProfiles.getState().forget(path);
+  },
+
+  rename(path, alias) {
+    const a = alias?.trim() || undefined;
+    patchRepo(set, get, path, { alias: a }, () => api.renameRepo(path, a ?? null));
+  },
+
+  setRepoColor(path, color) {
+    patchRepo(set, get, path, { color: color ?? undefined }, () => api.setRepoColor(path, color));
   },
 
   updateSettings(patch) {
@@ -273,8 +302,34 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 }));
 
-/** Couleur stable associée à un dépôt (pastille d'onglet, liste). */
-export function repoColor(path: string): string {
+/** Change une entrée de dépôt tout de suite, l'enregistre, et revient en arrière si
+ *  l'enregistrement échoue (l'interface ne montre pas un nom ou une couleur perdus). */
+function patchRepo(
+  set: (p: Partial<AppStore>) => void,
+  get: () => AppStore,
+  path: string,
+  patch: Pick<RepoEntry, "alias" | "color">,
+  save: () => Promise<void>,
+) {
+  const before = get().repos.find((r) => r.path === path);
+  if (!before) return;
+  const swap = (entry: RepoEntry) => set({ repos: get().repos.map((r) => (r.path === path ? entry : r)) });
+  swap({ ...before, ...patch });
+  save().catch((e) => {
+    swap(before);
+    set({ error: errorCode(e) });
+  });
+}
+
+/** Nom affiché d'un dépôt : celui choisi dans l'app, sinon le nom du dossier. */
+export function repoName(r: RepoEntry): string {
+  return r.alias || r.name;
+}
+
+/** Couleur d'un dépôt (pastille d'onglet, liste) : celle choisie, sinon une couleur stable
+ *  tirée du chemin. */
+export function repoColor(path: string, color?: ColorValue): string {
+  if (color !== undefined) return colorCss(color);
   let h = 0;
   for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) | 0;
   return `var(--l${Math.abs(h) % 4})`;

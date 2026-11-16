@@ -230,6 +230,7 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
     },
 
     openPage(select = null) {
+      useApp.getState().closeSettings();
       set({ pageOpen: true, pageSelect: select });
     },
 

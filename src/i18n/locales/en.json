@@ -5,7 +5,23 @@
   "tabs": {
     "home": "Home",
     "new": "New tab",
-    "close": "Close tab {{name}}"
+    "close": "Close tab {{name}}",
+    "rename": "Rename tab",
+    "renameHint": "Double-click to rename; empty = folder name",
+    "originalName": "Original name",
+    "colorAuto": "Automatic",
+    "closeTab": "Close tab",
+    "colors": {
+      "0": "Blue",
+      "1": "Orange",
+      "2": "Teal",
+      "3": "Purple",
+      "4": "Pink",
+      "5": "Green",
+      "6": "Yellow",
+      "7": "Cyan"
+    },
+    "color": "Color…"
   },
   "window": {
     "minimize": "Minimize",
@@ -25,8 +41,12 @@
     "autoFetch": "Automatic fetch",
     "autoFetchOff": "Off",
     "minutes": "{{count}} min",
-    "profiles": "Profiles",
-    "manageProfiles": "Manage profiles…"
+    "branchColors": "Fixed colors by branch name",
+    "close": "Close settings",
+    "accounts": "Profiles and accounts",
+    "sectionLook": "Appearance",
+    "sectionGit": "Git",
+    "sectionGraph": "Graph"
   },
   "welcome": {
     "title": "Repositories",
@@ -578,6 +598,21 @@
     "accountTokenHint_github": "Classic token, scopes: repo, read:user, read:org, admin:public_key, admin:ssh_signing_key, write:gpg_key (pre-selected by the link).",
     "accountTokenHint_gitlab": "Scopes: api, read_user (pre-selected by the link).",
     "accountSubmit": "Connect",
-    "accountConnecting": "Checking…"
+    "accountConnecting": "Checking…",
+    "color": "Color"
+  },
+  "branchColors": {
+    "title": "Colors by branch name",
+    "help": "A branch takes the color of the first rule matching its name (without the remote). “*” matches any characters.",
+    "pattern": "Branch name pattern",
+    "color": "Color",
+    "up": "Move up",
+    "down": "Move down",
+    "remove": "Remove rule",
+    "add": "Add rule",
+    "reset": "Default rules"
+  },
+  "colors": {
+    "custom": "Custom color…"
   }
 }

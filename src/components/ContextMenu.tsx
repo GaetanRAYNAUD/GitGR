@@ -4,9 +4,19 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { useDismiss } from "../lib/useDismiss";
+import { Icon } from "./Icon";
 
 export type MenuItem =
-  | { label: string; onClick: () => void; danger?: boolean; disabled?: boolean; /** Choix exclusif (case radio). */ checked?: boolean }
+  | {
+      label: string;
+      onClick: () => void;
+      danger?: boolean;
+      disabled?: boolean;
+      /** Choix exclusif : coche devant l'élément choisi. */
+      checked?: boolean;
+      /** Pastille de couleur devant le libellé (couleur CSS) ; `null` = cercle vide. */
+      swatch?: string | null;
+    }
   | "sep";
 
 interface MenuState {
@@ -82,7 +92,14 @@ function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
               item.onClick();
             }}
           >
-            {item.checked !== undefined && <span className="menu-radio" aria-hidden="true">{item.checked ? "●" : ""}</span>}
+            {item.checked !== undefined && (
+              <span className="menu-radio" aria-hidden="true">
+                {item.checked && <Icon name="check" size={13} />}
+              </span>
+            )}
+            {item.swatch !== undefined && (
+              <span className={item.swatch ? "menu-swatch" : "menu-swatch none"} style={item.swatch ? { background: item.swatch } : undefined} aria-hidden="true" />
+            )}
             {item.label}
           </button>
         ),
