@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterRepos, joinPath, overallPercent, repoNameFromUrl, repoUrl, validFolderName } from "./clone";
+import { filterRepos, groupByOwner, joinPath, overallPercent, repoNameFromUrl, repoShortName, repoUrl, validFolderName } from "./clone";
 import type { ProviderRepo } from "./types";
 
 const repo = (fullName: string, extra: Partial<ProviderRepo> = {}): ProviderRepo => ({
@@ -55,5 +55,15 @@ describe("clone", () => {
     expect(filterRepos(list, "").length).toBe(3);
     expect(filterRepos(list, "API octo").map((r) => r.fullName)).toEqual(["octo/api"]);
     expect(filterRepos(list, "rest").map((r) => r.fullName)).toEqual(["octo/api"]);
+  });
+
+  it("range les dépôts par propriétaire, le compte d'abord", () => {
+    const list = [repo("acme/api"), repo("Moi/notes"), repo("groupe/sous/projet"), repo("acme/front"), repo("moi/site")];
+    const groups = groupByOwner(list, "moi");
+    expect(groups.map((g) => [g.owner, g.repos.map(repoShortName)])).toEqual([
+      ["Moi", ["notes", "site"]],
+      ["acme", ["api", "front"]],
+      ["groupe/sous", ["projet"]],
+    ]);
   });
 });

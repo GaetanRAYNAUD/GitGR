@@ -121,9 +121,12 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
 
   const list = d.getByRole("listbox", { name: "Dépôts du compte" });
   await expect(list.getByRole("option")).toHaveCount(6);
+  // Rangés par propriétaire : le compte d'abord, puis ses organisations.
+  await expect(list.locator(".clone-owner-name")).toHaveText(["octo-demo", "acme"]);
+  await expect(list.getByRole("group", { name: "acme" }).getByRole("option")).toHaveCount(3);
   await d.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("acme front");
   await expect(list.getByRole("option")).toHaveCount(1);
-  await list.getByRole("option", { name: /acme\/front/ }).click();
+  await list.getByRole("group", { name: "acme" }).getByRole("option", { name: /^front/ }).click();
 
   // Le profil « Perso » a une clé SSH : URL ssh d'office ; HTTPS au choix.
   await expect(d).toContainText("git@github.com:acme/front.git");
@@ -137,7 +140,7 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
   // Le menu fermé, la fenêtre reste ouverte.
   await expect(d).toBeVisible();
   await d.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("");
-  await list.getByRole("option", { name: /camille\/dotfiles/ }).click();
+  await list.getByRole("group", { name: "camille" }).getByRole("option", { name: /^dotfiles/ }).click();
   await expect(d).toContainText("https://gitlab.exemple.fr/camille/dotfiles.git");
   await expect(picker(page, "Profil").locator(".picker-text")).toHaveText("Boulot (proposé)");
 

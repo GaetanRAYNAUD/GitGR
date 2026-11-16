@@ -62,3 +62,30 @@ export function filterRepos(repos: ProviderRepo[], query: string): ProviderRepo[
     return words.every((w) => text.includes(w));
   });
 }
+
+/** Propriétaire d'un dépôt : l'utilisateur ou l'organisation (GitLab : groupe et sous-groupes). */
+export const repoOwner = (r: ProviderRepo) => r.fullName.slice(0, Math.max(0, r.fullName.lastIndexOf("/")));
+
+/** Nom du dépôt sans son propriétaire (affiché sous l'en-tête du propriétaire). */
+export const repoShortName = (r: ProviderRepo) => r.fullName.slice(r.fullName.lastIndexOf("/") + 1);
+
+export interface OwnerGroup {
+  owner: string;
+  repos: ProviderRepo[];
+}
+
+/** Dépôts rangés par propriétaire : le compte lui-même d'abord, puis les organisations / groupes
+ *  dans l'ordre de leur dépôt le plus récemment actif (celui de la liste, déjà triée). */
+export function groupByOwner(repos: ProviderRepo[], login: string): OwnerGroup[] {
+  // Casse ignorée (GitHub ne la distingue pas) ; le premier nom rencontré est affiché.
+  const groups = new Map<string, OwnerGroup>();
+  for (const r of repos) {
+    const owner = repoOwner(r);
+    const group = groups.get(owner.toLowerCase());
+    if (group) group.repos.push(r);
+    else groups.set(owner.toLowerCase(), { owner, repos: [r] });
+  }
+  const out = [...groups.values()];
+  const mine = (g: OwnerGroup) => g.owner.toLowerCase() === login.toLowerCase();
+  return [...out.filter(mine), ...out.filter((g) => !mine(g))];
+}

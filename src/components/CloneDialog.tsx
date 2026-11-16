@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../lib/api";
-import { filterRepos, joinPath, overallPercent, repoNameFromUrl, repoUrl, validFolderName } from "../lib/clone";
+import { filterRepos, groupByOwner, joinPath, overallPercent, repoNameFromUrl, repoShortName, repoUrl, validFolderName } from "../lib/clone";
 import { errorMessage } from "../lib/errors";
 import { relativeTime } from "../lib/format";
 import { parseRemote, profileColor, suggestProfile } from "../lib/profiles";
@@ -168,6 +168,7 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
   };
 
   const visible = repos.status === "ready" ? filterRepos(repos.list.repos, query) : [];
+  const groups = groupByOwner(visible, linked?.account.login ?? "");
 
   return (
     <div className="overlay">
@@ -301,33 +302,41 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
               {repos.status === "ready" && visible.length === 0 && (
                 <p className="empty">{repos.list.repos.length ? t("clone.noMatch", { q: query }) : t("clone.noRepos")}</p>
               )}
-              {visible.map((r) => (
-                <button
-                  key={r.fullName}
-                  type="button"
-                  role="option"
-                  aria-selected={picked?.fullName === r.fullName}
-                  className={picked?.fullName === r.fullName ? "clone-repo on" : "clone-repo"}
-                  disabled={busy}
-                  onClick={() => pick(r)}
-                  title={r.description ?? r.fullName}
-                >
-                  <span className="clone-repo-name">
-                    {r.fullName}
-                    {r.private && <span className="clone-tag">{t("clone.private")}</span>}
-                    {r.fork && <span className="clone-tag">{t("clone.fork")}</span>}
-                    {r.archived && <span className="clone-tag">{t("clone.archived")}</span>}
-                  </span>
-                  {r.description && <span className="clone-repo-desc">{r.description}</span>}
-                  {r.updatedAt && (
-                    <span className="clone-repo-when">
-                      {(() => {
-                        const rel = relativeTime(Date.parse(r.updatedAt));
-                        return t(`time.${rel.key}`, { count: rel.count });
-                      })()}
-                    </span>
-                  )}
-                </button>
+              {groups.map((g) => (
+                <div key={g.owner} role="group" aria-labelledby={`clone-owner-${g.owner}`} className="clone-group">
+                  <div id={`clone-owner-${g.owner}`} className="clone-owner">
+                    <span className="clone-owner-name">{g.owner}</span>
+                    <span className="clone-owner-count">{g.repos.length}</span>
+                  </div>
+                  {g.repos.map((r) => (
+                    <button
+                      key={r.fullName}
+                      type="button"
+                      role="option"
+                      aria-selected={picked?.fullName === r.fullName}
+                      className={picked?.fullName === r.fullName ? "clone-repo on" : "clone-repo"}
+                      disabled={busy}
+                      onClick={() => pick(r)}
+                      title={r.description ? `${r.fullName}\n${r.description}` : r.fullName}
+                    >
+                      <span className="clone-repo-name">
+                        {repoShortName(r)}
+                        {r.private && <span className="clone-tag">{t("clone.private")}</span>}
+                        {r.fork && <span className="clone-tag">{t("clone.fork")}</span>}
+                        {r.archived && <span className="clone-tag">{t("clone.archived")}</span>}
+                      </span>
+                      {r.description && <span className="clone-repo-desc">{r.description}</span>}
+                      {r.updatedAt && (
+                        <span className="clone-repo-when">
+                          {(() => {
+                            const rel = relativeTime(Date.parse(r.updatedAt));
+                            return t(`time.${rel.key}`, { count: rel.count });
+                          })()}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
             {repos.status === "ready" && repos.list.truncated && <p className="account-hint">{t("clone.truncated", { count: repos.list.repos.length })}</p>}
