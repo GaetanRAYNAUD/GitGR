@@ -2,7 +2,7 @@
 
 Client Git de bureau visuel, léger et fluide — multi-profils, multi-dépôts — pour Windows et Linux.
 
-> En cours de développement. Notes de cadrage : [docs/NOTES.md](docs/NOTES.md).
+> En cours de développement. Guide rapide des fonctionnalités : [GUIDE.md](GUIDE.md). Notes de cadrage : [docs/NOTES.md](docs/NOTES.md).
 
 ## Présentation (textes réutilisables)
 
