@@ -157,6 +157,10 @@ fn check_token(token: &str) -> Result<(), String> {
 
 /// `GET <api><path>` authentifié ; renvoie le JSON de la réponse.
 fn get(kind: Kind, api: &str, path: &str, token: &str) -> Result<serde_json::Value, String> {
+    get_limited(kind, api, path, token, MAX_BODY)
+}
+
+fn get_limited(kind: Kind, api: &str, path: &str, token: &str, limit: u64) -> Result<serde_json::Value, String> {
     check_token(token)?;
     let mut request = agent().get(format!("{api}{path}")).header("Authorization", format!("Bearer {token}"));
     request = match kind {
@@ -172,7 +176,7 @@ fn get(kind: Kind, api: &str, path: &str, token: &str) -> Result<serde_json::Val
         300..=399 | 404 => return Err("provider_not_found".into()),
         _ => return Err("provider_error".into()),
     }
-    let body = response.body_mut().with_config().limit(MAX_BODY).read_to_string().map_err(|_| "provider_unexpected".to_string())?;
+    let body = response.body_mut().with_config().limit(limit).read_to_string().map_err(|_| "provider_unexpected".to_string())?;
     serde_json::from_str(&body).map_err(|_| "provider_unexpected".into())
 }
 
@@ -212,6 +216,98 @@ pub fn check(account: &Account) -> Result<Account, String> {
         return Err("token_invalid".into());
     }
     Ok(fresh)
+}
+
+// ---------------------------------------------------------------------------
+// Dépôts d'un compte (à cloner)
+// ---------------------------------------------------------------------------
+
+/// Un dépôt du compte, tel que la fenêtre de clone le liste.
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderRepo {
+    /// `propriétaire/nom` (GitLab : avec les sous-groupes).
+    pub full_name: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub private: bool,
+    pub fork: bool,
+    pub archived: bool,
+    pub http_url: String,
+    pub ssh_url: Option<String>,
+    /// Dernière activité (ISO 8601).
+    pub updated_at: Option<String>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoList {
+    pub repos: Vec<ProviderRepo>,
+    /// Plus de dépôts que ceux lus (limite de pages atteinte).
+    pub truncated: bool,
+}
+
+/// Dépôts par page (maximum des deux API), et pages lues au plus.
+const PER_PAGE: usize = 100;
+const MAX_PAGES: usize = 10;
+/// Une page de 100 dépôts GitLab complets dépasse le Mo.
+const MAX_LIST_BODY: u64 = 16 * 1024 * 1024;
+
+fn parse_repo(kind: Kind, v: &serde_json::Value) -> Option<ProviderRepo> {
+    let text = |key: &str| v[key].as_str().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    let repo = match kind {
+        Kind::GitHub => ProviderRepo {
+            full_name: text("full_name")?,
+            name: text("name")?,
+            description: text("description"),
+            private: v["private"].as_bool().unwrap_or(false),
+            fork: v["fork"].as_bool().unwrap_or(false),
+            archived: v["archived"].as_bool().unwrap_or(false),
+            http_url: text("clone_url")?,
+            ssh_url: text("ssh_url"),
+            updated_at: text("pushed_at").or_else(|| text("updated_at")),
+        },
+        Kind::GitLab => ProviderRepo {
+            full_name: text("path_with_namespace")?,
+            name: text("name")?,
+            description: text("description"),
+            private: text("visibility").is_some_and(|vis| vis != "public"),
+            fork: v["forked_from_project"].is_object(),
+            archived: v["archived"].as_bool().unwrap_or(false),
+            http_url: text("http_url_to_repo")?,
+            ssh_url: text("ssh_url_to_repo"),
+            updated_at: text("last_activity_at"),
+        },
+    };
+    Some(repo)
+}
+
+/// Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes, ceux où il
+/// collabore), les plus récemment actifs d'abord ; `MAX_PAGES` pages au plus.
+fn list_repos_with(kind: Kind, api: &str, token: &str) -> Result<RepoList, String> {
+    let mut list = RepoList::default();
+    for page in 1..=MAX_PAGES {
+        let path = match kind {
+            Kind::GitHub => format!("/user/repos?per_page={PER_PAGE}&page={page}&sort=pushed&affiliation=owner,collaborator,organization_member"),
+            Kind::GitLab => format!("/projects?membership=true&per_page={PER_PAGE}&page={page}&order_by=last_activity_at&sort=desc"),
+        };
+        let body = get_limited(kind, api, &path, token, MAX_LIST_BODY)?;
+        let items = body.as_array().ok_or("provider_unexpected")?;
+        list.repos.extend(items.iter().filter_map(|v| parse_repo(kind, v)));
+        if items.len() < PER_PAGE {
+            return Ok(list);
+        }
+    }
+    list.truncated = true;
+    Ok(list)
+}
+
+/// Dépôts du compte, avec son token du trousseau.
+pub fn list_repos(account: &Account) -> Result<RepoList, String> {
+    let token = crate::secrets::token(&account.id).ok_or("token_missing")?;
+    let kind = Kind::parse(&account.kind)?;
+    let instance = instance(kind, &account.url)?;
+    list_repos_with(kind, &instance.api, &token)
 }
 
 #[cfg(test)]
@@ -341,5 +437,69 @@ pub(crate) mod tests {
         assert_eq!(check(&account).unwrap_err(), "token_invalid");
         crate::secrets::delete_token(&account.id).unwrap();
         assert_eq!(check(&account).unwrap_err(), "token_missing");
+    }
+
+    /// Corps de réponse fabriqué à l'exécution, gardé pour toute la durée des tests.
+    fn leak(s: String) -> &'static str {
+        Box::leak(s.into_boxed_str())
+    }
+
+    #[test]
+    fn github_repos_are_listed_page_by_page() {
+        let repo = |i: usize| format!(r#"{{"full_name":"octo/r{i}","name":"r{i}","private":{},"fork":false,"archived":false,"clone_url":"https://github.com/octo/r{i}.git","ssh_url":"git@github.com:octo/r{i}.git","pushed_at":"2026-11-01T10:00:00Z","description":null}}"#, i.is_multiple_of(2));
+        let page1 = leak(format!("[{}]", (0..100).map(repo).collect::<Vec<_>>().join(",")));
+        let page2 = leak(format!("[{},{{\"name\":\"sans-url\"}}]", repo(100)));
+        let (url, requests) = serve(vec![(200, page1), (200, page2)]);
+        let list = list_repos_with(Kind::GitHub, &format!("{url}/api/v3"), "ghp_x").unwrap();
+        // Une entrée incomplète est écartée ; la page 2, plus courte, est la dernière.
+        assert_eq!(list.repos.len(), 101);
+        assert!(!list.truncated);
+        assert_eq!(
+            list.repos[0],
+            ProviderRepo {
+                full_name: "octo/r0".into(),
+                name: "r0".into(),
+                description: None,
+                private: true,
+                fork: false,
+                archived: false,
+                http_url: "https://github.com/octo/r0.git".into(),
+                ssh_url: Some("git@github.com:octo/r0.git".into()),
+                updated_at: Some("2026-11-01T10:00:00Z".into()),
+            }
+        );
+        let first = requests.recv().unwrap();
+        assert!(first.starts_with("GET /api/v3/user/repos?per_page=100&page=1&sort=pushed"), "{first}");
+        assert!(requests.recv().unwrap().starts_with("GET /api/v3/user/repos?per_page=100&page=2&"));
+    }
+
+    #[test]
+    fn gitlab_projects_are_listed() {
+        let body = r#"[{"path_with_namespace":"groupe/sous/projet","name":"Projet","visibility":"internal","archived":true,"forked_from_project":{"id":1},
+            "http_url_to_repo":"https://gitlab.exemple.fr/groupe/sous/projet.git","ssh_url_to_repo":"git@gitlab.exemple.fr:groupe/sous/projet.git","last_activity_at":"2026-10-01T00:00:00Z","description":" Un projet "},
+            {"path_with_namespace":"moi/public","name":"public","visibility":"public","http_url_to_repo":"https://gitlab.exemple.fr/moi/public.git"}]"#;
+        let (url, requests) = serve(vec![(200, body)]);
+        let list = list_repos_with(Kind::GitLab, &format!("{url}/api/v4"), "glpat-x").unwrap();
+        assert_eq!(list.repos.len(), 2);
+        let p = &list.repos[0];
+        assert_eq!((p.full_name.as_str(), p.private, p.fork, p.archived, p.description.as_deref()), ("groupe/sous/projet", true, true, true, Some("Un projet")));
+        assert_eq!((list.repos[1].private, list.repos[1].ssh_url.as_deref()), (false, None));
+        assert!(requests.recv().unwrap().starts_with("GET /api/v4/projects?membership=true&per_page=100&page=1&order_by=last_activity_at"));
+    }
+
+    #[test]
+    fn repo_list_errors() {
+        let (url, _r) = serve(vec![(401, "{}")]);
+        assert_eq!(list_repos_with(Kind::GitHub, &url, "ghp_x").unwrap_err(), "token_invalid");
+        let (url, _r) = serve(vec![(200, r#"{"message":"pas une liste"}"#)]);
+        assert_eq!(list_repos_with(Kind::GitLab, &url, "glpat-x").unwrap_err(), "provider_unexpected");
+    }
+
+    #[test]
+    fn repo_list_stops_after_max_pages() {
+        let page = leak(format!("[{}]", (0..100).map(|i| format!(r#"{{"full_name":"o/r{i}","name":"r{i}","clone_url":"https://h/o/r{i}.git"}}"#)).collect::<Vec<_>>().join(",")));
+        let (url, _r) = serve(vec![(200, page); MAX_PAGES]);
+        let list = list_repos_with(Kind::GitHub, &url, "ghp_x").unwrap();
+        assert_eq!((list.repos.len(), list.truncated), (100 * MAX_PAGES, true));
     }
 }

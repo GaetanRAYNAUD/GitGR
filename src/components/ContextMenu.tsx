@@ -16,6 +16,8 @@ export type MenuItem =
       checked?: boolean;
       /** Pastille de couleur devant le libellé (couleur CSS) ; `null` = cercle vide. */
       swatch?: string | null;
+      /** Image ronde (avatar de profil) à la place de la pastille. */
+      image?: string | null;
     }
   | "sep";
 
@@ -97,7 +99,9 @@ function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
                 {item.checked && <Icon name="check" size={13} />}
               </span>
             )}
-            {item.swatch !== undefined && (
+            {item.image ? (
+              <img className="menu-avatar" src={item.image} alt="" aria-hidden="true" draggable={false} />
+            ) : item.swatch !== undefined && (
               <span className={item.swatch ? "menu-swatch" : "menu-swatch none"} style={item.swatch ? { background: item.swatch } : undefined} aria-hidden="true" />
             )}
             {item.label}

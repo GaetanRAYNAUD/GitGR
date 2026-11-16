@@ -3,6 +3,7 @@
 //! - `git`      : appels au binaire `git` et lecture de son résultat.
 //! - `history`  : historique (log, refs, détails, diff) pour le graphe.
 //! - `worktree` : copie de travail (status, indexation, commit).
+//! - `clone`    : cloner un dépôt (URL ou dépôt d'un compte), progression, annulation.
 //! - `branches` : checkout (auto-stash), branches, fetch / pull / push, stash pop.
 //! - `watch`    : surveillance du dépôt actif (modifications faites ailleurs).
 //! - `remotes`  : remotes du dépôt et profil de chacun (clé SSH par hôte, config ssh générée).
@@ -16,6 +17,7 @@
 
 pub mod askpass;
 mod branches;
+mod clone;
 mod commands;
 mod git;
 mod history;
@@ -132,6 +134,9 @@ pub fn run() {
             commands::connect_account,
             commands::disconnect_account,
             commands::check_account,
+            commands::list_account_repos,
+            commands::clone_repo,
+            commands::cancel_clone,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

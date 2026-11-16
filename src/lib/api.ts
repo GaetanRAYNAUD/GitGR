@@ -36,10 +36,12 @@ import {
   mockStatus,
   mockWorkDiff,
 } from "./mockWorktree";
+import { joinPath, validFolderName } from "./clone";
 import { instance, withAccount } from "./providers";
 import type {
   Account,
   AppState,
+  CloneProgress,
   Commit,
   ColorValue,
   CommitDetails,
@@ -52,7 +54,9 @@ import type {
   Profile,
   ProviderKind,
   PullStrategy,
+  ProviderRepo,
   RefsInfo,
+  RepoList,
   RepoEntry,
   RepoProfiles,
   RepoSummary,
@@ -153,6 +157,16 @@ export interface Api {
   disconnectAccount(profile: string, account: string): Promise<void>;
   /** Le token enregistré est-il toujours valable ? (`token_missing`, `token_invalid`…) */
   checkAccount(account: string): Promise<Account>;
+  /** Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes…). */
+  listAccountRepos(account: string): Promise<RepoList>;
+  // Clone
+  /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
+   *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
+  cloneRepo(url: string, parent: string, name: string, profile: string | null): Promise<string>;
+  /** Arrête le clone en cours : il échoue avec `clone_cancelled`. */
+  cancelClone(): Promise<void>;
+  /** Avancement du clone en cours ; renvoie de quoi se désabonner. */
+  onCloneProgress(cb: (p: CloneProgress) => void): Promise<() => void>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
   pickFolder(title: string): Promise<string | null>;
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
@@ -240,6 +254,13 @@ const tauriApi: Api = {
   connectAccount: (profile, kind, url, token) => invoke("connect_account", { profile, kind, url, token }),
   disconnectAccount: (profile, account) => invoke("disconnect_account", { profile, account }),
   checkAccount: (account) => invoke("check_account", { account }),
+  listAccountRepos: (account) => invoke("list_account_repos", { account }),
+  cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
+  cancelClone: () => invoke("cancel_clone"),
+  async onCloneProgress(cb) {
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<CloneProgress>("clone-progress", (e) => cb(e.payload));
+  },
   async pickFolder(title) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const res = await open({ directory: true, multiple: false, title });
@@ -329,6 +350,36 @@ function mockKeyInfo(path: string, probe = false): SshKeyInfo | null {
     encrypted: path.includes("locked") || mockLocked.has(path),
     passphraseStored: mockPassphrases.has(path),
   };
+}
+
+/** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
+const mockCloneListeners = new Set<(p: CloneProgress) => void>();
+let mockCloneCancel: (() => void) | null = null;
+
+/** Backend simulé : dépôts d'un compte. */
+function mockAccountRepos(account: Account): ProviderRepo[] {
+  const host = account.url.replace(/^https?:\/\//, "");
+  const make = (fullName: string, extra: Partial<ProviderRepo> = {}): ProviderRepo => ({
+    fullName,
+    name: fullName.split("/").pop()!,
+    description: null,
+    private: false,
+    fork: false,
+    archived: false,
+    httpUrl: `https://${host}/${fullName}.git`,
+    sshUrl: `git@${host}:${fullName}.git`,
+    updatedAt: "2026-11-10T09:00:00Z",
+    ...extra,
+  });
+  const me = account.login;
+  return [
+    make(`${me}/dotfiles`, { description: "Mes fichiers de configuration" }),
+    make(`${me}/site-perso`, { private: true }),
+    make(`acme/api-backend`, { private: true, description: "Serveur de l'application" }),
+    make(`acme/front`, { private: true }),
+    make(`${me}/fork-outil`, { fork: true }),
+    make(`acme/ancien-projet`, { archived: true }),
+  ];
 }
 
 /** Petite latence simulée, pour voir les états de chargement. */
@@ -559,6 +610,54 @@ const mockApi: Api = {
     if (!found) throw "account_not_found";
     if (found.login.startsWith("revoked")) throw "token_invalid";
     return found;
+  },
+  // Backend simulé : un compte `revoked…` a perdu son token, une instance `injoignable` ne
+  // répond pas.
+  async listAccountRepos(account) {
+    await mockDelay();
+    const found = mockLoad().profiles?.flatMap((p) => p.accounts ?? []).find((a) => a.id === account);
+    if (!found) throw "account_not_found";
+    if (found.login.startsWith("revoked")) throw "token_invalid";
+    if (found.url.includes("injoignable")) throw "provider_unreachable";
+    return { repos: mockAccountRepos(found), truncated: false };
+  },
+  // Backend simulé : une URL qui contient `introuvable` n'existe pas, `refuse` est refusée ; un
+  // dossier déjà connu (dépôt récent) est occupé. Le clone avance en une seconde environ.
+  async cloneRepo(url, parent, name) {
+    if (!url.trim() || url.trim().startsWith("-")) throw "invalid_remote_url";
+    if (!validFolderName(name)) throw "invalid_folder_name";
+    if (mockCloneCancel) throw "clone_busy";
+    const path = joinPath(parent, name);
+    if (mockLoad().repos.some((r) => r.path === path)) throw "clone_dest_exists";
+    let cancelled = false;
+    mockCloneCancel = () => (cancelled = true);
+    try {
+      const steps: CloneProgress[] = [
+        { phase: "counting", percent: 100 },
+        { phase: "receiving", percent: 30 },
+        { phase: "receiving", percent: 70 },
+        { phase: "receiving", percent: 100 },
+        { phase: "resolving", percent: 100 },
+        { phase: "checkout", percent: 100 },
+      ];
+      for (const step of steps) {
+        await new Promise((r) => setTimeout(r, 150));
+        if (cancelled) throw "clone_cancelled";
+        if (url.includes("introuvable")) throw "remote_not_found";
+        if (url.includes("refuse")) throw "auth_failed";
+        for (const cb of mockCloneListeners) cb(step);
+      }
+    } finally {
+      mockCloneCancel = null;
+    }
+    return path;
+  },
+  async cancelClone() {
+    mockCloneCancel?.();
+  },
+  async onCloneProgress(cb) {
+    mockCloneListeners.add(cb);
+    return () => mockCloneListeners.delete(cb);
   },
   async pickFolder() {
     const p = MOCK_FOLDERS[mockPick % MOCK_FOLDERS.length];

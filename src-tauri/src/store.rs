@@ -62,6 +62,9 @@ pub struct Settings {
     pub branch_colors: Option<Vec<BranchColorRule>>,
     /// Couleurs fixes désactivées (les règles sont gardées).
     pub branch_colors_off: bool,
+    /// Dossier du dernier clone, proposé pour le suivant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clone_dir: Option<String>,
 }
 
 /// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`
@@ -100,6 +103,7 @@ impl Default for Settings {
             auto_fetch_minutes: 10,
             branch_colors: None,
             branch_colors_off: false,
+            clone_dir: None,
         }
     }
 }

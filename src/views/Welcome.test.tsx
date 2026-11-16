@@ -44,9 +44,11 @@ describe("<Welcome />", () => {
     expect(useApp.getState().repos).toEqual([]);
   });
 
-  it("Cloner et Initialiser sont désactivés pour l'instant", () => {
+  it("Initialiser est désactivé pour l'instant ; Cloner ouvre sa fenêtre", async () => {
     render(<Welcome />);
-    expect(screen.getByRole("button", { name: /Cloner/ })).toBeDisabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Cloner/ }));
+    expect(await screen.findByRole("dialog", { name: "Cloner un dépôt" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Initialiser/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Ouvrir un dépôt/ })).toBeEnabled();
   });
