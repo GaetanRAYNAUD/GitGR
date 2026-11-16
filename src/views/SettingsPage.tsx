@@ -1,7 +1,7 @@
 // Page des paramètres de l'app (bouton ⚙ de la barre de titre). Chaque changement est
 // enregistré tout de suite.
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { BranchColorsEditor } from "../components/BranchColorsEditor";
 import { Flag } from "../components/Flag";
@@ -51,16 +51,20 @@ export function SettingsPage() {
   const update = useApp((s) => s.updateSettings);
   const close = useApp((s) => s.closeSettings);
 
+  // Échap ferme la page, où que soit le focus (sauf dans un champ de saisie).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("input, textarea")) close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
+
   return (
-    <div
-      className="settings-page"
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && !(e.target as HTMLElement).closest("input, textarea")) close();
-      }}
-    >
+    <div className="settings-page" role="region" aria-labelledby="st-title">
       <div className="settings-inner">
         <div className="settings-head">
-          <h1>{t("settings.title")}</h1>
+          <h1 id="st-title">{t("settings.title")}</h1>
           <button className="icon-btn" aria-label={t("settings.close")} title={t("settings.close")} onClick={close}>
             <Icon name="close" size={16} />
           </button>

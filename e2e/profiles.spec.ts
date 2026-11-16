@@ -9,8 +9,7 @@ const commitPill = (page: Page) => page.locator(".commit-profile");
 const statusPill = (page: Page) => page.locator(".status-profile");
 
 async function openProfiles(page: Page) {
-  await page.getByRole("button", { name: "Réglages" }).click();
-  await page.getByRole("button", { name: "Gérer les profils…" }).click();
+  await page.getByRole("button", { name: "Profils et comptes" }).click();
   await expect(page$(page).getByRole("heading", { name: "Profils" })).toBeVisible();
 }
 

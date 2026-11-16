@@ -28,8 +28,7 @@ async function createProfile(page: Page, name: string, rule: string) {
 
 /** Profils « Entreprise » (gitlab.exemple.fr) et « Client » (gitlab.client.fr). */
 async function createProfiles(page: Page) {
-  await page.getByRole("button", { name: "Réglages" }).click();
-  await page.getByRole("button", { name: "Gérer les profils…" }).click();
+  await page.getByRole("button", { name: "Profils et comptes" }).click();
   await createProfile(page, "Entreprise", "gitlab.exemple.fr");
   await createProfile(page, "Client", "gitlab.client.fr");
   await page.getByRole("button", { name: "Fermer les profils" }).click();
