@@ -169,7 +169,14 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
   - **Deuxième niveau de barre**, sous la principale, visible seulement quand le groupe est l'onglet actif : les dépôts du groupe y sont listés. Quitter le groupe la fait disparaître ; revenir dessus rouvre le dernier dépôt consulté du groupe.
   - Raccourcis : Ctrl+Tab / Ctrl+1..9 parcourent la barre principale ; un autre raccourci (ex. Alt+1..9 ou Ctrl+Shift+Tab) parcourt les dépôts du groupe.
   - Les badges (commits à tirer / pousser, conflits) des dépôts d'un groupe remontent, agrégés, sur l'onglet du groupe.
+- [ ] **État des dépôts à l'accueil** : sur chaque dépôt récent, sans l'ouvrir, sa **branche active**, son **retard** sur la branche suivie (le même nombre que celui du bouton Pull, donc après un fetch en arrière-plan) et le **travail en attente** (fichiers modifiés / supprimés / non suivis pas encore commités ; commits à pousser). Lu en arrière-plan (status + fetch espacé), sans ralentir l'ouverture de l'accueil.
+- [ ] **Indicateur de travail en attente dans la barre d'onglets** : savoir d'un coup d'œil qu'un onglet a des modifications non commitées ou des commits à tirer / pousser, **sans charger la barre** (à voir au rendu : un point ou un liseré sur la pastille de l'onglet plutôt que des compteurs, le détail en infobulle). Le même indicateur, agrégé, sur l'onglet d'un groupe.
+- [ ] **Groupes à l'accueil** : les dossiers (groupes de dépôts) prévus pour la barre d'onglets repris dans la liste de l'accueil, **repliables**, avec un **résumé** des indicateurs de leurs dépôts sur la ligne du groupe (ex. « 2 en retard · 1 avec du travail en attente »).
 - [ ] **Gérer les worktrees** : lister les worktrees du dépôt (section dédiée de la barre latérale : chemin, branche, verrouillé / à nettoyer), en créer un depuis une branche ou un commit (nouvelle branche ou existante, dossier proposé à côté du dépôt), l'ouvrir dans un onglet (même dépôt, autre copie de travail), le supprimer (`worktree remove`, confirmation si modifications) et nettoyer ceux dont le dossier a disparu (`worktree prune`). Dans le graphe, signaler les branches extraites dans un autre worktree (git refuse de les checkout ici : proposer d'ouvrir le worktree à la place). À vérifier : la surveillance (`watch.rs`) et `git_dir` gèrent déjà un `.git` hors de la racine, utile pour les worktrees liés.
+
+### Étape 12 — prise en main
+
+- [ ] **Tour guidé** : au premier lancement (et relançable depuis les réglages ou l'aide), une visite courte des zones de l'app : onglets et accueil, graphe, barre latérale, panneau des modifications et commit, barre d'outils (pull / push / fetch), profils et comptes. Bulles ancrées sur chaque zone, « Suivant » / « Passer », sans bloquer l'app ; FR / EN.
 
 ### Étape 10 — conflits et v2
 
@@ -334,9 +341,10 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 6. **Providers** : profils par remote (clé SSH par hôte, « Pousser vers… / vers tous », « Tirer depuis… ») en premier, puis connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
 7. **Distribution** : installeurs, updater, CI de release.
 8. **Historique avancé** : merge / rebase / cherry-pick / revert / reset depuis le graphe (et glisser-déposer d'une branche sur une autre), sélection de plusieurs commits (changements cumulés), liste des stash, recherche / filtre et masquer / solo des branches dans le graphe, undo/redo, palette de commandes.
-9. **Organisation multi-dépôt** : groupes de dépôts (un onglet par groupe, barre de second niveau), worktrees, sélecteur rapide de tous les dépôts connus, fetch en arrière-plan des dépôts ouverts avec badges, image / icône d'onglet.
+9. **Organisation multi-dépôt** : groupes de dépôts (un onglet par groupe, barre de second niveau ; repris à l'accueil, repliables, avec un résumé), état des dépôts à l'accueil (branche, retard, travail en attente) et indicateur discret de travail en attente sur les onglets, worktrees, sélecteur rapide de tous les dépôts connus, fetch en arrière-plan des dépôts ouverts avec badges, image / icône d'onglet.
 10. **Conflits et v2** : résolution de conflits intégrée (3 panneaux, résultat éditable), rebase interactif visuel, blame et historique d'un fichier, submodules, LFS.
 11. **Agents** : serveur MCP qui expose les actions de GitGR avec les préférences de l'app.
+12. **Prise en main** : tour guidé au premier lancement.
 
 Le détail de ce qui reste dans chaque étape est dans « À faire / plus tard ».
 
