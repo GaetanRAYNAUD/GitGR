@@ -585,7 +585,11 @@ pub fn classify(stderr: &str) -> String {
         "network_unreachable"
     } else if has("couldn't find remote ref") || has("Couldn't find remote ref") {
         "remote_ref_not_found"
-    } else if has("Repository not found") || has("does not appear to be a git repository") {
+    } else if has("Repository not found")
+        || has("does not appear to be a git repository")
+        // Chemin local absent (git sous Linux : « fatal: repository 'x' does not exist »).
+        || (has("fatal: repository '") && has("' does not exist"))
+    {
         "remote_not_found"
     } else if let Some(code) = crate::git::classify_error(s) {
         code
