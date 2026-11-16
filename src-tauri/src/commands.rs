@@ -639,16 +639,49 @@ pub async fn add_account_key(profile: String, account: String, kind: String, sto
 
 // --- Avatars ---------------------------------------------------------------------
 
+/// Token du compte `account`, seulement s'il est de l'instance `url` du provider `kind` : il
+/// ne part jamais vers une autre adresse.
+fn instance_token(store: &StoreState<'_>, account: Option<String>, kind: &str, url: &str) -> Option<String> {
+    let id = account?;
+    let s = store.lock().unwrap();
+    let found = s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == id).cloned()?;
+    let same = providers::Kind::parse(kind).and_then(|k| providers::instance(k, url)).is_ok_and(|i| i.url == found.url && found.kind == kind);
+    same.then(|| crate::secrets::token(&found.id)).flatten()
+}
+
 /// Avatar du propriétaire `owner` (utilisateur, organisation, groupe) sur l'instance `url`, en
 /// data URL. `account` : compte dont le token est joint (seulement s'il est de cette instance).
 #[tauri::command]
 pub async fn owner_avatar(kind: String, url: String, owner: String, account: Option<String>, store: StoreState<'_>) -> Result<Option<String>, String> {
-    let token = account.and_then(|id| {
-        let s = store.lock().unwrap();
-        let found = s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == id).cloned()?;
-        // Le token ne part que vers l'instance de son compte.
-        let same = providers::Kind::parse(&kind).and_then(|k| providers::instance(k, &url)).is_ok_and(|i| i.url == found.url && found.kind == kind);
-        same.then(|| crate::secrets::token(&found.id)).flatten()
-    });
+    let token = instance_token(&store, account, &kind, &url);
     crate::avatars::owner_avatar(&kind, &url, &owner, token.as_deref())
+}
+
+/// Avatars des auteurs de commits (adresse en minuscules → data URL, ou `None`). `kind`, `url`
+/// et `repo` (`propriétaire/nom`) : provider et dépôt du remote `origin`, s'il est connu ;
+/// `account` : compte dont le token est joint.
+#[tauri::command]
+pub async fn author_avatars(
+    kind: Option<String>,
+    url: Option<String>,
+    repo: Option<String>,
+    account: Option<String>,
+    emails: Vec<String>,
+    store: StoreState<'_>,
+) -> Result<HashMap<String, Option<String>>, String> {
+    let token = match (&kind, &url) {
+        (Some(k), Some(u)) => instance_token(&store, account, k, u),
+        _ => None,
+    };
+    // Plusieurs téléchargements, parfois lents : sur un fil à part.
+    tauri::async_runtime::spawn_blocking(move || {
+        let kind = kind.as_deref().and_then(|k| providers::Kind::parse(k).ok());
+        let ctx = match (kind, url.as_deref()) {
+            (Some(kind), Some(url)) => Some(crate::avatars::RepoContext { kind, url, repo: repo.as_deref(), token: token.as_deref() }),
+            _ => None,
+        };
+        crate::avatars::author_avatars(ctx.as_ref(), &emails).into_iter().collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
 }

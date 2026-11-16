@@ -1,5 +1,6 @@
 //! Avatars des propriétaires de dépôts (utilisateur, organisation GitHub, groupe GitLab) :
-//! devant chaque remote de la barre latérale et dans la fenêtre de clone.
+//! devant chaque remote de la barre latérale et dans la fenêtre de clone. Et avatars des
+//! auteurs de commits, dans le graphe (cf. [`author_avatars`]).
 //!
 //! L'adresse de l'image est demandée à l'API du provider (avec le token du compte s'il y en a
 //! un : un groupe privé n'est visible qu'ainsi), l'image téléchargée puis gardée en data URL
@@ -152,6 +153,157 @@ pub fn owner_avatar(kind: &str, url: &str, owner: &str, token: Option<&str>) -> 
     Ok(found)
 }
 
+// ---------------------------------------------------------------------------
+// Avatars des auteurs de commits
+// ---------------------------------------------------------------------------
+
+/// Avatars demandés en une fois au plus (ceux des lignes visibles du graphe).
+const MAX_EMAILS: usize = 60;
+/// Téléchargements en parallèle.
+const PARALLEL: usize = 8;
+
+/// Contexte du dépôt : provider de son remote `origin`, instance, chemin `propriétaire/nom` et
+/// token du compte (s'il y en a un, de cette instance).
+pub struct RepoContext<'a> {
+    pub kind: Kind,
+    pub url: &'a str,
+    pub repo: Option<&'a str>,
+    pub token: Option<&'a str>,
+}
+
+/// Adresse e-mail plausible (pas de blanc, une `@`, assez courte) : sinon rien n'est demandé.
+fn valid_email(email: &str) -> bool {
+    email.len() <= 254 && email.matches('@').count() == 1 && !email.starts_with('@') && !email.ends_with('@') && !email.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
+/// Adresse « noreply » de GitHub (`12345+login@users.noreply.github.com`, ou l'ancienne forme
+/// `login@users.noreply.github.com`) : l'avatar se déduit sans appel à l'API.
+fn github_noreply(email: &str) -> Option<String> {
+    let local = email.strip_suffix("@users.noreply.github.com")?;
+    let ok = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    match local.split_once('+') {
+        Some((id, _)) if !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()) => Some(format!("https://avatars.githubusercontent.com/u/{id}?s=64")),
+        None if ok(local) => Some(format!("https://avatars.githubusercontent.com/{local}?s=64")),
+        _ => None,
+    }
+}
+
+/// Gravatar, par l'empreinte SHA-256 de l'adresse ; `d=404` : pas d'image par défaut.
+fn gravatar(email: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(email.trim().to_lowercase().as_bytes());
+    let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+    format!("https://gravatar.com/avatar/{hex}?s=64&d=404")
+}
+
+/// Auteurs des 100 derniers commits d'un dépôt GitHub (adresse → adresse de l'avatar), lus une
+/// fois par heure : chaque paquet d'adresses du graphe en a besoin, la réponse est la même.
+fn repo_authors(api: &str, repo: &str, token: Option<&str>) -> Vec<(String, String)> {
+    use std::collections::HashMap;
+    use std::sync::{LazyLock, Mutex};
+    use std::time::Instant;
+    type Authors = Vec<(String, String)>;
+    static CACHE: LazyLock<Mutex<HashMap<String, (Instant, Authors)>>> = LazyLock::new(Default::default);
+    let key = format!("{api}|{repo}|{}", token.is_some());
+    if let Some((at, authors)) = CACHE.lock().unwrap().get(&key)
+        && at.elapsed() < Duration::from_secs(3600)
+    {
+        return authors.clone();
+    }
+    let Ok(Some(body)) = api_get(Kind::GitHub, api, &format!("/repos/{repo}/commits?per_page=100"), token) else { return Vec::new() };
+    let mut found: Authors = Vec::new();
+    for c in body.as_array().into_iter().flatten() {
+        let (Some(email), Some(url)) = (c["commit"]["author"]["email"].as_str(), c["author"]["avatar_url"].as_str()) else { continue };
+        let email = email.to_lowercase();
+        if !found.iter().any(|(e, _)| *e == email) {
+            found.push((email, format!("{url}{}s=64", if url.contains('?') { '&' } else { '?' })));
+        }
+    }
+    CACHE.lock().unwrap().insert(key, (Instant::now(), found.clone()));
+    found
+}
+
+/// GitHub : auteurs des 100 derniers commits du dépôt (l'API rattache leur adresse à un compte).
+/// GitLab : `/avatar?email=` pour chaque adresse. Renvoie (adresse, adresse de l'image).
+fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Vec<(String, String)> {
+    let Ok(inst) = instance(ctx.kind, ctx.url) else { return Vec::new() };
+    match ctx.kind {
+        Kind::GitHub => {
+            let Some(repo) = ctx.repo.filter(|r| valid_owner(r) && r.matches('/').count() == 1) else { return Vec::new() };
+            let known = repo_authors(&inst.api, repo, ctx.token);
+            emails.iter().filter_map(|e| known.iter().find(|(k, _)| k == e).cloned()).collect()
+        }
+        Kind::GitLab => emails
+            .iter()
+            .filter_map(|email| {
+                let path = format!("/avatar?email={}&size=64", email.replace('%', "%25").replace('+', "%2B").replace('@', "%40"));
+                let body = api_get(ctx.kind, &inst.api, &path, ctx.token).ok()??;
+                let url = body["avatar_url"].as_str()?.trim();
+                let url = if url.starts_with('/') { format!("{}{url}", inst.url) } else { url.to_string() };
+                Some((email.clone(), url))
+            })
+            .collect(),
+    }
+}
+
+/// Avatars des auteurs `emails` (en minuscules dans la réponse), en data URL ; `None` : pas
+/// d'avatar. Dans l'ordre : cache (un jour), adresse noreply de GitHub, API du provider du
+/// dépôt (`ctx`), Gravatar.
+pub fn author_avatars(ctx: Option<&RepoContext>, emails: &[String]) -> Vec<(String, Option<String>)> {
+    let mut wanted: Vec<String> = Vec::new();
+    for e in emails.iter().map(|e| e.trim().to_lowercase()).filter(|e| valid_email(e)) {
+        if !wanted.contains(&e) && wanted.len() < MAX_EMAILS {
+            wanted.push(e);
+        }
+    }
+    let scope = ctx.map(|c| (c.kind, c.url.to_string(), c.token.is_some()));
+    let file = |email: &str| {
+        let (kind, url, authed) = scope.clone().unwrap_or((Kind::GitHub, String::new(), false));
+        cache_file(kind, &url, &format!("author:{email}"), authed)
+    };
+    let mut out: Vec<(String, Option<String>)> = Vec::new();
+    let mut todo: Vec<String> = Vec::new();
+    for e in wanted {
+        match file(&e).as_ref().and_then(read_cache) {
+            Some(cached) => out.push((e, cached)),
+            None => todo.push(e),
+        }
+    }
+    if todo.is_empty() {
+        return out;
+    }
+    // Adresse de l'image de chaque auteur : noreply, puis API du provider, puis Gravatar.
+    let mut urls: Vec<(String, String)> = todo.iter().filter_map(|e| github_noreply(e).map(|u| (e.clone(), u))).collect();
+    let rest: Vec<String> = todo.iter().filter(|e| !urls.iter().any(|(x, _)| x == *e)).cloned().collect();
+    if let Some(ctx) = ctx {
+        urls.extend(provider_avatar_urls(ctx, &rest));
+    }
+    for e in &todo {
+        if !urls.iter().any(|(x, _)| x == e) {
+            urls.push((e.clone(), gravatar(e)));
+        }
+    }
+    // Téléchargements en parallèle, par paquets. Le token n'est joint que pour l'instance.
+    let (instance_url, kind) = ctx.and_then(|c| instance(c.kind, c.url).ok().map(|i| (i.url, c.kind))).unwrap_or((String::new(), Kind::GitHub));
+    let token = ctx.and_then(|c| c.token);
+    for chunk in urls.chunks(PARALLEL) {
+        let results: Vec<(String, Result<Option<String>, String>)> = std::thread::scope(|scope| {
+            let handles: Vec<_> = chunk.iter().map(|(email, url)| (email.clone(), scope.spawn(|| download(url, &instance_url, kind, token)))).collect();
+            handles.into_iter().map(|(email, h)| (email, h.join().unwrap_or_else(|_| Err("panic".into())))).collect()
+        });
+        for (email, result) in results {
+            // Une erreur (réseau) n'est pas gardée : réessayée plus tard.
+            if let Ok(found) = result {
+                if let Some(f) = file(&email) {
+                    write_cache(&f, found.as_deref());
+                }
+                out.push((email, found));
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,5 +352,53 @@ mod tests {
         assert_eq!(host_of("https://GitLab.exemple.fr:8443/uploads/x.png"), "gitlab.exemple.fr:8443");
         assert_eq!(host_of("https://avatars.githubusercontent.com/u/1?v=4"), "avatars.githubusercontent.com");
         assert_ne!(host_of("https://avatars.githubusercontent.com/u/1"), host_of("https://github.com"));
+    }
+
+    #[test]
+    fn author_addresses() {
+        assert!(valid_email("camille@exemple.fr"));
+        for bad in ["", "sans-arobase", "a@b@c", "@x", "x@", "a b@c.fr"] {
+            assert!(!valid_email(bad), "{bad}");
+        }
+        assert_eq!(github_noreply("12345+octo@users.noreply.github.com").as_deref(), Some("https://avatars.githubusercontent.com/u/12345?s=64"));
+        assert_eq!(github_noreply("octo-cat@users.noreply.github.com").as_deref(), Some("https://avatars.githubusercontent.com/octo-cat?s=64"));
+        assert_eq!(github_noreply("x/y@users.noreply.github.com"), None);
+        assert_eq!(github_noreply("octo@exemple.fr"), None);
+        // Empreinte de l'adresse nettoyée (minuscules, sans blancs) : jamais l'adresse elle-même.
+        let g = gravatar(" Camille@Exemple.fr ");
+        assert_eq!(g, gravatar("camille@exemple.fr"));
+        assert!(g.starts_with("https://gravatar.com/avatar/") && g.ends_with("?s=64&d=404") && !g.contains('@'), "{g}");
+        assert_eq!(g.len(), "https://gravatar.com/avatar/".len() + 64 + "?s=64&d=404".len());
+    }
+
+    #[test]
+    fn github_commit_authors_give_avatars() {
+        let (url, requests) = serve(vec![(
+            200,
+            r#"[{"commit":{"author":{"email":"Camille@Exemple.fr"}},"author":{"avatar_url":"https://avatars.githubusercontent.com/u/7?v=4"}},
+                {"commit":{"author":{"email":"inconnu@exemple.fr"}},"author":null},
+                {"commit":{"author":{"email":"autre@exemple.fr"}},"author":{"avatar_url":"https://avatars.githubusercontent.com/u/8?v=4"}}]"#,
+        )]);
+        let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("octo/depot"), token: None };
+        let got = provider_avatar_urls(&ctx, &["camille@exemple.fr".to_string(), "inconnu@exemple.fr".to_string()]);
+        assert_eq!(got, [("camille@exemple.fr".to_string(), "https://avatars.githubusercontent.com/u/7?v=4&s=64".to_string())]);
+        assert!(requests.recv().unwrap().starts_with("GET /api/v3/repos/octo/depot/commits?per_page=100 "));
+        // Un autre paquet d'adresses : la liste déjà lue sert, sans nouvel appel.
+        let got = provider_avatar_urls(&ctx, &["autre@exemple.fr".to_string()]);
+        assert_eq!(got.len(), 1);
+        assert!(requests.try_recv().is_err());
+        // Chemin de dépôt douteux : aucun appel.
+        let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("../x"), token: None };
+        assert!(provider_avatar_urls(&ctx, &["a@b.fr".to_string()]).is_empty());
+    }
+
+    #[test]
+    fn gitlab_avatar_by_email() {
+        let (url, requests) = serve(vec![(200, r#"{"avatar_url":"/uploads/-/system/user/avatar/3/a.png"}"#)]);
+        let ctx = RepoContext { kind: Kind::GitLab, url: &url, repo: None, token: Some("glpat-x") };
+        let got = provider_avatar_urls(&ctx, &["a+b@exemple.fr".to_string()]);
+        assert_eq!(got, [("a+b@exemple.fr".to_string(), format!("{url}/uploads/-/system/user/avatar/3/a.png"))]);
+        let request = requests.recv().unwrap();
+        assert!(request.starts_with("GET /api/v4/avatar?email=a%2Bb%40exemple.fr&size=64 "), "{request}");
     }
 }

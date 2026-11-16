@@ -46,7 +46,9 @@
     "accounts": "Profils et comptes",
     "sectionLook": "Apparence",
     "sectionGit": "Git",
-    "sectionGraph": "Graphe"
+    "sectionGraph": "Graphe",
+    "graphAvatars": "Avatars des auteurs dans le graphe",
+    "graphAvatarsHint": "Sur les commits, dans la colonne Auteur et sur les branches. Lus sur GitHub / GitLab (dépôt du remote origin) et Gravatar, gardés un jour."
   },
   "welcome": {
     "title": "Dépôts",
