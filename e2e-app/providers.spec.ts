@@ -2,13 +2,15 @@
 // GitLab local), rangé dans le trousseau du système — jamais dans state.json —, relu pour
 // vérifier le compte, puis oublié à la déconnexion.
 
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { expect, launchApp, test } from "./app";
 
 const TOKEN = "glpat-test-0123456789";
+const KEYGEN = "C:/Program Files/Git/usr/bin/ssh-keygen.exe";
 
 const boulot = {
   id: "boulot",
@@ -79,6 +81,78 @@ test("connecter un compte GitLab par token : vérifié, rangé dans le trousseau
     await expect.poll(() => JSON.parse(readFileSync(stateFile, "utf8")).profiles[0].accounts).toEqual([]);
   } finally {
     // Test interrompu : ne rien laisser dans le trousseau (au mieux).
+    if (await row.isVisible().catch(() => false)) {
+      await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
+      await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});
+      await expect(row).toBeHidden().catch(() => {});
+    }
+    await app.close();
+    gitlab.server.close();
+  }
+});
+
+/** Faux GitLab qui garde les clés SSH du compte : `GET/POST /api/v4/user/keys`. */
+async function fakeGitlabWithKeys() {
+  const requests: string[] = [];
+  const keys: { key: string; usage_type: string; title: string }[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      requests.push(`${req.method} ${req.url}`);
+      const json = (status: number, value: unknown) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(value));
+      };
+      if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(401, { message: "401 Unauthorized" });
+      if (req.url === "/api/v4/user") return json(200, { id: 7, username: "camille", name: "Camille Boulot" });
+      if (req.url?.startsWith("/api/v4/user/keys") && req.method === "GET") return json(200, keys);
+      if (req.url === "/api/v4/user/keys" && req.method === "POST") {
+        const k = JSON.parse(body);
+        keys.push({ key: k.key, usage_type: k.usage_type, title: k.title });
+        return json(201, { id: keys.length, ...k });
+      }
+      json(404, { message: "404 Not Found" });
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests, keys };
+}
+
+test("ajouter la clé SSH du profil au compte GitLab, pour l'authentification et la signature", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const gitlab = await fakeGitlabWithKeys();
+  const key = join(sandbox.root, "profil_ed25519");
+  execFileSync(existsSync(KEYGEN) ? KEYGEN : "ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "camille@boulot", "-f", key], { stdio: "ignore" });
+  const publicKey = readFileSync(`${key}.pub`, "utf8").trim();
+  const app = await launchApp(sandbox, [mine], { profiles: [{ ...boulot, sshKey: key, signing: "ssh" }] });
+  const { page } = app;
+  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  const row = accounts.getByRole("listitem").filter({ hasText: "camille" }).first();
+  try {
+    await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
+    await dialog.getByRole("radio", { name: "GitLab" }).click();
+    await dialog.getByLabel("Instance").fill(gitlab.url);
+    await dialog.getByLabel("Token personnel").fill(TOKEN);
+    await dialog.getByRole("button", { name: "Connecter", exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    const keys = page.getByRole("list", { name: "Clés du profil sur le compte camille" });
+    const auth = keys.getByRole("listitem").filter({ hasText: /^.*Clé SSH(?! de)/ }).first();
+    await expect(keys.getByRole("listitem")).toHaveCount(2);
+    await expect(keys).not.toContainText("sur le compte");
+    await auth.getByRole("button", { name: "Ajouter au compte" }).click();
+
+    // Même clé pour les deux usages : envoyée une fois, `auth_and_signing`, puis vue présente
+    // pour les deux.
+    await expect(keys.getByText("sur le compte")).toHaveCount(2);
+    expect(gitlab.keys).toHaveLength(1);
+    expect(gitlab.keys[0].key).toBe(publicKey);
+    expect(gitlab.keys[0].usage_type).toBe("auth_and_signing");
+    expect(gitlab.keys[0].title).toMatch(/^GitGR · Boulot/);
+  } finally {
     if (await row.isVisible().catch(() => false)) {
       await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
       await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});

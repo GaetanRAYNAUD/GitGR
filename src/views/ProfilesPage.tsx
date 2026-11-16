@@ -23,7 +23,7 @@ import {
   validEmail,
 } from "../lib/profiles";
 import { instanceLabel, PROVIDER_NAMES } from "../lib/providers";
-import type { Account, GpgKey, Profile, SigningMode, SshKeyInfo } from "../lib/types";
+import type { Account, AccountKey, AccountKeyKind, GpgKey, Profile, SigningMode, SshKeyInfo } from "../lib/types";
 import { useApp } from "../store/app";
 import { useDialogs } from "../store/dialogs";
 import { useProfiles } from "../store/profiles";
@@ -503,7 +503,20 @@ export function ProfilesPage() {
                 <p className="pf-note">{t("profiles.accountsNew")}</p>
               ) : (
                 <>
-                  <AccountList accounts={draft.accounts ?? []} reload={accountReload} onReconnect={(initial) => setAccountDialog({ initial })} onDisconnect={disconnect} />
+                  <AccountList
+                    profileId={draft.id}
+                    keysChanged={
+                      // Comparées comme elles seront enregistrées : vide = aucune.
+                      !!saved &&
+                      ((saved.sshKey?.trim() || null) !== (draft.sshKey?.trim() || null) ||
+                        (saved.signing ?? "") !== (draft.signing ?? "") ||
+                        (saved.signingKey?.trim() || null) !== (draft.signingKey?.trim() || null))
+                    }
+                    accounts={draft.accounts ?? []}
+                    reload={accountReload}
+                    onReconnect={(initial) => setAccountDialog({ initial })}
+                    onDisconnect={disconnect}
+                  />
                   <div className="pf-actions">
                     <button type="button" className="btn" onClick={() => setAccountDialog({ initial: null })}>
                       <Icon name="link" size={15} />
@@ -621,11 +634,16 @@ type AccountState = "checking" | "ok" | { error: string };
 
 /** Comptes du profil, avec l'état de leur token (vérifié auprès du provider à l'affichage). */
 function AccountList({
+  profileId,
+  keysChanged,
   accounts,
   reload,
   onReconnect,
   onDisconnect,
 }: {
+  profileId: string;
+  /** Clés du brouillon différentes de celles du profil enregistré. */
+  keysChanged: boolean;
   accounts: Account[];
   reload: number;
   onReconnect: (account: Account) => void;
@@ -668,26 +686,98 @@ function AccountList({
         const failed = typeof state === "object";
         return (
           <li key={a.id} className={failed ? "bad" : undefined}>
-            <Icon name={a.kind} size={16} />
-            <strong>{a.login}</strong>
-            <span className="muted pf-account-instance" title={a.url}>
-              {a.name ? `${a.name} · ` : ""}
-              {instanceLabel(a.url)}
-            </span>
-            <span className="pf-account-status" role={failed ? "alert" : "status"}>
-              {failed ? errorMessage(t, state.error) : state === "ok" ? t("profiles.accountOk") : t("profiles.accountChecking")}
-            </span>
-            {failed && (
-              <button type="button" className="mini" onClick={() => onReconnect(a)}>
-                {t("profiles.accountReconnect")}
+            <div className="pf-account-row">
+              <Icon name={a.kind} size={16} />
+              <strong>{a.login}</strong>
+              <span className="muted pf-account-instance" title={a.url}>
+                {a.name ? `${a.name} · ` : ""}
+                {instanceLabel(a.url)}
+              </span>
+              <span className="pf-account-status" role={failed ? "alert" : "status"}>
+                {failed ? errorMessage(t, state.error) : state === "ok" ? t("profiles.accountOk") : t("profiles.accountChecking")}
+              </span>
+              {failed && (
+                <button type="button" className="mini" onClick={() => onReconnect(a)}>
+                  {t("profiles.accountReconnect")}
+                </button>
+              )}
+              <button type="button" className="mini" aria-label={`${t("profiles.accountDisconnect")} ${a.login}`} onClick={() => onDisconnect(a)}>
+                {t("profiles.accountDisconnect")}
               </button>
-            )}
-            <button type="button" className="mini" aria-label={`${t("profiles.accountDisconnect")} ${a.login}`} onClick={() => onDisconnect(a)}>
-              {t("profiles.accountDisconnect")}
-            </button>
+            </div>
+            {state === "ok" && <AccountKeys profileId={profileId} account={a} keysChanged={keysChanged} reload={reload} />}
           </li>
         );
       })}
+    </ul>
+  );
+}
+
+type KeysState = { status: "loading" } | { status: "error"; error: string } | { status: "ready"; keys: AccountKey[] };
+
+/** Clés du profil (SSH, signature) et leur présence sur le compte, avec de quoi les ajouter. */
+function AccountKeys({ profileId, account, keysChanged, reload }: { profileId: string; account: Account; keysChanged: boolean; reload: number }) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<KeysState>({ status: "loading" });
+  const [refresh, setRefresh] = useState(0);
+  /** Clé en cours d'ajout, et erreur d'ajout par type de clé. */
+  const [adding, setAdding] = useState<AccountKeyKind | null>(null);
+  const [addError, setAddError] = useState<Partial<Record<AccountKeyKind, string>>>({});
+
+  useEffect(() => {
+    let live = true;
+    setState({ status: "loading" });
+    api.accountKeys(profileId, account.id).then(
+      (keys) => live && setState({ status: "ready", keys }),
+      (e) => live && setState({ status: "error", error: errorCode(e) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [profileId, account.id, reload, refresh]);
+
+  const add = async (kind: AccountKeyKind) => {
+    setAdding(kind);
+    setAddError((e) => ({ ...e, [kind]: undefined }));
+    try {
+      await api.addAccountKey(profileId, account.id, kind);
+      setRefresh((n) => n + 1);
+    } catch (e) {
+      setAddError((prev) => ({ ...prev, [kind]: errorCode(e) }));
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  if (state.status === "loading") return <p className="pf-account-keys muted">{t("profiles.keysChecking")}</p>;
+  if (state.status === "error")
+    return (
+      <p className="pf-account-keys bad" role="alert">
+        {errorMessage(t, state.error)}
+      </p>
+    );
+  if (state.keys.length === 0 && !keysChanged) return null;
+  return (
+    <ul className="pf-account-keys" aria-label={t("profiles.keysOn", { login: account.login })}>
+      {state.keys.map((k) => {
+        const error = k.error ?? addError[k.kind];
+        return (
+          <li key={k.kind} className={error ? "bad" : k.present ? "ok" : undefined}>
+            <Icon name={k.present ? "check" : error ? "alert" : "key"} size={13} />
+            <span className="pf-key-kind">{t(`profiles.keyKind_${k.kind}`)}</span>
+            {k.label && <span className="mono pf-key-label">{k.label}</span>}
+            <span className="pf-key-state" role={error ? "alert" : undefined}>
+              {error ? errorMessage(t, error) : k.present ? t("profiles.keyPresent") : t("profiles.keyAbsent")}
+            </span>
+            {!k.present && !k.error && (
+              <button type="button" className="mini" disabled={adding !== null || keysChanged} onClick={() => add(k.kind)}>
+                {adding === k.kind ? t("profiles.keyAdding") : t("profiles.keyAdd")}
+              </button>
+            )}
+          </li>
+        );
+      })}
+      {keysChanged && <li className="pf-note">{t("profiles.keysUnsaved")}</li>}
     </ul>
   );
 }

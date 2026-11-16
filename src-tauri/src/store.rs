@@ -148,7 +148,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    fn signing(&self) -> crate::git::Signing {
+    pub fn signing(&self) -> crate::git::Signing {
         use crate::git::Signing;
         let key = self.signing_key.as_deref().map(str::trim).filter(|k| !k.is_empty()).map(str::to_string);
         match self.signing.as_str() {

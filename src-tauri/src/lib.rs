@@ -137,6 +137,8 @@ pub fn run() {
             commands::list_account_repos,
             commands::clone_repo,
             commands::cancel_clone,
+            commands::account_keys,
+            commands::add_account_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

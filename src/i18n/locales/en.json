@@ -507,7 +507,12 @@
     "clone_dest_exists": "The destination folder already exists and is not empty.",
     "clone_cancelled": "Clone stopped: nothing was kept.",
     "clone_busy": "A clone is already running.",
-    "invalid_folder_name": "Invalid folder name."
+    "invalid_folder_name": "Invalid folder name.",
+    "token_scope_missing": "The token has no rights on keys (GitHub: admin:public_key, admin:ssh_signing_key, write:gpg_key; GitLab: api). Reconnect the account with a token that has them.",
+    "key_in_use": "This key is already registered, on this account or another one (GitHub accepts an SSH key on one account only).",
+    "gpg_key_not_found": "The profile’s GPG key was not found in the gpg keyring.",
+    "public_key_missing": "Public key not found: the key is protected and has no .pub file next to it.",
+    "unknown_key_kind": "Unknown key type."
   },
   "profiles": {
     "title": "Profiles",
@@ -642,7 +647,17 @@
     "accountTokenHint_gitlab": "Scopes: api, read_user (pre-selected by the link).",
     "accountSubmit": "Connect",
     "accountConnecting": "Checking…",
-    "color": "Color"
+    "color": "Color",
+    "keysChecking": "Checking keys on the account…",
+    "keysOn": "Profile keys on the {{login}} account",
+    "keyKind_auth": "SSH key",
+    "keyKind_signing": "SSH signing key",
+    "keyKind_gpg": "GPG key",
+    "keyPresent": "on the account",
+    "keyAbsent": "not on the account",
+    "keyAdd": "Add to account",
+    "keyAdding": "Adding…",
+    "keysUnsaved": "Save the profile to check its new keys on the account."
   },
   "branchColors": {
     "title": "Colors by branch name",

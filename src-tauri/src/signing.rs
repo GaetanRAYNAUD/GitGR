@@ -105,6 +105,52 @@ pub fn gpg_keys() -> Result<Vec<GpgKey>, String> {
     Ok(parse_secret_keys(&String::from_utf8_lossy(&out.stdout)))
 }
 
+/// Clé GPG du profil : celle désignée (identifiant long ou empreinte), sinon la première clé
+/// utilisable dont une identité porte l'e-mail du profil (comme gpg la choisirait).
+pub fn resolve_key(keys: &[GpgKey], wanted: Option<&str>, email: &str) -> Option<GpgKey> {
+    match wanted.map(|w| w.trim().trim_start_matches("0x").to_ascii_uppercase()).filter(|w| !w.is_empty()) {
+        Some(w) => keys.iter().find(|k| k.id.eq_ignore_ascii_case(&w) || k.fingerprint.eq_ignore_ascii_case(&w) || k.fingerprint.to_ascii_uppercase().ends_with(&w)).cloned(),
+        None => {
+            let email = format!("<{}>", email.trim().to_lowercase());
+            keys.iter().find(|k| !k.unusable && k.uids.iter().any(|u| u.to_lowercase().contains(&email))).cloned()
+        }
+    }
+}
+
+/// Clé publique armurée (`-----BEGIN PGP PUBLIC KEY BLOCK-----`), à donner au provider.
+pub fn export_public(fingerprint: &str) -> Result<String, String> {
+    if fingerprint.is_empty() || !fingerprint.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("gpg_key_not_found".into());
+    }
+    let out = run_gpg_with(&["--batch", "--armor", "--export", fingerprint], |_| {})?;
+    let armored = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if !out.status.success() || !armored.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
+        return Err("gpg_key_not_found".into());
+    }
+    Ok(armored)
+}
+
+/// Empreintes (clé principale et sous-clés) d'un bloc armuré, lu sans rien importer.
+pub fn fingerprints_in(armored: &str) -> Vec<String> {
+    use std::io::Write;
+    let run = || -> Option<String> {
+        for program in gpg_candidates() {
+            let mut cmd = quiet_command(&program);
+            cmd.args(["--batch", "--with-colons", "--import-options", "show-only", "--import"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null());
+            let Ok(mut child) = cmd.spawn() else { continue };
+            if let Some(mut stdin) = child.stdin.take() {
+                let _ = stdin.write_all(armored.as_bytes());
+            }
+            return child.wait_with_output().ok().map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
+        }
+        None
+    };
+    run().map(|out| out.lines().filter_map(|l| l.strip_prefix("fpr:")).filter_map(|l| l.split(':').nth(8)).map(str::to_ascii_uppercase).collect()).unwrap_or_default()
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -129,6 +175,24 @@ pub(crate) mod tests {
         run_gpg_with(args, |cmd| {
             cmd.env("GNUPGHOME", msys_path(home));
         })
+    }
+
+    #[test]
+    fn profile_gpg_key_is_resolved() {
+        let key = |id: &str, fpr: &str, uid: &str, unusable: bool| GpgKey { id: id.into(), fingerprint: fpr.into(), uids: vec![uid.into()], unusable };
+        let keys = [
+            key("1111222233334444", "AAAA1111222233334444", "Ancienne <camille@exemple.fr>", true),
+            key("5E8B7C4CFAC5417C", "CD44BED45E8B7C4CFAC5417C", "Camille <Camille@Exemple.fr>", false),
+        ];
+        let pick = |wanted: Option<&str>, email: &str| resolve_key(&keys, wanted, email).map(|k| k.id);
+        // Désignée : identifiant long, empreinte, `0x…`, casse ignorée.
+        assert_eq!(pick(Some("0x1111222233334444"), "x"), Some("1111222233334444".into()));
+        assert_eq!(pick(Some("cd44bed45e8b7c4cfac5417c"), "x"), Some("5E8B7C4CFAC5417C".into()));
+        assert_eq!(pick(Some("FFFF"), "camille@exemple.fr"), None);
+        // Sinon : la première utilisable portant l'e-mail du profil.
+        assert_eq!(pick(None, "camille@exemple.fr"), Some("5E8B7C4CFAC5417C".into()));
+        assert_eq!(pick(Some("  "), "autre@exemple.fr"), None);
+        assert_eq!(export_public("pas-hexa").unwrap_err(), "gpg_key_not_found");
     }
 
     #[test]
