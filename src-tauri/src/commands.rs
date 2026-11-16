@@ -431,12 +431,18 @@ fn forget_tokens(before: &std::collections::HashSet<String>, state: &AppState) {
 /// profil. Il remplace le compte que le profil avait déjà sur cette instance.
 #[tauri::command]
 pub async fn connect_account(profile: String, kind: String, url: String, token: String, store: StoreState<'_>) -> Result<Account, String> {
+    link_account(&store, &profile, || providers::connect(&kind, &url, &token))
+}
+
+/// Connecte un compte au profil : `connect` vérifie le token et le range dans le trousseau
+/// (appel réseau, sans tenir le verrou de l'état), puis le compte est lié au profil, à la place
+/// de celui qu'il avait sur cette instance.
+fn link_account(store: &StoreState<'_>, profile: &str, connect: impl FnOnce() -> Result<Account, String>) -> Result<Account, String> {
     let known = |s: &Store| s.state.profiles.iter().any(|p| p.id == profile);
     if !known(&store.lock().unwrap()) {
         return Err("no_profile".into());
     }
-    // Appel réseau : sans tenir le verrou de l'état.
-    let account = providers::connect(&kind, &url, &token)?;
+    let account = connect()?;
     let mut s = store.lock().unwrap();
     let mut tokens = s.state.account_ids();
     tokens.insert(account.id.clone());
@@ -453,6 +459,65 @@ pub async fn connect_account(profile: String, kind: String, url: String, token: 
     // Une fois l'état fixé : le token d'un compte remplacé — ou du compte refusé — ne reste pas.
     forget_tokens(&tokens, &s.state);
     saved.map(|()| account)
+}
+
+// --- Connexion OAuth à GitHub (device flow) -------------------------------------
+
+/// Connexions en cours : identifiant → code de l'appareil (jamais envoyé à l'interface).
+static DEVICE_FLOWS: std::sync::LazyLock<Mutex<HashMap<u64, String>>> = std::sync::LazyLock::new(Default::default);
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceStart {
+    flow_id: u64,
+    #[serde(flatten)]
+    code: providers::DeviceCode,
+}
+
+/// Résultat d'une demande du token : « en attente » (avec l'intervalle à respecter) ou compte
+/// connecté.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevicePollResult {
+    account: Option<Account>,
+    interval: Option<u64>,
+}
+
+/// Commence une connexion à github.com : code à saisir sur la page de GitHub.
+#[tauri::command]
+pub async fn github_device_start() -> Result<DeviceStart, String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(1);
+    let flow = providers::device_start_with(providers::GITHUB_LOGIN)?;
+    let flow_id = SEQ.fetch_add(1, Ordering::Relaxed);
+    DEVICE_FLOWS.lock().unwrap().insert(flow_id, flow.device_code);
+    Ok(DeviceStart { flow_id, code: flow.code })
+}
+
+/// Demande le token de la connexion `flow_id` ; une fois donné, le compte est lié au profil
+/// comme avec un token personnel.
+#[tauri::command]
+pub async fn github_device_poll(profile: String, flow_id: u64, store: StoreState<'_>) -> Result<DevicePollResult, String> {
+    let device_code = DEVICE_FLOWS.lock().unwrap().get(&flow_id).cloned().ok_or("device_expired")?;
+    let poll = providers::device_poll_with(providers::GITHUB_LOGIN, &device_code);
+    let token = match poll {
+        Ok(providers::DevicePoll::Pending) => return Ok(DevicePollResult { account: None, interval: None }),
+        Ok(providers::DevicePoll::SlowDown(interval)) => return Ok(DevicePollResult { account: None, interval: Some(interval) }),
+        Ok(providers::DevicePoll::Token(token)) => token,
+        Err(e) => {
+            DEVICE_FLOWS.lock().unwrap().remove(&flow_id);
+            return Err(e);
+        }
+    };
+    DEVICE_FLOWS.lock().unwrap().remove(&flow_id);
+    let account = link_account(&store, &profile, || providers::connect("github", "", &token))?;
+    Ok(DevicePollResult { account: Some(account), interval: None })
+}
+
+/// Abandonne une connexion en cours.
+#[tauri::command]
+pub fn github_device_cancel(flow_id: u64) {
+    DEVICE_FLOWS.lock().unwrap().remove(&flow_id);
 }
 
 /// Retire un compte du profil ; son token est oublié si aucun autre profil ne porte ce compte.
@@ -570,4 +635,20 @@ pub async fn add_account_key(profile: String, account: String, kind: String, sto
     let machine = std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_default();
     let title = if machine.trim().is_empty() { format!("GitGR · {}", p.name) } else { format!("GitGR · {} · {}", p.name, machine.trim()) };
     providers::add_key(&a, key, &keys, &title)
+}
+
+// --- Avatars ---------------------------------------------------------------------
+
+/// Avatar du propriétaire `owner` (utilisateur, organisation, groupe) sur l'instance `url`, en
+/// data URL. `account` : compte dont le token est joint (seulement s'il est de cette instance).
+#[tauri::command]
+pub async fn owner_avatar(kind: String, url: String, owner: String, account: Option<String>, store: StoreState<'_>) -> Result<Option<String>, String> {
+    let token = account.and_then(|id| {
+        let s = store.lock().unwrap();
+        let found = s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == id).cloned()?;
+        // Le token ne part que vers l'instance de son compte.
+        let same = providers::Kind::parse(&kind).and_then(|k| providers::instance(k, &url)).is_ok_and(|i| i.url == found.url && found.kind == kind);
+        same.then(|| crate::secrets::token(&found.id)).flatten()
+    });
+    crate::avatars::owner_avatar(&kind, &url, &owner, token.as_deref())
 }

@@ -7,10 +7,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
-import { expect, launchApp, test } from "./app";
+import { expect, git, launchApp, test } from "./app";
 
 const TOKEN = "glpat-test-0123456789";
 const KEYGEN = "C:/Program Files/Git/usr/bin/ssh-keygen.exe";
+/** Image PNG de 1×1 pixel (avatar du faux GitLab). */
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
 const boulot = {
   id: "boulot",
@@ -105,7 +107,13 @@ async function fakeGitlabWithKeys() {
         res.end(JSON.stringify(value));
       };
       if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(401, { message: "401 Unauthorized" });
+      // Avatar d'un groupe : chemin relatif à l'instance, image servie avec le token.
+      if (req.url === "/uploads/groupe.png") {
+        res.writeHead(200, { "Content-Type": "image/png" });
+        return res.end(PNG);
+      }
       if (req.url === "/api/v4/user") return json(200, { id: 7, username: "camille", name: "Camille Boulot" });
+      if (req.url === "/api/v4/namespaces/groupe") return json(200, { full_path: "groupe", avatar_url: "/uploads/groupe.png" });
       if (req.url?.startsWith("/api/v4/user/keys") && req.method === "GET") return json(200, keys);
       if (req.url === "/api/v4/user/keys" && req.method === "POST") {
         const k = JSON.parse(body);
@@ -119,13 +127,17 @@ async function fakeGitlabWithKeys() {
   return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests, keys };
 }
 
-test("ajouter la clé SSH du profil au compte GitLab, pour l'authentification et la signature", async ({ sandbox }) => {
+test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant le remote", async ({ sandbox }) => {
   const mine = sandbox.clone("mine");
   const gitlab = await fakeGitlabWithKeys();
+  git(mine, "remote", "add", "gitlab", `${gitlab.url}/groupe/projet.git`);
   const key = join(sandbox.root, "profil_ed25519");
   execFileSync(existsSync(KEYGEN) ? KEYGEN : "ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "camille@boulot", "-f", key], { stdio: "ignore" });
   const publicKey = readFileSync(`${key}.pub`, "utf8").trim();
-  const app = await launchApp(sandbox, [mine], { profiles: [{ ...boulot, sshKey: key, signing: "ssh" }] });
+  const app = await launchApp(sandbox, [mine], {
+    profiles: [{ ...boulot, sshKey: key, signing: "ssh" }],
+    repoProfiles: { [sandbox.top(mine)]: { active: "boulot", allowed: ["boulot"] } },
+  });
   const { page } = app;
   const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
   const row = accounts.getByRole("listitem").filter({ hasText: "camille" }).first();
@@ -152,6 +164,13 @@ test("ajouter la clé SSH du profil au compte GitLab, pour l'authentification et
     expect(gitlab.keys[0].key).toBe(publicKey);
     expect(gitlab.keys[0].usage_type).toBe("auth_and_signing");
     expect(gitlab.keys[0].title).toMatch(/^GitGR · Boulot/);
+
+    // Dans le dépôt : l'avatar du groupe devant le remote, lu avec le token du compte.
+    await page.getByRole("button", { name: "Fermer les profils" }).click();
+    const remote = page.locator(".refs-sidebar .section-btn").filter({ has: page.locator(".section-name", { hasText: /^gitlab$/ }) });
+    await expect(remote.locator(".remote-avatar")).toHaveAttribute("src", /^data:image\/png;base64,/);
+    expect(gitlab.requests).toContain("GET /api/v4/namespaces/groupe");
+    expect(gitlab.requests).toContain("GET /uploads/groupe.png");
   } finally {
     if (await row.isVisible().catch(() => false)) {
       await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});

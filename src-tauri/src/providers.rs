@@ -130,7 +130,7 @@ pub fn instance(kind: Kind, input: &str) -> Result<Instance, String> {
 /// Réponses lues en entier : au-delà, ce n'est pas l'API attendue.
 const MAX_BODY: u64 = 1024 * 1024;
 
-fn agent() -> ureq::Agent {
+pub(crate) fn agent() -> ureq::Agent {
     use ureq::tls::{RootCerts, TlsConfig};
     ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(20)))
@@ -161,7 +161,7 @@ fn get(kind: Kind, api: &str, path: &str, token: &str) -> Result<serde_json::Val
 }
 
 /// En-têtes communs : token (jamais dans l'URL), format de réponse et version d'API.
-fn headers<B>(kind: Kind, request: ureq::RequestBuilder<B>, token: &str) -> ureq::RequestBuilder<B> {
+pub(crate) fn headers<B>(kind: Kind, request: ureq::RequestBuilder<B>, token: &str) -> ureq::RequestBuilder<B> {
     let request = request.header("Authorization", format!("Bearer {token}"));
     match kind {
         Kind::GitHub => request.header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28"),
@@ -221,6 +221,109 @@ pub fn check(account: &Account) -> Result<Account, String> {
         return Err("token_invalid".into());
     }
     Ok(fresh)
+}
+
+// ---------------------------------------------------------------------------
+// Connexion OAuth à GitHub (device flow)
+// ---------------------------------------------------------------------------
+
+/// Application OAuth « GitGR » enregistrée chez GitHub (github.com seulement). L'identifiant
+/// client est public ; il n'y a pas de secret (device flow), et les tokens n'expirent pas.
+pub const GITHUB_CLIENT_ID: &str = "Ov23liiwlIwhFUANbgAw";
+/// Droits demandés : les mêmes qu'au token personnel (cf. `GITHUB_SCOPES`, lib/providers.ts).
+const GITHUB_SCOPES: &str = "repo read:user read:org admin:public_key admin:ssh_signing_key write:gpg_key";
+pub const GITHUB_LOGIN: &str = "https://github.com";
+
+/// Ce que l'utilisateur voit : le code à saisir sur la page de GitHub.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceCode {
+    pub user_code: String,
+    pub verification_uri: String,
+    /// Validité du code, en secondes.
+    pub expires_in: u64,
+    /// Délai minimal entre deux demandes du token, en secondes.
+    pub interval: u64,
+}
+
+/// Une connexion en cours : le code de l'appareil reste côté Rust.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeviceFlow {
+    pub device_code: String,
+    pub code: DeviceCode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DevicePoll {
+    /// L'utilisateur n'a pas encore validé.
+    Pending,
+    /// Trop de demandes : attendre plus longtemps (nouvel intervalle, en secondes).
+    SlowDown(u64),
+    Token(String),
+}
+
+/// Encodage `application/x-www-form-urlencoded` d'une valeur.
+fn form_value(v: &str) -> String {
+    v.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            b' ' => "+".to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
+/// `POST` d'un formulaire à la page de connexion de GitHub ; réponse JSON (GitHub répond 200
+/// même pour « en attente » : le champ `error` le dit).
+fn post_form(url: &str, form: &[(&str, &str)]) -> Result<serde_json::Value, String> {
+    let body = form.iter().map(|(k, v)| format!("{k}={}", form_value(v))).collect::<Vec<_>>().join("&");
+    let mut response = agent()
+        .post(url)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .send(body)
+        .map_err(|_| "provider_unreachable".to_string())?;
+    if !response.status().is_success() {
+        return Err("provider_error".into());
+    }
+    let text = response.body_mut().with_config().limit(MAX_BODY).read_to_string().map_err(|_| "provider_unexpected".to_string())?;
+    serde_json::from_str(&text).map_err(|_| "provider_unexpected".into())
+}
+
+/// Demande un code à saisir sur GitHub. `login` : `https://github.com` (un faux serveur en test).
+pub fn device_start_with(login: &str) -> Result<DeviceFlow, String> {
+    let v = post_form(&format!("{login}/login/device/code"), &[("client_id", GITHUB_CLIENT_ID), ("scope", GITHUB_SCOPES)])?;
+    let text = |k: &str| v[k].as_str().map(str::to_string).ok_or_else(|| "provider_unexpected".to_string());
+    if v["error"].as_str() == Some("device_flow_disabled") {
+        return Err("provider_error".into());
+    }
+    Ok(DeviceFlow {
+        device_code: text("device_code")?,
+        code: DeviceCode {
+            user_code: text("user_code")?,
+            verification_uri: text("verification_uri")?,
+            expires_in: v["expires_in"].as_u64().unwrap_or(900),
+            interval: v["interval"].as_u64().unwrap_or(5).max(1),
+        },
+    })
+}
+
+/// Le token est-il prêt ? `device_expired` : code expiré ; `device_denied` : refusé sur GitHub.
+pub fn device_poll_with(login: &str, device_code: &str) -> Result<DevicePoll, String> {
+    let v = post_form(
+        &format!("{login}/login/oauth/access_token"),
+        &[("client_id", GITHUB_CLIENT_ID), ("device_code", device_code), ("grant_type", "urn:ietf:params:oauth:grant-type:device_code")],
+    )?;
+    if let Some(token) = v["access_token"].as_str().filter(|t| !t.is_empty()) {
+        return Ok(DevicePoll::Token(token.to_string()));
+    }
+    match v["error"].as_str() {
+        Some("authorization_pending") => Ok(DevicePoll::Pending),
+        Some("slow_down") => Ok(DevicePoll::SlowDown(v["interval"].as_u64().unwrap_or(10))),
+        Some("expired_token") => Err("device_expired".into()),
+        Some("access_denied") => Err("device_denied".into()),
+        _ => Err("provider_error".into()),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -710,6 +813,38 @@ pub(crate) mod tests {
         let (url, _r) = serve(vec![(200, page); MAX_PAGES]);
         let list = list_repos_with(Kind::GitHub, &url, "ghp_x").unwrap();
         assert_eq!((list.repos.len(), list.truncated), (100 * MAX_PAGES, true));
+    }
+
+    #[test]
+    fn device_flow_gives_a_code_then_a_token() {
+        let (url, requests) = serve(vec![
+            (200, r#"{"device_code":"dc-123","user_code":"ABCD-1234","verification_uri":"https://github.com/login/device","expires_in":899,"interval":5}"#),
+            (200, r#"{"error":"authorization_pending"}"#),
+            (200, r#"{"error":"slow_down","interval":10}"#),
+            (200, r#"{"access_token":"gho_abc","token_type":"bearer","scope":"repo"}"#),
+        ]);
+        let flow = device_start_with(&url).unwrap();
+        assert_eq!(flow.device_code, "dc-123");
+        assert_eq!(flow.code, DeviceCode { user_code: "ABCD-1234".into(), verification_uri: "https://github.com/login/device".into(), expires_in: 899, interval: 5 });
+        let start = requests.recv().unwrap();
+        assert!(start.starts_with("POST /login/device/code "), "{start}");
+        assert!(start.contains(&format!("client_id={GITHUB_CLIENT_ID}&scope=repo+read%3Auser+read%3Aorg+admin%3Apublic_key")), "{start}");
+        assert_eq!(device_poll_with(&url, "dc-123").unwrap(), DevicePoll::Pending);
+        assert_eq!(device_poll_with(&url, "dc-123").unwrap(), DevicePoll::SlowDown(10));
+        assert_eq!(device_poll_with(&url, "dc-123").unwrap(), DevicePoll::Token("gho_abc".into()));
+        let poll = requests.recv().unwrap();
+        assert!(poll.starts_with("POST /login/oauth/access_token "), "{poll}");
+        assert!(poll.contains("device_code=dc-123&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"), "{poll}");
+    }
+
+    #[test]
+    fn device_flow_refusals() {
+        let (url, _r) = serve(vec![(200, r#"{"error":"expired_token"}"#), (200, r#"{"error":"access_denied"}"#), (200, r#"{"error":"incorrect_client_credentials"}"#)]);
+        assert_eq!(device_poll_with(&url, "x").unwrap_err(), "device_expired");
+        assert_eq!(device_poll_with(&url, "x").unwrap_err(), "device_denied");
+        assert_eq!(device_poll_with(&url, "x").unwrap_err(), "provider_error");
+        let (url, _r) = serve(vec![(200, r#"{"error":"device_flow_disabled"}"#)]);
+        assert_eq!(device_start_with(&url).unwrap_err(), "provider_error");
     }
 
     const ED: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc";

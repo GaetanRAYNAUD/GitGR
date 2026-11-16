@@ -92,6 +92,25 @@ export function remoteAccount(profile: Profile | null, remote: Remote | null): A
   return profile.accounts?.find((a) => instanceHost(a.url) === remote.host) ?? null;
 }
 
+/** Propriétaire du dépôt d'un remote (utilisateur, organisation, groupe et sous-groupes) :
+ *  le chemin sans son dernier élément ; `null` sans propriétaire. */
+export function remoteOwner(remote: Remote | null): string | null {
+  const i = remote?.path.lastIndexOf("/") ?? -1;
+  return remote && i > 0 ? remote.path.slice(0, i) : null;
+}
+
+/** Adresse de l'instance d'un remote, pour son API : celle du compte, sinon celle d'un compte
+ *  connecté sur cet hôte (n'importe quel profil), sinon `https://<hôte>`. */
+export function remoteInstance(profiles: Profile[], remote: Remote | null, account: Account | null): string | null {
+  if (!remote) return null;
+  if (account) return account.url;
+  for (const p of profiles) {
+    const a = p.accounts?.find((x) => instanceHost(x.url) === remote.host);
+    if (a) return a.url;
+  }
+  return `https://${remote.host}`;
+}
+
 /** Comptes d'un profil après une connexion : le nouveau remplace celui de la même instance. */
 export function withAccount(accounts: Account[] | undefined, account: Account): Account[] {
   return [...(accounts ?? []).filter((a) => !(a.kind === account.kind && a.url === account.url)), account];

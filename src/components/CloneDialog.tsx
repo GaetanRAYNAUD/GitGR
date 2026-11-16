@@ -14,6 +14,7 @@ import { instanceLabel, PROVIDER_NAMES } from "../lib/providers";
 import type { Account, CloneProgress, Profile, ProviderRepo, RepoList } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
+import { useOwnerAvatar } from "../store/avatars";
 import { useProfiles } from "../store/profiles";
 import { type MenuItem, openMenuBelow } from "./ContextMenu";
 import { Icon } from "./Icon";
@@ -64,6 +65,12 @@ function Picker({ label, disabled, items, children }: { label: string; disabled?
       <Icon name="chevron" size={14} />
     </button>
   );
+}
+
+/** Avatar du propriétaire (compte, organisation, groupe) en tête de sa section. */
+function OwnerAvatar({ account, owner }: { account: Account | null; owner: string }) {
+  const avatar = useOwnerAvatar(account?.kind ?? null, account?.url ?? null, owner, account?.id ?? null);
+  return avatar ? <img className="owner-avatar" src={avatar} alt="" draggable={false} /> : null;
 }
 
 export function CloneDialog({ onClose }: { onClose(): void }) {
@@ -323,6 +330,7 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
                     onClick={() => toggleOwner(g.owner)}
                   >
                     <Icon name="chevron" size={13} className={isCollapsed(g.owner) ? "chev closed" : "chev"} />
+                    <OwnerAvatar account={linked?.account ?? null} owner={g.owner} />
                     <span className="clone-owner-name">{g.owner}</span>
                     <span className="clone-owner-count">{g.repos.length}</span>
                   </button>

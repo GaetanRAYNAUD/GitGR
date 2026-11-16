@@ -512,7 +512,9 @@
     "key_in_use": "This key is already registered, on this account or another one (GitHub accepts an SSH key on one account only).",
     "gpg_key_not_found": "The profile’s GPG key was not found in the gpg keyring.",
     "public_key_missing": "Public key not found: the key is protected and has no .pub file next to it.",
-    "unknown_key_kind": "Unknown key type."
+    "unknown_key_kind": "Unknown key type.",
+    "device_expired": "The code expired before being approved on GitHub: start again.",
+    "device_denied": "Sign-in was denied on GitHub."
   },
   "profiles": {
     "title": "Profiles",
@@ -657,7 +659,14 @@
     "keyAbsent": "not on the account",
     "keyAdd": "Add to account",
     "keyAdding": "Adding…",
-    "keysUnsaved": "Save the profile to check its new keys on the account."
+    "keysUnsaved": "Save the profile to check its new keys on the account.",
+    "accountOAuth": "Sign in with GitHub",
+    "accountOAuthHint": "Recommended: GitGR gets access to your account without you creating a token.",
+    "accountOr": "or with a personal token",
+    "accountOAuthCode": "Enter this code on the GitHub page:",
+    "accountOAuthOpen": "Copy the code and open GitHub",
+    "accountOAuthWaiting": "Waiting for your approval on GitHub…",
+    "accountOAuthCopied": "Code copied."
   },
   "branchColors": {
     "title": "Colors by branch name",
