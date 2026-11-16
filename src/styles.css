@@ -3730,3 +3730,46 @@ p.pf-account-keys.bad,
 .bc-editor .bc-rules {
   max-height: none;
 }
+
+/* Avatars des auteurs dans le graphe (colonne Auteur, étiquettes de branches). */
+.author-avatar,
+.chip-avatar {
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.author-avatar {
+  width: 16px;
+  height: 16px;
+}
+
+.chip-avatar {
+  width: 14px;
+  height: 14px;
+  margin-left: -3px;
+}
+
+.author-avatar.initials,
+.chip-avatar.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+.commit-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.commit-author-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

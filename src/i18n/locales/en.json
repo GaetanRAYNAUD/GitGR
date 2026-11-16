@@ -46,7 +46,9 @@
     "accounts": "Profiles and accounts",
     "sectionLook": "Appearance",
     "sectionGit": "Git",
-    "sectionGraph": "Graph"
+    "sectionGraph": "Graph",
+    "graphAvatars": "Author avatars in the graph",
+    "graphAvatarsHint": "On commits, in the Author column and on branches. Read from GitHub / GitLab (origin remote's repository) and kept for a day; otherwise, the author's initials."
   },
   "welcome": {
     "title": "Repositories",

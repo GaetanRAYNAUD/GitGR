@@ -143,6 +143,7 @@ pub fn run() {
             commands::account_keys,
             commands::add_account_key,
             commands::owner_avatar,
+            commands::author_avatars,
             commands::github_device_start,
             commands::github_device_poll,
             commands::github_device_cancel,

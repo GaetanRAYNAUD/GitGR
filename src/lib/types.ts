@@ -48,6 +48,8 @@ export interface Settings {
   branchColors?: BranchColorRule[];
   /** Couleurs fixes désactivées (les règles sont gardées pour une réactivation). */
   branchColorsOff?: boolean;
+  /** Avatars des auteurs masqués dans le graphe (nœuds, colonne Auteur, étiquettes). */
+  graphAvatarsOff?: boolean;
   /** Dossier du dernier clone, proposé pour le suivant. */
   cloneDir?: string | null;
 }

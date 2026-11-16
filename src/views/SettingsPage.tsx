@@ -122,6 +122,11 @@ export function SettingsPage() {
         <section className="settings-sec" aria-labelledby="st-graph">
           <h2 id="st-graph" className="eyebrow">{t("settings.sectionGraph")}</h2>
           <label className="menu-check">
+            <input type="checkbox" checked={!settings.graphAvatarsOff} onChange={(e) => update({ graphAvatarsOff: !e.target.checked })} />
+            {t("settings.graphAvatars")}
+          </label>
+          <p className="settings-help">{t("settings.graphAvatarsHint")}</p>
+          <label className="menu-check">
             <input type="checkbox" checked={!settings.branchColorsOff} onChange={(e) => update({ branchColorsOff: !e.target.checked })} />
             {t("settings.branchColors")}
           </label>

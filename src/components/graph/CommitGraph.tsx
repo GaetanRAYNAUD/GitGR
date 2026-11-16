@@ -3,14 +3,18 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { commitDate } from "../../lib/format";
+import { commitDate, initials } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { branchColorRules, chipFixedColor, customColors, fixedColorsByCommit, laneCss } from "../../lib/branchColors";
 import { chipsByCommit, type RefChip } from "../../lib/refs";
 import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
+import { parseRemote, remoteProfile } from "../../lib/profiles";
+import { remoteAccount, remoteInstance, remoteProvider } from "../../lib/providers";
 import { useApp } from "../../store/app";
+import { type AuthorContext, useAuthorAvatars, useAvatarImages } from "../../store/avatars";
+import { useProfiles } from "../../store/profiles";
 import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
@@ -19,6 +23,9 @@ import { Splitter } from "../Splitter";
 
 export const ROW_H = 28;
 const LANE_W = 14;
+/** Avec les avatars, des colonnes plus larges : un nœud fait 18 px. */
+const LANE_W_AVATARS = 22;
+const AVATAR_R = 9;
 const GRAPH_PAD = 8;
 /** Au-delà, les colonnes ne sont plus dessinées (graphe illisible de toute façon). */
 const MAX_LANES = 24;
@@ -43,7 +50,11 @@ interface Props {
   changes: number;
 }
 
-const laneX = (col: number) => GRAPH_PAD + col * LANE_W + LANE_W / 2;
+/** Avatar d'un nœud : l'image (chargée) de l'auteur, sinon ses initiales. */
+interface NodeAvatar {
+  img: HTMLImageElement | null;
+  initials: string;
+}
 
 function readPalette(): string[] {
   const css = getComputedStyle(document.documentElement);
@@ -70,7 +81,11 @@ function drawGraph(
   head: string | null,
   shas: string[],
   palette: string[],
+  /** Avatars activés : avatar du nœud de la ligne `r` (WIP : `null`). */
+  avatarOf: ((r: number) => NodeAvatar | null) | null,
 ) {
+  const laneW = avatarOf ? LANE_W_AVATARS : LANE_W;
+  const laneX = (col: number) => GRAPH_PAD + col * laneW + laneW / 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) return; // jsdom, ou canvas indisponible
   const dpr = window.devicePixelRatio || 1;
@@ -129,7 +144,40 @@ function drawGraph(
 
     const c = color(row.color);
     ctx.beginPath();
-    if (wip) {
+    const avatar = avatarOf && !wip ? avatarOf(r) : null;
+    if (avatar) {
+      // Nœud avatar : disque de la couleur de la branche, image (ou initiales) au milieu ;
+      // HEAD : un anneau autour.
+      ctx.arc(xc, mid, AVATAR_R, 0, Math.PI * 2);
+      ctx.fillStyle = c;
+      ctx.fill();
+      if (avatar.img) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(xc, mid, AVATAR_R - 1.5, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(avatar.img, xc - AVATAR_R + 1.5, mid - AVATAR_R + 1.5, (AVATAR_R - 1.5) * 2, (AVATAR_R - 1.5) * 2);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#fff";
+        ctx.font = "600 8.5px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(avatar.initials, xc, mid + 0.5);
+      }
+      if (shas[r] === head) {
+        ctx.beginPath();
+        ctx.arc(xc, mid, AVATAR_R + 2.5, 0, Math.PI * 2);
+        ctx.strokeStyle = c;
+        ctx.stroke();
+      }
+    } else if (wip && avatarOf) {
+      ctx.setLineDash([2.5, 2]);
+      ctx.arc(xc, mid, AVATAR_R - 1, 0, Math.PI * 2);
+      ctx.strokeStyle = c;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (wip) {
       ctx.setLineDash([2.5, 2]);
       ctx.arc(xc, mid, 5, 0, Math.PI * 2);
       ctx.strokeStyle = c;
@@ -158,7 +206,32 @@ function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
   return refs?.refs.find((r) => r.kind === chip.kind && r.short === chip.label);
 }
 
-function Chip({ chip, color, path, refs, rules }: { chip: RefChip; color: number; path: string; refs: RefsInfo | null; rules: BranchColorRule[] }) {
+/** Avatar d'un auteur (colonne Auteur, étiquettes de branches) : son image, sinon ses initiales. */
+function AuthorBadge({ name, avatar, className }: { name: string; avatar: string | null | undefined; className: string }) {
+  if (avatar) return <img className={className} src={avatar} alt="" draggable={false} />;
+  return (
+    <span className={`${className} initials`} aria-hidden="true">
+      {initials(name || "?").slice(0, 2)}
+    </span>
+  );
+}
+
+function Chip({
+  chip,
+  color,
+  path,
+  refs,
+  rules,
+  avatar,
+}: {
+  chip: RefChip;
+  color: number;
+  path: string;
+  refs: RefsInfo | null;
+  rules: BranchColorRule[];
+  /** Branche : avatar de l'auteur de son dernier commit (`undefined` : avatars désactivés). */
+  avatar?: { name: string; url: string | null };
+}) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
   color = chipFixedColor(rules, chip.kind, chip.label) ?? color;
@@ -172,6 +245,7 @@ function Chip({ chip, color, path, refs, rules }: { chip: RefChip; color: number
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
     >
+      {avatar && chip.kind !== "tag" && <AuthorBadge name={avatar.name} avatar={avatar.url} className="chip-avatar" />}
       {chip.current && <Icon name="check" size={12} />}
       {chip.kind === "tag" && <Icon name="tag" size={12} />}
       {chip.kind === "remote" && <Icon name="cloud" size={12} />}
@@ -250,8 +324,10 @@ export function CommitGraph({ path, changes }: Props) {
   const palette = useMemo(() => [...readPalette(), ...customColors(rules)], [themeVersion, rules]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
+  const avatarsOn = !useApp((s) => s.settings.graphAvatarsOff);
+  const laneW = avatarsOn ? LANE_W_AVATARS : LANE_W;
   // Au moins la largeur du titre de la colonne.
-  const graphW = Math.max(72, GRAPH_PAD * 2 + Math.max(1, Math.min(layout.width, MAX_LANES)) * LANE_W);
+  const graphW = Math.max(72, GRAPH_PAD * 2 + Math.max(1, Math.min(layout.width, MAX_LANES)) * laneW);
   const selected = graph?.selected ?? null;
   const selectedIndex = selected ? shas.indexOf(selected) : -1;
 
@@ -272,10 +348,36 @@ export function CommitGraph({ path, changes }: Props) {
     return () => ro.disconnect();
   }, [path, showList]);
 
+  // Avatars des auteurs : provider et dépôt du remote `origin`, avec le compte de son profil.
+  const remoteUrl = useApp((s) => s.summaries[path]?.data?.remoteUrl ?? null);
+  const profiles = useProfiles((s) => s.profiles);
+  const binding = useProfiles((s) => s.repoProfiles[path]);
+  const authorCtx = useMemo((): AuthorContext | null => {
+    if (!avatarsOn) return null;
+    const parsed = parseRemote(remoteUrl);
+    const provider = remoteProvider(profiles, parsed);
+    if (!parsed || !provider) return { kind: null, url: null, repo: null, account: null };
+    const account = remoteAccount(remoteProfile(profiles, binding, { name: "origin", url: remoteUrl }).profile, parsed);
+    return { kind: provider, url: remoteInstance(profiles, parsed, account), repo: parsed.path, account: account?.id ?? null };
+  }, [avatarsOn, remoteUrl, profiles, binding]);
+  const visibleEmails = useMemo(
+    () => [...new Set(commits.slice(first, last).filter((c) => c.sha !== WIP && c.email).map((c) => c.email.toLowerCase()))],
+    [commits, first, last],
+  );
+  const authors = useAuthorAvatars(authorCtx, visibleEmails);
+  const avatarOfEmail = (email: string) => authors[email.toLowerCase()];
+  const images = useAvatarImages(visibleEmails.map((e) => authors[e]));
+
   const showGraph = !hidden.includes("graph");
   useEffect(() => {
-    if (canvasRef.current) drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette);
-  }, [layout, first, last, graphW, head, shas, palette, showGraph]);
+    if (!canvasRef.current) return;
+    const avatarOf = avatarsOn
+      ? (r: number) => ({ img: images.get(authors[commits[r].email.toLowerCase()]), initials: initials(commits[r].author || "?").slice(0, 2) })
+      : null;
+    drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette, avatarOf);
+    // `images.get` lit les images chargées : `images.version` dit quand redessiner.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, first, last, graphW, head, shas, palette, showGraph, avatarsOn, authors, images.version, commits]);
 
   // Page suivante quand on approche de la fin.
   useEffect(() => {
@@ -351,7 +453,15 @@ export function CommitGraph({ path, changes }: Props) {
         return (
           <span key={col} className="commit-refs">
             {(chips.get(c.sha) ?? []).map((chip) => (
-              <Chip key={chip.kind + chip.label} chip={chip} color={color} path={path} refs={graph?.refs ?? null} rules={rules} />
+              <Chip
+                key={chip.kind + chip.label}
+                chip={chip}
+                color={color}
+                path={path}
+                refs={graph?.refs ?? null}
+                rules={rules}
+                avatar={avatarsOn && !isWip ? { name: c.author, url: avatarOfEmail(c.email) ?? null } : undefined}
+              />
             ))}
           </span>
         );
@@ -366,7 +476,8 @@ export function CommitGraph({ path, changes }: Props) {
       case "author":
         return (
           <span key={col} className="commit-author" title={c.email}>
-            {c.author}
+            {avatarsOn && !isWip && <AuthorBadge name={c.author} avatar={avatarOfEmail(c.email)} className="author-avatar" />}
+            <span className="commit-author-name">{c.author}</span>
           </span>
         );
       case "date": {

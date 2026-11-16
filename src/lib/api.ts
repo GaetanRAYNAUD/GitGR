@@ -170,6 +170,9 @@ export interface Api {
   /** Avatar (data URL) d'un propriétaire de dépôt sur une instance ; `null` s'il n'en a pas.
    *  `account` : compte dont le token est joint (seulement s'il est de cette instance). */
   ownerAvatar(kind: ProviderKind, url: string, owner: string, account: string | null): Promise<string | null>;
+  /** Avatars des auteurs (adresse en minuscules → data URL, ou `null`). `kind` / `url` / `repo`
+   *  (`propriétaire/nom`) : provider et dépôt du remote `origin`, s'il est connu. */
+  authorAvatars(kind: ProviderKind | null, url: string | null, repo: string | null, account: string | null, emails: string[]): Promise<Record<string, string | null>>;
   /** Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes…). */
   listAccountRepos(account: string): Promise<RepoList>;
   /** Clés du profil (enregistré) et leur présence sur le compte. */
@@ -276,6 +279,7 @@ const tauriApi: Api = {
   githubDevicePoll: (profile, flowId) => invoke("github_device_poll", { profile, flowId }),
   githubDeviceCancel: (flowId) => invoke("github_device_cancel", { flowId }),
   ownerAvatar: (kind, url, owner, account) => invoke("owner_avatar", { kind, url, owner, account }),
+  authorAvatars: (kind, url, repo, account, emails) => invoke("author_avatars", { kind, url, repo, account, emails }),
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -725,6 +729,13 @@ const mockApi: Api = {
     ctx.textBaseline = "middle";
     ctx.fillText(owner[0]?.toUpperCase() ?? "?", 16, 17);
     return canvas.toDataURL();
+  },
+  // Backend simulé : un avatar coloré pour chaque auteur, sauf ceux dont l'adresse contient
+  // `sans-avatar` (et aucun sans environnement graphique).
+  async authorAvatars(_kind, _url, _repo, _account, emails) {
+    const out: Record<string, string | null> = {};
+    for (const e of emails) out[e.toLowerCase()] = e.includes("sans-avatar") ? null : await this.ownerAvatar("github", "", e, null);
+    return out;
   },
   // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
   // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient
