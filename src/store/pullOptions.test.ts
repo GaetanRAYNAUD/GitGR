@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../lib/api";
 import type { PullOptions } from "../lib/types";
-import { isStale, optionsKey, ownerKey, resetPullOptions, STALE_SECONDS, usePullOptions } from "./pullOptions";
+import { isStale, optionsKey, ownerKey, resetPullOptions, RETRY_SECONDS, STALE_SECONDS, usePullOptions } from "./pullOptions";
 
 const ctx = { kind: "github" as const, url: "https://github.com", repo: "Org/Front", account: "github|https://github.com|moi" };
 const now = () => Math.floor(Date.now() / 1000);
@@ -48,6 +48,27 @@ describe("usePullOptions", () => {
     resetPullOptions();
     await usePullOptions.getState().ensure({ ...ctx, account: null });
     expect(api.refreshPullOptions).toHaveBeenCalledTimes(1);
+  });
+
+  it("après un échec : pas de nouvel essai d'office avant RETRY_SECONDS, sauf « Actualiser »", async () => {
+    vi.spyOn(api, "cachedPullOptions").mockResolvedValue(opts({ fetchedAt: now() - STALE_SECONDS - 1 }));
+    const refresh = vi.spyOn(api, "refreshPullOptions").mockRejectedValue("rate_limited");
+    await usePullOptions.getState().ensure(ctx);
+    // Réouverture du dépôt, de la fenêtre : rien n'est redemandé.
+    await usePullOptions.getState().ensure(ctx);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(entry().error).toBe("rate_limited");
+    // Le délai passé : relu.
+    const later = Date.now() + RETRY_SECONDS * 1000 + 1;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    await usePullOptions.getState().ensure(ctx);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    // « Actualiser » passe outre tout de suite.
+    await usePullOptions.getState().ensure(ctx, true);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    // Compte reconnecté (autre compte) : relu tout de suite.
+    await usePullOptions.getState().ensure({ ...ctx, account: "github|https://github.com|autre" });
+    expect(refresh).toHaveBeenCalledTimes(4);
   });
 
   it("force : relit même un cache récent", async () => {

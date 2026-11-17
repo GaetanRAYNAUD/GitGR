@@ -60,10 +60,11 @@ fn valid_owner(owner: &str) -> bool {
 /// `GET` JSON sur l'API, avec le token s'il y en a un. `Ok(None)` : propriétaire introuvable.
 fn api_get(kind: Kind, api: &str, path: &str, token: Option<&str>) -> Result<Option<serde_json::Value>, String> {
     let mut request = agent().get(format!("{api}{path}"));
-    if let Some(token) = token.filter(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_graphic())) {
+    let token = token.filter(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_graphic()));
+    if let Some(token) = token {
         request = crate::providers::headers(kind, request, token);
     }
-    let mut response = request.call().map_err(|_| "provider_unreachable".to_string())?;
+    let mut response = crate::providers::send_api(api, token, || request.call())?;
     match response.status().as_u16() {
         200..=299 => {}
         404 => return Ok(None),
@@ -188,41 +189,63 @@ fn github_noreply(email: &str) -> Option<String> {
     }
 }
 
+/// Durée de la liste des auteurs lue, et d'un échec (dépôt invisible sans compte, réseau,
+/// limite de requêtes) : pas de nouvel essai avant.
+const AUTHORS_TTL: Duration = Duration::from_secs(3600);
+const AUTHORS_FAILED_TTL: Duration = Duration::from_secs(600);
+
 /// Auteurs des 100 derniers commits d'un dépôt GitHub (adresse → adresse de l'avatar), lus une
-/// fois par heure : chaque paquet d'adresses du graphe en a besoin, la réponse est la même.
-fn repo_authors(api: &str, repo: &str, token: Option<&str>) -> Vec<(String, String)> {
+/// fois par heure : chaque paquet d'adresses du graphe en a besoin, la réponse est la même. Un
+/// échec (`None`) est gardé dix minutes ; deux paquets arrivés ensemble ne font qu'un appel.
+fn repo_authors(api: &str, repo: &str, token: Option<&str>) -> Option<Vec<(String, String)>> {
     use std::collections::HashMap;
     use std::sync::{LazyLock, Mutex};
     use std::time::Instant;
     type Authors = Vec<(String, String)>;
-    static CACHE: LazyLock<Mutex<HashMap<String, (Instant, Authors)>>> = LazyLock::new(Default::default);
+    /// (lu à, valable pendant, auteurs ; `None` : échec).
+    type Entry = (Instant, Duration, Option<Authors>);
+    static CACHE: LazyLock<Mutex<HashMap<String, Entry>>> = LazyLock::new(Default::default);
+    /// Un appel à la fois : le suivant trouve la réponse en cache.
+    static FETCHING: Mutex<()> = Mutex::new(());
     let key = format!("{api}|{repo}|{}", token.is_some());
-    if let Some((at, authors)) = CACHE.lock().unwrap().get(&key)
-        && at.elapsed() < Duration::from_secs(3600)
-    {
-        return authors.clone();
+    let cached = || {
+        let cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+        cache.get(&key).filter(|(at, ttl, _)| at.elapsed() < *ttl).map(|(_, _, authors)| authors.clone())
+    };
+    if let Some(authors) = cached() {
+        return authors;
     }
-    let Ok(Some(body)) = api_get(Kind::GitHub, api, &format!("/repos/{repo}/commits?per_page=100"), token) else { return Vec::new() };
-    let mut found: Authors = Vec::new();
-    for c in body.as_array().into_iter().flatten() {
-        let (Some(email), Some(url)) = (c["commit"]["author"]["email"].as_str(), c["author"]["avatar_url"].as_str()) else { continue };
-        let email = email.to_lowercase();
-        if !found.iter().any(|(e, _)| *e == email) {
-            found.push((email, format!("{url}{}s=64", if url.contains('?') { '&' } else { '?' })));
+    let _one_at_a_time = FETCHING.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(authors) = cached() {
+        return authors;
+    }
+    let (ttl, found) = match api_get(Kind::GitHub, api, &format!("/repos/{repo}/commits?per_page=100"), token) {
+        Ok(Some(body)) => {
+            let mut found: Authors = Vec::new();
+            for c in body.as_array().into_iter().flatten() {
+                let (Some(email), Some(url)) = (c["commit"]["author"]["email"].as_str(), c["author"]["avatar_url"].as_str()) else { continue };
+                let email = email.to_lowercase();
+                if !found.iter().any(|(e, _)| *e == email) {
+                    found.push((email, format!("{url}{}s=64", if url.contains('?') { '&' } else { '?' })));
+                }
+            }
+            (AUTHORS_TTL, Some(found))
         }
-    }
-    CACHE.lock().unwrap().insert(key, (Instant::now(), found.clone()));
+        _ => (AUTHORS_FAILED_TTL, None),
+    };
+    CACHE.lock().unwrap_or_else(|e| e.into_inner()).insert(key, (Instant::now(), ttl, found.clone()));
     found
 }
 
 /// GitHub : auteurs des 100 derniers commits du dépôt (l'API rattache leur adresse à un compte).
-/// GitLab : `/avatar?email=` pour chaque adresse. Renvoie (adresse, adresse de l'image).
-fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Vec<(String, String)> {
-    let Ok(inst) = instance(ctx.kind, ctx.url) else { return Vec::new() };
-    match ctx.kind {
+/// GitLab : `/avatar?email=` pour chaque adresse. Renvoie (adresse, adresse de l'image) ;
+/// `None` : la liste des auteurs n'a pas pu être lue (rien n'est à garder comme « sans avatar »).
+fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Option<Vec<(String, String)>> {
+    let Ok(inst) = instance(ctx.kind, ctx.url) else { return Some(Vec::new()) };
+    Some(match ctx.kind {
         Kind::GitHub => {
-            let Some(repo) = ctx.repo.filter(|r| valid_owner(r) && r.matches('/').count() == 1) else { return Vec::new() };
-            let known = repo_authors(&inst.api, repo, ctx.token);
+            let Some(repo) = ctx.repo.filter(|r| valid_owner(r) && r.matches('/').count() == 1) else { return Some(Vec::new()) };
+            let known = repo_authors(&inst.api, repo, ctx.token)?;
             emails.iter().filter_map(|e| known.iter().find(|(k, _)| k == e).cloned()).collect()
         }
         Kind::GitLab => emails
@@ -239,7 +262,7 @@ fn provider_avatar_urls(ctx: &RepoContext, emails: &[String]) -> Vec<(String, St
                 Some((email.clone(), url))
             })
             .collect(),
-    }
+    })
 }
 
 /// Avatars des auteurs `emails` (en minuscules dans la réponse), en data URL ; `None` : pas
@@ -272,12 +295,17 @@ pub fn author_avatars(ctx: Option<&RepoContext>, emails: &[String]) -> Vec<(Stri
     // Adresse de l'image de chaque auteur : noreply, puis API du provider.
     let mut urls: Vec<(String, String)> = todo.iter().filter_map(|e| github_noreply(e).map(|u| (e.clone(), u))).collect();
     let rest: Vec<String> = todo.iter().filter(|e| !urls.iter().any(|(x, _)| x == *e)).cloned().collect();
+    let mut known = true;
     if let Some(ctx) = ctx {
-        urls.extend(provider_avatar_urls(ctx, &rest));
+        match provider_avatar_urls(ctx, &rest) {
+            Some(found) => urls.extend(found),
+            None => known = false,
+        }
     }
-    // Sans avatar connu : gardé comme tel, pour ne pas redemander avant un jour.
+    // Sans avatar connu : gardé comme tel, pour ne pas redemander avant un jour — sauf si la
+    // liste des auteurs n'a pas pu être lue (limite de requêtes, réseau) : réessayé plus tard.
     for e in todo.iter().filter(|e| !urls.iter().any(|(x, _)| x == *e)) {
-        if let Some(f) = file(e) {
+        if known && let Some(f) = file(e) {
             write_cache(&f, None);
         }
         out.push((e.clone(), None));
@@ -374,23 +402,48 @@ mod tests {
                 {"commit":{"author":{"email":"autre@exemple.fr"}},"author":{"avatar_url":"https://avatars.githubusercontent.com/u/8?v=4"}}]"#,
         )]);
         let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("octo/depot"), token: None };
-        let got = provider_avatar_urls(&ctx, &["camille@exemple.fr".to_string(), "inconnu@exemple.fr".to_string()]);
+        let got = provider_avatar_urls(&ctx, &["camille@exemple.fr".to_string(), "inconnu@exemple.fr".to_string()]).unwrap();
         assert_eq!(got, [("camille@exemple.fr".to_string(), "https://avatars.githubusercontent.com/u/7?v=4&s=64".to_string())]);
         assert!(requests.recv().unwrap().starts_with("GET /api/v3/repos/octo/depot/commits?per_page=100 "));
         // Un autre paquet d'adresses : la liste déjà lue sert, sans nouvel appel.
-        let got = provider_avatar_urls(&ctx, &["autre@exemple.fr".to_string()]);
+        let got = provider_avatar_urls(&ctx, &["autre@exemple.fr".to_string()]).unwrap();
         assert_eq!(got.len(), 1);
         assert!(requests.try_recv().is_err());
         // Chemin de dépôt douteux : aucun appel.
         let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("../x"), token: None };
-        assert!(provider_avatar_urls(&ctx, &["a@b.fr".to_string()]).is_empty());
+        assert_eq!(provider_avatar_urls(&ctx, &["a@b.fr".to_string()]), Some(Vec::new()));
+    }
+
+    #[test]
+    fn github_commit_authors_failure_is_kept() {
+        // Dépôt invisible sans compte : 404, gardé ; le paquet suivant ne redemande pas.
+        let (url, requests) = serve(vec![(404, "{}"), (200, "[]")]);
+        let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("octo/prive"), token: None };
+        // Échec : `None` (les adresses ne sont pas gardées « sans avatar »).
+        assert_eq!(provider_avatar_urls(&ctx, &["a@b.fr".to_string()]), None);
+        requests.recv().unwrap();
+        assert_eq!(provider_avatar_urls(&ctx, &["c@d.fr".to_string()]), None);
+        assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
+    }
+
+    #[test]
+    fn github_commit_authors_are_read_once_for_parallel_batches() {
+        let (url, requests) = serve(vec![(200, r#"[{"commit":{"author":{"email":"a@b.fr"}},"author":{"avatar_url":"https://avatars.githubusercontent.com/u/7"}}]"#), (200, "[]")]);
+        let ctx = RepoContext { kind: Kind::GitHub, url: &url, repo: Some("octo/ensemble"), token: None };
+        let found: Vec<usize> = std::thread::scope(|s| {
+            let handles: Vec<_> = (0..4).map(|_| s.spawn(|| provider_avatar_urls(&ctx, &["a@b.fr".to_string()]).unwrap().len())).collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        assert_eq!(found, [1, 1, 1, 1]);
+        requests.recv().unwrap();
+        assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
     }
 
     #[test]
     fn gitlab_avatar_by_email() {
         let (url, requests) = serve(vec![(200, r#"{"avatar_url":"/uploads/-/system/user/avatar/3/a.png"}"#)]);
         let ctx = RepoContext { kind: Kind::GitLab, url: &url, repo: None, token: Some("glpat-x") };
-        let got = provider_avatar_urls(&ctx, &["a+b@exemple.fr".to_string()]);
+        let got = provider_avatar_urls(&ctx, &["a+b@exemple.fr".to_string()]).unwrap();
         assert_eq!(got, [("a+b@exemple.fr".to_string(), format!("{url}/uploads/-/system/user/avatar/3/a.png"))]);
         let request = requests.recv().unwrap();
         assert!(request.starts_with("GET /api/v4/avatar?email=a%2Bb%40exemple.fr&size=64 "), "{request}");

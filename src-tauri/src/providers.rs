@@ -169,10 +169,72 @@ pub(crate) fn headers<B>(kind: Kind, request: ureq::RequestBuilder<B>, token: &s
     }
 }
 
+// ---------------------------------------------------------------------------
+// Limite de requêtes
+// ---------------------------------------------------------------------------
+
+/// Attente quand le provider ne dit pas combien de temps (GitHub : « au moins une minute »).
+const DEFAULT_WAIT: Duration = Duration::from_secs(60);
+/// Attente au plus, même si le provider annonce plus (horloge locale décalée…).
+const MAX_WAIT: Duration = Duration::from_secs(3600);
+
+/// Fin de la pause, par instance et par token : rien n'est envoyé avant (les limites sont
+/// comptées par token, et par adresse IP sans token).
+static COOLDOWN: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, std::time::Instant>>> = std::sync::LazyLock::new(Default::default);
+
+fn limit_key(api: &str, token: Option<&str>) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    token.hash(&mut hasher);
+    format!("{api}|{:016x}", hasher.finish())
+}
+
+/// La réponse dit-elle que la limite de requêtes est atteinte ? Renvoie alors l'attente.
+/// 429 (GitLab, GitHub) ; 403 de GitHub avec `x-ratelimit-remaining: 0` ou `retry-after`.
+/// Attente : `retry-after` (secondes), sinon `x-ratelimit-reset` (GitHub) ou `ratelimit-reset`
+/// (GitLab), en secondes Unix ; sinon une minute.
+fn rate_limit_wait(status: u16, header: impl Fn(&str) -> Option<String>, now_unix: u64) -> Option<Duration> {
+    let number = |name: &str| header(name).and_then(|v| v.trim().parse::<u64>().ok());
+    let limited = status == 429 || (status == 403 && (number("x-ratelimit-remaining") == Some(0) || number("retry-after").is_some()));
+    if !limited {
+        return None;
+    }
+    let wait = number("retry-after")
+        .or_else(|| number("x-ratelimit-reset").or_else(|| number("ratelimit-reset")).map(|reset| reset.saturating_sub(now_unix)))
+        .map_or(DEFAULT_WAIT, Duration::from_secs);
+    Some(wait.clamp(Duration::from_secs(1), MAX_WAIT))
+}
+
+/// Envoie une requête à l'API `api` (`send`), sauf pendant une pause due à la limite de
+/// requêtes : `rate_limited` sans rien envoyer. Une réponse qui annonce la limite pose la pause
+/// et donne `rate_limited`.
+pub(crate) fn send_api(api: &str, token: Option<&str>, send: impl FnOnce() -> Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Result<ureq::http::Response<ureq::Body>, String> {
+    let key = limit_key(api, token);
+    let now = std::time::Instant::now();
+    {
+        let mut cooldown = COOLDOWN.lock().unwrap_or_else(|e| e.into_inner());
+        match cooldown.get(&key) {
+            Some(until) if *until > now => return Err("rate_limited".into()),
+            Some(_) => {
+                cooldown.remove(&key);
+            }
+            None => {}
+        }
+    }
+    let response = send().map_err(|_| "provider_unreachable".to_string())?;
+    let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);
+    let now_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    if let Some(wait) = rate_limit_wait(response.status().as_u16(), header, now_unix) {
+        COOLDOWN.lock().unwrap_or_else(|e| e.into_inner()).insert(key, std::time::Instant::now() + wait);
+        return Err("rate_limited".into());
+    }
+    Ok(response)
+}
+
 fn get_limited(kind: Kind, api: &str, path: &str, token: &str, limit: u64) -> Result<serde_json::Value, String> {
     check_token(token)?;
     let request = headers(kind, agent().get(format!("{api}{path}")), token);
-    let mut response = request.call().map_err(|_| "provider_unreachable".to_string())?;
+    let mut response = send_api(api, Some(token), || request.call())?;
     match response.status().as_u16() {
         200..=299 => {}
         401 => return Err("token_invalid".into()),
@@ -568,7 +630,7 @@ pub fn key_entries(account: &Account, keys: &[LocalKey]) -> Result<Vec<KeyEntry>
 fn post(kind: Kind, api: &str, path: &str, token: &str, body: &serde_json::Value) -> Result<(), String> {
     check_token(token)?;
     let request = headers(kind, agent().post(format!("{api}{path}")), token).header("Content-Type", "application/json");
-    let mut response = request.send(body.to_string()).map_err(|_| "provider_unreachable".to_string())?;
+    let mut response = send_api(api, Some(token), || request.send(body.to_string()))?;
     let status = response.status().as_u16();
     let text = response.body_mut().with_config().limit(MAX_BODY).read_to_string().unwrap_or_default().to_lowercase();
     match status {
@@ -714,6 +776,40 @@ pub(crate) mod tests {
         // Une page web répond 200 à cette adresse : ce n'est pas l'API.
         assert_eq!(answer(200, "<html>bonjour</html>"), "provider_unexpected");
         assert_eq!(answer(200, r#"{"login":"compte-github"}"#), "provider_unexpected");
+    }
+
+    #[test]
+    fn rate_limit_is_read_from_the_answer() {
+        let at = |status: u16, headers: &'static [(&'static str, &'static str)]| {
+            rate_limit_wait(status, |name| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| v.to_string()), 1_000)
+        };
+        let secs = Duration::from_secs;
+        // 403 de droits (sans en-tête de limite) : pas une limite.
+        assert_eq!(at(403, &[]), None);
+        assert_eq!(at(403, &[("x-ratelimit-remaining", "12")]), None);
+        assert_eq!(at(200, &[("x-ratelimit-remaining", "0")]), None);
+        // GitHub, limite principale : jusqu'à `x-ratelimit-reset`.
+        assert_eq!(at(403, &[("x-ratelimit-remaining", "0"), ("x-ratelimit-reset", "1090")]), Some(secs(90)));
+        // GitHub, limite secondaire : `retry-after` l'emporte.
+        assert_eq!(at(403, &[("retry-after", "30"), ("x-ratelimit-reset", "1090")]), Some(secs(30)));
+        // GitLab : 429 et `ratelimit-reset`.
+        assert_eq!(at(429, &[("ratelimit-reset", "1005")]), Some(secs(5)));
+        // Sans durée : une minute ; durée bornée.
+        assert_eq!(at(429, &[]), Some(DEFAULT_WAIT));
+        assert_eq!(at(429, &[("retry-after", "999999")]), Some(MAX_WAIT));
+        assert_eq!(at(429, &[("x-ratelimit-reset", "10")]), Some(secs(1)));
+    }
+
+    #[test]
+    fn nothing_is_sent_while_rate_limited() {
+        let (url, requests) = serve(vec![(429, "{}"), (200, r#"{"username":"camille"}"#)]);
+        assert_eq!(verify(Kind::GitLab, &url, "glpat-xyz").unwrap_err(), "rate_limited");
+        requests.recv().unwrap();
+        // Pendant la pause : rien n'est envoyé.
+        assert_eq!(verify(Kind::GitLab, &url, "glpat-xyz").unwrap_err(), "rate_limited");
+        assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
+        // La pause est propre au token : un autre token passe.
+        assert_eq!(verify(Kind::GitLab, &url, "glpat-autre").unwrap().login, "camille");
     }
 
     #[test]

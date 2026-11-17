@@ -499,6 +499,7 @@
     "invalid_instance_url": "Adresse d’instance invalide.",
     "token_invalid": "Token refusé : il est incorrect, expiré ou révoqué.",
     "token_forbidden": "Accès refusé avec ce token : droits insuffisants, autorisation SSO manquante ou limite de requêtes atteinte.",
+    "rate_limited": "Limite de requêtes du provider atteinte : GitGR attend avant de réessayer.",
     "token_missing": "Le token de ce compte n’est plus dans le trousseau du système : reconnectez le compte.",
     "provider_unreachable": "Instance injoignable : vérifiez l’adresse, la connexion réseau et le certificat du serveur.",
     "provider_not_found": "L’API de ce provider ne répond pas à cette adresse : vérifiez l’adresse de l’instance et le provider choisi.",
