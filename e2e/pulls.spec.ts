@@ -40,7 +40,7 @@ async function seed(page: Page, withAccount: boolean) {
 test("clic droit sur une autre branche : MR de la branche courante vers celle-ci, poussée d'abord", async ({ page }) => {
   await seed(page, true);
   await branch(page, "profils").dblclick();
-  await expect(page.locator(".branch-chip-name")).toHaveText("feature/profils");
+  await expect(page.locator(".branch-chip-label")).toHaveText("feature/profils");
 
   await remoteBranch(page, "main").click({ button: "right" });
   await menu(page).getByRole("menuitem", { name: "Créer une merge request de feature/profils vers origin/main…" }).click();
@@ -123,7 +123,7 @@ test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture d
   // Préchargée dès l'ouverture du dépôt (lecture simulée : 0,6 s), pas à celle de la fenêtre.
   await expect.poll(() => fetches(page)).toBe(1);
   await branch(page, "profils").dblclick();
-  await expect(page.locator(".branch-chip-name")).toHaveText("feature/profils");
+  await expect(page.locator(".branch-chip-label")).toHaveText("feature/profils");
   await remoteBranch(page, "main").click({ button: "right" });
   await menu(page).getByRole("menuitem", { name: /Créer une merge request de feature\/profils/ }).click();
   const d = dialog(page);

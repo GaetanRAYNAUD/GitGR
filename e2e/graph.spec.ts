@@ -121,3 +121,21 @@ test("fichiers d'un commit en arborescence, choix conservé au redémarrage", as
   await expect(panel(page).getByRole("button", { name: "Arborescence" })).toHaveAttribute("aria-pressed", "true");
   await expect(files.locator(".file-dir-row").first()).toBeVisible();
 });
+
+test("branche courante et modifications en attente mises en avant", async ({ page }) => {
+  // GitGR (propre) : la branche dans la barre, la ligne du commit courant marquée, pas de pastille.
+  await expect(page.locator(".branch-chip-label")).toHaveText("main");
+  await expect(graph(page).locator(".commit-row.head")).toHaveCount(1);
+  await expect(page.locator(".changes-pill")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Accueil" }).click();
+  await page.getByRole("button", { name: /Ouvrir un dépôt/ }).click();
+  await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
+  const pill = page.locator(".changes-pill");
+  await expect(pill).toHaveText("4 modifications en attente");
+  // Autre commit choisi, puis la pastille ramène aux modifications en cours.
+  await graph(page).getByRole("option").nth(3).click();
+  await pill.click();
+  await expect(graph(page).getByRole("option", { selected: true })).toContainText("Modifications en cours");
+  await expect(pill).toHaveClass(/\bon\b/);
+});

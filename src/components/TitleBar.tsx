@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../lib/api";
+import { api, inTauri } from "../lib/api";
 import { repoColor, repoName, useApp } from "../store/app";
 import { TabColorPopover } from "./TabColorPopover";
 import { type MenuItem, openContextMenu } from "./ContextMenu";
@@ -61,8 +61,49 @@ function useTabDrag(container: React.RefObject<HTMLDivElement | null>) {
   return { dragging, onPointerDown };
 }
 
+/** macOS : le script de Tauri lance le déplacement natif dès l'appui sur la zone, et ce
+ *  déplacement avale le relâchement : le double-clic n'arrive jamais (agrandir ne marche pas).
+ *  Ici, les zones portent `data-mac-drag` à la place : le déplacement ne commence qu'une fois la
+ *  souris bougée, et le double-clic agrandit / restaure la fenêtre comme une barre de titre macOS. */
+const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform || navigator.userAgent);
+const dragRegion = isMac ? { "data-mac-drag": "" } : { "data-tauri-drag-region": "" };
+
+function useMacDragRegion() {
+  useEffect(() => {
+    if (!inTauri || !isMac) return;
+    let start: { x: number; y: number } | null = null;
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0 || !(e.target instanceof HTMLElement) || !e.target.hasAttribute("data-mac-drag")) return;
+      e.preventDefault();
+      if (e.detail === 2) {
+        start = null;
+        void api.window.toggleMaximize();
+      } else start = { x: e.screenX, y: e.screenY };
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!start) return;
+      if (!(e.buttons & 1)) start = null;
+      else if (Math.hypot(e.screenX - start.x, e.screenY - start.y) >= DRAG_THRESHOLD) {
+        start = null;
+        void api.window.startDragging();
+      }
+    };
+    const onUp = () => {
+      start = null;
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+}
+
 /** Barre de titre personnalisée : logo, onglets de dépôts, réglages, contrôles de fenêtre.
- *  `data-tauri-drag-region` rend les zones vides déplaçables (double-clic = agrandir). */
+ *  Les zones vides déplacent la fenêtre (double-clic = agrandir), cf. `dragRegion`. */
 export function TitleBar() {
   const { t } = useTranslation();
   const tabs = useApp((s) => s.tabs);
@@ -74,6 +115,7 @@ export function TitleBar() {
   const profilesOpen = useProfiles((s) => s.pageOpen);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { dragging, onPointerDown } = useTabDrag(tabsRef);
+  useMacDragRegion();
   /** Onglet en cours de renommage (double-clic). */
   const [editing, setEditing] = useState<string | null>(null);
   /** Onglet dont on choisit la couleur (fenêtre sous l'onglet). */
@@ -98,7 +140,7 @@ export function TitleBar() {
   };
 
   return (
-    <header className="titlebar" data-tauri-drag-region>
+    <header className="titlebar" {...dragRegion}>
       <button
         className={active === null ? "brand on" : "brand"}
         aria-current={active === null ? "page" : undefined}
@@ -110,7 +152,7 @@ export function TitleBar() {
         <span>{t("app.name")}</span>
       </button>
 
-      <div className={dragging ? "tabs dragging" : "tabs"} role="tablist" ref={tabsRef} data-tauri-drag-region>
+      <div className={dragging ? "tabs dragging" : "tabs"} role="tablist" ref={tabsRef} {...dragRegion}>
         {tabs.map((path) => {
           const name = nameOf(path);
           const on = path === active;
@@ -187,7 +229,7 @@ export function TitleBar() {
         />
       )}
 
-      <div className="titlebar-spacer" data-tauri-drag-region />
+      <div className="titlebar-spacer" {...dragRegion} />
 
       <NotificationsBell />
 

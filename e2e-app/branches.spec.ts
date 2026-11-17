@@ -58,7 +58,7 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
     const { page } = app;
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     await locals.getByRole("button", { name: /^feature/ }).dblclick();
-    await expect(page.locator(".branch-chip-name")).toHaveText("feature");
+    await expect(page.locator(".branch-chip-label")).toHaveText("feature");
     // Modification gardée, combinée avec celle de la branche : pas de conflit, stash vidé.
     expect(git(mine, "diff")).toContain("+cinq");
     expect(git(mine, "stash", "list")).toBe("");
@@ -66,7 +66,7 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
     // Retour sur main avec une modification en conflit sur la ligne 1.
     sandbox.write(mine, "a.txt", "UN\n2\n3\n4\ncinq\n");
     await locals.getByRole("button", { name: /^main/ }).dblclick();
-    await expect(page.locator(".branch-chip-name")).toHaveText("main");
+    await expect(page.locator(".branch-chip-label")).toHaveText("main");
     await expect(page.getByRole("status").filter({ hasText: "GitGR-autostash: feature" }).first()).toBeVisible();
     expect(git(mine, "stash", "list")).toContain("GitGR-autostash: feature");
   } finally {

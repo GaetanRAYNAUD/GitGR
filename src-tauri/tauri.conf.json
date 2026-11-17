@@ -34,11 +34,20 @@
     "shortDescription": "Client Git visuel, multi-profils et multi-dépôts",
     "license": "MIT",
     "icon": [
+      "icons/icon.png",
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/gitgr.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/gitgr.desktop"
+      }
+    }
   }
 }

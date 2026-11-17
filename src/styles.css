@@ -789,8 +789,73 @@ h2 {
 }
 
 .branch-chip-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
+  color: var(--text);
+}
+
+/* Branche courante mise en avant : liseré de l'accent à gauche, icône à sa couleur. */
+.branch-chip {
+  border-left: 3px solid var(--accent);
+}
+
+.branch-chip-name > svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.branch-chip.detached {
+  border-left-color: var(--mod);
+}
+
+.branch-chip.detached .branch-chip-name > svg {
+  color: var(--mod);
+}
+
+.branch-chip-label {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-chip-sync {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Modifications en attente (non commitées) : pastille à côté de la branche. */
+.changes-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 8px;
+  padding: 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--mod) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mod) 12%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.changes-pill:hover,
+.changes-pill.on {
+  background: color-mix(in srgb, var(--mod) 22%, transparent);
+}
+
+.changes-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mod);
+  flex: none;
 }
 
 .tools {
@@ -1230,9 +1295,41 @@ h2 {
   background: var(--sel);
 }
 
+.commit-row.wip {
+  background: color-mix(in srgb, var(--mod) 9%, transparent);
+  box-shadow: inset 3px 0 var(--mod);
+}
+
+.commit-row.wip:hover {
+  background: color-mix(in srgb, var(--mod) 15%, transparent);
+}
+
 .commit-row.wip .commit-msg {
-  color: var(--muted);
+  color: var(--text);
   font-style: italic;
+  font-weight: 600;
+}
+
+/* Commit courant (HEAD) : liseré de l'accent et message en gras. */
+.commit-row.head {
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.commit-row.head:not(.sel) {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.commit-row.head:not(.sel):hover {
+  background: var(--hover);
+}
+
+.commit-row.head .commit-msg {
+  font-weight: 600;
+}
+
+.commit-row.wip.sel,
+.commit-row.head.sel {
+  background: var(--sel);
 }
 
 .commit-row > span {

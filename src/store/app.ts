@@ -59,7 +59,7 @@ interface AppStore {
   refreshRepo(path: string): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
-  /** ctions : boutons du message (Ouvrir, Copier le lien…) ; il reste alors affiché plus longtemps. */
+  /** `actions` : boutons du message (Ouvrir, Copier le lien…) ; il reste alors affiché plus longtemps. */
   notify(text: string, sticky?: boolean, actions?: NoticeAction[]): void;
   dismissNotice(): void;
 }
