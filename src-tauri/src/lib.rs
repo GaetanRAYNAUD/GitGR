@@ -73,6 +73,7 @@ pub fn run() {
             };
             remotes::set_config_dir(dir.join("ssh"));
             avatars::set_cache_dir(dir.join("avatars"));
+            pulls::set_cache_dir(dir.join("pull-options"));
             let store = store::Store::load(dir);
             commands::sync_identities(&store.state);
             app.manage(Mutex::new(store));
@@ -148,6 +149,8 @@ pub fn run() {
             commands::pull_draft,
             commands::remote_default_branch,
             commands::create_pull,
+            commands::cached_pull_options,
+            commands::refresh_pull_options,
             commands::github_device_start,
             commands::github_device_poll,
             commands::github_device_cancel,

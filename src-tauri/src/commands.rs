@@ -716,3 +716,20 @@ pub async fn create_pull(kind: String, url: String, account: Option<String>, req
     let (k, api, token) = pull_access(&store, account, &kind, &url)?;
     tauri::async_runtime::spawn_blocking(move || crate::pulls::create(k, &api, &token, &request)).await.map_err(|e| e.to_string())?
 }
+
+/// Personnes et étiquettes du dépôt déjà en cache (ou celles des autres dépôts du même
+/// propriétaire) ; rien n'est demandé au provider.
+#[tauri::command]
+pub async fn cached_pull_options(kind: String, url: String, repo: String) -> Result<Option<crate::pulls::PullOptions>, String> {
+    let k = providers::Kind::parse(&kind)?;
+    let url = providers::instance(k, &url)?.url;
+    Ok(crate::pulls::cached_options(k, &url, &repo))
+}
+
+/// Relit les personnes et étiquettes du dépôt sur le provider, et les garde en cache.
+#[tauri::command]
+pub async fn refresh_pull_options(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<crate::pulls::PullOptions, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    let url = providers::instance(k, &url)?.url;
+    tauri::async_runtime::spawn_blocking(move || crate::pulls::refresh_options(k, &api, &url, &repo, &token)).await.map_err(|e| e.to_string())?
+}

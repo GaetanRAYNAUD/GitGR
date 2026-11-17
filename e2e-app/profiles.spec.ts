@@ -37,7 +37,15 @@ test("le commit prend l'identité du profil actif, sans toucher à la config git
     // … jusqu'à « Écrire l'identité dans .git/config ».
     await page.locator(".status-profile").click();
     await page.getByRole("menuitem", { name: "Écrire l’identité dans .git/config" }).click();
-    await expect.poll(() => git(mine, "config", "--local", "user.email")).toBe("camille@boulot.fr");
+    // Tant que la clé n'est pas écrite, `git config` échoue (code 1) : lu comme vide, et on attend.
+    const localEmail = () => {
+      try {
+        return git(mine, "config", "--local", "user.email");
+      } catch {
+        return "";
+      }
+    };
+    await expect.poll(localEmail).toBe("camille@boulot.fr");
     expect(git(mine, "config", "--local", "user.name")).toBe("Camille Boulot");
   } finally {
     await app.close();

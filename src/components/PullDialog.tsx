@@ -1,21 +1,25 @@
 // Fenêtre « Créer une pull request » (GitHub) / « Créer une merge request » (GitLab) : de la
 // branche courante vers une branche d'un remote. La branche est poussée d'abord si besoin ; le
-// titre et la description sont pré-remplis d'après ses commits et le modèle du dépôt.
+// titre et la description sont pré-remplis d'après ses commits et le modèle du dépôt ; relecteurs,
+// assignés et étiquettes sont choisis dans les listes du dépôt (en cache, cf. store/pullOptions).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
-import { parseRemote, remoteProfile } from "../lib/profiles";
-import { PROVIDER_NAMES, remoteAccount, remoteInstance, remoteProvider } from "../lib/providers";
+import { PROVIDER_NAMES } from "../lib/providers";
 import { draftText, pullSource, type PullTarget } from "../lib/pulls";
-import type { Pull, ProviderKind, RefsInfo } from "../lib/types";
+import { relativeTime } from "../lib/format";
+import type { Person, Pull, ProviderKind, RefsInfo } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
 import { useGraph } from "../store/graph";
 import { useOps } from "../store/ops";
 import { useProfiles } from "../store/profiles";
 import { usePullDialog } from "../store/pulls";
+import { optionsKey, ownerKey, usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { Icon } from "./Icon";
+import { MultiPicker, type PickOption } from "./MultiPicker";
+import { remoteMarkOf } from "./RemoteMark";
 
 /** « pr » (GitHub) ou « mr » (GitLab) : suffixe des libellés. */
 export const pullTerm = (kind: ProviderKind | null) => (kind === "gitlab" ? "mr" : "pr");
@@ -59,6 +63,9 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Pull | null>(null);
   const [copied, setCopied] = useState(false);
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [reviewers, setReviewers] = useState<string[]>([]);
+  const [labels, setLabels] = useState<string[]>([]);
 
   const cancel = useCallback(() => {
     if (!busy) close();
@@ -69,11 +76,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const side = useCallback(
     (name: string | null) => {
       const remote = remotes.find((r) => r.name === name);
-      const parsed = parseRemote(remote?.url ?? null);
-      const provider = remoteProvider(profiles, parsed);
-      if (!remote || !parsed || !provider) return null;
-      const account = remoteAccount(remoteProfile(profiles, binding, remote).profile, parsed);
-      return { provider, parsed, account, url: remoteInstance(profiles, parsed, account) ?? "" };
+      return remote ? remoteMarkOf(profiles, binding, remote) : null;
     },
     [remotes, profiles, binding],
   );
@@ -84,7 +87,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const branches = useMemo(() => remoteBranches(refs, targetRemote), [refs, targetRemote]);
 
   // Branche cible proposée : la branche par défaut du dépôt distant (API), sinon main / master.
-  const tgtKey = tgt ? `${tgt.provider}|${tgt.url}|${tgt.parsed.path}|${tgt.account?.id ?? ""}` : "";
+  const tgtKey = tgt ? `${tgt.provider}|${tgt.url}|${tgt.repo}|${tgt.account ?? ""}` : "";
   useEffect(() => {
     if (branchTouched || !tgt) return;
     let live = true;
@@ -93,7 +96,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
       setTargetBranch(fallback());
       return;
     }
-    api.remoteDefaultBranch(tgt.provider, tgt.url, tgt.parsed.path, tgt.account.id).then(
+    api.remoteDefaultBranch(tgt.provider, tgt.url ?? "", tgt.repo, tgt.account).then(
       (b) => live && setTargetBranch(b),
       () => live && setTargetBranch(fallback()),
     );
@@ -125,6 +128,70 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     };
   }, [path, sourceBranch, targetRemote, targetBranch, kind, textTouched]);
 
+  // Personnes et étiquettes du dépôt cible : le cache tout de suite, relu en arrière-plan.
+  const ctx: OptionsContext | null = tgt?.url ? { kind: tgt.provider, url: tgt.url, repo: tgt.repo, account: tgt.account } : null;
+  const ctxKey = ctx ? `${optionsKey(ctx)}|${ctx.account ?? ""}` : "";
+  const ensure = usePullOptions((s) => s.ensure);
+  useEffect(() => {
+    if (ctx) void ensure(ctx);
+    // `ctx` est rendu par sa clé.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctxKey, ensure]);
+  const entry = usePullOptions((s) => (ctx ? s.entries[optionsKey(ctx)] : undefined));
+  const last = usePullOptions((s) => (ctx ? s.last[ownerKey(ctx)] : undefined));
+  const options = entry?.options ?? null;
+  /** Login du compte (`<kind>|<url>|<login>`) : pas relecteur de sa propre PR chez GitHub. */
+  const me = tgt?.account?.split("|").pop() ?? null;
+  /** Personnes connues : celles de la liste, plus celles déjà choisies (liste changée entre-temps). */
+  const [chosen, setChosen] = useState<Record<string, Person>>({});
+  const people = useMemo(() => {
+    const map = new Map<string, Person>();
+    for (const x of options?.people ?? []) map.set(x.login.toLowerCase(), x);
+    for (const x of Object.values(chosen)) if (!map.has(x.login.toLowerCase())) map.set(x.login.toLowerCase(), x);
+    return map;
+  }, [options, chosen]);
+  const personOptions = useMemo(
+    (): PickOption[] => [...people.values()].map((x) => ({ id: x.login.toLowerCase(), label: x.login, detail: x.name && x.name !== x.login ? x.name : null })),
+    [people],
+  );
+  const reviewerOptions = useMemo(() => (kind === "github" && me ? personOptions.filter((o) => o.id !== me.toLowerCase()) : personOptions), [personOptions, kind, me]);
+  const labelOptions = useMemo(
+    (): PickOption[] => (options?.labels ?? []).map((l) => ({ id: l.name, label: l.name, detail: l.description, color: l.color })),
+    [options],
+  );
+  const pick = (setter: (ids: string[]) => void) => (ids: string[]) => {
+    setChosen((c) => {
+      const next = { ...c };
+      for (const id of ids) {
+        const x = people.get(id);
+        if (x) next[id] = x;
+      }
+      return next;
+    });
+    setter(ids);
+  };
+  const persons = (ids: string[]) => ids.map((id) => people.get(id)).filter((x): x is Person => !!x);
+  const reuseLast = () => {
+    if (!last) return;
+    const all = [...last.assignees, ...last.reviewers];
+    setChosen((c) => Object.fromEntries([...Object.entries(c), ...all.map((x) => [x.login.toLowerCase(), x] as const)]));
+    setAssignees(last.assignees.map((x) => x.login.toLowerCase()));
+    setReviewers(last.reviewers.map((x) => x.login.toLowerCase()).filter((id) => !(kind === "github" && id === me?.toLowerCase())));
+    setLabels(last.labels);
+  };
+  const age = options && !options.fromOwner ? relativeTime(options.fetchedAt * 1000) : null;
+  // Autre dépôt cible : les choix faits pour le précédent n'y ont pas cours.
+  const repoKey = ctx ? optionsKey(ctx) : "";
+  const shownRepo = useRef(repoKey);
+  useEffect(() => {
+    if (shownRepo.current === repoKey) return;
+    shownRepo.current = repoKey;
+    setChosen({});
+    setAssignees([]);
+    setReviewers([]);
+    setLabels([]);
+  }, [repoKey]);
+
   // Ce qui empêche la création, dans l'ordre où il faut le régler.
   const blocker = !head
     ? t("pr.detached")
@@ -134,7 +201,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         ? t("pr.unknownProvider", { remote: targetRemote })
         : !tgt.account
           ? t("pr.noAccount", { provider: PROVIDER_NAMES[tgt.provider], remote: targetRemote })
-          : !src || src.provider !== tgt.provider || src.parsed.host !== tgt.parsed.host
+          : !src || src.provider !== tgt.provider || src.host !== tgt.host
             ? t("pr.otherInstance", { source: source.remote, target: targetRemote })
             : targetRemote === source.remote && targetBranch === source.remoteBranch
               ? t("pr.sameBranch")
@@ -157,15 +224,18 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     }
     setBusy("create");
     try {
-      const pull = await api.createPull(tgt.provider, tgt.url, tgt.account.id, {
-        sourceRepo: src.parsed.path,
+      const choice = { assignees: persons(assignees), reviewers: persons(reviewers), labels };
+      const pull = await api.createPull(tgt.provider, tgt.url ?? "", tgt.account, {
+        sourceRepo: src.repo,
         sourceBranch: source.remoteBranch,
-        targetRepo: tgt.parsed.path,
+        targetRepo: tgt.repo,
         targetBranch: targetBranch.trim(),
         title: title.trim(),
         body,
         draft,
+        ...choice,
       });
+      if (ctx) usePullOptions.getState().remember(ctx, choice);
       setDone(pull);
     } catch (e) {
       setError(errorCode(e));
@@ -193,6 +263,11 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
           <p className="account-hint mono pull-url" title={done.url}>
             {done.url}
           </p>
+          {done.warnings.map((w) => (
+            <p key={w} className="input-error" role="alert">
+              {errorMessage(t, w)}
+            </p>
+          ))}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={close}>
               {t("pr.close")}
@@ -304,6 +379,46 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
           <input type="checkbox" checked={draft} disabled={!!busy} onChange={(e) => setDraft(e.target.checked)} />
           {t("pr.draft")}
         </label>
+
+        {ctx && (
+          <div className="pull-people">
+            <div className="pull-people-head">
+              <span className="pull-people-status" role="status">
+                {entry?.loading
+                  ? options
+                    ? options.fromOwner
+                      ? t("pr.loadingOwner", { owner: tgt?.owner })
+                      : t("pr.refreshing")
+                    : t("pr.loading")
+                  : entry?.error
+                    ? errorMessage(t, entry.error)
+                    : age
+                      ? t("pr.listAge", { age: t(`time.${age.key}`, { count: age.count }) })
+                      : null}
+                {options?.truncated && ` · ${t("pr.truncated")}`}
+              </span>
+              {last && (
+                <button type="button" className="link" disabled={!!busy} onClick={reuseLast}>
+                  {t("pr.reuseLast")}
+                </button>
+              )}
+              <button type="button" className="link" disabled={!!busy || !!entry?.loading || !ctx.account} onClick={() => void ensure(ctx, true)}>
+                {t("pr.refresh")}
+              </button>
+            </div>
+            <MultiPicker label={t("pr.reviewers")} options={reviewerOptions} selected={reviewers} onChange={pick(setReviewers)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
+            <div className="pull-assignees">
+              <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
+              {/* Seulement si le compte est dans la liste (GitLab a besoin de son identifiant). */}
+              {me && people.has(me.toLowerCase()) && !assignees.includes(me.toLowerCase()) && (
+                <button type="button" className="link pull-assign-me" disabled={!!busy} onClick={() => pick(setAssignees)([...assignees, me.toLowerCase()])}>
+                  {t("pr.assignMe")}
+                </button>
+              )}
+            </div>
+            <MultiPicker label={t("pr.labels")} options={labelOptions} selected={labels} onChange={setLabels} disabled={!!busy} placeholder={t("pr.searchLabels")} />
+          </div>
+        )}
 
         {source?.needsPush && !blocker && <p className="account-hint">{t("pr.willPush", { branch: source.branch, remote: source.remote })}</p>}
         {blocker && (

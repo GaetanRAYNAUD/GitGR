@@ -173,7 +173,7 @@ export function RefsSidebar({ path }: { path: string }) {
               <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
               <span className="section-icon" data-provider={provider ?? undefined}>
                 {provider && parsed ? (
-                  <RemoteMark mark={{ provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null }} />
+                  <RemoteMark mark={{ provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null, host: parsed.host, repo: parsed.path }} />
                 ) : (
                   <Icon name={ICONS[s.kind]} size={15} />
                 )}
