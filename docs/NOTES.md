@@ -236,6 +236,7 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
 ### Étape 12 — prise en main
 
 - [ ] **Tour guidé** : au premier lancement (et relançable depuis les réglages ou l'aide), une visite courte des zones de l'app : onglets et accueil, graphe, barre latérale, panneau des modifications et commit, barre d'outils (pull / push / fetch), profils et comptes. Bulles ancrées sur chaque zone, « Suivant » / « Passer », sans bloquer l'app ; FR / EN.
+- [ ] **Liste des raccourcis clavier** : une page (ou une section des réglages) qui liste tous les raccourcis, groupés par zone (onglets, graphe, modifications et commit, diff…), avec une recherche. Idéalement **modifiables** : clic sur un raccourci, nouvelle combinaison saisie, conflit signalé, « rétablir par défaut » (par raccourci et global) ; gardés dans les réglages. À prévoir : une table unique des raccourcis (action, combinaison par défaut, zone) dont se servent à la fois les écouteurs et la page, au lieu des combinaisons écrites en dur dans chaque composant ; les infobulles (« Accueil (Ctrl T) »…) lues dans cette table.
 
 ### Étape 10 — conflits et v2
 
