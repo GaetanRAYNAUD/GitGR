@@ -3731,27 +3731,37 @@ p.pf-account-keys.bad,
   max-height: none;
 }
 
-/* Avatars des auteurs dans le graphe (colonne Auteur, étiquettes de branches). */
-.author-avatar,
-.chip-avatar {
+/* Avatars des auteurs dans le graphe (colonne Auteur). */
+.author-avatar {
   flex: none;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   object-fit: cover;
 }
 
-.author-avatar {
-  width: 16px;
-  height: 16px;
+/* Étiquettes de branches : icône du remote (propriétaire du dépôt, provider). */
+.chip-mark {
+  flex: none;
+  margin-left: -2px;
 }
 
-.chip-avatar {
-  width: 14px;
-  height: 14px;
-  margin-left: -3px;
+.remote-mark.chip-mark,
+.chip-mark .remote-avatar {
+  width: 13px;
+  height: 13px;
 }
 
-.author-avatar.initials,
-.chip-avatar.initials {
+.chip-mark .remote-avatar {
+  border-radius: 3px;
+}
+
+.chip-mark .remote-badge {
+  right: -3px;
+  bottom: -2px;
+}
+
+.author-avatar.initials {
   display: inline-flex;
   align-items: center;
   justify-content: center;
