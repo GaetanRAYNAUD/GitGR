@@ -181,3 +181,86 @@ test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant l
     gitlab.server.close();
   }
 });
+
+/** Faux GitLab pour les merge requests : compte, projet `groupe/projet` (branche par défaut
+ *  `main`) et création d'une MR. Garde les corps des MR reçues. */
+async function fakeGitlabWithMergeRequests() {
+  const requests: string[] = [];
+  const created: Record<string, unknown>[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      requests.push(`${req.method} ${req.url}`);
+      const json = (status: number, value: unknown) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(value));
+      };
+      if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(401, { message: "401 Unauthorized" });
+      if (req.url === "/api/v4/user") return json(200, { id: 7, username: "camille", name: "Camille Boulot" });
+      if (req.url === "/api/v4/projects/groupe%2Fprojet") return json(200, { id: 42, default_branch: "main" });
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests" && req.method === "POST") {
+        created.push(JSON.parse(body));
+        return json(201, { iid: 5, web_url: `http://gitlab/groupe/projet/-/merge_requests/5`, title: JSON.parse(body).title });
+      }
+      json(404, { message: "404 Not Found" });
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests, created };
+}
+
+test("créer une merge request de la branche courante : cible par défaut lue sur l'instance, texte tiré du commit", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const gitlab = await fakeGitlabWithMergeRequests();
+  // Remote GitLab « déjà à jour » : ses branches distantes sont posées à la main (le faux
+  // serveur ne parle pas le protocole git), la branche suit la sienne et n'a rien à pousser.
+  git(mine, "remote", "add", "gitlab", `${gitlab.url}/groupe/projet.git`);
+  git(mine, "update-ref", "refs/remotes/gitlab/main", "main");
+  git(mine, "switch", "-q", "-c", "feature/mr");
+  sandbox.commit(mine, "b.txt", "b\n", "Ajoute b\n\nPour la démonstration.");
+  git(mine, "update-ref", "refs/remotes/gitlab/feature/mr", "HEAD");
+  git(mine, "branch", "-q", "--set-upstream-to=gitlab/feature/mr");
+  const app = await launchApp(sandbox, [mine], {
+    profiles: [boulot],
+    repoProfiles: { [sandbox.top(mine)]: { active: "boulot", allowed: ["boulot"] } },
+  });
+  const { page } = app;
+  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  const row = accounts.getByRole("listitem").filter({ hasText: "camille" }).first();
+  try {
+    await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
+    const connect = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
+    await connect.getByRole("radio", { name: "GitLab" }).click();
+    await connect.getByLabel("Instance").fill(gitlab.url);
+    await connect.getByLabel("Token personnel").fill(TOKEN);
+    await connect.getByRole("button", { name: "Connecter", exact: true }).click();
+    await expect(connect).toBeHidden();
+    await page.getByRole("button", { name: "Fermer les profils" }).click();
+
+    const locals = page.locator(".refs-sidebar .side-group").first();
+    await locals.getByRole("button", { name: /^mr( |$)/ }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Créer une merge request…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Créer une merge request" });
+    await expect(dialog.getByLabel("Branche cible")).toHaveValue("main");
+    await expect(dialog.getByLabel("Titre")).toHaveValue("Ajoute b");
+    await expect(dialog.getByLabel("Description")).toHaveValue("Pour la démonstration.");
+    await dialog.getByRole("button", { name: "Créer la merge request" }).click();
+
+    await expect(page.getByRole("dialog", { name: "Merge request !5 créée" })).toBeVisible();
+    expect(gitlab.created).toEqual([{ source_branch: "feature/mr", target_branch: "main", title: "Ajoute b", description: "Pour la démonstration." }]);
+    expect(gitlab.requests).toContain("GET /api/v4/projects/groupe%2Fprojet");
+  } finally {
+    // Ne rien laisser dans le trousseau : le compte est déconnecté depuis la page des profils.
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.getByRole("button", { name: "Profils et comptes" }).click().catch(() => {});
+    if (await row.isVisible().catch(() => false)) {
+      await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
+      await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});
+      await expect(row).toBeHidden().catch(() => {});
+    }
+    await app.close();
+    gitlab.server.close();
+  }
+});

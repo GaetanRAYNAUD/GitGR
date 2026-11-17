@@ -16,7 +16,7 @@ export interface RefChip {
 }
 
 /** Remote d'une branche distante `origin/main` (un nom de remote peut contenir des « / »). */
-function remoteOfShort(short: string | null, remotes: string[]): string | undefined {
+export function remoteOfShort(short: string | null, remotes: string[]): string | undefined {
   if (!short) return undefined;
   return remotes.filter((r) => short.startsWith(r + "/")).sort((a, b) => b.length - a.length)[0];
 }

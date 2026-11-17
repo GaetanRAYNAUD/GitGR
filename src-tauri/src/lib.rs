@@ -24,6 +24,7 @@ mod commands;
 mod git;
 mod history;
 mod profiles;
+mod pulls;
 mod providers;
 mod remotes;
 mod secrets;
@@ -144,6 +145,9 @@ pub fn run() {
             commands::add_account_key,
             commands::owner_avatar,
             commands::author_avatars,
+            commands::pull_draft,
+            commands::remote_default_branch,
+            commands::create_pull,
             commands::github_device_start,
             commands::github_device_poll,
             commands::github_device_cancel,

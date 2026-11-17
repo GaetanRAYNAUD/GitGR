@@ -54,9 +54,12 @@ import type {
   GitInfo,
   GpgKey,
   LineRef,
+  NewPull,
   OpResult,
   Profile,
   ProviderKind,
+  Pull,
+  PullDraft,
   PullStrategy,
   ProviderRepo,
   RefsInfo,
@@ -179,6 +182,13 @@ export interface Api {
   accountKeys(profile: string, account: string): Promise<AccountKey[]>;
   /** Ajoute au compte la clé `kind` du profil. */
   addAccountKey(profile: string, account: string, kind: AccountKeyKind): Promise<void>;
+  // Pull requests / merge requests
+  /** Commits de `source` absents de `target` (refs locales) et modèle de PR / MR du dépôt. */
+  pullDraft(path: string, source: string, target: string, kind: ProviderKind | null): Promise<PullDraft>;
+  /** Branche par défaut du dépôt `repo` (`propriétaire/nom`), avec le token du compte. */
+  remoteDefaultBranch(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<string>;
+  /** Crée la PR / MR, ou renvoie celle qui existe déjà pour ces branches (`existing`). */
+  createPull(kind: ProviderKind, url: string, account: string | null, request: NewPull): Promise<Pull>;
   // Clone
   /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
    *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
@@ -280,6 +290,9 @@ const tauriApi: Api = {
   githubDeviceCancel: (flowId) => invoke("github_device_cancel", { flowId }),
   ownerAvatar: (kind, url, owner, account) => invoke("owner_avatar", { kind, url, owner, account }),
   authorAvatars: (kind, url, repo, account, emails) => invoke("author_avatars", { kind, url, repo, account, emails }),
+  pullDraft: (path, source, target, kind) => invoke("pull_draft", { path, source, target, kind }),
+  remoteDefaultBranch: (kind, url, repo, account) => invoke("remote_default_branch", { kind, url, repo, account }),
+  createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -385,6 +398,9 @@ const mockDevicePolls = new Map<number, number>();
 
 /** Backend simulé : clés ajoutées aux comptes (`compte|type|clé`). */
 const mockAccountKeys = new Set<string>();
+/** PR / MR créées par le backend simulé (lues par les tests e2e via `window`). */
+const mockPulls: NewPull[] = [];
+if (!inTauri && typeof window !== "undefined") (window as unknown as { __mockPulls: NewPull[] }).__mockPulls = mockPulls;
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
 const mockCloneListeners = new Set<(p: CloneProgress) => void>();
@@ -736,6 +752,31 @@ const mockApi: Api = {
     const out: Record<string, string | null> = {};
     for (const e of emails) out[e.toLowerCase()] = e.includes("sans-avatar") ? null : await this.ownerAvatar("github", "", e, null);
     return out;
+  },
+  // Backend simulé : deux commits sur la branche, pas de modèle sauf pour une cible `develop`.
+  async pullDraft(_path, source, target) {
+    return {
+      commits: [
+        { subject: `Début de ${source}`, body: "Premier jet." },
+        { subject: `Fin de ${source}`, body: "" },
+      ],
+      template: target.endsWith("/develop") ? "## Quoi\n\n## Pourquoi" : null,
+    };
+  },
+  async remoteDefaultBranch(_kind, _url, _repo, account) {
+    if (!account) throw "account_missing";
+    return "main";
+  },
+  // Une branche source dont le nom contient `deja` a déjà sa PR / MR.
+  async createPull(kind, url, account, request) {
+    if (!account) throw "account_missing";
+    if (!request.title.trim()) throw "pull_title_missing";
+    const existing = request.sourceBranch.includes("deja");
+    const number = existing ? 7 : 42;
+    const page = kind === "github" ? `pull/${number}` : `-/merge_requests/${number}`;
+    const title = kind === "gitlab" && request.draft ? `Draft: ${request.title}` : request.title;
+    mockPulls.push(request);
+    return { number, url: `${url}/${request.targetRepo}/${page}`, title, existing };
   },
   // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
   // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient

@@ -685,3 +685,34 @@ pub async fn author_avatars(
     .await
     .map_err(|e| e.to_string())
 }
+
+// --- Pull requests / merge requests -------------------------------------------
+
+/// Token du compte `account` pour l'instance `url` du provider `kind` ; l'API de cette instance.
+fn pull_access(store: &StoreState<'_>, account: Option<String>, kind: &str, url: &str) -> Result<(providers::Kind, String, String), String> {
+    let k = providers::Kind::parse(kind)?;
+    let api = providers::instance(k, url)?.api;
+    let token = instance_token(store, account, kind, url).ok_or("account_missing")?;
+    Ok((k, api, token))
+}
+
+/// Brouillon d'une PR / MR : commits de `source` absents de `target`, modèle du dépôt.
+#[tauri::command]
+pub async fn pull_draft(path: String, source: String, target: String, kind: Option<String>) -> Result<crate::pulls::PullDraft, String> {
+    let kind = kind.as_deref().and_then(|k| providers::Kind::parse(k).ok());
+    crate::pulls::draft(Path::new(&path), &source, &target, kind)
+}
+
+/// Branche par défaut du dépôt `repo` (`propriétaire/nom`) sur l'instance `url`.
+#[tauri::command]
+pub async fn remote_default_branch(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<String, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    tauri::async_runtime::spawn_blocking(move || crate::pulls::default_branch(k, &api, &repo, &token)).await.map_err(|e| e.to_string())?
+}
+
+/// Crée la PR / MR (ou renvoie celle qui existe déjà pour ces branches).
+#[tauri::command]
+pub async fn create_pull(kind: String, url: String, account: Option<String>, request: crate::pulls::NewPull, store: StoreState<'_>) -> Result<crate::pulls::Pull, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    tauri::async_runtime::spawn_blocking(move || crate::pulls::create(k, &api, &token, &request)).await.map_err(|e| e.to_string())?
+}

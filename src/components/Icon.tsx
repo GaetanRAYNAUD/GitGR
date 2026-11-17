@@ -24,6 +24,7 @@ const PATHS = {
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   chevron: "m6 9 6 6 6-6",
   back: "M19 12H5m6-6-6 6 6 6",
+  arrow: "M5 12h14m-6-6 6 6-6 6",
   sliders: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4",
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
   inline: "M4 5h16v14H4zM8 9h8M8 12h8M8 15h5",

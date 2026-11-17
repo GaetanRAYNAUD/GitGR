@@ -2,10 +2,13 @@
 
 import type { TFunction } from "i18next";
 import { remoteProfile } from "../../lib/profiles";
+import { pullSource, pullTargetOf } from "../../lib/pulls";
 import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
+import { usePullDialog } from "../../store/pulls";
 import type { MenuItem } from "../ContextMenu";
+import { remoteMarkOf } from "../RemoteMark";
 
 const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => {});
 
@@ -19,11 +22,44 @@ export function checkoutRef(path: string, r: GitRef, refs: RefsInfo | null) {
   }
 }
 
+/** « pr » / « mr » d'après le provider du remote ; `null` : ni GitHub ni GitLab. */
+function pullTermOf(path: string, refs: RefsInfo, remote: string | null): "pr" | "mr" | null {
+  const info = refs.remotes.find((x) => x.name === remote);
+  const store = useProfiles.getState();
+  const provider = info && remoteMarkOf(store.profiles, store.repoProfiles[path], info)?.provider;
+  return provider === "gitlab" ? "mr" : provider === "github" ? "pr" : null;
+}
+
+/** PR / MR depuis le menu d'une branche : sur la courante, vers la cible par défaut ; sur une
+ *  autre (distante, ou locale qui suit une distante), de la courante vers celle-ci. */
+function pullItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const head = refs?.headBranch;
+  if (!refs || !head) return [];
+  const show = usePullDialog.getState().show;
+  if (r.kind === "local" && r.short === head) {
+    const term = pullTermOf(path, refs, pullSource(refs, head)?.remote ?? null);
+    return term ? [{ label: t(`pr.menuCreate_${term}`), onClick: () => show(path) }] : [];
+  }
+  const target = pullTargetOf(refs, r);
+  const source = pullSource(refs, head);
+  const term = target && pullTermOf(path, refs, target.remote);
+  // Pas vers la branche suivie par la courante : ce serait elle-même.
+  if (!target || !term || (source && source.remote === target.remote && source.remoteBranch === target.branch)) return [];
+  return [
+    {
+      label: t(`pr.menuTo_${term}`, { source: head, target: `${target.remote}/${target.branch}` }),
+      onClick: () => show(path, target),
+    },
+  ];
+}
+
 export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
   const ops = useOps.getState();
   const current = r.kind === "local" && r.short === refs?.headBranch;
   const newBranch: MenuItem = { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) };
   const copyName: MenuItem = { label: t("menu.copyName"), onClick: () => copy(r.short) };
+  const pulls = pullItems(t, path, r, refs);
+  const pullGroup: MenuItem[] = pulls.length ? ["sep", ...pulls] : [];
 
   if (r.kind === "local") {
     return [
@@ -34,6 +70,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
             { label: t("menu.push"), onClick: () => ops.push(path) },
           ] as MenuItem[])
         : []),
+      ...pullGroup,
       "sep",
       newBranch,
       { label: t("menu.rename"), onClick: () => ops.renameBranch(path, r.short) },
@@ -45,6 +82,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
   if (r.kind === "remote") {
     return [
       { label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkoutRemote(path, r.short) },
+      ...pullGroup,
       "sep",
       newBranch,
       { label: t("menu.deleteRemote"), danger: true, onClick: () => ops.deleteRemoteBranch(path, r.short) },
