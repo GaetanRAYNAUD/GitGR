@@ -13,7 +13,7 @@ import i18n from "../i18n";
 import { api, errorCode } from "../lib/api";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
 import { errorMessage } from "../lib/errors";
-import type { OpResult, PullStrategy } from "../lib/types";
+import type { OpResult, ProviderKind, PullStrategy } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph, WIP } from "./graph";
@@ -34,6 +34,8 @@ interface OpsStore {
   /** Branche distante (`origin/x`) : passe sur la locale qui la suit, créée au besoin. */
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
+  /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
+  checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean): Promise<boolean>;
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
   newBranch(path: string, start: string | null, startLabel: string): Promise<boolean>;
   renameBranch(path: string, branch: string): Promise<boolean>;
@@ -167,6 +169,9 @@ export const useOps = create<OpsStore>((set, get) => {
       switchTo(path, async (stash) => (await api.checkoutRemote(path, branch, stash))[0]),
 
     checkoutDetached: (path, sha) => switchTo(path, (stash) => api.checkoutDetached(path, sha, stash)),
+
+    checkoutPull: (path, remote, kind, number, branch, fork) =>
+      switchTo(path, async (stash) => (await api.checkoutPull(path, remote, kind, number, branch, fork, stash))[0]),
 
     async newBranch(path, start, startLabel) {
       const existing = new Set(

@@ -207,7 +207,8 @@
     "tooBig": "Fichier trop volumineux pour être affiché.",
     "view": "Affichage du diff",
     "inline": "En ligne",
-    "split": "Côte à côte"
+    "split": "Côte à côte",
+    "stats": "{{added}} lignes ajoutées, {{removed}} supprimées"
   },
   "sidebar": {
     "label": "Branches et tags",
@@ -519,7 +520,7 @@
     "device_expired": "Le code a expiré avant d’être validé sur GitHub : recommencez.",
     "device_denied": "Connexion refusée sur GitHub.",
     "account_missing": "Aucun compte connecté pour ce remote.",
-    "pull_forbidden": "Le compte n’a pas le droit de créer une PR / MR sur ce dépôt (droits du token — GitHub : repo ; GitLab : api —, ou accès au dépôt).",
+    "pull_forbidden": "Le compte n’a pas les droits nécessaires sur ce dépôt (droits du token — GitHub : repo ; GitLab : api —, ou accès au dépôt).",
     "pull_repo_not_found": "Dépôt introuvable sur le provider, ou invisible pour ce compte.",
     "pull_repo_invalid": "Adresse du dépôt distant non reconnue.",
     "pull_branch_invalid": "Nom de branche invalide.",
@@ -529,7 +530,17 @@
     "pull_title_missing": "Le titre est obligatoire.",
     "pull_exists": "Une PR / MR est déjà ouverte pour ces branches.",
     "pull_meta_failed": "La PR / MR est créée, mais les assignés ou les étiquettes n’ont pas pu être posés.",
-    "pull_reviewers_failed": "La PR / MR est créée, mais la relecture n’a pas pu être demandée (l’auteur ne peut pas relire sa propre PR)."
+    "pull_reviewers_failed": "La PR / MR est créée, mais la relecture n’a pas pu être demandée (l’auteur ne peut pas relire sa propre PR).",
+    "pull_not_found": "Cette PR / MR est introuvable sur le serveur.",
+    "pull_not_mergeable": "Le serveur refuse la fusion : les conditions ne sont pas remplies (checks, approbations, conflits…).",
+    "pull_head_changed": "La branche a changé entre-temps : actualisez puis réessayez.",
+    "review_own_pull": "Vous ne pouvez pas approuver ou demander des changements sur votre propre demande.",
+    "review_invalid": "Cette relecture n’est pas possible chez ce provider.",
+    "comment_empty": "Le commentaire est vide.",
+    "merge_method_invalid": "Mode de fusion non permis.",
+    "thread_invalid": "Fil de discussion introuvable.",
+    "pull_head_missing": "Le dernier commit de la demande est introuvable, même après un fetch.",
+    "pull_base_missing": "La branche cible n’est pas récupérée en local : faites un fetch."
   },
   "profiles": {
     "title": "Profils",
@@ -746,6 +757,132 @@
     "more": "… et {{count}} autres : précisez la recherche.",
     "noMatch": "Aucun résultat.",
     "noOptions": "Liste vide.",
-    "truncated": "liste coupée (trop longue) : une personne peut manquer"
+    "truncated": "liste coupée (trop longue) : une personne peut manquer",
+    "view": "Voir"
+  },
+  "prv": {
+    "section_pr": "Pull requests",
+    "section_mr": "Merge requests",
+    "refresh": "Actualiser",
+    "retry": "Réessayer",
+    "loading": "Chargement…",
+    "filter": "Filtrer",
+    "filters": {
+      "all": "Ouvertes",
+      "mine": "Les miennes",
+      "review": "À relire"
+    },
+    "empty": {
+      "all_pr": "Aucune pull request ouverte.",
+      "all_mr": "Aucune merge request ouverte.",
+      "mine_pr": "Aucune pull request de vous ou qui vous est assignée.",
+      "mine_mr": "Aucune merge request de vous ou qui vous est assignée.",
+      "review_pr": "Aucune pull request à relire.",
+      "review_mr": "Aucune merge request à relire."
+    },
+    "noAccount": "Connectez un compte {{provider}} au profil du remote {{remote}} pour voir ses demandes.",
+    "truncated": "Seules les 100 plus récentes sont affichées.",
+    "dblClick": "Clic : détails · double-clic : checkout de la branche",
+    "branchPull": "{{ref}} {{title}} — clic : voir",
+    "menu": {
+      "view": "Voir dans GitGR",
+      "checkout": "Checkout de {{branch}}"
+    },
+    "state": {
+      "open": "Ouverte",
+      "draft": "Brouillon",
+      "merged": "Fusionnée",
+      "closed": "Fermée"
+    },
+    "review": {
+      "approved": "Approuvée",
+      "changes": "Changements demandés",
+      "required": "Relecture attendue"
+    },
+    "reviewState": {
+      "approved": "a approuvé",
+      "changes": "demande des changements",
+      "commented": "a commenté",
+      "pending": "relecture attendue"
+    },
+    "checks": {
+      "success": "Checks réussis",
+      "failure": "Checks en échec",
+      "pending": "Checks en cours",
+      "neutral": "Checks ignorés ou annulés"
+    },
+    "tab": {
+      "conversation": "Discussion",
+      "files": "Fichiers",
+      "checks": "Checks"
+    },
+    "checkout": "Checkout",
+    "checkoutHint": "Passer sur la branche de la demande (créée au besoin)",
+    "openedBy": "Ouverte par {{name}} {{ago}}",
+    "fork": "fork",
+    "noBody": "Pas de description.",
+    "reviews": "Relectures",
+    "comment": "Commenter",
+    "commentPlaceholder": "Laisser un commentaire…",
+    "sending": "Envoi…",
+    "approve": "Approuver",
+    "unapprove": "Retirer mon approbation",
+    "requestChanges": "Demander des changements",
+    "changesHint": "Relecture avec demande de changements (le commentaire est obligatoire)",
+    "reply": "Répondre",
+    "resolve": "Résoudre le fil",
+    "unresolve": "Rouvrir le fil",
+    "resolved": "résolu",
+    "ready": "Prête à être fusionnée.",
+    "blocker": {
+      "not_open": "La demande n’est plus ouverte.",
+      "draft": "C’est un brouillon : marquez-la comme prête d’abord.",
+      "conflicts": "Conflits avec la branche cible.",
+      "behind": "La branche est en retard sur la cible.",
+      "changes": "Des changements ont été demandés.",
+      "approvals": "Approbations requises manquantes.",
+      "checks": "Des checks requis sont en échec.",
+      "checks_pending": "Des checks sont encore en cours.",
+      "threads": "Des fils de discussion ne sont pas résolus.",
+      "checking": "Vérification par le serveur en cours…",
+      "forbidden": "Votre compte ne peut pas fusionner sur ce dépôt.",
+      "blocked": "Bloquée par les règles du dépôt."
+    },
+    "methodLabel": "Mode de fusion",
+    "method": {
+      "merge": "Merger",
+      "squash": "Squash et merger",
+      "rebase": "Rebase et merger"
+    },
+    "deleteBranch": "Supprimer {{branch}} après la fusion",
+    "updateBranch": "Mettre à jour la branche",
+    "rebase": "Rebaser",
+    "autoMerge": "Merger quand les checks passent",
+    "autoMergeOn": "Fusion automatique demandée.",
+    "merging": "Fusion…",
+    "mergeConfirm_pr": "Fusionner la pull request {{ref}} ?",
+    "mergeConfirm_mr": "Fusionner la merge request {{ref}} ?",
+    "mergeBody": "{{source}} sera fusionnée dans {{target}} ({{method}}). Cette action est visible de tous sur le serveur.",
+    "autoMergeBody": "{{source}} sera fusionnée dans {{target}} ({{method}}) dès que les conditions seront remplies.",
+    "merged_pr": "Pull request fusionnée.",
+    "merged_mr": "Merge request fusionnée.",
+    "backTitle": "Revenir sur {{target}} ?",
+    "backBody": "{{source}} est fusionnée. Passer sur {{target}} et la mettre à jour ?",
+    "backOk": "Revenir sur la cible",
+    "markReady": "Marquer comme prête",
+    "markDraft": "Repasser en brouillon",
+    "close_pr": "Fermer la pull request",
+    "close_mr": "Fermer la merge request",
+    "reopen_pr": "Rouvrir la pull request",
+    "reopen_mr": "Rouvrir la merge request",
+    "closeConfirm_pr": "Fermer la pull request {{ref}} ?",
+    "closeConfirm_mr": "Fermer la merge request {{ref}} ?",
+    "closeBody": "Elle sera fermée sans être fusionnée (elle pourra être rouverte).",
+    "noFiles": "Aucun fichier modifié.",
+    "pickFile": "Choisissez un fichier pour voir son diff.",
+    "threadsOnFile_one": "{{count}} fil de discussion",
+    "threadsOnFile_other": "{{count}} fils de discussion",
+    "noChecks": "Aucun check ni pipeline pour le dernier commit.",
+    "logs": "Logs"
   }
 }

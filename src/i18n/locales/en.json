@@ -207,7 +207,8 @@
     "tooBig": "File too large to display.",
     "view": "Diff view",
     "inline": "Inline",
-    "split": "Side by side"
+    "split": "Side by side",
+    "stats": "{{added}} lines added, {{removed}} removed"
   },
   "sidebar": {
     "label": "Branches and tags",
@@ -519,7 +520,7 @@
     "device_expired": "The code expired before being approved on GitHub: start again.",
     "device_denied": "Sign-in was denied on GitHub.",
     "account_missing": "No account connected for this remote.",
-    "pull_forbidden": "The account may not create a PR / MR on this repository (token scopes — GitHub: repo; GitLab: api — or repository access).",
+    "pull_forbidden": "The account lacks the rights on this repository (token scopes — GitHub: repo; GitLab: api —, or access to the repository).",
     "pull_repo_not_found": "Repository not found on the provider, or not visible to this account.",
     "pull_repo_invalid": "Remote repository address not recognised.",
     "pull_branch_invalid": "Invalid branch name.",
@@ -529,7 +530,17 @@
     "pull_title_missing": "A title is required.",
     "pull_exists": "A PR / MR is already open for these branches.",
     "pull_meta_failed": "The PR / MR was created, but assignees or labels could not be set.",
-    "pull_reviewers_failed": "The PR / MR was created, but the review could not be requested (the author cannot review their own PR)."
+    "pull_reviewers_failed": "The PR / MR was created, but the review could not be requested (the author cannot review their own PR).",
+    "pull_not_found": "This PR / MR cannot be found on the server.",
+    "pull_not_mergeable": "The server refuses the merge: requirements are not met (checks, approvals, conflicts…).",
+    "pull_head_changed": "The branch changed in the meantime: refresh and try again.",
+    "review_own_pull": "You cannot approve or request changes on your own request.",
+    "review_invalid": "This review is not possible with this provider.",
+    "comment_empty": "The comment is empty.",
+    "merge_method_invalid": "Merge method not allowed.",
+    "thread_invalid": "Discussion thread not found.",
+    "pull_head_missing": "The request's last commit cannot be found, even after a fetch.",
+    "pull_base_missing": "The target branch is not fetched locally: run a fetch."
   },
   "profiles": {
     "title": "Profiles",
@@ -746,6 +757,132 @@
     "more": "… and {{count}} more: refine the search.",
     "noMatch": "No match.",
     "noOptions": "Empty list.",
-    "truncated": "list cut (too long): someone may be missing"
+    "truncated": "list cut (too long): someone may be missing",
+    "view": "View"
+  },
+  "prv": {
+    "section_pr": "Pull requests",
+    "section_mr": "Merge requests",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "filter": "Filter",
+    "filters": {
+      "all": "Open",
+      "mine": "Mine",
+      "review": "To review"
+    },
+    "empty": {
+      "all_pr": "No open pull request.",
+      "all_mr": "No open merge request.",
+      "mine_pr": "No pull request by you or assigned to you.",
+      "mine_mr": "No merge request by you or assigned to you.",
+      "review_pr": "No pull request to review.",
+      "review_mr": "No merge request to review."
+    },
+    "noAccount": "Connect a {{provider}} account to the profile of remote {{remote}} to see its requests.",
+    "truncated": "Only the 100 most recent are shown.",
+    "dblClick": "Click: details · double-click: check out the branch",
+    "branchPull": "{{ref}} {{title}} — click to view",
+    "menu": {
+      "view": "View in GitGR",
+      "checkout": "Check out {{branch}}"
+    },
+    "state": {
+      "open": "Open",
+      "draft": "Draft",
+      "merged": "Merged",
+      "closed": "Closed"
+    },
+    "review": {
+      "approved": "Approved",
+      "changes": "Changes requested",
+      "required": "Review required"
+    },
+    "reviewState": {
+      "approved": "approved",
+      "changes": "requested changes",
+      "commented": "commented",
+      "pending": "review pending"
+    },
+    "checks": {
+      "success": "Checks passed",
+      "failure": "Checks failed",
+      "pending": "Checks running",
+      "neutral": "Checks skipped or cancelled"
+    },
+    "tab": {
+      "conversation": "Conversation",
+      "files": "Files",
+      "checks": "Checks"
+    },
+    "checkout": "Check out",
+    "checkoutHint": "Switch to the request's branch (created if needed)",
+    "openedBy": "Opened by {{name}} {{ago}}",
+    "fork": "fork",
+    "noBody": "No description.",
+    "reviews": "Reviews",
+    "comment": "Comment",
+    "commentPlaceholder": "Leave a comment…",
+    "sending": "Sending…",
+    "approve": "Approve",
+    "unapprove": "Revoke my approval",
+    "requestChanges": "Request changes",
+    "changesHint": "Review requesting changes (a comment is required)",
+    "reply": "Reply",
+    "resolve": "Resolve thread",
+    "unresolve": "Reopen thread",
+    "resolved": "resolved",
+    "ready": "Ready to merge.",
+    "blocker": {
+      "not_open": "The request is no longer open.",
+      "draft": "It is a draft: mark it as ready first.",
+      "conflicts": "Conflicts with the target branch.",
+      "behind": "The branch is behind the target.",
+      "changes": "Changes have been requested.",
+      "approvals": "Required approvals are missing.",
+      "checks": "Required checks are failing.",
+      "checks_pending": "Checks are still running.",
+      "threads": "Some discussion threads are unresolved.",
+      "checking": "The server is checking…",
+      "forbidden": "Your account cannot merge in this repository.",
+      "blocked": "Blocked by the repository's rules."
+    },
+    "methodLabel": "Merge method",
+    "method": {
+      "merge": "Merge",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "deleteBranch": "Delete {{branch}} after merging",
+    "updateBranch": "Update branch",
+    "rebase": "Rebase",
+    "autoMerge": "Merge when checks pass",
+    "autoMergeOn": "Auto-merge requested.",
+    "merging": "Merging…",
+    "mergeConfirm_pr": "Merge pull request {{ref}}?",
+    "mergeConfirm_mr": "Merge merge request {{ref}}?",
+    "mergeBody": "{{source}} will be merged into {{target}} ({{method}}). Everyone on the server will see it.",
+    "autoMergeBody": "{{source}} will be merged into {{target}} ({{method}}) as soon as the requirements are met.",
+    "merged_pr": "Pull request merged.",
+    "merged_mr": "Merge request merged.",
+    "backTitle": "Go back to {{target}}?",
+    "backBody": "{{source}} is merged. Switch to {{target}} and update it?",
+    "backOk": "Back to the target",
+    "markReady": "Mark as ready",
+    "markDraft": "Convert to draft",
+    "close_pr": "Close pull request",
+    "close_mr": "Close merge request",
+    "reopen_pr": "Reopen pull request",
+    "reopen_mr": "Reopen merge request",
+    "closeConfirm_pr": "Close pull request {{ref}}?",
+    "closeConfirm_mr": "Close merge request {{ref}}?",
+    "closeBody": "It will be closed without being merged (it can be reopened).",
+    "noFiles": "No changed file.",
+    "pickFile": "Pick a file to see its diff.",
+    "threadsOnFile_one": "{{count}} discussion thread",
+    "threadsOnFile_other": "{{count}} discussion threads",
+    "noChecks": "No check or pipeline for the last commit.",
+    "logs": "Logs"
   }
 }

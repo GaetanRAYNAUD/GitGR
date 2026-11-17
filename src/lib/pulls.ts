@@ -2,7 +2,7 @@
 // (fonctions pures, testées dans pulls.test.ts).
 
 import { remoteOfShort } from "./refs";
-import type { DraftCommit, GitRef, RefsInfo } from "./types";
+import type { DraftCommit, GitRef, ProviderKind, RefsInfo } from "./types";
 
 const remoteNames = (refs: RefsInfo) => [
   ...new Set([...refs.remotes.map((r) => r.name), ...refs.refs.filter((r) => r.kind === "remote").map((r) => r.short.slice(0, r.short.indexOf("/")))]),
@@ -62,3 +62,6 @@ export function draftText(commits: DraftCommit[], branch: string, template: stri
   const body = template ?? (one ? one.body : commits.map((c) => `- ${c.subject}`).join("\n"));
   return { title, body };
 }
+
+/** Numéro tel que le provider l'affiche : `#12` (GitHub), `!12` (GitLab). */
+export const pullRef = (kind: ProviderKind | null, n: number) => (kind === "gitlab" ? `!${n}` : `#${n}`);

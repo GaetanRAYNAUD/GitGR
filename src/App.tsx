@@ -155,7 +155,8 @@ function Notice() {
   const dismiss = useApp((s) => s.dismissNotice);
   useEffect(() => {
     if (!notice || notice.sticky) return;
-    const id = setTimeout(dismiss, 4000);
+    // Avec des boutons : le temps de les lire et d'y aller.
+    const id = setTimeout(dismiss, notice.actions?.length ? 10000 : 4000);
     return () => clearTimeout(id);
   }, [notice, dismiss]);
   if (!notice) return null;
@@ -163,6 +164,18 @@ function Notice() {
     <div className={notice.sticky ? "toast notice warn" : "toast notice"} role="status">
       <Icon name={notice.sticky ? "alert" : "check"} />
       <span>{notice.text}</span>
+      {notice.actions?.map((a) => (
+        <button
+          key={a.label}
+          className="link notice-action"
+          onClick={() => {
+            a.onClick();
+            if (!a.keep) dismiss();
+          }}
+        >
+          {a.label}
+        </button>
+      ))}
       <button className="link" onClick={dismiss}>
         {t("errors.dismiss")}
       </button>

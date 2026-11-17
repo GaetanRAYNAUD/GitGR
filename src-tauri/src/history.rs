@@ -259,7 +259,7 @@ pub fn details(path: &Path, sha: &str) -> Result<CommitDetails, String> {
 }
 
 /// Sortie de `--name-status -z` : `M\0chemin\0` ou `R100\0ancien\0nouveau\0`.
-fn parse_name_status(out: &str) -> Vec<FileChange> {
+pub(crate) fn parse_name_status(out: &str) -> Vec<FileChange> {
     let mut files = vec![];
     let mut it = out.split('\0').filter(|s| !s.is_empty());
     while let Some(st) = it.next() {

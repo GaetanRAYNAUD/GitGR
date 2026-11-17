@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
 import { PROVIDER_NAMES } from "../lib/providers";
-import { draftText, pullSource, type PullTarget } from "../lib/pulls";
+import { draftText, pullRef, pullSource, type PullTarget } from "../lib/pulls";
 import { relativeTime } from "../lib/format";
 import type { Person, Pull, ProviderKind, RefsInfo } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
@@ -16,16 +16,16 @@ import { useGraph } from "../store/graph";
 import { useOps } from "../store/ops";
 import { useProfiles } from "../store/profiles";
 import { usePullDialog } from "../store/pulls";
+import { usePullList } from "../store/pullList";
+import { useApp } from "../store/app";
 import { optionsKey, ownerKey, usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { Icon } from "./Icon";
 import { MultiPicker, type PickOption } from "./MultiPicker";
+import { PersonAvatar } from "./PersonAvatar";
 import { remoteMarkOf } from "./RemoteMark";
 
 /** « pr » (GitHub) ou « mr » (GitLab) : suffixe des libellés. */
 export const pullTerm = (kind: ProviderKind | null) => (kind === "gitlab" ? "mr" : "pr");
-
-/** Numéro tel que le provider l'affiche : `#12` (GitHub), `!12` (GitLab). */
-const pullRef = (kind: ProviderKind | null, n: number) => (kind === "gitlab" ? `!${n}` : `#${n}`);
 
 export function PullDialogHost() {
   const open = usePullDialog((s) => s.open);
@@ -61,8 +61,6 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState<"push" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<Pull | null>(null);
-  const [copied, setCopied] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [reviewers, setReviewers] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
@@ -140,6 +138,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const entry = usePullOptions((s) => (ctx ? s.entries[optionsKey(ctx)] : undefined));
   const last = usePullOptions((s) => (ctx ? s.last[ownerKey(ctx)] : undefined));
   const options = entry?.options ?? null;
+  const avatarCtx = tgt?.url ? { kind: tgt.provider, url: tgt.url, account: tgt.account } : null;
   /** Login du compte (`<kind>|<url>|<login>`) : pas relecteur de sa propre PR chez GitHub. */
   const me = tgt?.account?.split("|").pop() ?? null;
   /** Personnes connues : celles de la liste, plus celles déjà choisies (liste changée entre-temps). */
@@ -151,8 +150,16 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     return map;
   }, [options, chosen]);
   const personOptions = useMemo(
-    (): PickOption[] => [...people.values()].map((x) => ({ id: x.login.toLowerCase(), label: x.login, detail: x.name && x.name !== x.login ? x.name : null })),
-    [people],
+    (): PickOption[] =>
+      [...people.values()].map((x) => ({
+        id: x.login.toLowerCase(),
+        label: x.login,
+        detail: x.name && x.name !== x.login ? x.name : null,
+        icon: <PersonAvatar ctx={avatarCtx} person={x} size={18} />,
+      })),
+    // `avatarCtx` est rendu par `ctxKey`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [people, ctxKey],
   );
   const reviewerOptions = useMemo(() => (kind === "github" && me ? personOptions.filter((o) => o.id !== me.toLowerCase()) : personOptions), [personOptions, kind, me]);
   const labelOptions = useMemo(
@@ -208,8 +215,23 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
               : null;
   const ready = !blocker && !!targetBranch.trim() && !!title.trim() && !busy;
 
-  const submit = async () => {
-    if (!ready || !source || !tgt?.account || !src) return;
+  /** Fenêtre fermée ; la PR / MR annoncée dans un message, avec de quoi l'ouvrir (dans GitGR ou
+   *  dans le navigateur) et copier son lien. */
+  const announce = (pull: Pull) => {
+    close();
+    const number = pullRef(kind, pull.number);
+    const head = pull.existing ? t(`pr.exists_${term}`, { ref: number }) : t(`pr.created_${term}`, { ref: number });
+    const text = [`${head} — ${pull.title}`, ...pull.warnings.map((w) => errorMessage(t, w))].join(" ");
+    const pctx = tgt?.url ? { remote: targetRemote, kind: tgt.provider, url: tgt.url, repo: tgt.repo, account: tgt.account } : null;
+    if (pctx) void usePullList.getState().ensure(pctx, true);
+    useApp.getState().notify(text, pull.warnings.length > 0, [
+      ...(pctx ? [{ label: t("pr.view"), onClick: () => usePullList.getState().show(path, pctx, pull.number) }] : []),
+      { label: t("pr.open"), onClick: () => void api.openUrl(pull.url).catch(() => {}) },
+      { label: t("pr.copy"), keep: true, onClick: () => void navigator.clipboard?.writeText(pull.url).catch(() => {}) },
+    ]);
+  };
+
+  const submit = async () => {    if (!ready || !source || !tgt?.account || !src) return;
     setError(null);
     if (source.needsPush) {
       setBusy("push");
@@ -236,53 +258,13 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         ...choice,
       });
       if (ctx) usePullOptions.getState().remember(ctx, choice);
-      setDone(pull);
+      announce(pull);
     } catch (e) {
       setError(errorCode(e));
     } finally {
       setBusy(null);
     }
   };
-
-  const copy = () => {
-    if (!done) return;
-    navigator.clipboard?.writeText(done.url).then(
-      () => setCopied(true),
-      () => {},
-    );
-  };
-
-  if (done) {
-    return (
-      <div className="overlay">
-        <form className="dialog input-dialog pull-dialog" role="dialog" aria-modal="true" aria-labelledby="pull-title" ref={ref} onSubmit={(e) => e.preventDefault()}>
-          <h2 id="pull-title">
-            {done.existing ? t(`pr.exists_${term}`, { ref: pullRef(kind, done.number) }) : t(`pr.created_${term}`, { ref: pullRef(kind, done.number) })}
-          </h2>
-          <p className="pull-done-title">{done.title}</p>
-          <p className="account-hint mono pull-url" title={done.url}>
-            {done.url}
-          </p>
-          {done.warnings.map((w) => (
-            <p key={w} className="input-error" role="alert">
-              {errorMessage(t, w)}
-            </p>
-          ))}
-          <div className="dialog-actions">
-            <button type="button" className="btn" onClick={close}>
-              {t("pr.close")}
-            </button>
-            <button type="button" className="btn" onClick={copy}>
-              {copied ? t("pr.copied") : t("pr.copy")}
-            </button>
-            <button type="button" className="btn primary" autoFocus onClick={() => api.openUrl(done.url).catch(() => {})}>
-              {t("pr.open")}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
 
   return (
     <div className="overlay">

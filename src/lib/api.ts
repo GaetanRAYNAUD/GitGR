@@ -25,6 +25,7 @@ import {
   mockStashPush,
 } from "./mockBranches";
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
+import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
 import {
   mockChangeCount,
   mockCommitIndex,
@@ -50,6 +51,7 @@ import type {
   ColorValue,
   CommitDetails,
   DiffArea,
+  FileChange,
   FileDiff,
   GitInfo,
   GpgKey,
@@ -59,7 +61,10 @@ import type {
   Profile,
   ProviderKind,
   Pull,
+  PullAction,
+  PullDetail,
   PullDraft,
+  PullList,
   PullOptions,
   PullStrategy,
   ProviderRepo,
@@ -195,6 +200,21 @@ export interface Api {
   cachedPullOptions(kind: ProviderKind, url: string, repo: string): Promise<PullOptions | null>;
   /** Relit les personnes et étiquettes sur le provider (et met le cache à jour). */
   refreshPullOptions(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<PullOptions>;
+  /** PR / MR ouvertes du dépôt (100 au plus, les plus récemment mises à jour d'abord). */
+  listPulls(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<PullList>;
+  pullDetail(kind: ProviderKind, url: string, repo: string, number: number, account: string | null): Promise<PullDetail>;
+  /** Action sur une PR / MR (commentaire, relecture, merge…). */
+  pullAct(kind: ProviderKind, url: string, repo: string, number: number, account: string | null, action: PullAction): Promise<void>;
+  /** Récupère le commit de tête sha s'il manque (depuis la référence de la PR / MR sur emote). */
+  ensurePullHead(path: string, remote: string, kind: ProviderKind, number: number, sha: string): Promise<void>;
+  /** Fichiers modifiés par la PR / MR : de l'ancêtre commun avec 	arget (origin/main) à head. */
+  pullFiles(path: string, target: string, head: string): Promise<FileChange[]>;
+  pullFileDiff(path: string, target: string, head: string, file: string, oldFile: string | null): Promise<FileDiff>;
+  /** Passe sur la branche de la PR / MR (fork : pr/<n> / mr/<n>) ; renvoie aussi son nom. */
+  checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean, autoStash: boolean): Promise<[OpResult, string]>;
+  /** Images des personnes (adresses de l'API → data URL, ou 
+ull). */
+  personAvatars(kind: ProviderKind, url: string, account: string | null, urls: string[]): Promise<Record<string, string | null>>;
   // Clone
   /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
    *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
@@ -301,6 +321,14 @@ const tauriApi: Api = {
   createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
   cachedPullOptions: (kind, url, repo) => invoke("cached_pull_options", { kind, url, repo }),
   refreshPullOptions: (kind, url, repo, account) => invoke("refresh_pull_options", { kind, url, repo, account }),
+  listPulls: (kind, url, repo, account) => invoke("list_pulls", { kind, url, repo, account }),
+  pullDetail: (kind, url, repo, number, account) => invoke("pull_detail", { kind, url, repo, number, account }),
+  pullAct: (kind, url, repo, number, account, action) => invoke("pull_act", { kind, url, repo, number, account, action }),
+  ensurePullHead: (path, remote, kind, number, sha) => invoke("ensure_pull_head", { path, remote, kind, number, sha }),
+  pullFiles: (path, target, head) => invoke("pull_files", { path, target, head }),
+  pullFileDiff: (path, target, head, file, oldFile) => invoke("pull_file_diff", { path, target, head, file, oldFile }),
+  checkoutPull: (path, remote, kind, number, branch, fork, autoStash) => invoke("checkout_pull", { path, remote, kind, number, branch, fork, autoStash }),
+  personAvatars: (kind, url, account, urls) => invoke("person_avatars", { kind, url, account, urls }),
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -412,7 +440,7 @@ const mockOptionsCache = new Map<string, PullOptions>();
 /** Lectures des personnes / étiquettes sur le « provider » simulé (lues par les tests e2e). */
 const mockOptionFetches = { count: 0, delay: 600 };
 if (!inTauri && typeof window !== "undefined") {
-  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches });
+  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions });
 }
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
@@ -509,6 +537,7 @@ const mockApi: Api = {
     return mockHistory(path).commits.slice(skip, skip + limit);
   },
   async repoRefs(path) {
+    mockPullsPath(path);
     return { ...mockHistory(path).refs, stashes: mockStashCount(path), autostash: mockAutostash(path) };
   },
   async commitDetails(path, sha) {
@@ -817,13 +846,47 @@ const mockApi: Api = {
       { name: "enhancement", color: "a2eeef" },
       { name: "urgent", color: "b60205" },
     ];
-    const options = { people, labels, fetchedAt: Math.floor(Date.now() / 1000), fromOwner: false, truncated: false };
+    const options = { people: people.map((p) => ({ ...p, avatar: `mock:${p.login}` })), labels, fetchedAt: Math.floor(Date.now() / 1000), fromOwner: false, truncated: false };
     mockOptionsCache.set(`${kind}|${url}|${repo.toLowerCase()}`, options);
     return options;
   },
   // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
   // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient
   // `ailleurs` est déjà sur un autre compte.
+  // Backend simulé : trois PR / MR par dépôt (cf. mockPulls.ts) ; un dépôt `sans-pr` n'en a pas.
+  async listPulls(kind, url, repo, account) {
+    if (!account) throw "account_missing";
+    await mockDelay();
+    return mockListPulls(kind, url, repo);
+  },
+  async pullDetail(kind, url, repo, number, account) {
+    if (!account) throw "account_missing";
+    await mockDelay();
+    return mockPullDetail(kind, url, repo, number);
+  },
+  async pullAct(kind, url, repo, number, account, action) {
+    if (!account) throw "account_missing";
+    await mockDelay();
+    mockPullAct(kind, url, repo, number, action);
+  },
+  async ensurePullHead() {},
+  async pullFiles(path, _target, head) {
+    return mockPullFiles(path, head);
+  },
+  async pullFileDiff(_path, _target, head, file) {
+    return mockPullFileDiff(head, file);
+  },
+  async checkoutPull(path, remote, kind, number, branch, fork, autoStash) {
+    if (!fork) return this.checkoutRemote(path, `${remote}/${branch}`, autoStash);
+    const local = `${kind === "gitlab" ? "mr" : "pr"}/${number}`;
+    await this.createBranch(path, local, null, true, autoStash).catch(() => this.checkout(path, local, autoStash));
+    return [{ conflicts: [], stashKept: false } as unknown as OpResult, local];
+  },
+  async personAvatars(_kind, _url, _account, urls) {
+    const out: Record<string, string | null> = {};
+    for (const u of urls) out[u] = u.startsWith("mock:") ? await this.ownerAvatar("github", "", u.slice(5), null) : null;
+    return out;
+  },
   async accountKeys(profile, account) {
     await mockDelay();
     const p = mockLoad().profiles?.find((x) => x.id === profile);

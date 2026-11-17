@@ -23,6 +23,8 @@ const pending = new Set<string>();
 export function resetAvatars() {
   pending.clear();
   authorPending.clear();
+  personQueue.clear();
+  personAsked.clear();
   useAvatars.setState({ avatars: {}, authors: {} });
 }
 
@@ -112,4 +114,57 @@ export function useAvatarImages(urls: (string | null | undefined)[]): { get(url:
     },
     version,
   };
+}
+
+/** Instance dont viennent les images des personnes (PR / MR), et compte dont le token sert. */
+export interface PersonContext {
+  kind: ProviderKind;
+  url: string;
+  account: string | null;
+}
+
+const personKey = (c: PersonContext) => `person|${c.kind}|${c.url}|${c.account ?? ""}`;
+/** Adresses en attente d'envoi, par contexte : regroupées en une demande par rendu. */
+const personQueue = new Map<string, { ctx: PersonContext; urls: Set<string> }>();
+const personAsked = new Set<string>();
+let personScheduled = false;
+
+function flushPersons() {
+  personScheduled = false;
+  const batches = [...personQueue.values()];
+  personQueue.clear();
+  for (const { ctx, urls } of batches) {
+    const k = personKey(ctx);
+    const list = [...urls];
+    for (let i = 0; i < list.length; i += 60) {
+      const batch = list.slice(i, i + 60);
+      api.personAvatars(ctx.kind, ctx.url, ctx.account, batch).then(
+        (found) => useAvatars.setState((s) => ({ authors: { ...s.authors, [k]: { ...s.authors[k], ...found } } })),
+        () => batch.forEach((u) => personAsked.delete(`${k}|${u}`)),
+      );
+    }
+  }
+}
+
+/** Image d'une personne (adresse donnée par l'API), demandée au premier affichage et groupée
+ *  avec les autres de la même liste ; `null` tant qu'elle n'est pas là. */
+export function usePersonAvatar(ctx: PersonContext | null, url: string | null | undefined): string | null {
+  const k = ctx ? personKey(ctx) : null;
+  const avatar = useAvatars((s) => (k && url ? s.authors[k]?.[url] : undefined));
+  useEffect(() => {
+    if (!ctx || !k || !url) return;
+    const asked = `${k}|${url}`;
+    if (personAsked.has(asked)) return;
+    personAsked.add(asked);
+    let q = personQueue.get(k);
+    if (!q) personQueue.set(k, (q = { ctx, urls: new Set() }));
+    if (!personScheduled) {
+      personScheduled = true;
+      queueMicrotask(flushPersons);
+    }
+    q.urls.add(url);
+    // `ctx` est rendu par `k`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [k, url]);
+  return avatar ?? null;
 }

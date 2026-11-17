@@ -20,6 +20,8 @@ import type { PullStrategy } from "../lib/types";
 import { remoteMarkOf } from "../components/RemoteMark";
 import { useProfiles } from "../store/profiles";
 import { usePullOptions, type OptionsContext } from "../store/pullOptions";
+import { usePullContexts, usePullList } from "../store/pullList";
+import { PullView } from "../components/graph/PullView";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
 
@@ -212,6 +214,16 @@ export function RepoView({ path }: { path: string }) {
     for (const ctx of JSON.parse(prefetchKey) as OptionsContext[]) void ensureOptions(ctx);
   }, [prefetchKey, ensureOptions]);
 
+  // PR / MR ouvertes : lues à l'ouverture, relues quand les refs changent (fetch, fetch
+  // automatique) au plus toutes les deux minutes (cf. store/pullList).
+  const pullContexts = usePullContexts(path);
+  const ensurePulls = usePullList((s) => s.ensure);
+  const refsVersion = useGraph((s) => s.graphs[path]?.refs);
+  const openPull = usePullList((s) => s.open[path]);
+  useEffect(() => {
+    for (const ctx of pullContexts) void ensurePulls(ctx);
+  }, [pullContexts, ensurePulls, refsVersion]);
+
   // Copie de travail sale et rien de sélectionné : on montre les modifications en cours.
   // Plus rien à commiter (après un commit, un abandon…) : on passe au commit courant.
   useEffect(() => {
@@ -273,6 +285,8 @@ export function RepoView({ path }: { path: string }) {
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (
             <WorkDiffView path={path} diff={workDiff} />
+          ) : openPull ? (
+            <PullView key={`${openPull.ctx.remote}#${openPull.number}`} path={path} ctx={openPull.ctx} number={openPull.number} />
           ) : (
             <CommitGraph path={path} changes={changes} />
           )}

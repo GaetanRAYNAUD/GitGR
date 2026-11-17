@@ -733,3 +733,65 @@ pub async fn refresh_pull_options(kind: String, url: String, repo: String, accou
     let url = providers::instance(k, &url)?.url;
     tauri::async_runtime::spawn_blocking(move || crate::pulls::refresh_options(k, &api, &url, &repo, &token)).await.map_err(|e| e.to_string())?
 }
+
+// --- Suivi des PR / MR ---------------------------------------------------------
+
+/// Lance un appel au provider hors du runtime async (requêtes bloquantes).
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+/// PR / MR ouvertes du dépôt `repo` sur l'instance `url`.
+#[tauri::command]
+pub async fn list_pulls(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<crate::pull_view::PullList, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::pull_view::list(k, &api, &token, &repo)).await
+}
+
+/// Détail d'une PR / MR : relectures, fils de discussion, checks, merge.
+#[tauri::command]
+pub async fn pull_detail(kind: String, url: String, repo: String, number: u64, account: Option<String>, store: StoreState<'_>) -> Result<crate::pull_view::PullDetail, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::pull_view::detail(k, &api, &token, &repo, number)).await
+}
+
+/// Action sur une PR / MR (commentaire, relecture, merge…), lancée par un clic explicite.
+#[tauri::command]
+pub async fn pull_act(kind: String, url: String, repo: String, number: u64, account: Option<String>, action: crate::pull_view::PullAction, store: StoreState<'_>) -> Result<(), String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::pull_view::act(k, &api, &token, &repo, number, &action)).await
+}
+
+/// Récupère le commit de tête d'une PR / MR s'il manque (fork, branche pas encore récupérée).
+#[tauri::command]
+pub async fn ensure_pull_head(path: String, remote: String, kind: String, number: u64, sha: String) -> Result<(), String> {
+    let k = providers::Kind::parse(&kind)?;
+    blocking(move || crate::pull_view::ensure_head(Path::new(&path), &remote, k, number, &sha)).await
+}
+
+/// Fichiers modifiés par une PR / MR (depuis l'ancêtre commun avec `target`).
+#[tauri::command]
+pub async fn pull_files(path: String, target: String, head: String) -> Result<Vec<history::FileChange>, String> {
+    crate::pull_view::files(Path::new(&path), &target, &head)
+}
+
+#[tauri::command]
+pub async fn pull_file_diff(path: String, target: String, head: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
+    crate::pull_view::file_diff(Path::new(&path), &target, &head, &file, old_file.as_deref())
+}
+
+/// Passe sur la branche d'une PR / MR (créée au besoin) ; renvoie le nom de la branche locale.
+#[tauri::command]
+pub async fn checkout_pull(path: String, remote: String, kind: String, number: u64, branch: String, fork: bool, auto_stash: bool) -> Result<(OpResult, String), String> {
+    let k = providers::Kind::parse(&kind)?;
+    blocking(move || crate::pull_view::checkout(Path::new(&path), &remote, k, number, &branch, fork, auto_stash)).await
+}
+
+/// Images des personnes (adresses données par l'API) en data URL ; `None` : pas d'image.
+#[tauri::command]
+pub async fn person_avatars(kind: String, url: String, account: Option<String>, urls: Vec<String>, store: StoreState<'_>) -> Result<HashMap<String, Option<String>>, String> {
+    let k = providers::Kind::parse(&kind)?;
+    let inst = providers::instance(k, &url)?.url;
+    let token = instance_token(&store, account, &kind, &url);
+    blocking(move || Ok(crate::avatars::image_avatars(k, &inst, token.as_deref(), &urls).into_iter().collect())).await
+}

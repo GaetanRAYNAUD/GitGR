@@ -18,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const MAX_BODY: u64 = 4 * 1024 * 1024;
 
 /// Encode un segment d'URL (chemin d'un projet GitLab, nom de branche dans une requête).
-fn enc(s: &str) -> String {
+pub(crate) fn enc(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
@@ -31,7 +31,7 @@ fn enc(s: &str) -> String {
 }
 
 /// Chemin d'un dépôt dans l'API : `/repos/<o>/<r>` (GitHub), `/projects/<chemin encodé>` (GitLab).
-fn project(kind: Kind, repo: &str) -> String {
+pub(crate) fn project(kind: Kind, repo: &str) -> String {
     match kind {
         Kind::GitHub => format!("/repos/{repo}"),
         Kind::GitLab => format!("/projects/{}", enc(repo)),
@@ -39,24 +39,26 @@ fn project(kind: Kind, repo: &str) -> String {
 }
 
 /// Dépôt `propriétaire/nom` (GitLab : `groupe/sous-groupe/nom`) : rien d'autre ne part dans l'URL.
-fn check_repo(repo: &str) -> Result<(), String> {
+pub(crate) fn check_repo(repo: &str) -> Result<(), String> {
     let ok = repo.contains('/')
         && repo.split('/').all(|p| !p.is_empty() && p != "." && p != ".." && p.bytes().all(|b| b.is_ascii_alphanumeric() || b"-._".contains(&b)));
     if ok { Ok(()) } else { Err("pull_repo_invalid".into()) }
 }
 
 #[derive(Clone, Copy)]
-enum Method<'a> {
+pub(crate) enum Method<'a> {
     Get,
     Post(&'a Value),
     Patch(&'a Value),
+    Put(&'a Value),
+    Delete,
 }
 
 /// Réponse lue : code, JSON, et nombre de pages annoncé par le provider (listes paginées :
 /// en-tête `Link` `rel="last"` chez GitHub, `X-Total-Pages` chez GitLab).
-struct Reply {
-    status: u16,
-    json: Value,
+pub(crate) struct Reply {
+    pub status: u16,
+    pub json: Value,
     pages: Option<usize>,
     /// Une page suivante est annoncée (`rel="next"`, `X-Next-Page`).
     more: bool,
@@ -71,7 +73,7 @@ fn last_page(link: &str) -> Option<usize> {
 }
 
 /// Appel à l'API (4xx compris, à lire par l'appelant).
-fn request(kind: Kind, api: &str, path: &str, token: &str, method: Method) -> Result<Reply, String> {
+pub(crate) fn request(kind: Kind, api: &str, path: &str, token: &str, method: Method) -> Result<Reply, String> {
     check_token(token)?;
     let url = format!("{api}{path}");
     let json_body = |b: &Value| b.to_string();
@@ -79,6 +81,8 @@ fn request(kind: Kind, api: &str, path: &str, token: &str, method: Method) -> Re
         Method::Get => headers(kind, agent().get(&url), token).call(),
         Method::Post(b) => headers(kind, agent().post(&url), token).header("Content-Type", "application/json").send(json_body(b)),
         Method::Patch(b) => headers(kind, agent().patch(&url), token).header("Content-Type", "application/json").send(json_body(b)),
+        Method::Put(b) => headers(kind, agent().put(&url), token).header("Content-Type", "application/json").send(json_body(b)),
+        Method::Delete => headers(kind, agent().delete(&url), token).call(),
     })?;
     let status = response.status().as_u16();
     let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);
@@ -111,7 +115,7 @@ fn call(kind: Kind, api: &str, path: &str, token: &str, body: Option<&Value>) ->
 }
 
 /// Erreurs communes à toutes les réponses en échec.
-fn refused(status: u16) -> String {
+pub(crate) fn refused(status: u16) -> String {
     match status {
         // Droits du token ou du compte sur le dépôt (GitHub répond aussi 404 à un dépôt invisible).
         403 => "pull_forbidden",
@@ -122,7 +126,7 @@ fn refused(status: u16) -> String {
 }
 
 /// Texte d'une réponse d'erreur, en minuscules (messages de validation).
-fn message(v: &Value) -> String {
+pub(crate) fn message(v: &Value) -> String {
     v.to_string().to_lowercase()
 }
 
@@ -179,7 +183,7 @@ fn parse_pull(kind: Kind, v: &Value, existing: bool) -> Option<Pull> {
     Some(Pull { number, url: url.into(), title: v["title"].as_str().unwrap_or_default().into(), existing, warnings: Vec::new() })
 }
 
-fn check_branch(b: &str) -> Result<(), String> {
+pub(crate) fn check_branch(b: &str) -> Result<(), String> {
     if b.is_empty() || b.starts_with('-') || b.chars().any(|c| c.is_control() || c == ' ') {
         return Err("pull_branch_invalid".into());
     }
@@ -298,7 +302,7 @@ fn github_meta(api: &str, token: &str, repo: &str, number: u64, p: &NewPull) -> 
 }
 
 /// Identifiant numérique d'un projet GitLab.
-fn project_id(kind: Kind, api: &str, token: &str, repo: &str) -> Result<u64, String> {
+pub(crate) fn project_id(kind: Kind, api: &str, token: &str, repo: &str) -> Result<u64, String> {
     let (status, v) = call(kind, api, &project(kind, repo), token, None)?;
     if !(200..300).contains(&status) {
         return Err(refused(status));
@@ -331,6 +335,9 @@ pub struct Person {
     pub login: String,
     #[serde(default)]
     pub name: Option<String>,
+    /// Adresse de l'image (téléchargée à l'affichage, cf. `avatars::image_avatars`).
+    #[serde(default)]
+    pub avatar: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -391,24 +398,24 @@ fn get_all(kind: Kind, api: &str, path: &str, token: &str) -> Result<(Vec<Value>
     Ok((items, announced > MAX_PAGES || unknown_rest))
 }
 
-fn text(v: &Value, key: &str) -> Option<String> {
+pub(crate) fn text(v: &Value, key: &str) -> Option<String> {
     v[key].as_str().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string)
 }
 
-fn parse_person(kind: Kind, v: &Value) -> Option<Person> {
+pub(crate) fn parse_person(kind: Kind, v: &Value) -> Option<Person> {
     let login = text(v, if kind == Kind::GitHub { "login" } else { "username" })?;
     // GitLab : comptes bloqués ou en attente écartés.
     if kind == Kind::GitLab && v["state"].as_str().is_some_and(|s| s != "active") {
         return None;
     }
-    Some(Person { id: v["id"].as_u64()?, login, name: text(v, "name") })
+    Some(Person { id: v["id"].as_u64()?, login, name: text(v, "name"), avatar: text(v, "avatar_url") })
 }
 
-fn parse_label(v: &Value) -> Option<Label> {
+pub(crate) fn parse_label(v: &Value) -> Option<Label> {
     Some(Label { name: text(v, "name")?, color: text(v, "color").map(|c| c.trim_start_matches('#').to_lowercase()), description: text(v, "description") })
 }
 
-fn now() -> u64 {
+pub(crate) fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
@@ -566,7 +573,7 @@ const GITHUB_TEMPLATES: &[&str] = &[
 ];
 const GITLAB_TEMPLATES: &str = ".gitlab/merge_request_templates/";
 
-fn check_ref(r: &str) -> Result<(), String> {
+pub(crate) fn check_ref(r: &str) -> Result<(), String> {
     if r.is_empty() || r.starts_with('-') || r.contains("..") || r.chars().any(|c| c.is_control() || c == ' ' || c == ':') {
         return Err("pull_branch_invalid".into());
     }
@@ -643,7 +650,7 @@ mod tests {
     }
 
     fn person(id: u64, login: &str) -> Person {
-        Person { id, login: login.into(), name: None }
+        Person { id, login: login.into(), name: None, avatar: None }
     }
 
     /// Faux provider qui répond selon la requête :
@@ -718,7 +725,7 @@ mod tests {
             (404, String::new(), "{}".into())
         });
         let o = fetch_options(Kind::GitLab, &url, "g/p", "glpat").unwrap();
-        assert_eq!(o.people, vec![Person { id: 1, login: "camille".into(), name: Some("Camille".into()) }]);
+        assert_eq!(o.people, vec![Person { id: 1, login: "camille".into(), name: Some("Camille".into()), avatar: None }]);
         assert_eq!(o.labels[0].color.as_deref(), Some("ff0000"));
     }
 

@@ -18,6 +18,9 @@ import { Icon, type IconName } from "../Icon";
 import { ProfileAvatar } from "../ProfileAvatar";
 import { RemoteMark } from "../RemoteMark";
 import { checkoutRef, refMenu, remoteMenu } from "./menus";
+import { PULLS_SECTION, PullsSection, termOf } from "./PullsSection";
+import { pullOfRef, usePullContexts, usePullList } from "../../store/pullList";
+import { pullRef } from "../../lib/pulls";
 import { ResizableBlock } from "../Splitter";
 
 /** Par défaut, les tags sont repliés (souvent nombreux). */
@@ -46,12 +49,15 @@ export function RefsSidebar({ path }: { path: string }) {
   const binding = useProfiles((s) => s.repoProfiles[path]);
 
   const sections = useMemo(() => refSections(refs), [refs]);
+  const contexts = usePullContexts(path);
+  const pullLists = usePullList((s) => s.lists);
+  const showPulls = contexts.length > 0 && !ui.hidden.includes(PULLS_SECTION);
   /** Remote d'une section distante (sans URL connue si git ne le liste plus). */
   const remoteOf = (s: RefSection): RemoteInfo | null =>
     s.kind === "remote" ? (refs?.remotes.find((r) => r.name === s.remote) ?? { name: s.remote!, url: null, pushUrl: null }) : null;
   const title = (s: RefSection) => (s.kind === "local" ? t("sidebar.local") : s.kind === "tags" ? t("sidebar.tags") : s.remote!);
   const shown = sections.filter((s) => !ui.hidden.includes(s.key));
-  const hiddenCount = sections.length - shown.length;
+  const hiddenCount = sections.length - shown.length + (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0);
   const q = filter.trim().toLowerCase();
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -66,6 +72,7 @@ export function RefsSidebar({ path }: { path: string }) {
     const current = r.kind === "local" && r.short === refs?.headBranch;
     const meta = [r.ahead ? `↑${r.ahead}` : "", r.behind ? `↓${r.behind}` : ""].filter(Boolean).join(" ");
     const cls = ["side-item", current && "current", selected === r.target && "sel"].filter(Boolean).join(" ");
+    const pr = pullOfRef(pullLists, contexts, refs, r);
     return (
       <li key={r.name}>
         <button
@@ -77,6 +84,19 @@ export function RefsSidebar({ path }: { path: string }) {
           title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${t("sidebar.dblClick")}`}
         >
           <span className="side-label">{label}</span>
+          {pr && (
+            <span
+              className={`side-pull ${pr.pull.state}`}
+              role="link"
+              title={t("prv.branchPull", { ref: pullRef(pr.ctx.kind, pr.pull.number), title: pr.pull.title })}
+              onClick={(e) => {
+                e.stopPropagation();
+                usePullList.getState().show(path, pr.ctx, pr.pull.number);
+              }}
+            >
+              {pullRef(pr.ctx.kind, pr.pull.number)}
+            </span>
+          )}
           {r.gone && <span className="side-meta">{t("sidebar.gone")}</span>}
           {meta && <span className="side-meta">{meta}</span>}
         </button>
@@ -107,6 +127,72 @@ export function RefsSidebar({ path }: { path: string }) {
         </li>
       );
     });
+
+  const renderSection = (s: RefSection) => {
+    const items = q ? s.items.filter((r) => r.short.toLowerCase().includes(q)) : s.items;
+    if (q && items.length === 0) return null;
+    const open = q !== "" || !ui.collapsed.includes(s.key);
+    // Remote : son profil (clé SSH) en pastille, à changer par un clic droit.
+    const remote = remoteOf(s);
+    const rp = remote && remoteProfile(profiles, binding, remote);
+    const profileHint = rp && (rp.profile ? t(`remotes.hint.${rp.source}`, { name: rp.profile.name }) : t("remotes.hint.none"));
+    // Provider reconnu d'après l'hôte : son icône, et le compte du profil du remote (API).
+    const parsed = remote && parseRemote(remote.url);
+    const provider = remoteProvider(profiles, parsed);
+    const account = rp && remoteAccount(rp.profile, parsed);
+    const accountHint =
+      provider &&
+      rp?.profile &&
+      (account ? t("remotes.account", { provider: PROVIDER_NAMES[provider], login: account.login }) : t("remotes.accountNone", { provider: PROVIDER_NAMES[provider] }));
+    return (
+      <div className="side-group" key={s.key}>
+        <button
+          className="section-h section-btn"
+          aria-expanded={open}
+          title={remote ? [remote.url, remote.pushUrl && t("remotes.pushUrl", { url: remote.pushUrl }), profileHint, accountHint, t("remotes.menuHint")].filter(Boolean).join("\n") : undefined}
+          onClick={() => setUi(path, { ...ui, collapsed: toggle(ui.collapsed, s.key) })}
+          onContextMenu={remote ? (e) => openContextMenu(e, remoteMenu(t, path, remote, refs)) : undefined}
+        >
+          <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
+          <span className="section-icon" data-provider={provider ?? undefined}>
+            {provider && parsed ? (
+              <RemoteMark mark={{ provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null, host: parsed.host, repo: parsed.path }} />
+            ) : (
+              <Icon name={ICONS[s.kind]} size={15} />
+            )}
+          </span>
+          <span className="section-name">{title(s)}</span>
+          {rp?.profile && (
+            <span className="section-profile" data-source={rp.source}>
+              {rp.profile.image ? (
+                <ProfileAvatar profile={rp.profile} className="pill-avatar" />
+              ) : (
+                <span className="dot" style={{ background: profileColor(rp.profile) }} />
+              )}
+              <span className="section-profile-name">{rp.profile.name}</span>
+            </span>
+          )}
+          <span className="section-count">{items.length}</span>
+        </button>
+        {open &&
+          (items.length === 0 ? (
+            <p className="side-empty">{t("sidebar.empty")}</p>
+          ) : (
+            <ResizableBlock
+              layoutKey={sectionKey(s.key)}
+              label={t("layout.section", { name: title(s) })}
+              className="side-content"
+            >
+              <ul>
+                {s.kind === "tags"
+                  ? items.map((r) => refButton(r, r.short, 0))
+                  : renderNodes(s.key, refTree(items), 0)}
+              </ul>
+            </ResizableBlock>
+          ))}
+      </div>
+    );
+  };
 
   return (
     <nav className="refs-sidebar" aria-label={t("sidebar.label")} style={widthStyle}>
@@ -140,76 +226,20 @@ export function RefsSidebar({ path }: { path: string }) {
                 {title(s)}
               </label>
             ))}
+            {contexts.length > 0 && (
+              <label className="menu-check">
+                <input type="checkbox" checked={!ui.hidden.includes(PULLS_SECTION)} onChange={() => setUi(path, { ...ui, hidden: toggle(ui.hidden, PULLS_SECTION) })} />
+                {t(`prv.section_${termOf(contexts)}`)}
+              </label>
+            )}
             <div className="menu-hint">{t("sidebar.sectionsHint")}</div>
           </div>
         )}
       </div>
 
-      {shown.map((s) => {
-        const items = q ? s.items.filter((r) => r.short.toLowerCase().includes(q)) : s.items;
-        if (q && items.length === 0) return null;
-        const open = q !== "" || !ui.collapsed.includes(s.key);
-        // Remote : son profil (clé SSH) en pastille, à changer par un clic droit.
-        const remote = remoteOf(s);
-        const rp = remote && remoteProfile(profiles, binding, remote);
-        const profileHint = rp && (rp.profile ? t(`remotes.hint.${rp.source}`, { name: rp.profile.name }) : t("remotes.hint.none"));
-        // Provider reconnu d'après l'hôte : son icône, et le compte du profil du remote (API).
-        const parsed = remote && parseRemote(remote.url);
-        const provider = remoteProvider(profiles, parsed);
-        const account = rp && remoteAccount(rp.profile, parsed);
-        const accountHint =
-          provider &&
-          rp?.profile &&
-          (account ? t("remotes.account", { provider: PROVIDER_NAMES[provider], login: account.login }) : t("remotes.accountNone", { provider: PROVIDER_NAMES[provider] }));
-        return (
-          <div className="side-group" key={s.key}>
-            <button
-              className="section-h section-btn"
-              aria-expanded={open}
-              title={remote ? [remote.url, remote.pushUrl && t("remotes.pushUrl", { url: remote.pushUrl }), profileHint, accountHint, t("remotes.menuHint")].filter(Boolean).join("\n") : undefined}
-              onClick={() => setUi(path, { ...ui, collapsed: toggle(ui.collapsed, s.key) })}
-              onContextMenu={remote ? (e) => openContextMenu(e, remoteMenu(t, path, remote, refs)) : undefined}
-            >
-              <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
-              <span className="section-icon" data-provider={provider ?? undefined}>
-                {provider && parsed ? (
-                  <RemoteMark mark={{ provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null, host: parsed.host, repo: parsed.path }} />
-                ) : (
-                  <Icon name={ICONS[s.kind]} size={15} />
-                )}
-              </span>
-              <span className="section-name">{title(s)}</span>
-              {rp?.profile && (
-                <span className="section-profile" data-source={rp.source}>
-                  {rp.profile.image ? (
-                    <ProfileAvatar profile={rp.profile} className="pill-avatar" />
-                  ) : (
-                    <span className="dot" style={{ background: profileColor(rp.profile) }} />
-                  )}
-                  <span className="section-profile-name">{rp.profile.name}</span>
-                </span>
-              )}
-              <span className="section-count">{items.length}</span>
-            </button>
-            {open &&
-              (items.length === 0 ? (
-                <p className="side-empty">{t("sidebar.empty")}</p>
-              ) : (
-                <ResizableBlock
-                  layoutKey={sectionKey(s.key)}
-                  label={t("layout.section", { name: title(s) })}
-                  className="side-content"
-                >
-                  <ul>
-                    {s.kind === "tags"
-                      ? items.map((r) => refButton(r, r.short, 0))
-                      : renderNodes(s.key, refTree(items), 0)}
-                  </ul>
-                </ResizableBlock>
-              ))}
-          </div>
-        );
-      })}
+      {shown.filter((s) => s.kind !== "tags").map(renderSection)}
+      {showPulls && <PullsSection path={path} contexts={contexts} query={q} ui={ui} />}
+      {shown.filter((s) => s.kind === "tags").map(renderSection)}
 
       {hiddenCount > 0 && (
         <button className="link side-hidden" onClick={() => setMenuOpen(true)}>

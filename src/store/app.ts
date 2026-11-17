@@ -31,7 +31,7 @@ interface AppStore {
   /** Dernière erreur à afficher (code backend ou message). */
   error: string | null;
   /** Message d'information ; `sticky` : reste affiché jusqu'à ce qu'on le ferme. */
-  notice: { text: string; sticky: boolean; id: number } | null;
+  notice: { text: string; sticky: boolean; id: number; actions?: NoticeAction[] } | null;
 
   init(): Promise<void>;
   recheckGit(): Promise<void>;
@@ -59,11 +59,19 @@ interface AppStore {
   refreshRepo(path: string): Promise<void>;
   setRepoUi(path: string, ui: RepoUi): void;
   dismissError(): void;
-  notify(text: string, sticky?: boolean): void;
+  /** ctions : boutons du message (Ouvrir, Copier le lien…) ; il reste alors affiché plus longtemps. */
+  notify(text: string, sticky?: boolean, actions?: NoticeAction[]): void;
   dismissNotice(): void;
 }
 
 let noticeSeq = 0;
+
+/** Bouton d'un message : un clic lance l'action ; keep le laisse ouvert (Copier le lien). */
+export interface NoticeAction {
+  label: string;
+  onClick: () => void;
+  keep?: boolean;
+}
 
 function persistSession(tabs: string[], active: string | null) {
   api.setSession({ openTabs: tabs, active }).catch(() => {});
@@ -293,8 +301,8 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ error: null });
   },
 
-  notify(text, sticky = false) {
-    set({ notice: { text, sticky, id: ++noticeSeq } });
+  notify(text, sticky = false, actions) {
+    set({ notice: { text, sticky, id: ++noticeSeq, actions } });
   },
 
   dismissNotice() {
