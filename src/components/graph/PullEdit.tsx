@@ -1,7 +1,7 @@
 // Modifier une PR / MR après sa création : titre, description, relecteurs, assignés, étiquettes
 // (listes du dépôt en cache, cf. store/pullOptions). Enregistré d'un bloc.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Label, Person, PullDetail } from "../../lib/types";
 import { optionsKey, usePullOptions } from "../../store/pullOptions";
@@ -46,6 +46,25 @@ export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; 
     for (const l of [...d.labels, ...(options?.labels ?? [])]) if (!m.has(l.name)) m.set(l.name, l);
     return [...m.values()].map((l) => ({ id: l.name, label: l.name, detail: l.description, color: l.color }));
   }, [d.labels, options]);
+  // Description : la hauteur de son texte, sans que le formulaire dépasse la zone visible.
+  const formRef = useRef<HTMLFormElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [, relayout] = useState(0);
+  useLayoutEffect(() => {
+    const area = bodyRef.current;
+    const form = formRef.current;
+    const scroller = form?.closest(".pull-view-body");
+    if (!area || !form || !scroller) return;
+    area.style.height = "auto";
+    const others = form.offsetHeight - area.offsetHeight;
+    const room = scroller.clientHeight - others - 32;
+    area.style.height = `${Math.max(140, Math.min(area.scrollHeight + 2, room))}px`;
+  });
+  useEffect(() => {
+    const onResize = () => relayout((n) => n + 1);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const persons = (ids: string[]) => ids.map((id) => people.get(id)).filter((x): x is Person => !!x);
 
   const save = async () => {
@@ -56,6 +75,7 @@ export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; 
   return (
     <form
       className="pull-card pull-edit"
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         void save();
@@ -67,7 +87,7 @@ export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; 
       </label>
       <label className="input-field">
         <span>{t("pr.body")}</span>
-        <textarea className="pf-input" rows={8} value={body} onChange={(e) => setBody(e.target.value)} disabled={!!busy} />
+        <textarea ref={bodyRef} className="pf-input" rows={8} value={body} onChange={(e) => setBody(e.target.value)} disabled={!!busy} />
       </label>
       <MultiPicker label={t("pr.reviewers")} options={personOptions} selected={reviewers} onChange={setReviewers} disabled={!!busy} placeholder={t("pr.searchPeople")} />
       <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={setAssignees} disabled={!!busy} placeholder={t("pr.searchPeople")} />

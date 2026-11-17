@@ -127,6 +127,9 @@ pub struct PullDetail {
     pub merge: MergeInfo,
     /// Le compte peut modifier la PR / MR (titre, état…).
     pub can_update: bool,
+    /// De quoi relancer les jobs en échec : exécutions de workflow GitHub Actions, pipeline GitLab.
+    /// Vide : rien à relancer (ou checks d'une autre application, pas relançables d'ici).
+    pub retry: Vec<u64>,
 }
 
 /// Action demandée par l'interface (toujours après un clic explicite).
@@ -151,6 +154,8 @@ pub enum PullAction {
     },
     /// Met la branche à jour avec la cible (GitHub : merge de la cible ; GitLab : rebase).
     UpdateBranch,
+    /// Relance les jobs en échec de ces exécutions (GitHub) / de ce pipeline (GitLab).
+    RetryFailed { runs: Vec<u64> },
     /// Titre, description, relecteurs, assignés et étiquettes (listes complètes : remplacent les actuelles).
     Edit {
         title: String,
@@ -348,7 +353,7 @@ fn github_detail(api: &str, token: &str, repo: &str, number: u64) -> Result<Pull
     reviewThreads(first: 100) {{ nodes {{ id isResolved path line originalLine comments(first: 50) {{ nodes {{ id body createdAt author {{ ...A }} }} }} }} }}
     lastCommit: commits(last: 1) {{ nodes {{ commit {{ statusCheckRollup {{ state contexts(first: 100) {{ nodes {{
       __typename
-      ... on CheckRun {{ name status conclusion detailsUrl }}
+      ... on CheckRun {{ name status conclusion detailsUrl checkSuite {{ workflowRun {{ databaseId }} }} }}
       ... on StatusContext {{ context state targetUrl }}
     }} }} }} }} }} }}
   }}
@@ -459,6 +464,17 @@ fn github_detail(api: &str, token: &str, repo: &str, number: u64) -> Result<Pull
         })
         .collect();
 
+    // Exécutions GitHub Actions ayant un job en échec (relançables).
+    let mut retry: Vec<u64> = Vec::new();
+    for c in contexts.as_array().into_iter().flatten() {
+        let failed = c["__typename"] == "CheckRun" && c["status"] == "COMPLETED" && matches!(c["conclusion"].as_str(), Some("FAILURE" | "TIMED_OUT" | "STARTUP_FAILURE" | "CANCELLED"));
+        if let Some(id) = c["checkSuite"]["workflowRun"]["databaseId"].as_u64().filter(|_| failed)
+            && !retry.contains(&id)
+        {
+            retry.push(id);
+        }
+    }
+
     // Merge : ce qui le bloque, d'après GitHub.
     let mut blockers: Vec<&str> = Vec::new();
     let status = v["mergeStateStatus"].as_str().unwrap_or("UNKNOWN");
@@ -518,6 +534,7 @@ fn github_detail(api: &str, token: &str, repo: &str, number: u64) -> Result<Pull
             auto_merge,
         },
         can_update,
+        retry,
         pull,
     })
 }
@@ -678,6 +695,7 @@ fn gitlab_detail(api: &str, token: &str, repo: &str, number: u64) -> Result<Pull
         None => Vec::new(),
     };
 
+    let checks_failed = checks_list.iter().any(|c| c.state == "failure") || pipeline["status"] == "failed";
     let mut blockers: Vec<&str> = Vec::new();
     if pull.state == "merged" || pull.state == "closed" {
         blockers.push("not_open");
@@ -731,6 +749,7 @@ fn gitlab_detail(api: &str, token: &str, repo: &str, number: u64) -> Result<Pull
             auto_merge,
         },
         can_update: can_merge_user,
+        retry: pipeline["id"].as_u64().filter(|_| checks_failed).into_iter().collect(),
         pull,
     })
 }
@@ -889,6 +908,12 @@ fn github_action(api: &str, token: &str, repo: &str, number: u64, action: &PullA
             Ok(())
         }
         PullAction::UpdateBranch => send(kind, api, token, &format!("{base}/pulls/{number}/update-branch"), Method::Put(&json!({})), false).map(|_| ()),
+        PullAction::RetryFailed { runs } => {
+            for run in runs {
+                send(kind, api, token, &format!("{base}/actions/runs/{run}/rerun-failed-jobs"), Method::Post(&json!({})), false)?;
+            }
+            Ok(())
+        }
     }
 }
 
@@ -938,6 +963,13 @@ fn gitlab_action(api: &str, token: &str, repo: &str, number: u64, action: &PullA
             send(kind, api, token, &format!("{base}/merge"), Method::Put(&body), true).map(|_| ())
         }
         PullAction::UpdateBranch => send(kind, api, token, &format!("{base}/rebase"), Method::Put(&json!({})), false).map(|_| ()),
+        PullAction::RetryFailed { runs } => {
+            let project = project(kind, repo);
+            for run in runs {
+                send(kind, api, token, &format!("{project}/pipelines/{run}/retry"), Method::Post(&json!({})), false)?;
+            }
+            Ok(())
+        }
         PullAction::Edit { title, body, reviewers, assignees, labels } => {
             let title = title.trim();
             if title.is_empty() {
@@ -1116,7 +1148,8 @@ mod tests {
           "comments":{{"nodes":[{{"id":"C1","body":"Merci","createdAt":"2026-11-17T09:40:00Z","author":{{"login":"zoe"}}}}]}},
           "reviewThreads":{{"nodes":[{{"id":"T1","isResolved":false,"path":"src/a.rs","line":null,"originalLine":4,"comments":{{"nodes":[{{"id":"TC1","body":"Ici","createdAt":"2026-11-17T09:50:00Z","author":{{"login":"max"}}}}]}}}}]}},
           "lastCommit":{{"nodes":[{{"commit":{{"statusCheckRollup":{{"state":"SUCCESS","contexts":{{"nodes":[
-            {{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://ci/1"}},
+            {{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://ci/1","checkSuite":{{"workflowRun":{{"databaseId":5}}}}}},
+            {{"__typename":"CheckRun","name":"e2e","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":null,"checkSuite":{{"workflowRun":{{"databaseId":6}}}}}},
             {{"__typename":"StatusContext","context":"lint","state":"PENDING","targetUrl":null}}]}}}}}}}}]}}}}}}}}}}"#
             )
             .into_boxed_str(),
@@ -1129,7 +1162,8 @@ mod tests {
         // Fils triés par date : commentaire, fil sur le code, corps de la relecture.
         assert_eq!(d.threads.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), ["C1", "T1", "R1"]);
         assert_eq!((d.threads[1].path.as_deref(), d.threads[1].line, d.threads[1].resolvable), (Some("src/a.rs"), Some(4), true));
-        assert_eq!(d.checks_list.iter().map(|c| (c.name.as_str(), c.state.as_str())).collect::<Vec<_>>(), [("build", "success"), ("lint", "pending")]);
+        assert_eq!(d.checks_list.iter().map(|c| (c.name.as_str(), c.state.as_str())).collect::<Vec<_>>(), [("build", "success"), ("e2e", "failure"), ("lint", "pending")]);
+        assert_eq!(d.retry, [6]);
         assert_eq!(d.merge.blockers, ["changes"]);
         assert!(!d.merge.can_merge);
         assert_eq!(d.merge.methods, ["merge", "squash"]);
@@ -1333,5 +1367,20 @@ mod edit_tests {
         assert!(r.starts_with("PUT /projects/g%2Fp/merge_requests/5 "), "{r}");
         assert!(r.contains(r#""reviewer_ids":[8]"#) && r.contains(r#""assignee_ids":[0]"#) && r.contains(r#""labels":"a,b""#) && r.contains(r#""description":"D""#), "{r}");
         assert_eq!(act(Kind::GitLab, "http://127.0.0.1:9", "glpat", "g/p", 5, &PullAction::Edit { title: " ".into(), body: String::new(), reviewers: vec![], assignees: vec![], labels: vec![] }).unwrap_err(), "pull_title_missing");
+    }
+}
+#[cfg(test)]
+mod retry_tests {
+    use super::*;
+    use crate::providers::tests::serve;
+
+    #[test]
+    fn retry_failed_jobs_on_each_provider() {
+        let (url, requests) = serve(vec![(201, "{}"), (201, "{}"), (201, "{}")]);
+        act(Kind::GitHub, &url, "ghp", "o/r", 12, &PullAction::RetryFailed { runs: vec![11, 12] }).unwrap();
+        assert!(requests.recv().unwrap().starts_with("POST /repos/o/r/actions/runs/11/rerun-failed-jobs "));
+        assert!(requests.recv().unwrap().starts_with("POST /repos/o/r/actions/runs/12/rerun-failed-jobs "));
+        act(Kind::GitLab, &url, "glpat", "g/p", 5, &PullAction::RetryFailed { runs: vec![77] }).unwrap();
+        assert!(requests.recv().unwrap().starts_with("POST /projects/g%2Fp/pipelines/77/retry "));
     }
 }

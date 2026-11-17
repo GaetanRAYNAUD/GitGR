@@ -4507,6 +4507,13 @@ p.pf-account-keys.bad,
   gap: 10px;
 }
 
+.checks-retry {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .checks-total {
   font-size: 17px;
   font-weight: 600;
@@ -4627,5 +4634,23 @@ p.pf-account-keys.bad,
 .pull-edit textarea {
   width: 100%;
   min-height: 140px;
-  resize: vertical;
+  resize: none;
+}
+
+/* Check en cours : cercle orange qui tourne (pas de halo). */
+.check-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin: 1px;
+  border: 2px solid color-mix(in srgb, var(--mod) 28%, transparent);
+  border-top-color: var(--mod);
+  border-radius: 50%;
+  animation: tool-spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-spinner {
+    animation-duration: 3s;
+  }
 }

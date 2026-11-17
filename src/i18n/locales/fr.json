@@ -899,6 +899,8 @@
       "pending": "En cours ({{count}})",
       "neutral": "Ignorés ou annulés ({{count}})",
       "success": "Réussis ({{count}})"
-    }
+    },
+    "retryFailed": "Relancer les jobs en échec",
+    "retrying": "Relance…"
   }
 }

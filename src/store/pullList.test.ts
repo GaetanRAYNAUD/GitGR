@@ -82,7 +82,7 @@ describe("usePullList.ensure", () => {
   });
   it("une action réussie relit le détail et la liste ; un échec est gardé pour l'affichage", async () => {
     vi.spyOn(api, "listPulls").mockResolvedValue({ pulls: [], fetchedAt: 0, truncated: false });
-    const detail = vi.spyOn(api, "pullDetail").mockResolvedValue({ ...pull(3), body: "", reviews: [], threads: [], checksList: [], merge: { canMerge: true, blockers: [], methods: ["merge"], deleteBranch: false, autoMerge: null }, canUpdate: true });
+    const detail = vi.spyOn(api, "pullDetail").mockResolvedValue({ ...pull(3), body: "", reviews: [], threads: [], checksList: [], merge: { canMerge: true, blockers: [], methods: ["merge"], deleteBranch: false, autoMerge: null }, canUpdate: true, retry: [] });
     const act = vi.spyOn(api, "pullAct").mockResolvedValueOnce(undefined).mockRejectedValueOnce("pull_not_mergeable");
     expect(await usePullList.getState().act(ctx, 3, { type: "comment", body: "ok" })).toBe(true);
     expect(detail).toHaveBeenCalledTimes(1);

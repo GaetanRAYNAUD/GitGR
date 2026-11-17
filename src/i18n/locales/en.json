@@ -899,6 +899,8 @@
       "pending": "Running ({{count}})",
       "neutral": "Skipped or cancelled ({{count}})",
       "success": "Passed ({{count}})"
-    }
+    },
+    "retryFailed": "Re-run failed jobs",
+    "retrying": "Re-running…"
   }
 }

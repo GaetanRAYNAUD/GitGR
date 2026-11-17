@@ -537,6 +537,8 @@ export interface PullDetail extends PullSummary {
   checksList: PullCheck[];
   merge: MergeInfo;
   canUpdate: boolean;
+  /** Exécutions (GitHub) / pipeline (GitLab) dont relancer les jobs en échec ; vide : rien à relancer. */
+  retry: number[];
 }
 
 export type PullAction =
@@ -549,4 +551,5 @@ export type PullAction =
   | { type: "setDraft"; draft: boolean }
   | { type: "merge"; method: MergeMethod; deleteBranch: boolean; auto: boolean }
   | { type: "updateBranch" }
+  | { type: "retryFailed"; runs: number[] }
   | { type: "edit"; title: string; body: string; reviewers: Person[]; assignees: Person[]; labels: string[] };

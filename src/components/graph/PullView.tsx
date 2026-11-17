@@ -129,7 +129,7 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
       <div className="pull-view-body">
         {tab === "conversation" && <Conversation path={path} ctx={ctx} d={d} people={people} term={term} />}
         {tab === "files" && <Files path={path} ctx={ctx} d={d} />}
-        {tab === "checks" && <Checks d={d} />}
+        {tab === "checks" && <Checks ctx={ctx} d={d} />}
       </div>
     </section>
   );
@@ -530,8 +530,10 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
 const CHECK_GROUPS: PullCheck["state"][] = ["failure", "pending", "neutral", "success"];
 const CHECK_ICON: Record<PullCheck["state"], IconName> = { failure: "close", pending: "fetch", neutral: "minimize", success: "check" };
 
-function Checks({ d }: { d: PullDetail }) {
+function Checks({ ctx, d }: { ctx: PullContext; d: PullDetail }) {
   const { t } = useTranslation();
+  const act = usePullList((s) => s.act);
+  const busy = usePullList((s) => detailEntry(s, ctx, d.number)?.busy ?? null);
   const [open, setOpen] = useState<Set<string>>(() => new Set(["failure", "pending", "neutral"]));
   if (d.checksList.length === 0) return <p className="muted pull-pad">{t("prv.noChecks")}</p>;
   const total = d.checksList.length;
@@ -542,6 +544,12 @@ function Checks({ d }: { d: PullDetail }) {
       <div className="checks-summary">
         <span className="checks-total">{t("prv.checksPassed", { ok: count("success"), total })}</span>
         {others.length > 0 && <span className="muted">{others.join(" · ")}</span>}
+        {d.canUpdate && d.retry.length > 0 && count("failure") > 0 && (
+          <button className="mini checks-retry" disabled={!!busy} onClick={() => void act(ctx, d.number, { type: "retryFailed", runs: d.retry })}>
+            <Icon name="fetch" size={13} />
+            {busy === "retryFailed" ? t("prv.retrying") : t("prv.retryFailed")}
+          </button>
+        )}
       </div>
       <div className="checks-bar" role="img" aria-label={t("prv.checksCount", { ok: count("success"), total })}>
         {(["success", "pending", "neutral", "failure"] as const).map((s) => count(s) > 0 && <span key={s} className={`checks-seg ${s}`} style={{ flex: count(s) }} />)}
@@ -571,7 +579,7 @@ function Checks({ d }: { d: PullDetail }) {
                   .map((c, i) => (
                     <li key={`${c.name}-${i}`} className="checks-row">
                       <span className={`check-icon ${c.state}`}>
-                        <Icon name={CHECK_ICON[c.state]} size={14} />
+                        {c.state === "pending" ? <span className="check-spinner" role="img" aria-label={t("prv.checks.pending")} /> : <Icon name={CHECK_ICON[c.state]} size={14} />}
                       </span>
                       <span className="pull-check-name">{c.name}</span>
                       {c.url && (

@@ -47,6 +47,7 @@ function seed(path: string, kind: ProviderKind, url: string, repo: string): Pull
     checksList: [],
     merge: { canMerge: false, blockers: [], methods: kind === "github" ? ["merge", "squash", "rebase"] : ["merge", "squash"], deleteBranch: true, autoMerge: false },
     canUpdate: true,
+    retry: [],
     ...over,
   });
   return [
@@ -75,7 +76,9 @@ function seed(path: string, kind: ProviderKind, url: string, repo: string): Pull
       checksList: [
         { name: "build", state: "success", url: "https://ci.exemple.fr/1" },
         { name: "test e2e", state: "pending", url: "https://ci.exemple.fr/2" },
+        { name: "lint", state: "failure", url: "https://ci.exemple.fr/4" },
       ],
+      retry: [302],
       merge: { canMerge: false, blockers: ["approvals", "checks_pending"], methods: kind === "github" ? ["merge", "squash", "rebase"] : ["merge", "squash"], deleteBranch: true, autoMerge: false },
     }),
     base(13, {
@@ -105,6 +108,7 @@ function seed(path: string, kind: ProviderKind, url: string, repo: string): Pull
       headSha: mockHistory(path).commits[40]?.sha ?? null,
       checks: "failure",
       checksList: [{ name: "lint", state: "failure", url: "https://ci.exemple.fr/3" }],
+      retry: [303],
       merge: { canMerge: false, blockers: ["draft"], methods: ["merge"], deleteBranch: false, autoMerge: null },
       canUpdate: false,
     }),
@@ -199,6 +203,11 @@ export function mockPullAct(kind: ProviderKind, url: string, repo: string, numbe
       blockers(p.merge.blockers.filter((b) => b !== "behind"));
       break;
     case "unapprove":
+      break;
+    case "retryFailed":
+      p.checksList = p.checksList.map((c) => (c.state === "failure" ? { ...c, state: "pending" } : c));
+      p.checks = "pending";
+      p.retry = [];
       break;
     case "edit":
       if (!action.title.trim()) throw "pull_title_missing";

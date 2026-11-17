@@ -72,18 +72,23 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await view(page).locator(".pull-file-list .file-row").first().click();
   await expect(view(page).locator(".pull-file-diff .diff-stats")).toHaveText(/\+\d+−\d+/);
   // Checks : 1 réussi sur 2, dans le titre de l'onglet.
-  await expect(view(page).getByRole("tab", { name: /Checks/ })).toContainText("1/2");
+  await expect(view(page).getByRole("tab", { name: /Checks/ })).toContainText("1/3");
   await view(page).getByRole("tab", { name: /Checks/ }).click();
   // Groupés par état : en cours ouvert, réussis repliés.
-  await expect(view(page).locator(".checks-total")).toHaveText("1 / 2 réussis");
-  await expect(view(page).locator(".checks-row")).toHaveCount(1);
-  await view(page).getByRole("button", { name: "Réussis (1)" }).click();
+  await expect(view(page).locator(".checks-total")).toHaveText("1 / 3 réussis");
   await expect(view(page).locator(".checks-row")).toHaveCount(2);
+  await expect(view(page).locator(".check-spinner")).toHaveCount(1);
+  await view(page).getByRole("button", { name: "Réussis (1)" }).click();
+  await expect(view(page).locator(".checks-row")).toHaveCount(3);
+  // Relancer les jobs en échec : le check repasse en cours.
+  await view(page).getByRole("button", { name: "Relancer les jobs en échec" }).click();
+  await expect(view(page).locator(".check-spinner")).toHaveCount(2);
+  await expect(view(page).getByRole("button", { name: "Relancer les jobs en échec" })).toHaveCount(0);
 
   // Échap revient au graphe.
   await page.keyboard.press("Escape");
   await expect(view(page)).toHaveCount(0);
-  expect((await actions(page)).map((a) => a.action.type)).toEqual(["reply", "resolve"]);
+  expect((await actions(page)).map((a) => a.action.type)).toEqual(["reply", "resolve", "retryFailed"]);
 });
 
 test("relire puis fusionner après confirmation ; la MR quitte la liste", async ({ page }) => {
