@@ -141,6 +141,8 @@ export interface App {
   page: Page;
   /** Arrête l'app (fin de test, ou pour la relancer). */
   close(): Promise<void>;
+  /** Fin du processus (fermeture par l'app elle-même : bouton de fermeture…). */
+  exited: Promise<void>;
 }
 
 /** Lance l'app avec ces dépôts ouverts en onglets (le dernier actif). `extra` : champs ajoutés
@@ -205,8 +207,10 @@ export async function launchApp(
   const page = context.pages()[0] ?? (await context.waitForEvent("page"));
   await expect(page.locator(".app")).toBeVisible();
 
+  const exited = new Promise<void>((r) => (proc.exitCode !== null ? r() : proc.once("exit", () => r())));
   return {
     page,
+    exited,
     async close() {
       await browser.close().catch(() => {});
       if (proc.exitCode === null) {

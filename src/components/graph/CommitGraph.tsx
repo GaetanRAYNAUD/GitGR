@@ -583,7 +583,7 @@ export function CommitGraph({ path, changes }: Props) {
           const i = first + k;
           const row = layout.rows[i];
           const isWip = c.sha === WIP;
-          const cls = ["commit-row", isWip && "wip", c.sha === selected && "sel", row.col < MAX_LANES || "far"]
+          const cls = ["commit-row", isWip && "wip", c.sha === head && "head", c.sha === selected && "sel", row.col >= MAX_LANES && "far"]
             .filter(Boolean)
             .join(" ");
           return (

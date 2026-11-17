@@ -37,6 +37,8 @@ mod worktree;
 
 use std::sync::Mutex;
 use tauri::Manager;
+use tauri::utils::config::{AppDirectoriesOverride, AppDirectoryOverrides};
+use tauri_plugin_window_state::StateFlags;
 
 /// Crée la fenêtre principale décrite dans tauri.conf.json (`"create": false` : pas
 /// automatiquement, pour pouvoir régler WebView2 ici).
@@ -62,18 +64,31 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    // `GITGR_CONFIG_DIR` (tests sur l'app compilée, cf. e2e-app/) remplace le dossier de
+    // configuration, pour GitGR comme pour les plugins (état de la fenêtre).
+    if let Some(dir) = std::env::var_os("GITGR_CONFIG_DIR") {
+        context.config_mut().app.app_directories_override = Some(AppDirectoriesOverride::Directories(AppDirectoryOverrides {
+            config: Some(dir.into()),
+            ..Default::default()
+        }));
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Taille, position et état agrandi (ou plein écran) de la fenêtre, gardés d'une session
+        // à l'autre (`.window-state.json` à côté de state.json, sauvé à la fermeture). La
+        // visibilité et les décorations restent celles de tauri.conf.json.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN)
+                .build(),
+        )
         .setup(|app| {
             // Fichier d'état : %APPDATA%\fr.gitgr.app\state.json sous Windows,
-            // ~/.config/fr.gitgr.app/state.json sous Linux.
-            // `GITGR_CONFIG_DIR` le remplace (tests sur l'app compilée, cf. e2e-app/).
-            let dir = match std::env::var_os("GITGR_CONFIG_DIR") {
-                Some(d) => std::path::PathBuf::from(d),
-                None => app.path().app_config_dir()?,
-            };
+            // ~/.config/fr.gitgr.app/state.json sous Linux (ou `GITGR_CONFIG_DIR`, cf. plus haut).
+            let dir = app.path().app_config_dir()?;
             remotes::set_config_dir(dir.join("ssh"));
             avatars::set_cache_dir(dir.join("avatars"));
             pulls::set_cache_dir(dir.join("pull-options"));
@@ -171,6 +186,6 @@ pub fn run() {
             commands::github_device_poll,
             commands::github_device_cancel,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }

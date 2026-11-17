@@ -252,10 +252,29 @@ export function RepoView({ path }: { path: string }) {
   return (
     <div className="repo-view">
       <div className="toolbar">
-        <div className="branch-chip" title={`${path}\n${tracking}`}>
+        <div className={data && !data.branch ? "branch-chip detached" : "branch-chip"} title={`${path}\n${tracking}`}>
           <span className="branch-chip-repo">{repo && repoName(repo)}</span>
-          <span className="branch-chip-name">{branchLabel}</span>
+          <span className="branch-chip-name">
+            <Icon name={data && !data.branch ? "commit" : "branch"} size={13} />
+            <span className="branch-chip-label">{branchLabel}</span>
+            {!!data?.ahead && <span className="branch-chip-sync mono">↑{data.ahead}</span>}
+            {!!data?.behind && <span className="branch-chip-sync mono">↓{data.behind}</span>}
+          </span>
         </div>
+        {changes > 0 && (
+          <button
+            className={selected === WIP && !diff && !openPull ? "changes-pill on" : "changes-pill"}
+            title={t("repo.changesHint")}
+            onClick={() => {
+              if (diff) useGraph.getState().closeDiff(path);
+              if (openPull) usePullList.getState().close(path);
+              select(path, WIP);
+            }}
+          >
+            <span className="changes-dot" />
+            {t("repo.changes", { count: changes })}
+          </button>
+        )}
 
         <Tools path={path} changes={changes} />
 

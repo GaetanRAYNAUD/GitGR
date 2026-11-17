@@ -207,15 +207,14 @@ export interface Api {
   pullDetail(kind: ProviderKind, url: string, repo: string, number: number, account: string | null): Promise<PullDetail>;
   /** Action sur une PR / MR (commentaire, relecture, merge…). */
   pullAct(kind: ProviderKind, url: string, repo: string, number: number, account: string | null, action: PullAction): Promise<void>;
-  /** Récupère le commit de tête sha s'il manque (depuis la référence de la PR / MR sur emote). */
+  /** Récupère le commit de tête sha s'il manque (depuis la référence de la PR / MR sur `remote`). */
   ensurePullHead(path: string, remote: string, kind: ProviderKind, number: number, sha: string): Promise<void>;
-  /** Fichiers modifiés par la PR / MR : de l'ancêtre commun avec 	arget (origin/main) à head. */
+  /** Fichiers modifiés par la PR / MR : de l'ancêtre commun avec `target` (origin/main) à head. */
   pullFiles(path: string, target: string, head: string): Promise<FileChange[]>;
   pullFileDiff(path: string, target: string, head: string, file: string, oldFile: string | null): Promise<FileDiff>;
   /** Passe sur la branche de la PR / MR (fork : pr/<n> / mr/<n>) ; renvoie aussi son nom. */
   checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean, autoStash: boolean): Promise<[OpResult, string]>;
-  /** Images des personnes (adresses de l'API → data URL, ou 
-ull). */
+  /** Images des personnes (adresses de l'API → data URL, ou `null`). */
   personAvatars(kind: ProviderKind, url: string, account: string | null, urls: string[]): Promise<Record<string, string | null>>;
   // Notifications
   /** Lit les notifications du compte (requête conditionnelle : `changed: false` si rien de neuf). */
@@ -243,6 +242,7 @@ ull). */
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;
+    startDragging(): Promise<void>;
     close(): Promise<void>;
   };
 }
@@ -376,6 +376,7 @@ const tauriApi: Api = {
   window: {
     minimize: async () => (await currentWindow()).minimize(),
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
+    startDragging: async () => (await currentWindow()).startDragging(),
     close: async () => (await currentWindow()).close(),
   },
 };
@@ -966,7 +967,7 @@ const mockApi: Api = {
   async openUrl(url) {
     window.open(url, "_blank", "noopener");
   },
-  window: { minimize: async () => {}, toggleMaximize: async () => {}, close: async () => {} },
+  window: { minimize: async () => {}, toggleMaximize: async () => {}, startDragging: async () => {}, close: async () => {} },
 };
 
 export const api: Api = inTauri ? tauriApi : mockApi;

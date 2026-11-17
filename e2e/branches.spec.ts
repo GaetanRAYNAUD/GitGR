@@ -7,7 +7,7 @@ import { openNextRepo, openRepos, tab } from "./fixtures";
 
 const tools = (page: Page) => page.locator(".tools");
 const tool = (page: Page, name: string) => tools(page).getByRole("button", { name: new RegExp(`^${name}`) });
-const current = (page: Page) => page.locator(".branch-chip-name");
+const current = (page: Page) => page.locator(".branch-chip-label");
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches et tags" });
 /** Section « Local » de la barre latérale (les distantes ont souvent le même nom). */
 const locals = (page: Page) => sidebar(page).locator(".side-group").first();
