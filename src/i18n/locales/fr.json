@@ -554,7 +554,8 @@
     "thread_invalid": "Fil de discussion introuvable.",
     "pull_head_missing": "Le dernier commit de la demande est introuvable, même après un fetch.",
     "pull_base_missing": "La branche cible n’est pas récupérée en local : faites un fetch.",
-    "notification_invalid": "Notification introuvable chez le provider."
+    "notification_invalid": "Notification introuvable chez le provider.",
+    "pull_edit_reviewers_failed": "Titre, description, assignés et étiquettes enregistrés, mais les relecteurs n’ont pas pu être changés (l’auteur ne peut pas relire sa propre demande, ou droits insuffisants)."
   },
   "profiles": {
     "title": "Profils",

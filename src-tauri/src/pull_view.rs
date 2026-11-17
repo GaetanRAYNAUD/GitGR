@@ -900,10 +900,10 @@ fn github_action(api: &str, token: &str, repo: &str, number: u64, action: &PullA
                 .collect();
             let path = format!("{base}/pulls/{number}/requested_reviewers");
             if !add.is_empty() {
-                send(kind, api, token, &path, Method::Post(&json!({ "reviewers": add })), false).map_err(|_| "pull_reviewers_failed".to_string())?;
+                send(kind, api, token, &path, Method::Post(&json!({ "reviewers": add })), false).map_err(|_| "pull_edit_reviewers_failed".to_string())?;
             }
             if !remove.is_empty() {
-                send(kind, api, token, &path, Method::DeleteWith(&json!({ "reviewers": remove })), false).map_err(|_| "pull_reviewers_failed".to_string())?;
+                send(kind, api, token, &path, Method::DeleteWith(&json!({ "reviewers": remove })), false).map_err(|_| "pull_edit_reviewers_failed".to_string())?;
             }
             Ok(())
         }

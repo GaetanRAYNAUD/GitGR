@@ -256,6 +256,9 @@ pub fn seen() -> Vec<String> {
 /// Ajoute des clés vues (les plus anciennes sortent au-delà de `MAX_SEEN`).
 pub fn add_seen(keys: &[String]) -> Result<(), String> {
     let Some(file) = SEEN_FILE.get() else { return Ok(()) };
+    // Lire, compléter, réécrire : une écriture à la fois (deux « vu » rapprochés ne s'écrasent pas).
+    static WRITING: Mutex<()> = Mutex::new(());
+    let _one_at_a_time = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let mut all = seen();
     for k in keys {
         if !all.contains(k) {

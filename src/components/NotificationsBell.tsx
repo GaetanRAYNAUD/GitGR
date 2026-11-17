@@ -4,7 +4,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../lib/api";
+import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
 import { relativeTime } from "../lib/format";
 import { parseRemote } from "../lib/profiles";
@@ -154,7 +154,7 @@ export function NotificationsBell() {
                             className="icon-btn sm notif-read"
                             aria-label={t("notif.markRead", { provider: PROVIDER_NAMES[n.kind] })}
                             title={t("notif.markRead", { provider: PROVIDER_NAMES[n.kind] })}
-                            onClick={() => void useNotifications.getState().markRead(n.account, n).catch((e) => useApp.setState({ error: String(e) }))}
+                            onClick={() => void useNotifications.getState().markRead(n.account, n).catch((e) => useApp.setState({ error: errorCode(e) }))}
                           >
                             <Icon name="check" size={14} />
                           </button>
@@ -174,7 +174,7 @@ export function NotificationsBell() {
                   className="link"
                   onClick={() => {
                     for (const id of new Set(items.filter((n) => n.kind === k).map((n) => n.account)))
-                      void useNotifications.getState().markRead(id).catch((e) => useApp.setState({ error: String(e) }));
+                      void useNotifications.getState().markRead(id).catch((e) => useApp.setState({ error: errorCode(e) }));
                   }}
                 >
                   {t("notif.allRead", { provider: PROVIDER_NAMES[k] })}

@@ -554,7 +554,8 @@
     "thread_invalid": "Discussion thread not found.",
     "pull_head_missing": "The request's last commit cannot be found, even after a fetch.",
     "pull_base_missing": "The target branch is not fetched locally: run a fetch.",
-    "notification_invalid": "Notification not found on the provider."
+    "notification_invalid": "Notification not found on the provider.",
+    "pull_edit_reviewers_failed": "Title, description, assignees and labels saved, but the reviewers could not be changed (the author cannot review their own request, or missing rights)."
   },
   "profiles": {
     "title": "Profiles",
