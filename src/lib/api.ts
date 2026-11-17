@@ -60,6 +60,7 @@ import type {
   ProviderKind,
   Pull,
   PullDraft,
+  PullOptions,
   PullStrategy,
   ProviderRepo,
   RefsInfo,
@@ -189,6 +190,11 @@ export interface Api {
   remoteDefaultBranch(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<string>;
   /** Crée la PR / MR, ou renvoie celle qui existe déjà pour ces branches (`existing`). */
   createPull(kind: ProviderKind, url: string, account: string | null, request: NewPull): Promise<Pull>;
+  /** Personnes et étiquettes du dépôt en cache (sinon celles des autres dépôts du même
+   *  propriétaire, `fromOwner`) ; `null` : rien de connu. Ne demande rien au provider. */
+  cachedPullOptions(kind: ProviderKind, url: string, repo: string): Promise<PullOptions | null>;
+  /** Relit les personnes et étiquettes sur le provider (et met le cache à jour). */
+  refreshPullOptions(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<PullOptions>;
   // Clone
   /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
    *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
@@ -293,6 +299,8 @@ const tauriApi: Api = {
   pullDraft: (path, source, target, kind) => invoke("pull_draft", { path, source, target, kind }),
   remoteDefaultBranch: (kind, url, repo, account) => invoke("remote_default_branch", { kind, url, repo, account }),
   createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
+  cachedPullOptions: (kind, url, repo) => invoke("cached_pull_options", { kind, url, repo }),
+  refreshPullOptions: (kind, url, repo, account) => invoke("refresh_pull_options", { kind, url, repo, account }),
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -400,7 +408,12 @@ const mockDevicePolls = new Map<number, number>();
 const mockAccountKeys = new Set<string>();
 /** PR / MR créées par le backend simulé (lues par les tests e2e via `window`). */
 const mockPulls: NewPull[] = [];
-if (!inTauri && typeof window !== "undefined") (window as unknown as { __mockPulls: NewPull[] }).__mockPulls = mockPulls;
+const mockOptionsCache = new Map<string, PullOptions>();
+/** Lectures des personnes / étiquettes sur le « provider » simulé (lues par les tests e2e). */
+const mockOptionFetches = { count: 0, delay: 600 };
+if (!inTauri && typeof window !== "undefined") {
+  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches });
+}
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
 const mockCloneListeners = new Set<(p: CloneProgress) => void>();
@@ -776,7 +789,37 @@ const mockApi: Api = {
     const page = kind === "github" ? `pull/${number}` : `-/merge_requests/${number}`;
     const title = kind === "gitlab" && request.draft ? `Draft: ${request.title}` : request.title;
     mockPulls.push(request);
-    return { number, url: `${url}/${request.targetRepo}/${page}`, title, existing };
+    const warnings = request.reviewers.some((r) => r.login === "auteur") ? ["pull_reviewers_failed"] : [];
+    return { number, url: `${url}/${request.targetRepo}/${page}`, title, existing, warnings };
+  },
+  // Backend simulé : une grosse organisation (300 personnes, dont « camille »), lue en 0,6 s ; le
+  // cache est gardé en mémoire, avec la réunion des dépôts d'un même propriétaire.
+  async cachedPullOptions(kind, url, repo) {
+    const own = mockOptionsCache.get(`${kind}|${url}|${repo.toLowerCase()}`);
+    if (own) return own;
+    const owner = repo.toLowerCase().split("/").slice(0, -1).join("/");
+    const others = [...mockOptionsCache.entries()].filter(([k]) => k.startsWith(`${kind}|${url}|${owner}/`)).map(([, v]) => v);
+    if (!others.length) return null;
+    return { ...others[0], fetchedAt: Math.min(...others.map((o) => o.fetchedAt)), fromOwner: true };
+  },
+  async refreshPullOptions(kind, url, repo, account) {
+    if (!account) throw "account_missing";
+    mockOptionFetches.count += 1;
+    await new Promise((r) => setTimeout(r, mockOptionFetches.delay));
+    const people = [
+      { id: 7, login: "camille", name: "Camille Dupont" },
+      { id: 8, login: "auteur", name: "Auteur Refusé" },
+      ...Array.from({ length: 298 }, (_, i) => ({ id: 100 + i, login: `dev-${String(i + 1).padStart(3, "0")}`, name: `Développeur ${i + 1}` })),
+    ];
+    const labels = [
+      { name: "bug", color: "d73a4a", description: "Quelque chose ne marche pas" },
+      { name: "documentation", color: "0075ca" },
+      { name: "enhancement", color: "a2eeef" },
+      { name: "urgent", color: "b60205" },
+    ];
+    const options = { people, labels, fetchedAt: Math.floor(Date.now() / 1000), fromOwner: false, truncated: false };
+    mockOptionsCache.set(`${kind}|${url}|${repo.toLowerCase()}`, options);
+    return options;
   },
   // Backend simulé : clés tirées du profil enregistré ; aucune n'est sur le compte au départ.
   // Un compte `noscope…` n'a pas les droits sur les clés ; une clé dont le chemin contient

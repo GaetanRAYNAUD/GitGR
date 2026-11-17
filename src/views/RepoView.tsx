@@ -17,6 +17,9 @@ import { useGraph, WIP } from "../store/graph";
 import { useOps, type OpName } from "../store/ops";
 import { changedCount, useWork } from "../store/worktree";
 import type { PullStrategy } from "../lib/types";
+import { remoteMarkOf } from "../components/RemoteMark";
+import { useProfiles } from "../store/profiles";
+import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
 
@@ -191,6 +194,23 @@ export function RepoView({ path }: { path: string }) {
     loadGraph(path);
     loadWork(path);
   }, [loadGraph, loadWork, path]);
+
+  // Personnes et étiquettes des remotes (pour les PR / MR) préchargées dès l'ouverture du dépôt,
+  // en arrière-plan : la fenêtre de création n'aura rien à attendre. Relu au plus toutes les
+  // six heures (cf. store/pullOptions).
+  const remotes = useGraph((s) => s.graphs[path]?.refs?.remotes);
+  const profiles = useProfiles((s) => s.profiles);
+  const binding = useProfiles((s) => s.repoProfiles[path]);
+  const ensureOptions = usePullOptions((s) => s.ensure);
+  // Clé texte : un rafraîchissement des refs (même contenu) ne relance rien.
+  const prefetchKey = JSON.stringify(
+    (remotes ?? [])
+      .map((r) => remoteMarkOf(profiles, binding, r))
+      .flatMap((m): OptionsContext[] => (m?.url && m.account ? [{ kind: m.provider, url: m.url, repo: m.repo, account: m.account }] : [])),
+  );
+  useEffect(() => {
+    for (const ctx of JSON.parse(prefetchKey) as OptionsContext[]) void ensureOptions(ctx);
+  }, [prefetchKey, ensureOptions]);
 
   // Copie de travail sale et rien de sélectionné : on montre les modifications en cours.
   // Plus rien à commiter (après un commit, un abandon…) : on passe au commit courant.

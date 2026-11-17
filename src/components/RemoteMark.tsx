@@ -15,6 +15,10 @@ export interface RemoteMarkInfo {
   owner: string | null;
   /** Compte dont le token sert. */
   account: string | null;
+  /** Hôte du remote (minuscules). */
+  host: string;
+  /** Dépôt `propriétaire/nom` (minuscules). */
+  repo: string;
 }
 
 /** Provider reconnu d'après l'hôte du remote, propriétaire du dépôt et compte du profil du remote ;
@@ -24,7 +28,7 @@ export function remoteMarkOf(profiles: Profile[], binding: RepoProfiles | undefi
   const provider = remoteProvider(profiles, parsed);
   if (!provider || !parsed) return null;
   const account = remoteAccount(remoteProfile(profiles, binding, remote).profile, parsed);
-  return { provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null };
+  return { provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null, host: parsed.host, repo: parsed.path };
 }
 
 /** L'avatar du propriétaire avec la marque du provider en petit, sinon la seule marque. */

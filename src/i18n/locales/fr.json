@@ -526,7 +526,9 @@
     "pull_no_commits": "Aucun commit à proposer : la branche n’a rien de plus que la cible.",
     "pull_draft_unsupported": "Ce dépôt n’accepte pas les brouillons de pull request (offre du compte) : décochez « Brouillon ».",
     "pull_title_missing": "Le titre est obligatoire.",
-    "pull_exists": "Une PR / MR est déjà ouverte pour ces branches."
+    "pull_exists": "Une PR / MR est déjà ouverte pour ces branches.",
+    "pull_meta_failed": "La PR / MR est créée, mais les assignés ou les étiquettes n’ont pas pu être posés.",
+    "pull_reviewers_failed": "La PR / MR est créée, mais la relecture n’a pas pu être demandée (l’auteur ne peut pas relire sa propre PR)."
   },
   "profiles": {
     "title": "Profils",
@@ -726,6 +728,23 @@
     "noAccount": "Aucun compte {{provider}} n’est connecté pour le profil du remote {{remote}}.",
     "manageAccounts": "Gérer les comptes…",
     "otherInstance": "La branche part sur {{source}} et la cible est sur {{target}}, une autre instance : une PR / MR relie deux dépôts d’une même instance.",
-    "sameBranch": "La branche cible est celle que suit la branche courante."
+    "sameBranch": "La branche cible est celle que suit la branche courante.",
+    "reviewers": "Relecteurs",
+    "assignees": "Assignés",
+    "labels": "Étiquettes",
+    "searchPeople": "Rechercher une personne…",
+    "searchLabels": "Rechercher une étiquette…",
+    "assignMe": "M’assigner",
+    "reuseLast": "Reprendre les derniers choix",
+    "refresh": "Actualiser",
+    "loading": "Lecture des personnes et des étiquettes…",
+    "refreshing": "Mise à jour de la liste…",
+    "loadingOwner": "En attendant la liste de ce dépôt : les personnes des autres dépôts de {{owner}}.",
+    "listAge": "Liste lue {{age}}",
+    "remove": "Retirer {{name}}",
+    "more": "… et {{count}} autres : précisez la recherche.",
+    "noMatch": "Aucun résultat.",
+    "noOptions": "Liste vide.",
+    "truncated": "liste coupée (trop longue) : une personne peut manquer"
   }
 }

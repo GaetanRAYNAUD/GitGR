@@ -526,7 +526,9 @@
     "pull_no_commits": "Nothing to propose: the branch has nothing more than the target.",
     "pull_draft_unsupported": "This repository does not accept draft pull requests (account plan): untick “Draft”.",
     "pull_title_missing": "A title is required.",
-    "pull_exists": "A PR / MR is already open for these branches."
+    "pull_exists": "A PR / MR is already open for these branches.",
+    "pull_meta_failed": "The PR / MR was created, but assignees or labels could not be set.",
+    "pull_reviewers_failed": "The PR / MR was created, but the review could not be requested (the author cannot review their own PR)."
   },
   "profiles": {
     "title": "Profiles",
@@ -726,6 +728,23 @@
     "noAccount": "No {{provider}} account is connected for the profile of remote {{remote}}.",
     "manageAccounts": "Manage accounts…",
     "otherInstance": "The branch goes to {{source}} and the target is on {{target}}, another instance: a PR / MR links two repositories of the same instance.",
-    "sameBranch": "The target branch is the one the current branch tracks."
+    "sameBranch": "The target branch is the one the current branch tracks.",
+    "reviewers": "Reviewers",
+    "assignees": "Assignees",
+    "labels": "Labels",
+    "searchPeople": "Search people…",
+    "searchLabels": "Search labels…",
+    "assignMe": "Assign me",
+    "reuseLast": "Reuse last choices",
+    "refresh": "Refresh",
+    "loading": "Reading people and labels…",
+    "refreshing": "Updating the list…",
+    "loadingOwner": "While this repository's list loads: people from {{owner}}'s other repositories.",
+    "listAge": "List read {{age}}",
+    "remove": "Remove {{name}}",
+    "more": "… and {{count}} more: refine the search.",
+    "noMatch": "No match.",
+    "noOptions": "Empty list.",
+    "truncated": "list cut (too long): someone may be missing"
   }
 }

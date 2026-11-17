@@ -3,7 +3,7 @@
 // vérifier le compte, puis oublié à la déconnexion.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -199,6 +199,13 @@ async function fakeGitlabWithMergeRequests() {
       if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(401, { message: "401 Unauthorized" });
       if (req.url === "/api/v4/user") return json(200, { id: 7, username: "camille", name: "Camille Boulot" });
       if (req.url === "/api/v4/projects/groupe%2Fprojet") return json(200, { id: 42, default_branch: "main" });
+      // Deux pages de membres (annoncées par X-Total-Pages), une d'étiquettes.
+      if (req.url?.startsWith("/api/v4/projects/groupe%2Fprojet/members/all?per_page=100&page=")) {
+        const page = Number(req.url.split("page=").pop());
+        res.setHeader("X-Total-Pages", "2");
+        return json(200, page === 1 ? [{ id: 7, username: "camille", name: "Camille Boulot", state: "active" }] : [{ id: 8, username: "max", name: "Max Relecteur", state: "active" }]);
+      }
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/labels?per_page=100&page=1") return json(200, [{ name: "bug", color: "#d73a4a" }]);
       if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests" && req.method === "POST") {
         created.push(JSON.parse(body));
         return json(201, { iid: 5, web_url: `http://gitlab/groupe/projet/-/merge_requests/5`, title: JSON.parse(body).title });
@@ -246,10 +253,25 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await expect(dialog.getByLabel("Branche cible")).toHaveValue("main");
     await expect(dialog.getByLabel("Titre")).toHaveValue("Ajoute b");
     await expect(dialog.getByLabel("Description")).toHaveValue("Pour la démonstration.");
+    // Membres (deux pages) et étiquettes lus sur l'instance.
+    await dialog.getByRole("combobox", { name: "Relecteurs" }).fill("max");
+    await dialog.getByRole("option", { name: /max/ }).click();
+    await dialog.getByRole("button", { name: "M’assigner" }).click();
+    await dialog.getByRole("combobox", { name: "Étiquettes" }).fill("bug");
+    await dialog.getByRole("option", { name: /bug/ }).click();
     await dialog.getByRole("button", { name: "Créer la merge request" }).click();
 
     await expect(page.getByRole("dialog", { name: "Merge request !5 créée" })).toBeVisible();
-    expect(gitlab.created).toEqual([{ source_branch: "feature/mr", target_branch: "main", title: "Ajoute b", description: "Pour la démonstration." }]);
+    expect(gitlab.created).toEqual([
+      { source_branch: "feature/mr", target_branch: "main", title: "Ajoute b", description: "Pour la démonstration.", assignee_ids: [7], reviewer_ids: [8], labels: "bug" },
+    ]);
+    // Gardés en cache sur disque pour les prochaines fois (et les autres dépôts du groupe).
+    const cacheDir = join(sandbox.root, "config", "pull-options");
+    const cached = readdirSync(cacheDir).map((f) => JSON.parse(readFileSync(join(cacheDir, f), "utf8")));
+    expect(cached).toHaveLength(1);
+    expect(cached[0].repo).toBe("groupe/projet");
+    expect(cached[0].options.people.map((p: { login: string }) => p.login)).toEqual(["camille", "max"]);
+    expect(JSON.stringify(cached)).not.toContain(TOKEN);
     expect(gitlab.requests).toContain("GET /api/v4/projects/groupe%2Fprojet");
   } finally {
     // Ne rien laisser dans le trousseau : le compte est déconnecté depuis la page des profils.

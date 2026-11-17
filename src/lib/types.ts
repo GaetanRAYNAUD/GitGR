@@ -400,6 +400,10 @@ export interface NewPull {
   title: string;
   body: string;
   draft: boolean;
+  assignees: Person[];
+  reviewers: Person[];
+  /** Noms des étiquettes. */
+  labels: string[];
 }
 
 /** PR / MR créée, ou celle qui existait déjà pour ces branches (`existing`). */
@@ -408,4 +412,31 @@ export interface Pull {
   url: string;
   title: string;
   existing: boolean;
+  /** Ce qui n'a pas pu être posé après la création (`pull_meta_failed`, `pull_reviewers_failed`). */
+  warnings: string[];
+}
+
+/** Personne qui peut être assignée ou relire : `login` pour GitHub, `id` pour GitLab. */
+export interface Person {
+  id: number;
+  login: string;
+  name?: string | null;
+}
+
+export interface Label {
+  name: string;
+  /** `rrggbb`, sans `#`. */
+  color?: string | null;
+  description?: string | null;
+}
+
+/** Personnes et étiquettes proposées pour un dépôt (src-tauri/src/pulls.rs, en cache sur disque). */
+export interface PullOptions {
+  people: Person[];
+  labels: Label[];
+  /** Lecture sur le provider, en secondes Unix. */
+  fetchedAt: number;
+  /** Pas encore lues pour ce dépôt : celles des autres dépôts du même propriétaire, en attendant. */
+  fromOwner: boolean;
+  truncated: boolean;
 }
