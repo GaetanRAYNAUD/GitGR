@@ -377,3 +377,35 @@ export interface CloneProgress {
   /** Pourcentage de la phase, s'il est donné. */
   percent: number | null;
 }
+
+// --- Pull requests / merge requests (src-tauri/src/pulls.rs) ----------------
+
+export interface DraftCommit {
+  subject: string;
+  body: string;
+}
+
+/** De quoi pré-remplir une PR / MR : commits de la branche absents de la cible, modèle du dépôt. */
+export interface PullDraft {
+  commits: DraftCommit[];
+  template: string | null;
+}
+
+/** Demande de création d'une PR / MR. `sourceRepo` / `targetRepo` : `propriétaire/nom`. */
+export interface NewPull {
+  sourceRepo: string;
+  sourceBranch: string;
+  targetRepo: string;
+  targetBranch: string;
+  title: string;
+  body: string;
+  draft: boolean;
+}
+
+/** PR / MR créée, ou celle qui existait déjà pour ces branches (`existing`). */
+export interface Pull {
+  number: number;
+  url: string;
+  title: string;
+  existing: boolean;
+}

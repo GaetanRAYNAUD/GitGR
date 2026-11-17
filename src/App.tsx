@@ -10,6 +10,7 @@ import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
 import { useOps } from "./store/ops";
+import { PullDialogHost } from "./components/PullDialog";
 import { useProfiles } from "./store/profiles";
 import { ProfilesPage } from "./views/ProfilesPage";
 import { SettingsPage } from "./views/SettingsPage";
@@ -209,6 +210,7 @@ export default function App() {
         </div>
       )}
 
+      <PullDialogHost />
       <DialogHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}

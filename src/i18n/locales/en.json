@@ -516,7 +516,17 @@
     "public_key_missing": "Public key not found: the key is protected and has no .pub file next to it.",
     "unknown_key_kind": "Unknown key type.",
     "device_expired": "The code expired before being approved on GitHub: start again.",
-    "device_denied": "Sign-in was denied on GitHub."
+    "device_denied": "Sign-in was denied on GitHub.",
+    "account_missing": "No account connected for this remote.",
+    "pull_forbidden": "The account may not create a PR / MR on this repository (token scopes — GitHub: repo; GitLab: api — or repository access).",
+    "pull_repo_not_found": "Repository not found on the provider, or not visible to this account.",
+    "pull_repo_invalid": "Remote repository address not recognised.",
+    "pull_branch_invalid": "Invalid branch name.",
+    "pull_branch_not_found": "The source or target branch does not exist on the remote repository.",
+    "pull_no_commits": "Nothing to propose: the branch has nothing more than the target.",
+    "pull_draft_unsupported": "This repository does not accept draft pull requests (account plan): untick “Draft”.",
+    "pull_title_missing": "A title is required.",
+    "pull_exists": "A PR / MR is already open for these branches."
   },
   "profiles": {
     "title": "Profiles",
@@ -683,5 +693,39 @@
   },
   "colors": {
     "custom": "Custom color…"
+  },
+  "pr": {
+    "title_pr": "Create pull request",
+    "title_mr": "Create merge request",
+    "menuCreate_pr": "Create pull request…",
+    "menuCreate_mr": "Create merge request…",
+    "menuTo_pr": "Create pull request from {{source}} to {{target}}…",
+    "menuTo_mr": "Create merge request from {{source}} to {{target}}…",
+    "sourceHint": "Current branch",
+    "remote": "Target remote",
+    "target": "Target branch",
+    "titleField": "Title",
+    "body": "Description",
+    "draft": "Draft",
+    "willPush": "{{branch}} will be pushed to {{remote}} first.",
+    "submit_pr": "Create pull request",
+    "submit_mr": "Create merge request",
+    "pushing": "Pushing…",
+    "creating": "Creating…",
+    "created_pr": "Pull request {{ref}} created",
+    "created_mr": "Merge request {{ref}} created",
+    "exists_pr": "A pull request is already open for this branch: {{ref}}",
+    "exists_mr": "A merge request is already open for this branch: {{ref}}",
+    "open": "Open in browser",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "close": "Close",
+    "detached": "Detached HEAD: switch to a branch to create a PR / MR.",
+    "noRemote": "This repository has no remote.",
+    "unknownProvider": "Remote {{remote}} is recognised neither as GitHub nor as GitLab: connect an account on its instance.",
+    "noAccount": "No {{provider}} account is connected for the profile of remote {{remote}}.",
+    "manageAccounts": "Manage accounts…",
+    "otherInstance": "The branch goes to {{source}} and the target is on {{target}}, another instance: a PR / MR links two repositories of the same instance.",
+    "sameBranch": "The target branch is the one the current branch tracks."
   }
 }

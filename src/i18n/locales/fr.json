@@ -516,7 +516,17 @@
     "public_key_missing": "Clé publique introuvable : la clé est protégée et n’a pas de fichier .pub à côté.",
     "unknown_key_kind": "Type de clé inconnu.",
     "device_expired": "Le code a expiré avant d’être validé sur GitHub : recommencez.",
-    "device_denied": "Connexion refusée sur GitHub."
+    "device_denied": "Connexion refusée sur GitHub.",
+    "account_missing": "Aucun compte connecté pour ce remote.",
+    "pull_forbidden": "Le compte n’a pas le droit de créer une PR / MR sur ce dépôt (droits du token — GitHub : repo ; GitLab : api —, ou accès au dépôt).",
+    "pull_repo_not_found": "Dépôt introuvable sur le provider, ou invisible pour ce compte.",
+    "pull_repo_invalid": "Adresse du dépôt distant non reconnue.",
+    "pull_branch_invalid": "Nom de branche invalide.",
+    "pull_branch_not_found": "La branche source ou cible n’existe pas sur le dépôt distant.",
+    "pull_no_commits": "Aucun commit à proposer : la branche n’a rien de plus que la cible.",
+    "pull_draft_unsupported": "Ce dépôt n’accepte pas les brouillons de pull request (offre du compte) : décochez « Brouillon ».",
+    "pull_title_missing": "Le titre est obligatoire.",
+    "pull_exists": "Une PR / MR est déjà ouverte pour ces branches."
   },
   "profiles": {
     "title": "Profils",
@@ -683,5 +693,39 @@
   },
   "colors": {
     "custom": "Couleur personnalisée…"
+  },
+  "pr": {
+    "title_pr": "Créer une pull request",
+    "title_mr": "Créer une merge request",
+    "menuCreate_pr": "Créer une pull request…",
+    "menuCreate_mr": "Créer une merge request…",
+    "menuTo_pr": "Créer une pull request de {{source}} vers {{target}}…",
+    "menuTo_mr": "Créer une merge request de {{source}} vers {{target}}…",
+    "sourceHint": "Branche courante",
+    "remote": "Remote cible",
+    "target": "Branche cible",
+    "titleField": "Titre",
+    "body": "Description",
+    "draft": "Brouillon",
+    "willPush": "{{branch}} sera d’abord poussée vers {{remote}}.",
+    "submit_pr": "Créer la pull request",
+    "submit_mr": "Créer la merge request",
+    "pushing": "Push…",
+    "creating": "Création…",
+    "created_pr": "Pull request {{ref}} créée",
+    "created_mr": "Merge request {{ref}} créée",
+    "exists_pr": "Une pull request est déjà ouverte pour cette branche : {{ref}}",
+    "exists_mr": "Une merge request est déjà ouverte pour cette branche : {{ref}}",
+    "open": "Ouvrir dans le navigateur",
+    "copy": "Copier le lien",
+    "copied": "Lien copié",
+    "close": "Fermer",
+    "detached": "HEAD détachée : passez sur une branche pour créer une PR / MR.",
+    "noRemote": "Ce dépôt n’a pas de remote.",
+    "unknownProvider": "Le remote {{remote}} n’est reconnu ni comme GitHub ni comme GitLab : connectez un compte sur son instance.",
+    "noAccount": "Aucun compte {{provider}} n’est connecté pour le profil du remote {{remote}}.",
+    "manageAccounts": "Gérer les comptes…",
+    "otherInstance": "La branche part sur {{source}} et la cible est sur {{target}}, une autre instance : une PR / MR relie deux dépôts d’une même instance.",
+    "sameBranch": "La branche cible est celle que suit la branche courante."
   }
 }

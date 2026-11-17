@@ -148,7 +148,7 @@ pub(crate) fn agent() -> ureq::Agent {
 }
 
 /// Token utilisable dans un en-tête : non vide, sans blanc ni caractère de contrôle.
-fn check_token(token: &str) -> Result<(), String> {
+pub(crate) fn check_token(token: &str) -> Result<(), String> {
     if token.is_empty() || !token.chars().all(|c| c.is_ascii_graphic()) {
         return Err("token_invalid".into());
     }
