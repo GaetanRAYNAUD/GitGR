@@ -82,12 +82,7 @@ test("connecter un compte GitLab par token : vérifié, rangé dans le trousseau
     await expect(accounts).toContainText("Aucun compte connecté.");
     await expect.poll(() => JSON.parse(readFileSync(stateFile, "utf8")).profiles[0].accounts).toEqual([]);
   } finally {
-    // Test interrompu : ne rien laisser dans le trousseau (au mieux).
-    if (await row.isVisible().catch(() => false)) {
-      await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
-      await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});
-      await expect(row).toBeHidden().catch(() => {});
-    }
+    // Token retiré du trousseau à la fin du test, même interrompu (`Sandbox.dispose`).
     await app.close();
     gitlab.server.close();
   }
@@ -140,7 +135,6 @@ test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant l
   });
   const { page } = app;
   const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
-  const row = accounts.getByRole("listitem").filter({ hasText: "camille" }).first();
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
@@ -172,11 +166,7 @@ test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant l
     expect(gitlab.requests).toContain("GET /api/v4/namespaces/groupe");
     expect(gitlab.requests).toContain("GET /uploads/groupe.png");
   } finally {
-    if (await row.isVisible().catch(() => false)) {
-      await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
-      await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});
-      await expect(row).toBeHidden().catch(() => {});
-    }
+    // Token retiré du trousseau à la fin du test, même interrompu (`Sandbox.dispose`).
     await app.close();
     gitlab.server.close();
   }
@@ -234,7 +224,6 @@ test("créer une merge request de la branche courante : cible par défaut lue su
   });
   const { page } = app;
   const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
-  const row = accounts.getByRole("listitem").filter({ hasText: "camille" }).first();
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
@@ -274,14 +263,7 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     expect(JSON.stringify(cached)).not.toContain(TOKEN);
     expect(gitlab.requests).toContain("GET /api/v4/projects/groupe%2Fprojet");
   } finally {
-    // Ne rien laisser dans le trousseau : le compte est déconnecté depuis la page des profils.
-    await page.keyboard.press("Escape").catch(() => {});
-    await page.getByRole("button", { name: "Profils et comptes" }).click().catch(() => {});
-    if (await row.isVisible().catch(() => false)) {
-      await row.getByRole("button", { name: "Déconnecter camille" }).click().catch(() => {});
-      await page.getByRole("alertdialog").getByRole("button", { name: "Déconnecter" }).click().catch(() => {});
-      await expect(row).toBeHidden().catch(() => {});
-    }
+    // Token retiré du trousseau à la fin du test, même interrompu (`Sandbox.dispose`).
     await app.close();
     gitlab.server.close();
   }

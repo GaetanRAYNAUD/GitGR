@@ -8,7 +8,7 @@
 
 import { test as base, chromium, expect, type Browser, type Page } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -71,12 +71,35 @@ export class Sandbox {
   }
 
   dispose() {
+    forgetSandboxTokens(join(this.root, "config", "state.json"));
     // Les processus WebView2 peuvent garder leur profil ouvert un instant après l'arrêt de
     // l'app : nettoyage au mieux (le dossier temporaire sera vidé par le système sinon).
     try {
       rmSync(this.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
     } catch {
       /* ignoré */
+    }
+  }
+}
+
+/** Le trousseau du système n'est pas isolé comme la config : un compte connecté pendant un test
+ *  y laisse son token si le test s'arrête avant de le déconnecter. À la fin de chaque test, les
+ *  tokens des comptes du state.json du bac à sable sont retirés (Windows : entrée
+ *  `token:<compte>.fr.gitgr.app` du gestionnaire d'identifiants, cf. src-tauri/src/secrets.rs). */
+function forgetSandboxTokens(stateFile: string) {
+  if (process.platform !== "win32" || !existsSync(stateFile)) return;
+  let ids: string[] = [];
+  try {
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    ids = (state.profiles ?? []).flatMap((p: { accounts?: { id: string }[] }) => (p.accounts ?? []).map((a) => a.id));
+  } catch {
+    return;
+  }
+  for (const id of new Set(ids)) {
+    try {
+      execFileSync("cmdkey", [`/delete:LegacyGeneric:target=token:${id}.fr.gitgr.app`], { stdio: "ignore" });
+    } catch {
+      /* déjà absent */
     }
   }
 }
