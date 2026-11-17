@@ -883,6 +883,22 @@
     "threadsOnFile_one": "{{count}} fil de discussion",
     "threadsOnFile_other": "{{count}} fils de discussion",
     "noChecks": "Aucun check ni pipeline pour le dernier commit.",
-    "logs": "Logs"
+    "logs": "Logs",
+    "checksCount": "{{ok}} checks réussis sur {{total}}",
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "checksPassed": "{{ok}} / {{total}} réussis",
+    "checkGroup": {
+      "failure": "{{count}} en échec",
+      "pending": "{{count}} en cours",
+      "neutral": "{{count}} ignoré(s) ou annulé(s)"
+    },
+    "checkGroupTitle": {
+      "failure": "En échec ({{count}})",
+      "pending": "En cours ({{count}})",
+      "neutral": "Ignorés ou annulés ({{count}})",
+      "success": "Réussis ({{count}})"
+    }
   }
 }

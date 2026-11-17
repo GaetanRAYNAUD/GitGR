@@ -200,6 +200,15 @@ export function mockPullAct(kind: ProviderKind, url: string, repo: string, numbe
       break;
     case "unapprove":
       break;
+    case "edit":
+      if (!action.title.trim()) throw "pull_title_missing";
+      p.title = action.title.trim();
+      p.body = action.body;
+      p.reviewers = action.reviewers;
+      p.assignees = action.assignees;
+      p.labels = action.labels.map((name) => ({ name }));
+      p.reviews = [...p.reviews.filter((r) => r.state !== "pending"), ...action.reviewers.filter((x) => !p.reviews.some((r) => r.author.login === x.login && r.state !== "pending")).map((author) => ({ author, state: "pending" as const, at: null }))];
+      break;
   }
   p.updatedAt = t;
 }

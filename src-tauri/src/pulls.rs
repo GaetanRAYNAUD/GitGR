@@ -52,6 +52,8 @@ pub(crate) enum Method<'a> {
     Patch(&'a Value),
     Put(&'a Value),
     Delete,
+    /// `DELETE` avec un corps JSON (GitHub : retirer des relecteurs demandés).
+    DeleteWith(&'a Value),
 }
 
 /// Réponse lue : code, JSON, et nombre de pages annoncé par le provider (listes paginées :
@@ -83,6 +85,7 @@ pub(crate) fn request(kind: Kind, api: &str, path: &str, token: &str, method: Me
         Method::Patch(b) => headers(kind, agent().patch(&url), token).header("Content-Type", "application/json").send(json_body(b)),
         Method::Put(b) => headers(kind, agent().put(&url), token).header("Content-Type", "application/json").send(json_body(b)),
         Method::Delete => headers(kind, agent().delete(&url), token).call(),
+        Method::DeleteWith(b) => headers(kind, agent().delete(&url), token).header("Content-Type", "application/json").force_send_body().send(json_body(b)),
     })?;
     let status = response.status().as_u16();
     let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);

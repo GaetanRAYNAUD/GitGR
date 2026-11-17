@@ -69,10 +69,16 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
 
   // Fichiers : liste lue en local, diff avec le nombre de lignes ajoutées / supprimées.
   await view(page).getByRole("tab", { name: "Fichiers" }).click();
-  await view(page).locator(".pull-file-list .side-item").first().click();
+  await view(page).locator(".pull-file-list .file-row").first().click();
   await expect(view(page).locator(".pull-file-diff .diff-stats")).toHaveText(/\+\d+−\d+/);
-  await view(page).getByRole("tab", { name: "Checks" }).click();
-  await expect(view(page).locator(".pull-checks li")).toHaveCount(2);
+  // Checks : 1 réussi sur 2, dans le titre de l'onglet.
+  await expect(view(page).getByRole("tab", { name: /Checks/ })).toContainText("1/2");
+  await view(page).getByRole("tab", { name: /Checks/ }).click();
+  // Groupés par état : en cours ouvert, réussis repliés.
+  await expect(view(page).locator(".checks-total")).toHaveText("1 / 2 réussis");
+  await expect(view(page).locator(".checks-row")).toHaveCount(1);
+  await view(page).getByRole("button", { name: "Réussis (1)" }).click();
+  await expect(view(page).locator(".checks-row")).toHaveCount(2);
 
   // Échap revient au graphe.
   await page.keyboard.press("Escape");
@@ -118,4 +124,24 @@ test("fermer une MR demande confirmation ; brouillon d'un fork sans droits", asy
   await expect(view(page).getByText("C’est un brouillon : marquez-la comme prête d’abord.")).toBeVisible();
   // Pas de droits : ni brouillon ni fermeture proposés.
   await expect(view(page).getByRole("button", { name: "Marquer comme prête" })).toHaveCount(0);
+});
+
+test("modifier la MR après sa création : titre, description, relecteurs, étiquettes", async ({ page }) => {
+  await seed(page);
+  await item(page, "!12").click();
+  await view(page).getByRole("button", { name: "Modifier" }).click();
+  await view(page).getByLabel("Titre").fill("Rendu du graphe (canvas)");
+  await view(page).getByLabel("Description").fill("Nouvelle description");
+  const reviewers = view(page).getByRole("combobox", { name: "Relecteurs" });
+  await reviewers.fill("dev-007");
+  await reviewers.press("Enter");
+  await view(page).locator(".mpick-chip", { hasText: "enhancement" }).getByRole("button").click();
+  await view(page).getByRole("button", { name: "Enregistrer" }).click();
+  await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe (canvas)");
+  await expect(view(page).getByText("Nouvelle description")).toBeVisible();
+  await expect(item(page, "!12")).toContainText("Rendu du graphe (canvas)");
+  const edit = (await actions(page)).at(-1)?.action as unknown as { type: string; reviewers: { login: string }[]; labels: string[] };
+  expect(edit.type).toBe("edit");
+  expect(edit.reviewers.map((r) => r.login)).toEqual(["max", "dev-007"]);
+  expect(edit.labels).toEqual([]);
 });

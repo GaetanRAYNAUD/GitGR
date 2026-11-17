@@ -11,18 +11,20 @@ import { api, errorCode } from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
 import { relativeTime } from "../../lib/format";
 import { pullRef } from "../../lib/pulls";
-import type { FileChange, FileDiff, MergeMethod, PullAction, PullDetail, PullThread } from "../../lib/types";
+import type { FileChange, FileDiff, MergeMethod, PullAction, PullCheck, PullDetail, PullThread } from "../../lib/types";
 import type { PersonContext } from "../../store/avatars";
 import { useDialogs } from "../../store/dialogs";
 import { useOps } from "../../store/ops";
 import { useGraph } from "../../store/graph";
 import { detailEntry, usePullList, type PullContext } from "../../store/pullList";
-import { Icon } from "../Icon";
+import { Icon, type IconName } from "../Icon";
 import { PersonAvatar } from "../PersonAvatar";
+import { PullEdit } from "./PullEdit";
 import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton } from "./DiffView";
-import { StatusBadge } from "./FileList";
+import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
+import { useApp } from "../../store/app";
 import { checkoutPull } from "./PullsSection";
 
 type Tab = "conversation" | "files" | "checks";
@@ -68,6 +70,7 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
   }
 
   const unresolved = d.threads.filter((th) => th.resolvable && !th.resolved).length;
+  const passed = d.checksList.filter((c) => c.state === "success").length;
   return (
     <section className="pull-view" aria-label={`${number_} ${d.title}`}>
       <header className="diff-head pull-view-head">
@@ -115,6 +118,11 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
             {t(`prv.tab.${x}`)}
             {x === "conversation" && unresolved > 0 && <span className="badge">{unresolved}</span>}
             {x === "checks" && d.checks && <span className={`checks-dot ${d.checks}`} />}
+            {x === "checks" && d.checksList.length > 0 && (
+              <span className="tab-count mono" title={t("prv.checksCount", { ok: passed, total: d.checksList.length })}>
+                {passed}/{d.checksList.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -138,6 +146,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
   const act = usePullList((s) => s.act);
   const busy = entry?.busy ?? null;
   const [text, setText] = useState("");
+  const [editing, setEditing] = useState(false);
   const run = async (action: PullAction) => {
     const ok = await act(ctx, d.number, action);
     if (ok && (action.type === "comment" || action.type === "review")) setText("");
@@ -147,9 +156,29 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
 
   return (
     <div className="pull-conv">
-      <div className="pull-card">
-        {d.body.trim() ? <Body text={d.body} /> : <p className="muted">{t("prv.noBody")}</p>}
-      </div>
+      {editing ? (
+        <PullEdit ctx={ctx} d={d} onDone={() => setEditing(false)} />
+      ) : (
+        <div className="pull-card pull-desc">
+          {d.canUpdate && (
+            <button className="link pull-edit-btn" onClick={() => setEditing(true)}>
+              {t("prv.edit")}
+            </button>
+          )}
+          {d.body.trim() ? <Body text={d.body} /> : <p className="muted">{t("prv.noBody")}</p>}
+          {d.assignees.length > 0 && (
+            <p className="pull-assignees muted">
+              {t("pr.assignees")} :
+              {d.assignees.map((a) => (
+                <span key={a.login} className="pull-person">
+                  <PersonAvatar ctx={people} person={a} size={16} />
+                  {a.name ?? a.login}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
 
       {d.reviews.length > 0 && (
         <div className="pull-card">
@@ -400,6 +429,7 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<FileChange | null>(null);
   const [diff, setDiff] = useState<{ data: FileDiff | null; error: string | null } | null>(null);
+  const fileView = useApp((s) => s.settings.fileView ?? "list");
   const target = `${ctx.remote}/${d.targetBranch}`;
   const head = d.headSha;
 
@@ -449,22 +479,32 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
   if (!files) return <p className="muted pull-pad">{t("prv.loading")}</p>;
   return (
     <div className="pull-files">
-      <ul className="pull-file-list">
-        {files.map((f) => (
-          <li key={f.path}>
-            <button className={file?.path === f.path ? "side-item sel" : "side-item"} onClick={() => setFile(f)} title={f.oldPath ? `${f.oldPath} → ${f.path}` : f.path}>
-              <StatusBadge status={f.status} />
-              <span className="side-label mono">{f.path}</span>
-              {comments.get(f.path) && (
+      <div className="pull-file-list">
+        <div className="section-h">
+          <span>{t("details.files", { count: files.length })}</span>
+          <ChangeCounts files={files} />
+          {files.length > 0 && <FileViewToggle />}
+        </div>
+        {files.length === 0 ? (
+          <p className="details-note muted">{t("prv.noFiles")}</p>
+        ) : (
+          <FileList
+            files={files}
+            view={fileView}
+            label={t("details.files", { count: files.length })}
+            isActive={(f) => file?.path === f.path}
+            onOpen={setFile}
+            // Fils de discussion sur le fichier : toujours visibles (cf. .pull-file-list .file-actions).
+            actions={(f) =>
+              comments.get(f.path) ? (
                 <span className="side-meta" title={t("prv.threadsOnFile", { count: comments.get(f.path) })}>
                   <Icon name="comment" size={12} /> {comments.get(f.path)}
                 </span>
-              )}
-            </button>
-          </li>
-        ))}
-        {files.length === 0 && <li className="muted">{t("prv.noFiles")}</li>}
-      </ul>
+              ) : null
+            }
+          />
+        )}
+      </div>
       <div className="pull-file-diff">
         {file ? (
           <>
@@ -486,23 +526,66 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
   );
 }
 
+/** Ordre des groupes : ce qui demande de l'attention d'abord ; les réussis repliés d'office. */
+const CHECK_GROUPS: PullCheck["state"][] = ["failure", "pending", "neutral", "success"];
+const CHECK_ICON: Record<PullCheck["state"], IconName> = { failure: "close", pending: "fetch", neutral: "minimize", success: "check" };
+
 function Checks({ d }: { d: PullDetail }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState<Set<string>>(() => new Set(["failure", "pending", "neutral"]));
   if (d.checksList.length === 0) return <p className="muted pull-pad">{t("prv.noChecks")}</p>;
+  const total = d.checksList.length;
+  const count = (s: PullCheck["state"]) => d.checksList.filter((c) => c.state === s).length;
+  const others = CHECK_GROUPS.filter((s) => s !== "success" && count(s) > 0).map((s) => t(`prv.checkGroup.${s}`, { count: count(s) }));
   return (
-    <ul className="pull-checks">
-      {d.checksList.map((c, i) => (
-        <li key={`${c.name}-${i}`}>
-          <span className={`checks-dot ${c.state}`} />
-          <span className="pull-check-name">{c.name}</span>
-          <span className="muted">{t(`prv.checks.${c.state}`)}</span>
-          {c.url && (
-            <button className="link" onClick={() => void api.openUrl(c.url!).catch(() => {})}>
-              {t("prv.logs")}
+    <div className="pull-checks">
+      <div className="checks-summary">
+        <span className="checks-total">{t("prv.checksPassed", { ok: count("success"), total })}</span>
+        {others.length > 0 && <span className="muted">{others.join(" · ")}</span>}
+      </div>
+      <div className="checks-bar" role="img" aria-label={t("prv.checksCount", { ok: count("success"), total })}>
+        {(["success", "pending", "neutral", "failure"] as const).map((s) => count(s) > 0 && <span key={s} className={`checks-seg ${s}`} style={{ flex: count(s) }} />)}
+      </div>
+      {CHECK_GROUPS.filter((s) => count(s) > 0).map((s) => {
+        const shown = open.has(s);
+        return (
+          <section key={s} className="checks-group">
+            <button
+              className="checks-group-h"
+              aria-expanded={shown}
+              onClick={() =>
+                setOpen((prev) => {
+                  const next = new Set(prev);
+                  if (!next.delete(s)) next.add(s);
+                  return next;
+                })
+              }
+            >
+              <Icon name="chevron" size={12} className={shown ? "chev" : "chev closed"} />
+              {t(`prv.checkGroupTitle.${s}`, { count: count(s) })}
             </button>
-          )}
-        </li>
-      ))}
-    </ul>
+            {shown && (
+              <ul>
+                {d.checksList
+                  .filter((c) => c.state === s)
+                  .map((c, i) => (
+                    <li key={`${c.name}-${i}`} className="checks-row">
+                      <span className={`check-icon ${c.state}`}>
+                        <Icon name={CHECK_ICON[c.state]} size={14} />
+                      </span>
+                      <span className="pull-check-name">{c.name}</span>
+                      {c.url && (
+                        <button className="mini" onClick={() => void api.openUrl(c.url!).catch(() => {})}>
+                          {t("prv.logs")}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+    </div>
   );
 }

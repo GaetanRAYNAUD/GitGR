@@ -388,3 +388,12 @@ test("se connecter avec GitHub (OAuth) : code à saisir, puis compte connecté ;
   const origin = page.locator(".refs-sidebar .section-btn").filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
   await expect(origin.locator(".remote-avatar")).toHaveAttribute("src", /^data:image\/png;base64,/);
 });
+
+test("Échap ferme la page Profils, même sans focus dans la page", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Profils et comptes" }).click();
+  await expect(page.locator(".profiles-page")).toBeVisible();
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".profiles-page")).toHaveCount(0);
+});

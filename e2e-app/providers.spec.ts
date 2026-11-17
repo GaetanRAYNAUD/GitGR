@@ -299,9 +299,9 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await expect(page.locator(".refs-sidebar .side-pull", { hasText: "!5" }).first()).toBeVisible();
     // Fichiers : lus en local, depuis l'ancêtre commun avec gitlab/main.
     await view.getByRole("tab", { name: "Fichiers" }).click();
-    await expect(view.locator(".pull-file-list .side-item")).toHaveCount(1);
-    await expect(view.locator(".pull-file-list .side-item")).toContainText("b.txt");
-    await view.locator(".pull-file-list .side-item").click();
+    await expect(view.locator(".pull-file-list .file-row")).toHaveCount(1);
+    await expect(view.locator(".pull-file-list .file-row")).toContainText("b.txt");
+    await view.locator(".pull-file-list .file-row").click();
     await expect(view.locator(".pull-file-diff .diff-stats")).toHaveText("+1−0");
     // Commentaire envoyé sur l'instance, puis relu.
     await view.getByRole("tab", { name: "Discussion" }).click();

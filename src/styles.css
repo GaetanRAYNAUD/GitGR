@@ -4306,6 +4306,17 @@ p.pf-account-keys.bad,
   gap: 10px;
   padding: 12px;
   max-width: 920px;
+  margin: 0 auto;
+}
+
+.tab-count {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.pull-file-list .file-actions {
+  display: flex;
+  pointer-events: none;
 }
 
 .pull-card {
@@ -4484,19 +4495,81 @@ p.pf-account-keys.bad,
 }
 
 .pull-checks {
-  list-style: none;
-  margin: 0;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px 12px;
 }
 
-.pull-checks li {
+.checks-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.checks-total {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.checks-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin: 8px 0 14px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.checks-seg.success { background: var(--add); }
+.checks-seg.failure { background: var(--del); }
+.checks-seg.pending { background: var(--mod); }
+.checks-seg.neutral { background: var(--faint); }
+
+.checks-group + .checks-group {
+  margin-top: 10px;
+}
+
+.checks-group-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.checks-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.checks-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 8px 12px;
 }
+
+.checks-row + .checks-row {
+  border-top: 1px solid var(--border);
+}
+
+.checks-row .pull-check-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.check-icon { display: inline-flex; color: var(--faint); }
+.check-icon.success { color: var(--add); }
+.check-icon.failure { color: var(--del); }
+.check-icon.pending { color: var(--mod); }
 
 .pull-check-name {
   font-weight: 600;
@@ -4519,4 +4592,40 @@ p.pf-account-keys.bad,
 
 .notice-action {
   margin-left: 4px;
+}
+
+.pull-desc {
+  position: relative;
+}
+
+.pull-edit-btn {
+  float: right;
+  margin-left: 12px;
+}
+
+.pull-assignees {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+}
+
+.pull-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pull-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pull-edit textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
 }

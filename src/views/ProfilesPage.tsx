@@ -326,14 +326,24 @@ export function ProfilesPage() {
 
   const linked = draft && !isNew ? reposOf(draft.id) : [];
 
+  // Échap ferme la page, où que soit le focus (après un clic sur la barre de titre, il n'est pas
+  // dans la page) — sauf dans un champ, une fenêtre ouverte ou un menu qui l'a consommé.
+  const escape = useRef<() => void>(() => {});
+  escape.current = () => {
+    if (!useDialogs.getState().current && !accountDialog) close();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if ((e.target as HTMLElement | null)?.closest?.("input, textarea, select")) return;
+      escape.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <div
-      className="profiles-page"
-      onKeyDown={(e) => {
-        const el = e.target as HTMLElement;
-        if (e.key === "Escape" && !useDialogs.getState().current && !accountDialog && !el.closest("input, textarea")) close();
-      }}
-    >
+    <div className="profiles-page">
       <aside className="pf-list" aria-label={t("profiles.title")}>
         <div className="pf-list-head">
           <h1>{t("profiles.title")}</h1>

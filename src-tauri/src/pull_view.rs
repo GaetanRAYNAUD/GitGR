@@ -151,6 +151,14 @@ pub enum PullAction {
     },
     /// Met la branche à jour avec la cible (GitHub : merge de la cible ; GitLab : rebase).
     UpdateBranch,
+    /// Titre, description, relecteurs, assignés et étiquettes (listes complètes : remplacent les actuelles).
+    Edit {
+        title: String,
+        body: String,
+        reviewers: Vec<Person>,
+        assignees: Vec<Person>,
+        labels: Vec<String>,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -850,6 +858,36 @@ fn github_action(api: &str, token: &str, repo: &str, number: u64, action: &PullA
             }
             Ok(())
         }
+        PullAction::Edit { title, body, reviewers, assignees, labels } => {
+            let title = title.trim();
+            if title.is_empty() {
+                return Err("pull_title_missing".into());
+            }
+            let logins = |people: &[Person]| people.iter().map(|x| x.login.clone()).collect::<Vec<_>>();
+            send(kind, api, token, &format!("{base}/pulls/{number}"), Method::Patch(&json!({ "title": title, "body": body })), false)?;
+            send(kind, api, token, &format!("{base}/issues/{number}"), Method::Patch(&json!({ "assignees": logins(assignees), "labels": labels })), false)?;
+            // Relecteurs : ceux à ajouter et ceux à retirer par rapport aux demandes en cours.
+            let current = send(kind, api, token, &format!("{base}/pulls/{number}"), Method::Get, false)?;
+            let now: Vec<String> = current["requested_reviewers"].as_array().into_iter().flatten().filter_map(|r| r["login"].as_str().map(str::to_lowercase)).collect();
+            let wanted: Vec<String> = reviewers.iter().map(|r| r.login.to_lowercase()).collect();
+            let add: Vec<String> = reviewers.iter().filter(|r| !now.contains(&r.login.to_lowercase())).map(|r| r.login.clone()).collect();
+            let remove: Vec<String> = current["requested_reviewers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|r| r["login"].as_str())
+                .filter(|l| !wanted.contains(&l.to_lowercase()))
+                .map(str::to_string)
+                .collect();
+            let path = format!("{base}/pulls/{number}/requested_reviewers");
+            if !add.is_empty() {
+                send(kind, api, token, &path, Method::Post(&json!({ "reviewers": add })), false).map_err(|_| "pull_reviewers_failed".to_string())?;
+            }
+            if !remove.is_empty() {
+                send(kind, api, token, &path, Method::DeleteWith(&json!({ "reviewers": remove })), false).map_err(|_| "pull_reviewers_failed".to_string())?;
+            }
+            Ok(())
+        }
         PullAction::UpdateBranch => send(kind, api, token, &format!("{base}/pulls/{number}/update-branch"), Method::Put(&json!({})), false).map(|_| ()),
     }
 }
@@ -900,7 +938,16 @@ fn gitlab_action(api: &str, token: &str, repo: &str, number: u64, action: &PullA
             send(kind, api, token, &format!("{base}/merge"), Method::Put(&body), true).map(|_| ())
         }
         PullAction::UpdateBranch => send(kind, api, token, &format!("{base}/rebase"), Method::Put(&json!({})), false).map(|_| ()),
-    }
+        PullAction::Edit { title, body, reviewers, assignees, labels } => {
+            let title = title.trim();
+            if title.is_empty() {
+                return Err("pull_title_missing".into());
+            }
+            // Liste vide : `[0]` retire tout le monde (une liste vide n'est pas comprise partout).
+            let ids = |people: &[Person]| if people.is_empty() { vec![0] } else { people.iter().map(|x| x.id).collect::<Vec<_>>() };
+            let edit = json!({ "title": title, "description": body, "assignee_ids": ids(assignees), "reviewer_ids": ids(reviewers), "labels": labels.join(",") });
+            send(kind, api, token, &base, Method::Put(&edit), false).map(|_| ())
+        }    }
 }
 
 /// Longueur du préfixe de brouillon d'un titre GitLab (`Draft:`, `[Draft]`, `(Draft)`, `WIP:`).
@@ -1249,5 +1296,42 @@ mod old_gitlab_tests {
         ]);
         let d = detail(Kind::GitLab, &url, "glpat", "g/p", 5).unwrap();
         assert!(d.merge.can_merge, "{:?}", d.merge.blockers);
+    }
+}
+
+#[cfg(test)]
+mod edit_tests {
+    use super::*;
+    use crate::providers::tests::serve;
+
+    fn p(id: u64, login: &str) -> Person {
+        Person { id, login: login.into(), name: None, avatar: None }
+    }
+
+    #[test]
+    fn github_edit_replaces_text_people_and_labels() {
+        let (url, requests) = serve(vec![(200, "{}"), (200, "{}"), (200, r#"{"requested_reviewers":[{"login":"max"},{"login":"zoe"}]}"#), (201, "{}"), (200, "{}")]);
+        let edit = PullAction::Edit { title: " Nouveau ".into(), body: "Corps".into(), reviewers: vec![p(2, "zoe"), p(3, "alix")], assignees: vec![p(1, "camille")], labels: vec!["bug".into()] };
+        act(Kind::GitHub, &url, "ghp", "o/r", 12, &edit).unwrap();
+        let r = requests.recv().unwrap();
+        assert!(r.starts_with("PATCH /repos/o/r/pulls/12 ") && r.contains(r#""title":"Nouveau""#), "{r}");
+        let r = requests.recv().unwrap();
+        assert!(r.starts_with("PATCH /repos/o/r/issues/12 ") && r.contains(r#""assignees":["camille"]"#) && r.contains(r#""labels":["bug"]"#), "{r}");
+        requests.recv().unwrap();
+        let r = requests.recv().unwrap();
+        assert!(r.starts_with("POST /repos/o/r/pulls/12/requested_reviewers ") && r.contains(r#""reviewers":["alix"]"#), "{r}");
+        let r = requests.recv().unwrap();
+        assert!(r.starts_with("DELETE /repos/o/r/pulls/12/requested_reviewers ") && r.contains(r#""reviewers":["max"]"#), "{r}");
+    }
+
+    #[test]
+    fn gitlab_edit_is_one_request_and_empty_lists_clear() {
+        let (url, requests) = serve(vec![(200, "{}")]);
+        let edit = PullAction::Edit { title: "T".into(), body: "D".into(), reviewers: vec![p(8, "max")], assignees: vec![], labels: vec!["a".into(), "b".into()] };
+        act(Kind::GitLab, &url, "glpat", "g/p", 5, &edit).unwrap();
+        let r = requests.recv().unwrap();
+        assert!(r.starts_with("PUT /projects/g%2Fp/merge_requests/5 "), "{r}");
+        assert!(r.contains(r#""reviewer_ids":[8]"#) && r.contains(r#""assignee_ids":[0]"#) && r.contains(r#""labels":"a,b""#) && r.contains(r#""description":"D""#), "{r}");
+        assert_eq!(act(Kind::GitLab, "http://127.0.0.1:9", "glpat", "g/p", 5, &PullAction::Edit { title: " ".into(), body: String::new(), reviewers: vec![], assignees: vec![], labels: vec![] }).unwrap_err(), "pull_title_missing");
     }
 }

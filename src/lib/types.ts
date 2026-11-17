@@ -548,4 +548,5 @@ export type PullAction =
   | { type: "setOpen"; open: boolean }
   | { type: "setDraft"; draft: boolean }
   | { type: "merge"; method: MergeMethod; deleteBranch: boolean; auto: boolean }
-  | { type: "updateBranch" };
+  | { type: "updateBranch" }
+  | { type: "edit"; title: string; body: string; reviewers: Person[]; assignees: Person[]; labels: string[] };
