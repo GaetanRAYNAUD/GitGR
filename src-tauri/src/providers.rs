@@ -734,7 +734,9 @@ pub(crate) mod tests {
 
     #[test]
     fn connect_stores_the_token_and_check_reads_it() {
-        if !crate::secrets::tests::keyring_available() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = crate::secrets::tests::keyring_lock();
+        if !crate::secrets::tests::keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : test sauté");
             return;
         }

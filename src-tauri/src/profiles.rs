@@ -244,6 +244,8 @@ mod tests {
 
     #[test]
     fn passphrase_is_checked_then_stored_and_forgotten() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = crate::secrets::tests::keyring_lock();
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("locked");
         let p = path.to_string_lossy().to_string();
@@ -254,7 +256,7 @@ mod tests {
         // Une mauvaise phrase est refusée sans rien écrire.
         assert_eq!(set_passphrase(&p, Some("mauvaise")).unwrap_err(), "wrong_passphrase");
         assert!(!crate::secrets::has_passphrase(&p));
-        if !crate::secrets::tests::keyring_available() {
+        if !crate::secrets::tests::keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : suite du test sautée");
             return;
         }
@@ -267,13 +269,15 @@ mod tests {
 
     #[test]
     fn generated_key_with_a_passphrase() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = crate::secrets::tests::keyring_lock();
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("protégée").to_string_lossy().to_string();
         let _cleanup = crate::secrets::tests::Cleanup(vec![p.clone()]);
         // Avec ou sans trousseau, la clé est créée et lisible.
         let info = generate_key(&p, "c", Some("phrase de passe")).unwrap();
         assert!(info.encrypted);
-        assert_eq!(info.passphrase_stored, crate::secrets::tests::keyring_available());
+        assert_eq!(info.passphrase_stored, crate::secrets::tests::keyring_available(&_keyring));
         if info.passphrase_stored {
             assert_eq!(crate::secrets::passphrase(&p).as_deref(), Some("phrase de passe"));
         }

@@ -81,7 +81,9 @@ pub(crate) mod tests {
 
     #[test]
     fn tokens_are_stored_per_account() {
-        if !keyring_available() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = keyring_lock();
+        if !keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : test sauté");
             return;
         }
@@ -106,10 +108,18 @@ pub(crate) mod tests {
         }
     }
 
+    /// Les tests qui écrivent dans le trousseau passent un par un : en parallèle, le gestionnaire
+    /// d'identifiants de Windows garde parfois une entrée pourtant supprimée (une fuite par
+    /// lancement de `cargo test`).
+    pub(crate) fn keyring_lock() -> std::sync::MutexGuard<'static, ()> {
+        static KEYRING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        KEYRING.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Trousseau utilisable ? (pas de Secret Service sur un runner Linux sans session) — les
-    /// tests qui en ont besoin sont alors sautés. Une entrée sonde par appel : les tests tournent
-    /// en parallèle, et l'un effacerait celle de l'autre.
-    pub(crate) fn keyring_available() -> bool {
+    /// tests qui en ont besoin sont alors sautés. Demande le verrou des tests du trousseau
+    /// (`keyring_lock`) : un test qui l'oublie ne compile pas. Une entrée sonde par appel.
+    pub(crate) fn keyring_available(_lock: &std::sync::MutexGuard<'static, ()>) -> bool {
         static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let probe = format!("probe-{}-{n}", std::process::id());
@@ -127,7 +137,9 @@ pub(crate) mod tests {
 
     #[test]
     fn stores_reads_and_forgets() {
-        if !keyring_available() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = keyring_lock();
+        if !keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : test sauté");
             return;
         }

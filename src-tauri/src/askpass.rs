@@ -61,7 +61,9 @@ mod tests {
 
     #[test]
     fn only_passphrase_prompts_are_answered() {
-        if !crate::secrets::tests::keyring_available() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = crate::secrets::tests::keyring_lock();
+        if !crate::secrets::tests::keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : test sauté");
             return;
         }
@@ -76,9 +78,11 @@ mod tests {
 
     #[test]
     fn picks_the_key_named_in_the_prompt() {
+        // Avant tout le reste : relâché en dernier, après le nettoyage du trousseau.
+        let _keyring = crate::secrets::tests::keyring_lock();
         assert_eq!(from_msys("/c/Users/x/id"), "c:/Users/x/id");
         assert_eq!(from_msys("/home/x/id"), "/home/x/id");
-        if !crate::secrets::tests::keyring_available() {
+        if !crate::secrets::tests::keyring_available(&_keyring) {
             eprintln!("trousseau indisponible : test sauté");
             return;
         }
