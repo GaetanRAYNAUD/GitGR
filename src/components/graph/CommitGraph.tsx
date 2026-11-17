@@ -18,6 +18,7 @@ import { useProfiles } from "../../store/profiles";
 import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
+import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
 import { checkoutRef, commitMenu, refMenu } from "./menus";
 import { Splitter } from "../Splitter";
 
@@ -222,15 +223,16 @@ function Chip({
   path,
   refs,
   rules,
-  avatar,
+  mark,
 }: {
   chip: RefChip;
   color: number;
   path: string;
   refs: RefsInfo | null;
   rules: BranchColorRule[];
-  /** Branche : avatar de l'auteur de son dernier commit (`undefined` : avatars désactivés). */
-  avatar?: { name: string; url: string | null };
+  /** Branche : icône de son remote (propriétaire du dépôt, provider) ; absente : avatars
+   *  désactivés, branche sans remote ou provider inconnu. */
+  mark?: RemoteMarkInfo | null;
 }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
@@ -245,7 +247,7 @@ function Chip({
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
     >
-      {avatar && chip.kind !== "tag" && <AuthorBadge name={avatar.name} avatar={avatar.url} className="chip-avatar" />}
+      {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
       {chip.current && <Icon name="check" size={12} />}
       {chip.kind === "tag" && <Icon name="tag" size={12} />}
       {chip.kind === "remote" && <Icon name="cloud" size={12} />}
@@ -360,6 +362,11 @@ export function CommitGraph({ path, changes }: Props) {
     const account = remoteAccount(remoteProfile(profiles, binding, { name: "origin", url: remoteUrl }).profile, parsed);
     return { kind: provider, url: remoteInstance(profiles, parsed, account), repo: parsed.path, account: account?.id ?? null };
   }, [avatarsOn, remoteUrl, profiles, binding]);
+  // Icônes des remotes (étiquettes de branches) : propriétaire du dépôt et provider.
+  const remoteMarks = useMemo(
+    () => new Map((graph?.refs?.remotes ?? []).map((r) => [r.name, remoteMarkOf(profiles, binding, r)])),
+    [graph?.refs?.remotes, profiles, binding],
+  );
   const visibleEmails = useMemo(
     () => [...new Set(commits.slice(first, last).filter((c) => c.sha !== WIP && c.email).map((c) => c.email.toLowerCase()))],
     [commits, first, last],
@@ -460,7 +467,7 @@ export function CommitGraph({ path, changes }: Props) {
                 path={path}
                 refs={graph?.refs ?? null}
                 rules={rules}
-                avatar={avatarsOn && !isWip ? { name: c.author, url: avatarOfEmail(c.email) ?? null } : undefined}
+                mark={avatarsOn && chip.remote ? remoteMarks.get(chip.remote) : undefined}
               />
             ))}
           </span>

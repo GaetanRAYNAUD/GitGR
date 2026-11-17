@@ -52,6 +52,29 @@ describe("chipsByCommit", () => {
     expect(m.get("a")![0].current).toBe(false);
   });
 
+  it("remote de chaque étiquette : upstream, sinon jumelle, sinon aucun", () => {
+    const withUpstream = {
+      ...info,
+      remotes: [
+        { name: "team/fork", url: null, pushUrl: null },
+        { name: "team", url: null, pushUrl: null },
+      ],
+      refs: [
+        { ...ref("local", "main", "a"), upstream: "upstream/main" },
+        ref("local", "solo", "d"),
+        ref("local", "feature", "c"),
+        ref("remote", "origin/feature", "c"),
+        ref("remote", "upstream/main", "a"),
+        ref("remote", "team/fork/x", "e"),
+      ],
+    };
+    const m = chipsByCommit(withUpstream);
+    expect(m.get("a")![0].remote).toBe("upstream");
+    expect(m.get("c")![0].remote).toBe("origin");
+    expect(m.get("d")![0].remote).toBeUndefined();
+    expect(m.get("e")![0].remote).toBe("team/fork");
+  });
+
   it("sans refs : rien", () => {
     expect(chipsByCommit(null).size).toBe(0);
   });

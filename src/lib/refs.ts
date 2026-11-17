@@ -11,6 +11,14 @@ export interface RefChip {
   synced: boolean;
   /** Infobulle : toutes les refs représentées par l'étiquette. */
   title: string;
+  /** Remote de la branche : le sien (distante), celui de son upstream ou de sa jumelle (locale). */
+  remote?: string;
+}
+
+/** Remote d'une branche distante `origin/main` (un nom de remote peut contenir des « / »). */
+function remoteOfShort(short: string | null, remotes: string[]): string | undefined {
+  if (!short) return undefined;
+  return remotes.filter((r) => short.startsWith(r + "/")).sort((a, b) => b.length - a.length)[0];
 }
 
 const remoteName = (r: GitRef) => r.short.slice(0, r.short.indexOf("/"));
@@ -28,6 +36,7 @@ export function chipsByCommit(info: RefsInfo | null): Map<string, RefChip[]> {
   };
 
   const remotes = info.refs.filter((r) => r.kind === "remote");
+  const remoteNames = [...new Set([...info.remotes.map((r) => r.name), ...remotes.map(remoteName)])];
   const absorbed = new Set<string>();
   const locals = info.refs
     .filter((r) => r.kind === "local")
@@ -41,13 +50,14 @@ export function chipsByCommit(info: RefsInfo | null): Map<string, RefChip[]> {
       current: l.short === info.headBranch,
       synced: twins.length > 0,
       title: [l.short, ...twins.map((r) => r.short)].join(" · "),
+      remote: remoteOfShort(l.upstream, remoteNames) ?? remoteOfShort(twins[0]?.short ?? null, remoteNames),
     });
   }
   if (!info.headBranch && info.head) {
     out.set(info.head, [{ label: "HEAD", kind: "head", current: true, synced: false, title: "HEAD" }, ...(out.get(info.head) ?? [])]);
   }
   for (const r of remotes) {
-    if (!absorbed.has(r.name)) push(r.target, { label: r.short, kind: "remote", current: false, synced: false, title: r.short });
+    if (!absorbed.has(r.name)) push(r.target, { label: r.short, kind: "remote", current: false, synced: false, title: r.short, remote: remoteOfShort(r.short, remoteNames) });
   }
   for (const t of info.refs.filter((r) => r.kind === "tag")) {
     push(t.target, { label: t.short, kind: "tag", current: false, synced: false, title: t.short });

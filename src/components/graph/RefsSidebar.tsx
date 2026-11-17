@@ -5,9 +5,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { parseRemote, profileColor, remoteProfile } from "../../lib/profiles";
 import { PROVIDER_NAMES, remoteAccount, remoteInstance, remoteOwner, remoteProvider } from "../../lib/providers";
-import { useOwnerAvatar } from "../../store/avatars";
 import { refSections, refTree, type RefNode, type RefSection } from "../../lib/refs";
-import type { GitRef, ProviderKind, RemoteInfo, RepoUi } from "../../lib/types";
+import type { GitRef, RemoteInfo, RepoUi } from "../../lib/types";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import { useDismiss } from "../../lib/useDismiss";
 import { useApp } from "../../store/app";
@@ -17,6 +16,7 @@ import { useProfiles } from "../../store/profiles";
 import { openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
 import { ProfileAvatar } from "../ProfileAvatar";
+import { RemoteMark } from "../RemoteMark";
 import { checkoutRef, refMenu, remoteMenu } from "./menus";
 import { ResizableBlock } from "../Splitter";
 
@@ -173,7 +173,7 @@ export function RefsSidebar({ path }: { path: string }) {
               <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
               <span className="section-icon" data-provider={provider ?? undefined}>
                 {provider && parsed ? (
-                  <RemoteMark provider={provider} url={remoteInstance(profiles, parsed, account)} owner={remoteOwner(parsed)} account={account?.id ?? null} />
+                  <RemoteMark mark={{ provider, url: remoteInstance(profiles, parsed, account), owner: remoteOwner(parsed), account: account?.id ?? null }} />
                 ) : (
                   <Icon name={ICONS[s.kind]} size={15} />
                 )}
@@ -225,17 +225,3 @@ export function RefsSidebar({ path }: { path: string }) {
   );
 }
 
-/** Icône d'un remote : l'avatar du propriétaire du dépôt (organisation, groupe, utilisateur)
- *  avec la marque du provider en petit, sinon la seule marque du provider. */
-function RemoteMark({ provider, url, owner, account }: { provider: ProviderKind; url: string | null; owner: string | null; account: string | null }) {
-  const avatar = useOwnerAvatar(provider, url, owner, account);
-  if (!avatar) return <Icon name={provider} size={15} />;
-  return (
-    <span className="remote-mark">
-      <img className="remote-avatar" src={avatar} alt="" draggable={false} />
-      <span className="remote-badge">
-        <Icon name={provider} size={9} />
-      </span>
-    </span>
-  );
-}
