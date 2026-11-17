@@ -66,7 +66,8 @@ test("connecter un compte GitLab par token : vérifié, rangé dans le trousseau
     await expect(row).toContainText(`Camille Boulot · ${gitlab.url}`);
     // « connecté » : le token a été relu dans le trousseau et accepté par l'instance.
     await expect(row.getByRole("status")).toHaveText("connecté");
-    expect(gitlab.requests).toEqual(["GET /api/v4/user", "GET /api/v4/user", "GET /api/v4/user"]);
+    // Vérifications du compte ; la lecture des notifications (To-Do) en plus, dès la connexion.
+    expect(gitlab.requests.filter((r) => !r.startsWith("GET /api/v4/todos"))).toEqual(["GET /api/v4/user", "GET /api/v4/user", "GET /api/v4/user"]);
 
     // Le compte est dans state.json, pas son token.
     const stateFile = join(sandbox.root, "config", "state.json");
@@ -224,6 +225,9 @@ async function fakeGitlabWithMergeRequests() {
         created.push(JSON.parse(body));
         return json(201, { iid: 5, web_url: `http://gitlab/groupe/projet/-/merge_requests/5`, title: JSON.parse(body).title });
       }
+      // Notifications : une To-Do « relecture demandée » sur la MR.
+      if (req.url === "/api/v4/todos?state=pending&per_page=100")
+        return json(200, [{ id: 31, action_name: "review_requested", target_type: "MergeRequest", target: { iid: 5, title: "Ajoute b" }, target_url: "http://gitlab/groupe/projet/-/merge_requests/5", project: { path_with_namespace: "groupe/projet" }, created_at: "2026-11-17T09:30:00Z" }]);
       // Suivi : liste des MR ouvertes, détail, discussions, commentaire.
       if (req.url?.startsWith("/api/v4/projects/groupe%2Fprojet/merge_requests?state=opened")) return json(200, created.length ? [mr()] : []);
       if (req.url?.startsWith("/api/v4/projects/groupe%2Fprojet/pipelines?")) return json(200, []);
@@ -310,6 +314,11 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await expect.poll(() => gitlab.notes).toEqual(["Prête pour relecture"]);
     await expect(view.locator(".pull-thread")).toContainText("Prête pour relecture");
     await expect(view.getByRole("textbox", { name: "Commenter" })).toHaveValue("");
+    // Notifications : la To-Do du compte, lue dès sa connexion.
+    await expect(page.locator(".notif-badge")).toHaveText("1");
+    await page.locator(".notif-wrap > button").click();
+    await expect(page.getByRole("dialog", { name: "Notifications" })).toContainText("Ajoute b");
+    expect(gitlab.requests).toContain("GET /api/v4/todos?state=pending&per_page=100");
     expect(gitlab.created).toEqual([
       { source_branch: "feature/mr", target_branch: "main", title: "Ajoute b", description: "Pour la démonstration.", assignee_ids: [7], reviewer_ids: [8], labels: "bug" },
     ]);

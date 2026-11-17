@@ -48,7 +48,20 @@
     "sectionGit": "Git",
     "sectionGraph": "Graphe",
     "graphAvatars": "Avatars des auteurs dans le graphe",
-    "graphAvatarsHint": "Sur les commits, dans la colonne Auteur et sur les branches. Lus sur GitHub / GitLab (dépôt du remote origin) et gardés un jour ; sinon, les initiales de l’auteur."
+    "graphAvatarsHint": "Sur les commits, dans la colonne Auteur et sur les branches. Lus sur GitHub / GitLab (dépôt du remote origin) et gardés un jour ; sinon, les initiales de l’auteur.",
+    "sectionNotifications": "Notifications",
+    "notifications": "Notifications des comptes GitHub / GitLab",
+    "notificationSpeed": "Fréquence",
+    "speed": {
+      "standard": "Standard",
+      "fast": "Rapide"
+    },
+    "speedHint": {
+      "standard": "Toutes les 2 min, 10 min si la fenêtre est en arrière-plan",
+      "fast": "Toutes les minutes, 5 min si la fenêtre est en arrière-plan"
+    },
+    "systemNotifications": "Notifications du système",
+    "notificationsHint": "En pause quand la fenêtre est réduite ou après 15 min d’inactivité. « Vu » reste dans GitGR ; « marquer comme lu » s’applique aussi sur GitHub / GitLab."
   },
   "welcome": {
     "title": "Dépôts",
@@ -540,7 +553,8 @@
     "merge_method_invalid": "Mode de fusion non permis.",
     "thread_invalid": "Fil de discussion introuvable.",
     "pull_head_missing": "Le dernier commit de la demande est introuvable, même après un fetch.",
-    "pull_base_missing": "La branche cible n’est pas récupérée en local : faites un fetch."
+    "pull_base_missing": "La branche cible n’est pas récupérée en local : faites un fetch.",
+    "notification_invalid": "Notification introuvable chez le provider."
   },
   "profiles": {
     "title": "Profils",
@@ -902,5 +916,29 @@
     },
     "retryFailed": "Relancer les jobs en échec",
     "retrying": "Relance…"
+  },
+  "notif": {
+    "title": "Notifications",
+    "button_one": "Notifications ({{count}} nouvelle)",
+    "button_other": "Notifications ({{count}} nouvelles)",
+    "refresh": "Actualiser",
+    "allSeen": "Tout marquer comme vu",
+    "markRead": "Marquer comme lu sur {{provider}}",
+    "allRead": "Tout marquer comme lu sur {{provider}}",
+    "empty": "Rien de nouveau.",
+    "noAccount": "Connectez un compte GitHub ou GitLab à un profil pour recevoir ses notifications.",
+    "manyTitle_one": "{{count}} nouvelle notification",
+    "manyTitle_other": "{{count}} nouvelles notifications",
+    "reason": {
+      "review_requested": "Relecture demandée",
+      "mention": "Mention",
+      "comment": "Nouveau commentaire",
+      "assigned": "Assignée à vous",
+      "approval": "Approbation requise",
+      "ci_failed": "Pipeline / checks en échec",
+      "author": "Activité sur votre demande",
+      "state": "Changement d’état",
+      "other": "Activité"
+    }
   }
 }

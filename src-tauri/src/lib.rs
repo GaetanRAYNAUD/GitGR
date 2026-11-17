@@ -24,6 +24,7 @@ mod commands;
 mod git;
 mod history;
 mod profiles;
+mod notifications;
 mod pull_view;
 mod pulls;
 mod providers;
@@ -64,6 +65,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // Fichier d'état : %APPDATA%\fr.gitgr.app\state.json sous Windows,
             // ~/.config/fr.gitgr.app/state.json sous Linux.
@@ -75,6 +77,7 @@ pub fn run() {
             remotes::set_config_dir(dir.join("ssh"));
             avatars::set_cache_dir(dir.join("avatars"));
             pulls::set_cache_dir(dir.join("pull-options"));
+            notifications::set_seen_file(dir.join("notifications-seen.json"));
             let store = store::Store::load(dir);
             commands::sync_identities(&store.state);
             app.manage(Mutex::new(store));
@@ -160,6 +163,10 @@ pub fn run() {
             commands::pull_file_diff,
             commands::checkout_pull,
             commands::person_avatars,
+            commands::poll_notifications,
+            commands::mark_notification_read,
+            commands::notifications_seen,
+            commands::add_notifications_seen,
             commands::github_device_start,
             commands::github_device_poll,
             commands::github_device_cancel,

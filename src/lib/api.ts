@@ -25,6 +25,7 @@ import {
   mockStashPush,
 } from "./mockBranches";
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
+import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
 import {
   mockChangeCount,
@@ -53,6 +54,7 @@ import type {
   DiffArea,
   FileChange,
   FileDiff,
+  NotificationPoll,
   GitInfo,
   GpgKey,
   LineRef,
@@ -215,6 +217,16 @@ export interface Api {
   /** Images des personnes (adresses de l'API → data URL, ou 
 ull). */
   personAvatars(kind: ProviderKind, url: string, account: string | null, urls: string[]): Promise<Record<string, string | null>>;
+  // Notifications
+  /** Lit les notifications du compte (requête conditionnelle : `changed: false` si rien de neuf). */
+  pollNotifications(account: string): Promise<NotificationPoll>;
+  /** Marque comme lue chez le provider une notification, ou toutes (`id` à `null`). */
+  markNotificationRead(account: string, id: string | null): Promise<void>;
+  /** Clés des notifications vues (gardées en local). */
+  notificationsSeen(): Promise<string[]>;
+  addNotificationsSeen(keys: string[]): Promise<void>;
+  /** Notification du système (permission demandée au premier usage). */
+  systemNotify(title: string, body: string): Promise<void>;
   // Clone
   /** Clone `url` dans `parent/name` avec la clé SSH du profil `profile` (`null` : configuration
    *  ssh habituelle) ; renvoie la racine du nouveau dépôt. Un seul clone à la fois. */
@@ -329,6 +341,16 @@ const tauriApi: Api = {
   pullFileDiff: (path, target, head, file, oldFile) => invoke("pull_file_diff", { path, target, head, file, oldFile }),
   checkoutPull: (path, remote, kind, number, branch, fork, autoStash) => invoke("checkout_pull", { path, remote, kind, number, branch, fork, autoStash }),
   personAvatars: (kind, url, account, urls) => invoke("person_avatars", { kind, url, account, urls }),
+  pollNotifications: (account) => invoke("poll_notifications", { account }),
+  markNotificationRead: (account, id) => invoke("mark_notification_read", { account, id }),
+  notificationsSeen: () => invoke("notifications_seen"),
+  addNotificationsSeen: (keys) => invoke("add_notifications_seen", { keys }),
+  async systemNotify(title, body) {
+    const n = await import("@tauri-apps/plugin-notification");
+    let granted = await n.isPermissionGranted();
+    if (!granted) granted = (await n.requestPermission()) === "granted";
+    if (granted) n.sendNotification({ title, body });
+  },
   accountKeys: (profile, account) => invoke("account_keys", { profile, account }),
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
@@ -886,6 +908,22 @@ const mockApi: Api = {
     const out: Record<string, string | null> = {};
     for (const u of urls) out[u] = u.startsWith("mock:") ? await this.ownerAvatar("github", "", u.slice(5), null) : null;
     return out;
+  },
+  // Backend simulé : deux notifications par compte (cf. mockNotifications.ts).
+  async pollNotifications(account) {
+    return mockPollNotifications(account);
+  },
+  async markNotificationRead(account, id) {
+    mockMarkNotificationRead(account, id);
+  },
+  async notificationsSeen() {
+    return [...mockSeenNotifications];
+  },
+  async addNotificationsSeen(keys) {
+    for (const k of keys) mockSeenNotifications.add(k);
+  },
+  async systemNotify(title, body) {
+    mockSystemNotifications.push({ title, body });
   },
   async accountKeys(profile, account) {
     await mockDelay();

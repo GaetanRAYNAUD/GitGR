@@ -67,6 +67,12 @@ pub struct Settings {
     /// Dossier du dernier clone, proposé pour le suivant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clone_dir: Option<String>,
+    /// Notifications des providers (relectures demandées, mentions…) désactivées.
+    pub notifications_off: bool,
+    /// Notifications du système désactivées (le badge de l'app reste).
+    pub system_notifications_off: bool,
+    /// Fréquence de lecture : "standard" (2 min, 10 en arrière-plan) | "fast" (1 et 5).
+    pub notification_speed: String,
 }
 
 /// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`
@@ -107,6 +113,9 @@ impl Default for Settings {
             branch_colors_off: false,
             graph_avatars_off: false,
             clone_dir: None,
+            notifications_off: false,
+            system_notifications_off: false,
+            notification_speed: "standard".into(),
         }
     }
 }

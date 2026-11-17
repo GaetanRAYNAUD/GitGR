@@ -48,7 +48,20 @@
     "sectionGit": "Git",
     "sectionGraph": "Graph",
     "graphAvatars": "Author avatars in the graph",
-    "graphAvatarsHint": "On commits, in the Author column and on branches. Read from GitHub / GitLab (origin remote's repository) and kept for a day; otherwise, the author's initials."
+    "graphAvatarsHint": "On commits, in the Author column and on branches. Read from GitHub / GitLab (origin remote's repository) and kept for a day; otherwise, the author's initials.",
+    "sectionNotifications": "Notifications",
+    "notifications": "Notifications from GitHub / GitLab accounts",
+    "notificationSpeed": "Frequency",
+    "speed": {
+      "standard": "Standard",
+      "fast": "Fast"
+    },
+    "speedHint": {
+      "standard": "Every 2 min, 10 min when the window is in the background",
+      "fast": "Every minute, 5 min when the window is in the background"
+    },
+    "systemNotifications": "System notifications",
+    "notificationsHint": "Paused while the window is minimized or after 15 min of inactivity. “Seen” stays in GitGR; “mark as read” also applies on GitHub / GitLab."
   },
   "welcome": {
     "title": "Repositories",
@@ -540,7 +553,8 @@
     "merge_method_invalid": "Merge method not allowed.",
     "thread_invalid": "Discussion thread not found.",
     "pull_head_missing": "The request's last commit cannot be found, even after a fetch.",
-    "pull_base_missing": "The target branch is not fetched locally: run a fetch."
+    "pull_base_missing": "The target branch is not fetched locally: run a fetch.",
+    "notification_invalid": "Notification not found on the provider."
   },
   "profiles": {
     "title": "Profiles",
@@ -902,5 +916,29 @@
     },
     "retryFailed": "Re-run failed jobs",
     "retrying": "Re-running…"
+  },
+  "notif": {
+    "title": "Notifications",
+    "button_one": "Notifications ({{count}} new)",
+    "button_other": "Notifications ({{count}} new)",
+    "refresh": "Refresh",
+    "allSeen": "Mark all as seen",
+    "markRead": "Mark as read on {{provider}}",
+    "allRead": "Mark all as read on {{provider}}",
+    "empty": "Nothing new.",
+    "noAccount": "Connect a GitHub or GitLab account to a profile to get its notifications.",
+    "manyTitle_one": "{{count}} new notification",
+    "manyTitle_other": "{{count}} new notifications",
+    "reason": {
+      "review_requested": "Review requested",
+      "mention": "Mention",
+      "comment": "New comment",
+      "assigned": "Assigned to you",
+      "approval": "Approval required",
+      "ci_failed": "Pipeline / checks failed",
+      "author": "Activity on your request",
+      "state": "State change",
+      "other": "Activity"
+    }
   }
 }

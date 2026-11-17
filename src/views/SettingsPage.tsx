@@ -119,8 +119,26 @@ export function SettingsPage() {
           </label>
         </section>
 
-        <section className="settings-sec" aria-labelledby="st-graph">
-          <h2 id="st-graph" className="eyebrow">{t("settings.sectionGraph")}</h2>
+        <section className="settings-sec" aria-labelledby="st-notif">
+          <h2 id="st-notif" className="eyebrow">{t("settings.sectionNotifications")}</h2>
+          <label className="menu-check">
+            <input type="checkbox" checked={!settings.notificationsOff} onChange={(e) => update({ notificationsOff: !e.target.checked })} />
+            {t("settings.notifications")}
+          </label>
+          <Segmented<"standard" | "fast">
+            label={t("settings.notificationSpeed")}
+            value={settings.notificationSpeed ?? "standard"}
+            onChange={(notificationSpeed) => update({ notificationSpeed })}
+            options={(["standard", "fast"] as const).map((s) => ({ value: s, label: t(`settings.speed.${s}`), title: t(`settings.speedHint.${s}`) }))}
+          />
+          <label className="menu-check">
+            <input type="checkbox" checked={!settings.systemNotificationsOff} disabled={!!settings.notificationsOff} onChange={(e) => update({ systemNotificationsOff: !e.target.checked })} />
+            {t("settings.systemNotifications")}
+          </label>
+          <p className="menu-hint">{t("settings.notificationsHint")}</p>
+        </section>
+
+        <section className="settings-sec" aria-labelledby="st-graph">          <h2 id="st-graph" className="eyebrow">{t("settings.sectionGraph")}</h2>
           <label className="menu-check">
             <input type="checkbox" checked={!settings.graphAvatarsOff} onChange={(e) => update({ graphAvatarsOff: !e.target.checked })} />
             {t("settings.graphAvatars")}

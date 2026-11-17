@@ -795,3 +795,39 @@ pub async fn person_avatars(kind: String, url: String, account: Option<String>, 
     let token = instance_token(&store, account, &kind, &url);
     blocking(move || Ok(crate::avatars::image_avatars(k, &inst, token.as_deref(), &urls).into_iter().collect())).await
 }
+
+// --- Notifications ----------------------------------------------------------------
+
+/// Compte enregistré (dans n'importe quel profil) et son token.
+fn account_token(store: &StoreState<'_>, account: &str) -> Result<(providers::Account, String), String> {
+    let found = {
+        let s = store.lock().unwrap();
+        s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned().ok_or("account_not_found")?
+    };
+    let token = crate::secrets::token(&found.id).ok_or("token_missing")?;
+    Ok((found, token))
+}
+
+/// Notifications du compte ; `changed: false` si rien n'a bougé depuis la lecture précédente.
+#[tauri::command]
+pub async fn poll_notifications(account: String, store: StoreState<'_>) -> Result<crate::notifications::Poll, String> {
+    let (a, token) = account_token(&store, &account)?;
+    blocking(move || crate::notifications::poll(&a, &token)).await
+}
+
+/// Marque comme lue chez le provider une notification (`id`), ou toutes (`None`).
+#[tauri::command]
+pub async fn mark_notification_read(account: String, id: Option<String>, store: StoreState<'_>) -> Result<(), String> {
+    let (a, token) = account_token(&store, &account)?;
+    blocking(move || crate::notifications::mark_read(&a, &token, id.as_deref())).await
+}
+
+#[tauri::command]
+pub async fn notifications_seen() -> Result<Vec<String>, String> {
+    Ok(crate::notifications::seen())
+}
+
+#[tauri::command]
+pub async fn add_notifications_seen(keys: Vec<String>) -> Result<(), String> {
+    crate::notifications::add_seen(&keys)
+}

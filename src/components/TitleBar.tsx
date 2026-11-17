@@ -5,6 +5,7 @@ import { repoColor, repoName, useApp } from "../store/app";
 import { TabColorPopover } from "./TabColorPopover";
 import { type MenuItem, openContextMenu } from "./ContextMenu";
 import { Icon } from "./Icon";
+import { NotificationsBell } from "./NotificationsBell";
 import { Logo } from "./Logo";
 import { useProfiles } from "../store/profiles";
 
@@ -187,6 +188,8 @@ export function TitleBar() {
       )}
 
       <div className="titlebar-spacer" data-tauri-drag-region />
+
+      <NotificationsBell />
 
       <button
         className={profilesOpen ? "wc on" : "wc"}

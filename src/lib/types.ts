@@ -52,6 +52,12 @@ export interface Settings {
   graphAvatarsOff?: boolean;
   /** Dossier du dernier clone, proposé pour le suivant. */
   cloneDir?: string | null;
+  /** Notifications des providers désactivées (aucune lecture). */
+  notificationsOff?: boolean;
+  /** Notifications du système désactivées (le badge de l'app reste). */
+  systemNotificationsOff?: boolean;
+  /** `standard` : 2 min, 10 en arrière-plan ; `fast` : 1 et 5. */
+  notificationSpeed?: "standard" | "fast";
 }
 
 /** Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color` du graphe. */
@@ -553,3 +559,32 @@ export type PullAction =
   | { type: "updateBranch" }
   | { type: "retryFailed"; runs: number[] }
   | { type: "edit"; title: string; body: string; reviewers: Person[]; assignees: Person[]; labels: string[] };
+// --- Notifications (src-tauri/src/notifications.rs) -------------------------
+
+export type NotificationReason = "review_requested" | "mention" | "comment" | "assigned" | "approval" | "ci_failed" | "author" | "state" | "other";
+
+export interface Notification {
+  /** Identifiant chez le provider. */
+  id: string;
+  account: string;
+  kind: ProviderKind;
+  /** Adresse de l'instance. */
+  url: string;
+  /** `propriétaire/nom`. */
+  repo: string;
+  subject: "pull" | "issue" | "ci" | "other";
+  number: number | null;
+  title: string;
+  reason: NotificationReason;
+  webUrl: string | null;
+  /** Secondes Unix. */
+  updatedAt: number;
+}
+
+export interface NotificationPoll {
+  /** `false` : rien de changé depuis la lecture précédente (`items` vide). */
+  changed: boolean;
+  items: Notification[];
+  /** Intervalle minimal demandé par le provider, en secondes. */
+  minInterval: number | null;
+}

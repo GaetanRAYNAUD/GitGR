@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { startNotifications } from "./store/notifications";
 import { useTranslation } from "react-i18next";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { DialogHost } from "./components/DialogHost";
@@ -186,6 +187,10 @@ function Notice() {
 export default function App() {
   const { t } = useTranslation();
   const ready = useApp((s) => s.ready);
+  // Notifications des providers : lancées une fois l'état (comptes, réglages) chargé.
+  useEffect(() => {
+    if (ready) startNotifications();
+  }, [ready]);
   const git = useApp((s) => s.git);
   const active = useApp((s) => s.active);
   const error = useApp((s) => s.error);
