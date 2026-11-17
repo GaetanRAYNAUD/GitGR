@@ -7,7 +7,7 @@
 //! dit quel dépôt (`propriétaire/nom`) et quelles branches.
 
 use crate::git::run;
-use crate::providers::{Kind, agent, check_token, headers};
+use crate::providers::{Kind, agent, check_token, headers, send_api};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -75,12 +75,11 @@ fn request(kind: Kind, api: &str, path: &str, token: &str, method: Method) -> Re
     check_token(token)?;
     let url = format!("{api}{path}");
     let json_body = |b: &Value| b.to_string();
-    let response = match method {
+    let mut response = send_api(api, Some(token), || match method {
         Method::Get => headers(kind, agent().get(&url), token).call(),
         Method::Post(b) => headers(kind, agent().post(&url), token).header("Content-Type", "application/json").send(json_body(b)),
         Method::Patch(b) => headers(kind, agent().patch(&url), token).header("Content-Type", "application/json").send(json_body(b)),
-    };
-    let mut response = response.map_err(|_| "provider_unreachable".to_string())?;
+    })?;
     let status = response.status().as_u16();
     let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);
     let pages = match kind {
@@ -365,11 +364,11 @@ pub struct PullOptions {
 const PER_PAGE: usize = 100;
 /// Au plus 5 000 personnes ou étiquettes.
 const MAX_PAGES: usize = 50;
-/// Pages demandées en même temps.
-const PARALLEL: usize = 8;
 
 /// Tous les éléments d'une liste paginée : la première page dit combien il y en a, les
-/// suivantes sont demandées en parallèle. Renvoie aussi si la liste a été coupée.
+/// suivantes sont demandées une à une (GitHub demande des requêtes en série pour un même
+/// compte : des requêtes simultanées déclenchent sa limite secondaire). Renvoie aussi si la
+/// liste a été coupée.
 fn get_all(kind: Kind, api: &str, path: &str, token: &str) -> Result<(Vec<Value>, bool), String> {
     let sep = if path.contains('?') { '&' } else { '?' };
     let page = |n: usize| -> Result<Reply, String> {
@@ -386,15 +385,8 @@ fn get_all(kind: Kind, api: &str, path: &str, token: &str) -> Result<(Vec<Value>
     let unknown_rest = first.pages.is_none() && first.more;
     let announced = first.pages.unwrap_or(1);
     let last = announced.min(MAX_PAGES);
-    let rest: Vec<usize> = (2..=last).collect();
-    for chunk in rest.chunks(PARALLEL) {
-        let replies: Vec<Result<Reply, String>> = std::thread::scope(|s| {
-            let handles: Vec<_> = chunk.iter().map(|&n| s.spawn(move || page(n))).collect();
-            handles.into_iter().map(|h| h.join().unwrap_or(Err("provider_error".into()))).collect()
-        });
-        for r in replies {
-            items.extend(r?.json.as_array().cloned().ok_or("provider_unexpected")?);
-        }
+    for n in 2..=last {
+        items.extend(page(n)?.json.as_array().cloned().ok_or("provider_unexpected")?);
     }
     Ok((items, announced > MAX_PAGES || unknown_rest))
 }
@@ -420,10 +412,14 @@ fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-/// Personnes et étiquettes du dépôt, lues sur le provider (les deux listes en parallèle).
-/// GitHub : `/assignees` (ceux qui peuvent être assignés : ce sont aussi les relecteurs
-/// possibles) et `/labels` ; GitLab : `/members/all` (membres hérités des groupes compris) et
-/// `/labels`.
+/// Une seule lecture des personnes / étiquettes à la fois, tous dépôts confondus : à
+/// l'ouverture d'un dépôt, chacun de ses remotes en demande une.
+static FETCHING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Personnes et étiquettes du dépôt, lues sur le provider (une liste puis l'autre, cf.
+/// [`get_all`] et [`FETCHING`]). GitHub : `/assignees` (ceux qui peuvent être assignés : ce
+/// sont aussi les relecteurs possibles) et `/labels` ; GitLab : `/members/all` (membres
+/// hérités des groupes compris) et `/labels`.
 pub fn fetch_options(kind: Kind, api: &str, repo: &str, token: &str) -> Result<PullOptions, String> {
     check_repo(repo)?;
     let base = project(kind, repo);
@@ -432,13 +428,9 @@ pub fn fetch_options(kind: Kind, api: &str, repo: &str, token: &str) -> Result<P
         Kind::GitLab => format!("{base}/members/all"),
     };
     let labels_path = format!("{base}/labels");
-    let (people, labels) = std::thread::scope(|s| {
-        let people = s.spawn(|| get_all(kind, api, &people_path, token));
-        let labels = get_all(kind, api, &labels_path, token);
-        (people.join().unwrap_or(Err("provider_error".into())), labels)
-    });
-    let (people, cut_people) = people?;
-    let (labels, cut_labels) = labels?;
+    let _one_at_a_time = FETCHING.lock().unwrap_or_else(|e| e.into_inner());
+    let (people, cut_people) = get_all(kind, api, &people_path, token)?;
+    let (labels, cut_labels) = get_all(kind, api, &labels_path, token)?;
     let mut people: Vec<Person> = people.iter().filter_map(|v| parse_person(kind, v)).collect();
     // Un membre hérité de plusieurs groupes apparaît plusieurs fois chez GitLab.
     let mut seen = std::collections::HashSet::new();
@@ -654,8 +646,8 @@ mod tests {
         Person { id, login: login.into(), name: None }
     }
 
-    /// Faux provider qui répond selon la requête (les pages arrivent en parallèle, dans le
-    /// désordre) : `route(ligne de requête)` → (code, en-têtes en plus, corps). Renvoie son
+    /// Faux provider qui répond selon la requête :
+    /// `route(ligne de requête)` → (code, en-têtes en plus, corps). Renvoie son
     /// adresse et le nombre de requêtes reçues.
     fn serve_routes(route: impl Fn(&str) -> (u16, String, String) + Send + Sync + 'static) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
         use std::io::{Read, Write};
@@ -704,7 +696,7 @@ mod tests {
             (404, String::new(), "{}".into())
         });
         let o = fetch_options(Kind::GitHub, &url, "org/depot", "ghp_x").unwrap();
-        // Trois pages de personnes (2 et 3 en parallèle), triées ; une seule d'étiquettes.
+        // Trois pages de personnes, triées ; une seule d'étiquettes.
         assert_eq!(o.people.iter().map(|x| x.login.as_str()).collect::<Vec<_>>(), ["P1-0", "P1-1", "P2-0", "P2-1", "P3-0", "P3-1"]);
         assert_eq!(o.labels, vec![
             Label { name: "bug".into(), color: Some("d73a4a".into()), description: Some("Ça casse".into()) },

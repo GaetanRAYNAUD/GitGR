@@ -499,6 +499,7 @@
     "invalid_instance_url": "Invalid instance address.",
     "token_invalid": "Token rejected: it is wrong, expired or revoked.",
     "token_forbidden": "Access denied with this token: missing scopes, missing SSO authorization or rate limit reached.",
+    "rate_limited": "Provider rate limit reached: GitGR waits before trying again.",
     "token_missing": "This account’s token is no longer in the system keychain: reconnect the account.",
     "provider_unreachable": "Instance unreachable: check the address, the network connection and the server certificate.",
     "provider_not_found": "This provider’s API does not answer at this address: check the instance address and the chosen provider.",
