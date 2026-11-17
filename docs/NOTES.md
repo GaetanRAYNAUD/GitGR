@@ -144,6 +144,19 @@
 
 Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 5 sont terminées ; les éléments faits sont regroupés en bas.
 
+### Retours des testeurs (novembre 2026)
+
+- [ ] **Échap ne ferme plus la page Profils** (régression).
+- [ ] **Avatars des personnes** dans les listes Assignés et Relecteurs de la fenêtre de création de PR / MR.
+- [ ] **Après la création d'une PR / MR** : fermer la fenêtre et afficher le lien dans une snackbar (Ouvrir, Copier le lien) au lieu de garder la fenêtre ouverte.
+- [ ] **Les PR / MR ne sont pas affichées dans la barre latérale** : section « Pull requests » / « Merge requests » attendue (cf. « Voir », étape 6).
+- [ ] **Linux : le logo n'apparaît pas dans la barre des tâches** (icône de la fenêtre absente).
+- [ ] **Mieux mettre en avant la branche / le commit en cours** et le fait qu'il y a des modifications en attente (non commitées, commits à pousser).
+- [ ] **macOS : le double-clic sur la barre de titre ne passe pas en plein écran** (ni n'agrandit la fenêtre).
+- [ ] **Windows (au moins) : l'état plein écran / agrandi n'est pas gardé** au redémarrage.
+- [ ] **Diff d'un fichier : afficher le nombre de lignes ajoutées, modifiées, supprimées** de ce fichier en tête du diff.
+- [ ] **Double-clic sur une branche distante dont la locale est la branche courante et en retard** : mettre la locale à jour (pull) — cf. l'entrée du même sujet dans l'étape 4 ci-dessous.
+
 ### Étape 4 — branches et réseau (compléments)
 
 - [ ] **Double-clic sur une branche distante qui a déjà une locale du même nom** : aujourd'hui on se contente de checkout la locale. Il faudrait en plus la mettre à jour depuis la distante, comme le bouton Pull (même stratégie de pull, auto-stash, et gestion des conflits éventuels identique : arrêt sur le merge / rebase en cours avec la vue de conflits).
