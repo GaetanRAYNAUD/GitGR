@@ -46,7 +46,7 @@ npm run tauri build -- --no-bundle
 
 L'exécutable est dans `src-tauri/target/release/` : `gitgr.exe` sous Windows, `gitgr` sous Linux. Il se lance tel quel, sans installation.
 
-Avec les installeurs (NSIS et MSI sous Windows ; AppImage, `.deb` et `.rpm` sous Linux), rangés dans `src-tauri/target/release/bundle/<format>/` :
+Avec les installeurs (NSIS et MSI sous Windows ; AppImage, `.deb` et `.rpm` sous Linux ; `.app` et `.dmg` sous macOS), rangés dans `src-tauri/target/release/bundle/<format>/` :
 
 ```bash
 npm run tauri build                      # tous les formats de la plateforme

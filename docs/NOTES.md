@@ -18,7 +18,7 @@
 | Groupes / workspaces | Évolution future (pas dans le MVP) |
 | Thème | Clair **et** sombre, option « suivre l'OS » ou forcer |
 | Langue | **i18n dès le départ** (FR + EN) |
-| macOS | Porte ouverte, pas de build/test pour l'instant (pas de machine) |
+| macOS | Porte ouverte : paquet `.dmg` construit par la CI (`build.yml`), mais ni testé ni signé (pas de machine) |
 | Répartition du travail | Claude fait le gros du développement ; intervention humaine en cas de blocage |
 
 ## État d'avancement
@@ -352,7 +352,7 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 - **Windows** : installeur NSIS (ou MSI) — mise à jour auto via `tauri-plugin-updater`.
 - **Linux** : **AppImage** (supporte la mise à jour auto) + `.deb` / `.rpm` (mis à jour par le gestionnaire de paquets, pas par l'app) ; Flatpak éventuel plus tard.
 - Mises à jour signées (clé de signature Tauri), manifeste `latest.json` hébergé sur GitHub Releases.
-- CI : GitHub Actions, build matrix Windows + Linux à chaque tag.
+- CI : GitHub Actions, build matrix Windows + Linux + macOS (`.dmg` universel, signature ad hoc) à chaque tag.
 - Pas de signature de code Windows (acté) : avertissement SmartScreen accepté, à mentionner dans le README.
 
 ## 7. Découpage en étapes (proposition)

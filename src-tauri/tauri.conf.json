@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "appimage", "deb", "rpm"],
+    "targets": ["nsis", "msi", "appimage", "deb", "rpm", "app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Client Git visuel, multi-profils et multi-dépôts",
     "license": "MIT",
