@@ -57,9 +57,12 @@ test("clic droit sur une autre branche : MR de la branche courante vers celle-ci
   await d.getByLabel("Brouillon").check();
   await d.getByRole("button", { name: "Créer la merge request" }).click();
 
-  const done = page.getByRole("dialog", { name: "Merge request !42 créée" });
+  // Fenêtre fermée ; la MR annoncée dans un message, avec de quoi l'ouvrir et copier son lien.
+  await expect(dialog(page)).toHaveCount(0);
+  const done = page.locator(".toast", { hasText: "Merge request !42 créée — Draft: Profils : règles par remote" });
   await expect(done).toBeVisible();
-  await expect(page.getByText("Draft: Profils : règles par remote")).toBeVisible();
+  await expect(done.getByRole("button", { name: "Voir" })).toBeVisible();
+  await expect(done.getByRole("button", { name: "Copier le lien" })).toBeVisible();
   const sent = await page.evaluate(() => (window as unknown as { __mockPulls: unknown[] }).__mockPulls);
   expect(sent).toEqual([
     {
@@ -78,8 +81,10 @@ test("clic droit sur une autre branche : MR de la branche courante vers celle-ci
   // Poussée avec son suivi.
   await expect(chip(page, "feature/profils").locator(".chip-synced")).toBeVisible();
   await expect(remoteBranch(page, "profils")).toBeVisible();
-  await done.getByRole("button", { name: "Fermer" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // « Voir » : la MR dans GitGR, à la place du graphe.
+  await done.getByRole("button", { name: "Voir" }).click();
+  await expect(page.locator(".pull-view")).toBeVisible();
+  await expect(done).toHaveCount(0);
 });
 
 test("sur la branche courante : cible par défaut du dépôt, et refus d'une MR vers sa propre branche suivie", async ({ page }) => {
@@ -147,14 +152,14 @@ test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture d
   await labels.fill("bu");
   await d.getByRole("option", { name: /bug/ }).click();
   await d.getByRole("button", { name: "Créer la merge request" }).click();
-  await expect(page.getByRole("dialog", { name: "Merge request !42 créée" })).toBeVisible();
+  await expect(page.locator(".toast", { hasText: "Merge request !42 créée" })).toBeVisible();
   const sent = await page.evaluate(() => (window as unknown as { __mockPulls: { assignees: unknown; reviewers: unknown; labels: unknown }[] }).__mockPulls[0]);
-  expect(sent.reviewers).toEqual([{ id: 141, login: "dev-042", name: "Développeur 42" }]);
-  expect(sent.assignees).toEqual([{ id: 7, login: "camille", name: "Camille Dupont" }]);
+  expect(sent.reviewers).toEqual([{ id: 141, login: "dev-042", name: "Développeur 42", avatar: "mock:dev-042" }]);
+  expect(sent.assignees).toEqual([{ id: 7, login: "camille", name: "Camille Dupont", avatar: "mock:camille" }]);
   expect(sent.labels).toEqual(["bug"]);
   // Aucune lecture de plus : la fenêtre a pris la liste préchargée.
   expect(await fetches(page)).toBe(1);
-  await page.getByRole("dialog", { name: "Merge request !42 créée" }).getByRole("button", { name: "Fermer" }).click();
+  await page.locator(".toast").getByRole("button", { name: "Fermer" }).click();
 
   // Autre dépôt du même groupe (demo), lecture lente : la liste des autres dépôts sert en
   // attendant, et les derniers choix se reprennent en un clic.

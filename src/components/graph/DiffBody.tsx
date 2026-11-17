@@ -15,10 +15,13 @@ import { Splitter } from "../Splitter";
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
 
-/** Échap ferme le diff (les menus ouverts consomment Échap avant, cf. useDismiss). */
+/** Échap ferme le diff ou la vue (les menus ouverts consomment Échap avant, cf. useDismiss),
+ *  sauf pendant une saisie : un commentaire commencé n'est pas perdu. */
 export function useEscape(onEscape: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.tagName === "SELECT")) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onEscape();

@@ -449,3 +449,80 @@ mod tests {
         assert!(request.starts_with("GET /api/v4/avatar?email=a%2Bb%40exemple.fr&size=64 "), "{request}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Avatars des personnes (PR / MR : auteurs, relecteurs, assignés)
+// ---------------------------------------------------------------------------
+
+/// Images demandées en une fois au plus (les lignes affichées).
+const MAX_IMAGES: usize = 60;
+
+/// Adresse d'image acceptée : http(s), jamais Gravatar (l'empreinte de l'adresse d'une personne
+/// partirait vers un service tiers). Petite taille demandée à GitHub.
+fn person_image_url(url: &str) -> Option<String> {
+    let url = url.trim();
+    if !(url.starts_with("https://") || url.starts_with("http://")) || host_of(url).ends_with("gravatar.com") || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return None;
+    }
+    if host_of(url).ends_with("githubusercontent.com") && !url.contains("s=") {
+        return Some(format!("{url}{}s=64", if url.contains('?') { '&' } else { '?' }));
+    }
+    Some(url.to_string())
+}
+
+/// Images des personnes `urls` (adresses données par l'API), en data URL ; `None` : pas
+/// d'image utilisable (l'interface montre les initiales). En cache un jour, téléchargées en
+/// parallèle ; le token n'est joint que vers l'hôte de l'instance (`instance_url`).
+pub fn image_avatars(kind: Kind, instance_url: &str, token: Option<&str>, urls: &[String]) -> Vec<(String, Option<String>)> {
+    let mut wanted: Vec<String> = Vec::new();
+    for u in urls {
+        if !wanted.contains(u) && wanted.len() < MAX_IMAGES {
+            wanted.push(u.clone());
+        }
+    }
+    let file = |url: &str| cache_file(kind, instance_url, &format!("image:{url}"), token.is_some());
+    let mut out = Vec::new();
+    let mut todo = Vec::new();
+    for u in wanted {
+        let Some(real) = person_image_url(&u) else {
+            out.push((u, None));
+            continue;
+        };
+        match file(&u).as_ref().and_then(read_cache) {
+            Some(cached) => out.push((u, cached)),
+            None => todo.push((u, real)),
+        }
+    }
+    for chunk in todo.chunks(PARALLEL) {
+        let results: Vec<(String, Result<Option<String>, String>)> = std::thread::scope(|scope| {
+            let handles: Vec<_> = chunk.iter().map(|(key, url)| (key.clone(), scope.spawn(|| download(url, instance_url, kind, token)))).collect();
+            handles.into_iter().map(|(key, h)| (key, h.join().unwrap_or_else(|_| Err("panic".into())))).collect()
+        });
+        for (key, result) in results {
+            match result {
+                Ok(found) => {
+                    if let Some(f) = file(&key) {
+                        write_cache(&f, found.as_deref());
+                    }
+                    out.push((key, found));
+                }
+                // Erreur réseau : pas gardée, réessayée à la prochaine demande.
+                Err(_) => out.push((key, None)),
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod person_tests {
+    use super::person_image_url;
+
+    #[test]
+    fn person_images_skip_gravatar_and_ask_github_for_a_small_size() {
+        assert_eq!(person_image_url("https://www.gravatar.com/avatar/abc?s=80"), None);
+        assert_eq!(person_image_url("javascript:alert(1)"), None);
+        assert_eq!(person_image_url("https://avatars.githubusercontent.com/u/1?v=4").as_deref(), Some("https://avatars.githubusercontent.com/u/1?v=4&s=64"));
+        assert_eq!(person_image_url("https://gitlab.exemple.fr/uploads/-/system/user/avatar/3/a.png").as_deref(), Some("https://gitlab.exemple.fr/uploads/-/system/user/avatar/3/a.png"));
+    }
+}

@@ -421,6 +421,8 @@ export interface Person {
   id: number;
   login: string;
   name?: string | null;
+  /** Adresse de l'image (téléchargée à l'affichage, cf. store/avatars). */
+  avatar?: string | null;
 }
 
 export interface Label {
@@ -440,3 +442,114 @@ export interface PullOptions {
   fromOwner: boolean;
   truncated: boolean;
 }
+
+// --- Suivi des PR / MR (src-tauri/src/pull_view.rs) -------------------------
+
+export type PullState = "open" | "draft" | "merged" | "closed";
+export type ReviewState = "approved" | "changes" | "required";
+export type ChecksState = "success" | "failure" | "pending" | "neutral";
+
+export interface PullSummary {
+  number: number;
+  title: string;
+  url: string;
+  state: PullState;
+  author: Person | null;
+  sourceBranch: string;
+  /** Branche source dans un autre dépôt (fork). */
+  fork: boolean;
+  targetBranch: string;
+  headSha: string | null;
+  /** Secondes Unix. */
+  createdAt: number;
+  updatedAt: number;
+  review: ReviewState | null;
+  checks: ChecksState | null;
+  reviewers: Person[];
+  assignees: Person[];
+  labels: Label[];
+}
+
+export interface PullList {
+  pulls: PullSummary[];
+  fetchedAt: number;
+  truncated: boolean;
+}
+
+export interface PullReview {
+  author: Person;
+  state: "approved" | "changes" | "commented" | "pending";
+  at: number | null;
+}
+
+export interface PullComment {
+  id: string;
+  author: Person | null;
+  body: string;
+  at: number;
+}
+
+export interface PullThread {
+  id: string;
+  resolvable: boolean;
+  resolved: boolean;
+  replyable: boolean;
+  path: string | null;
+  line: number | null;
+  comments: PullComment[];
+}
+
+export interface PullCheck {
+  name: string;
+  state: ChecksState;
+  url: string | null;
+}
+
+export type MergeBlocker =
+  | "not_open"
+  | "draft"
+  | "conflicts"
+  | "behind"
+  | "changes"
+  | "approvals"
+  | "checks"
+  | "checks_pending"
+  | "threads"
+  | "checking"
+  | "forbidden"
+  | "blocked";
+
+export type MergeMethod = "merge" | "squash" | "rebase";
+
+export interface MergeInfo {
+  canMerge: boolean;
+  blockers: MergeBlocker[];
+  methods: MergeMethod[];
+  deleteBranch: boolean;
+  /** Absent : pas permis ; sinon s'il est déjà demandé. */
+  autoMerge: boolean | null;
+}
+
+export interface PullDetail extends PullSummary {
+  body: string;
+  reviews: PullReview[];
+  threads: PullThread[];
+  checksList: PullCheck[];
+  merge: MergeInfo;
+  canUpdate: boolean;
+  /** Exécutions (GitHub) / pipeline (GitLab) dont relancer les jobs en échec ; vide : rien à relancer. */
+  retry: number[];
+}
+
+export type PullAction =
+  | { type: "comment"; body: string }
+  | { type: "reply"; thread: string; body: string }
+  | { type: "resolve"; thread: string; resolved: boolean }
+  | { type: "review"; event: "approve" | "changes" | "comment"; body: string }
+  | { type: "unapprove" }
+  | { type: "setOpen"; open: boolean }
+  | { type: "setDraft"; draft: boolean }
+  | { type: "merge"; method: MergeMethod; deleteBranch: boolean; auto: boolean }
+  | { type: "updateBranch" }
+  | { type: "retryFailed"; runs: number[] }
+  | { type: "edit"; title: string; body: string; reviewers: Person[]; assignees: Person[]; labels: string[] };

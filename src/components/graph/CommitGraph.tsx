@@ -21,6 +21,9 @@ import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
 import { checkoutRef, commitMenu, refMenu } from "./menus";
 import { Splitter } from "../Splitter";
+import { pullOfRef, usePullContexts, usePullList, type PullContext } from "../../store/pullList";
+import { pullRef } from "../../lib/pulls";
+import type { PullSummary } from "../../lib/types";
 
 export const ROW_H = 28;
 const LANE_W = 14;
@@ -224,6 +227,7 @@ function Chip({
   refs,
   rules,
   mark,
+  pr,
 }: {
   chip: RefChip;
   color: number;
@@ -233,6 +237,8 @@ function Chip({
   /** Branche : icône de son remote (propriétaire du dépôt, provider) ; absente : avatars
    *  désactivés, branche sans remote ou provider inconnu. */
   mark?: RemoteMarkInfo | null;
+  /** PR / MR ouverte depuis cette branche. */
+  pr?: { ctx: PullContext; pull: PullSummary } | null;
 }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
@@ -253,6 +259,19 @@ function Chip({
       {chip.kind === "remote" && <Icon name="cloud" size={12} />}
       <span className="chip-label">{chip.label}</span>
       {chip.synced && <Icon name="cloud" size={12} className="chip-synced" />}
+      {pr && (
+        <span
+          className={`chip-pull ${pr.pull.state}`}
+          title={t("prv.branchPull", { ref: pullRef(pr.ctx.kind, pr.pull.number), title: pr.pull.title })}
+          onClick={(e) => {
+            e.stopPropagation();
+            usePullList.getState().show(path, pr.ctx, pr.pull.number);
+          }}
+        >
+          {pullRef(pr.ctx.kind, pr.pull.number)}
+          {pr.pull.checks && <span className={`checks-dot ${pr.pull.checks}`} />}
+        </span>
+      )}
     </span>
   );
 }
@@ -296,6 +315,8 @@ export function CommitGraph({ path, changes }: Props) {
     sha: useLayoutValue(colKey("sha")),
   };
   const setLayout = useApp((s) => s.setLayout);
+  const pullContexts = usePullContexts(path);
+  const pullLists = usePullList((s) => s.lists);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const graph = useGraph((s) => s.graphs[path]);
@@ -453,6 +474,11 @@ export function CommitGraph({ path, changes }: Props) {
   const cols = visible.map(colWidth).join(" ");
   const canvasLeft = visible.includes("refs") ? colWidth("refs") : "0px";
   const now = Date.now();
+  /** PR / MR d'une étiquette de branche (locale qui suit, ou distante). */
+  const chipPull = (chip: RefChip) => {
+    const r = chipRef(chip, graph?.refs ?? null);
+    return r ? pullOfRef(pullLists, pullContexts, graph?.refs ?? null, r) : null;
+  };
 
   const cell = (col: Column, c: Commit, color: number, isWip: boolean) => {
     switch (col) {
@@ -468,6 +494,7 @@ export function CommitGraph({ path, changes }: Props) {
                 refs={graph?.refs ?? null}
                 rules={rules}
                 mark={avatarsOn && chip.remote ? remoteMarks.get(chip.remote) : undefined}
+                pr={chipPull(chip)}
               />
             ))}
           </span>

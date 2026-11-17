@@ -177,6 +177,30 @@ test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant l
 async function fakeGitlabWithMergeRequests() {
   const requests: string[] = [];
   const created: Record<string, unknown>[] = [];
+  const notes: string[] = [];
+  /** Commit de tête de la MR créée (posé par le test). */
+  const state = { head: "" };
+  const mr = () => ({
+    iid: 5,
+    title: (created[0]?.title as string) ?? "",
+    web_url: `http://gitlab/groupe/projet/-/merge_requests/5`,
+    state: "opened",
+    draft: false,
+    author: { id: 7, username: "camille", name: "Camille Boulot", state: "active" },
+    source_branch: "feature/mr",
+    target_branch: "main",
+    source_project_id: 42,
+    target_project_id: 42,
+    sha: state.head,
+    created_at: "2026-11-17T09:30:00Z",
+    updated_at: "2026-11-17T09:30:00Z",
+    detailed_merge_status: "mergeable",
+    user: { can_merge: true },
+    description: (created[0]?.description as string) ?? "",
+    reviewers: [{ id: 8, username: "max", name: "Max Relecteur", state: "active" }],
+    assignees: [],
+    labels: [],
+  });
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (d) => (body += d));
@@ -200,11 +224,25 @@ async function fakeGitlabWithMergeRequests() {
         created.push(JSON.parse(body));
         return json(201, { iid: 5, web_url: `http://gitlab/groupe/projet/-/merge_requests/5`, title: JSON.parse(body).title });
       }
-      json(404, { message: "404 Not Found" });
+      // Suivi : liste des MR ouvertes, détail, discussions, commentaire.
+      if (req.url?.startsWith("/api/v4/projects/groupe%2Fprojet/merge_requests?state=opened")) return json(200, created.length ? [mr()] : []);
+      if (req.url?.startsWith("/api/v4/projects/groupe%2Fprojet/pipelines?")) return json(200, []);
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests/5?with_labels_details=true") return json(200, mr());
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests/5/reviewers") return json(200, []);
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests/5/approvals") return json(200, { approved_by: [] });
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests/5/discussions?per_page=100")
+        return json(
+          200,
+          notes.map((n, i) => ({ id: `d${i}`, individual_note: true, notes: [{ id: i, body: n, system: false, author: { id: 7, username: "camille" }, created_at: "2026-11-17T10:00:00Z" }] })),
+        );
+      if (req.url === "/api/v4/projects/groupe%2Fprojet/merge_requests/5/notes" && req.method === "POST") {
+        notes.push(JSON.parse(body).body);
+        return json(201, { id: notes.length });
+      }      json(404, { message: "404 Not Found" });
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests, created };
+  return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, requests, created, notes, state };
 }
 
 test("créer une merge request de la branche courante : cible par défaut lue sur l'instance, texte tiré du commit", async ({ sandbox }) => {
@@ -250,7 +288,28 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await dialog.getByRole("option", { name: /bug/ }).click();
     await dialog.getByRole("button", { name: "Créer la merge request" }).click();
 
-    await expect(page.getByRole("dialog", { name: "Merge request !5 créée" })).toBeVisible();
+    // Fenêtre fermée, MR annoncée ; « Voir » l'ouvre dans GitGR (liste relue sur l'instance).
+    const done = page.locator(".toast", { hasText: "Merge request !5 créée" });
+    await expect(done).toBeVisible();
+    gitlab.state.head = git(mine, "rev-parse", "HEAD").trim();
+    await done.getByRole("button", { name: "Voir" }).click();
+    const view = page.locator(".pull-view");
+    await expect(view.locator(".pull-view-title")).toHaveText("Ajoute b");
+    await expect(page.locator(".pulls-group .pull-item", { hasText: "!5" })).toBeVisible();
+    await expect(page.locator(".refs-sidebar .side-pull", { hasText: "!5" }).first()).toBeVisible();
+    // Fichiers : lus en local, depuis l'ancêtre commun avec gitlab/main.
+    await view.getByRole("tab", { name: "Fichiers" }).click();
+    await expect(view.locator(".pull-file-list .file-row")).toHaveCount(1);
+    await expect(view.locator(".pull-file-list .file-row")).toContainText("b.txt");
+    await view.locator(".pull-file-list .file-row").click();
+    await expect(view.locator(".pull-file-diff .diff-stats")).toHaveText("+1−0");
+    // Commentaire envoyé sur l'instance, puis relu.
+    await view.getByRole("tab", { name: "Discussion" }).click();
+    await view.getByRole("textbox", { name: "Commenter" }).fill("Prête pour relecture");
+    await view.getByRole("button", { name: "Commenter" }).click();
+    await expect.poll(() => gitlab.notes).toEqual(["Prête pour relecture"]);
+    await expect(view.locator(".pull-thread")).toContainText("Prête pour relecture");
+    await expect(view.getByRole("textbox", { name: "Commenter" })).toHaveValue("");
     expect(gitlab.created).toEqual([
       { source_branch: "feature/mr", target_branch: "main", title: "Ajoute b", description: "Pour la démonstration.", assignee_ids: [7], reviewer_ids: [8], labels: "bug" },
     ]);

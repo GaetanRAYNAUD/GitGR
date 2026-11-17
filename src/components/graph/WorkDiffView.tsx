@@ -7,6 +7,7 @@ import type { FileDiff, LineRef } from "../../lib/types";
 import { useWork, type WorkDiff } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
 import { DiffBody, DiffViewToggle, lineKey, useEscape } from "./DiffBody";
+import { DiffStats } from "./DiffStats";
 import { BackButton } from "./DiffView";
 import { StatusBadge } from "./FileList";
 
@@ -120,6 +121,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           {file.path}
         </span>
         <span className={`area-pill area-${area}`}>{t(`staging.area.${area}`)}</span>
+        {data && <DiffStats diff={data} />}
         <span className="diff-file-actions">
           <DiffViewToggle />
           {area === "staged" ? (

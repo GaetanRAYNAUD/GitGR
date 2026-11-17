@@ -24,6 +24,7 @@ mod commands;
 mod git;
 mod history;
 mod profiles;
+mod pull_view;
 mod pulls;
 mod providers;
 mod remotes;
@@ -151,6 +152,14 @@ pub fn run() {
             commands::create_pull,
             commands::cached_pull_options,
             commands::refresh_pull_options,
+            commands::list_pulls,
+            commands::pull_detail,
+            commands::pull_act,
+            commands::ensure_pull_head,
+            commands::pull_files,
+            commands::pull_file_diff,
+            commands::checkout_pull,
+            commands::person_avatars,
             commands::github_device_start,
             commands::github_device_poll,
             commands::github_device_cancel,

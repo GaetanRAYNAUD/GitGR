@@ -12,6 +12,8 @@ export interface PickOption {
   detail?: string | null;
   /** Pastille de couleur (`rrggbb`), pour les étiquettes. */
   color?: string | null;
+  /** Image devant le libellé (avatar d'une personne). */
+  icon?: React.ReactNode;
 }
 
 /** Résultats affichés au plus (la recherche affine). */
@@ -98,6 +100,7 @@ export function MultiPicker({
           return (
             <span key={sid} className="mpick-chip">
               {swatch(o?.color) && <span className="mpick-dot" style={{ background: swatch(o?.color) }} />}
+              {o?.icon}
               {text}
               <button type="button" className="mpick-remove" disabled={disabled} aria-label={t("pr.remove", { name: text })} onClick={() => onChange(selected.filter((x) => x !== sid))}>
                 ×
@@ -146,6 +149,7 @@ export function MultiPicker({
                 {selected.includes(o.id) ? "✓" : ""}
               </span>
               {swatch(o.color) && <span className="mpick-dot" style={{ background: swatch(o.color) }} />}
+              {o.icon}
               <span className="mpick-label">{o.label}</span>
               {o.detail && <span className="mpick-detail">{o.detail}</span>}
             </li>

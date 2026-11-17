@@ -6,6 +6,7 @@ import { useGraph, type OpenDiff } from "../../store/graph";
 import { Icon } from "../Icon";
 import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
 import { StatusBadge } from "./FileList";
+import { DiffStats } from "./DiffStats";
 
 export function BackButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
           {file.oldPath && <span className="muted">{file.oldPath} → </span>}
           {file.path}
         </span>
+        {diff.data && <DiffStats diff={diff.data} />}
         <span className="mono muted diff-sha">{diff.sha.slice(0, 7)}</span>
         <DiffViewToggle />
       </header>
