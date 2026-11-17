@@ -4,6 +4,10 @@
 #   récentes.
 # - Windows (installeurs NSIS `.exe` et MSI), artefact `gitgr-windows`. Tauri télécharge
 #   lui-même NSIS et WiX.
+# - macOS (image disque `.dmg`, binaire universel Intel + Apple Silicon), artefact
+#   `gitgr-macos`. Signature ad hoc seulement (pas de certificat Apple) : à la première
+#   ouverture, macOS bloque l'app (« endommagée » ou « développeur non identifié ») ; la
+#   débloquer avec `xattr -cr /Applications/GitGR.app`, ou clic droit → Ouvrir.
 #
 # Lancer : onglet Actions → « Build » → Run workflow. Les paquets sont joints au run.
 # Binaires non signés, pas de mise à jour automatique pour l'instant (étape 7).
@@ -73,5 +77,34 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS (dmg, universel)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      # Signature ad hoc : sans aucune signature, un binaire ne se lance pas sur Apple Silicon.
+      APPLE_SIGNING_IDENTITY: "-"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # `tauri build` lance aussi `npm run build` (interface) avant de compiler le Rust.
+      - run: npx tauri build --target universal-apple-darwin --bundles dmg
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gitgr-macos
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 30
