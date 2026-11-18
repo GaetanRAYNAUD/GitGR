@@ -6,6 +6,7 @@ import { pullSource, pullTargetOf } from "../../lib/pulls";
 import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
+import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
 import type { MenuItem } from "../ContextMenu";
 import { remoteMarkOf } from "../RemoteMark";
@@ -133,6 +134,7 @@ export function remoteMenu(t: TFunction, path: string, remote: RemoteInfo, refs:
     "sep",
     { label: t("remotes.copyUrl"), disabled: !remote.url, onClick: () => copy(remote.url ?? "") },
     { label: t("remotes.addButton"), onClick: () => ops.addRemote(path) },
+    { label: t("publish.menu"), onClick: () => usePublishDialog.getState().show(path) },
   );
   return items;
 }

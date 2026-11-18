@@ -121,6 +121,32 @@
     "cloning": "Cloning…",
     "submit": "Clone"
   },
+  "publish": {
+    "title": "Publish to GitHub / GitLab",
+    "button": "Publish",
+    "buttonHint": "No remote: create the repository on GitHub / GitLab and push the current branch to it",
+    "menu": "Publish to GitHub / GitLab…",
+    "sidebar": "Publish repository…",
+    "noRemote": "No remote",
+    "noAccount": "No GitHub / GitLab account connected. Connect one to a profile to create the repository there.",
+    "owner": "Owner",
+    "loadingOwners": "Loading…",
+    "name": "Repository name",
+    "invalidName": "Invalid name: unaccented letters, digits, “.”, “_” and “-” only, not starting with “.” or “-”.",
+    "description": "Description",
+    "optional": "Optional",
+    "visibility": "Visibility",
+    "private": "Private",
+    "public": "Public",
+    "push": "Push {{branch}} to {{remote}} and track it",
+    "pushNone": "Push the current branch",
+    "nothingToPush": "No commit to push",
+    "dest": "Will be created on {{provider}}: {{repo}}",
+    "publishing": "Publishing…",
+    "submit": "Publish",
+    "done": "Repository {{repo}} published.",
+    "createdButFailed": "Repository {{repo}} created ({{url}}), but the next step failed: {{error}}"
+  },
   "repo": {
     "pull": "Pull",
     "push": "Push",
@@ -238,7 +264,8 @@
     "hidden_one": "{{count}} hidden section · Show",
     "hidden_other": "{{count}} hidden sections · Show",
     "notFound": "This commit is not in the history.",
-    "dblClick": "Double-click to check out"
+    "dblClick": "Double-click to check out",
+    "dblClickPull": "Double-click to check out {{branch}}, then pull"
   },
   "staging": {
     "label": "Work in progress",
@@ -558,7 +585,11 @@
     "pull_head_missing": "The request's last commit cannot be found, even after a fetch.",
     "pull_base_missing": "The target branch is not fetched locally: run a fetch.",
     "notification_invalid": "Notification not found on the provider.",
-    "pull_edit_reviewers_failed": "Title, description, assignees and labels saved, but the reviewers could not be changed (the author cannot review their own request, or missing rights)."
+    "pull_edit_reviewers_failed": "Title, description, assignees and labels saved, but the reviewers could not be changed (the author cannot review their own request, or missing rights).",
+    "repo_exists": "A repository with this name already exists there.",
+    "repo_create_forbidden": "Cannot create a repository here: not enough rights on the organization / group, or the token lacks the “repo” (GitHub) / “api” (GitLab) scope.",
+    "invalid_repo_name": "Invalid repository name.",
+    "invalid_namespace": "Invalid owner."
   },
   "profiles": {
     "title": "Profiles",

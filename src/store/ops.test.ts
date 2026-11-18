@@ -76,6 +76,52 @@ describe("checkout", () => {
     expect(refs(REPO_A).headBranch).toBe("feature/graph-rendering");
   });
 
+  it("une branche distante dont la locale existe : checkout de la locale, puis pull", async () => {
+    await open(REPO_A);
+    expect(local(REPO_A, "fix/ssh-agent")?.behind).toBe(1);
+    const pull = vi.spyOn(api, "pull");
+    expect(await ops().checkoutRemote(REPO_A, "origin/fix/ssh-agent")).toBe(true);
+    expect(refs(REPO_A).headBranch).toBe("fix/ssh-agent");
+    expect(pull).toHaveBeenCalledWith(REPO_A, "ff-only", true);
+    expect(local(REPO_A, "fix/ssh-agent")?.behind).toBe(0);
+  });
+
+  it("déjà sur la locale (en retard) : seulement le pull", async () => {
+    await open(REPO_A);
+    await ops().checkout(REPO_A, "fix/ssh-agent");
+    const pull = vi.spyOn(api, "pull");
+    await ops().checkoutRemote(REPO_A, "origin/fix/ssh-agent");
+    expect(pull).toHaveBeenCalledTimes(1);
+    expect(local(REPO_A, "fix/ssh-agent")?.behind).toBe(0);
+  });
+
+  it("locale qui suit une autre branche : tirée depuis la distante, sans changer son suivi", async () => {
+    await open(REPO_A);
+    const h = mockHistory(REPO_A);
+    h.refs = { ...h.refs, refs: h.refs.refs.map((r) => (r.kind === "local" && r.short === "fix/ssh-agent" ? { ...r, upstream: null } : r)) };
+    await open(REPO_A);
+    const pullFrom = vi.spyOn(api, "pullFrom");
+    const pull = vi.spyOn(api, "pull");
+    await ops().checkoutRemote(REPO_A, "origin/fix/ssh-agent");
+    expect(pull).not.toHaveBeenCalled();
+    expect(pullFrom).toHaveBeenCalledWith(REPO_A, "origin", "fix/ssh-agent", "ff-only", true);
+    expect(local(REPO_A, "fix/ssh-agent")?.upstream).toBeNull();
+  });
+
+  it("locale créée à l'instant ou stash gardé : pas de pull", async () => {
+    const h = mockHistory(REPO_A);
+    h.refs = { ...h.refs, refs: h.refs.refs.filter((r) => r.short !== "feature/graph-rendering") };
+    await open(REPO_A);
+    const pull = vi.spyOn(api, "pull");
+    await ops().checkoutRemote(REPO_A, "origin/feature/graph-rendering");
+    vi.spyOn(api, "checkoutRemote").mockImplementationOnce(async () => {
+      h.refs = { ...h.refs, headBranch: "fix/ssh-agent" };
+      return [{ stashed: true, stashKept: true, conflicts: false }, "fix/ssh-agent"];
+    });
+    await ops().checkoutRemote(REPO_A, "origin/fix/ssh-agent");
+    expect(pull).not.toHaveBeenCalled();
+  });
+
   it("une erreur est affichée dans le toast", async () => {
     await open(REPO_A);
     vi.spyOn(api, "checkout").mockRejectedValueOnce("local_changes_conflict");
@@ -439,5 +485,41 @@ describe("dialogues", () => {
     useDialogs.getState().answer("y");
     expect(await second).toBe("y");
     expect(useDialogs.getState().current).toBeNull();
+  });
+});
+
+describe("publier", () => {
+  const seedProfile = async () => {
+    const account = { id: "github|https://github.com|octo", kind: "github" as const, url: "https://github.com", login: "octo", name: null };
+    const profile = { id: "p-perso", name: "Perso", userName: "Demo", userEmail: "demo@exemple.fr", sshKey: "~/.ssh/id_ed25519", rules: [], color: 0, accounts: [account] };
+    useProfiles.setState({ profiles: [profile], repoProfiles: {} });
+    vi.spyOn(useProfiles.getState(), "confirmIdentity").mockResolvedValue(true);
+  };
+
+  it("ajoute le remote, lui donne le profil du compte, et pousse la branche avec son suivi", async () => {
+    const h = mockHistory(REPO_C);
+    h.refs = { ...h.refs, remotes: [], refs: h.refs.refs.filter((r) => r.kind !== "remote").map((r) => ({ ...r, upstream: null, ahead: 0, behind: 0 })) };
+    await open(REPO_C);
+    await seedProfile();
+    const setRemoteProfile = vi.spyOn(useProfiles.getState(), "setRemoteProfile").mockResolvedValue(true);
+    const push = vi.spyOn(api, "push");
+    expect(await ops().publish(REPO_C, "origin", "git@github.com:octo/neuf.git", "p-perso", true)).toBe(true);
+    expect(refs(REPO_C).remotes.map((r) => r.name)).toEqual(["origin"]);
+    expect(setRemoteProfile).toHaveBeenCalledWith(REPO_C, "origin", "p-perso");
+    expect(push).toHaveBeenCalledWith(REPO_C, false, "origin");
+    expect(local(REPO_C, "main")?.upstream).toBe("origin/main");
+  });
+
+  it("sans push : seulement le remote ; un nom pris est refusé", async () => {
+    const h = mockHistory(REPO_C);
+    h.refs = { ...h.refs, remotes: [] };
+    await open(REPO_C);
+    await seedProfile();
+    vi.spyOn(useProfiles.getState(), "setRemoteProfile").mockResolvedValue(true);
+    const push = vi.spyOn(api, "push");
+    expect(await ops().publish(REPO_C, "origin", "git@github.com:octo/neuf.git", "p-perso", false)).toBe(true);
+    expect(push).not.toHaveBeenCalled();
+    expect(await ops().publish(REPO_C, "origin", "git@github.com:octo/autre.git", null, true)).toBe(false);
+    expect(useApp.getState().error).toBe("remote_exists");
   });
 });

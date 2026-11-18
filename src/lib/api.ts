@@ -40,6 +40,7 @@ import {
 } from "./mockWorktree";
 import { joinPath, validFolderName } from "./clone";
 import { instance, withAccount } from "./providers";
+import { validRepoName } from "./publish";
 import type {
   Account,
   AccountKey,
@@ -69,6 +70,8 @@ import type {
   PullList,
   PullOptions,
   PullStrategy,
+  NewRepo,
+  Namespace,
   ProviderRepo,
   RefsInfo,
   RepoList,
@@ -186,6 +189,10 @@ export interface Api {
   authorAvatars(kind: ProviderKind | null, url: string | null, repo: string | null, account: string | null, emails: string[]): Promise<Record<string, string | null>>;
   /** Dépôts accessibles au compte (les siens, ceux de ses organisations / groupes…). */
   listAccountRepos(account: string): Promise<RepoList>;
+  /** Où le compte peut créer un dépôt : lui-même d'abord, puis ses organisations / groupes. */
+  listAccountNamespaces(account: string): Promise<Namespace[]>;
+  /** Crée un dépôt distant vide sur le compte ; renvoie ses adresses. */
+  createAccountRepo(account: string, repo: NewRepo): Promise<ProviderRepo>;
   /** Clés du profil (enregistré) et leur présence sur le compte. */
   accountKeys(profile: string, account: string): Promise<AccountKey[]>;
   /** Ajoute au compte la clé `kind` du profil. */
@@ -323,6 +330,8 @@ const tauriApi: Api = {
   disconnectAccount: (profile, account) => invoke("disconnect_account", { profile, account }),
   checkAccount: (account) => invoke("check_account", { account }),
   listAccountRepos: (account) => invoke("list_account_repos", { account }),
+  listAccountNamespaces: (account) => invoke("list_account_namespaces", { account }),
+  createAccountRepo: (account, repo) => invoke("create_account_repo", { account, repo }),
   githubDeviceStart: () => invoke("github_device_start"),
   githubDevicePoll: (profile, flowId) => invoke("github_device_poll", { profile, flowId }),
   githubDeviceCancel: (flowId) => invoke("github_device_cancel", { flowId }),
@@ -735,6 +744,40 @@ const mockApi: Api = {
     if (found.login.startsWith("revoked")) throw "token_invalid";
     if (found.url.includes("injoignable")) throw "provider_unreachable";
     return { repos: mockAccountRepos(found), truncated: false };
+  },
+  // Backend simulé : le compte, puis l'organisation / le groupe « acme ».
+  async listAccountNamespaces(account) {
+    await mockDelay();
+    const found = mockLoad().profiles?.flatMap((p) => p.accounts ?? []).find((a) => a.id === account);
+    if (!found) throw "account_not_found";
+    if (found.login.startsWith("revoked")) throw "token_invalid";
+    if (found.url.includes("injoignable")) throw "provider_unreachable";
+    return [
+      { id: "", path: found.login, kind: "user" },
+      found.kind === "github" ? { id: "acme", path: "acme", kind: "org" } : { id: "42", path: "acme", kind: "group" },
+    ];
+  },
+  // Backend simulé : un nom déjà pris parmi les dépôts du compte donne `repo_exists`.
+  async createAccountRepo(account, repo) {
+    await mockDelay();
+    const found = mockLoad().profiles?.flatMap((p) => p.accounts ?? []).find((a) => a.id === account);
+    if (!found) throw "account_not_found";
+    if (!validRepoName(repo.name)) throw "invalid_repo_name";
+    const owner = repo.namespace ? "acme" : found.login;
+    const fullName = `${owner}/${repo.name}`;
+    if (mockAccountRepos(found).some((r) => r.fullName.toLowerCase() === fullName.toLowerCase())) throw "repo_exists";
+    const host = found.url.replace(/^https?:\/\//, "");
+    return {
+      fullName,
+      name: repo.name,
+      description: repo.description.trim() || null,
+      private: repo.private,
+      fork: false,
+      archived: false,
+      httpUrl: `https://${host}/${fullName}.git`,
+      sshUrl: `git@${host}:${fullName}.git`,
+      updatedAt: null,
+    };
   },
   // Backend simulé : une URL qui contient `introuvable` n'existe pas, `refuse` est refusée ; un
   // dossier déjà connu (dépôt récent) est occupé. Le clone avance en une seconde environ.

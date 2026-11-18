@@ -13,6 +13,8 @@ import i18n from "../i18n";
 import { api, errorCode } from "../lib/api";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
 import { errorMessage } from "../lib/errors";
+import { remoteProfile } from "../lib/profiles";
+import { splitRemoteBranch } from "../lib/refs";
 import type { OpResult, ProviderKind, PullStrategy } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
@@ -31,7 +33,9 @@ interface OpsStore {
   running: Record<string, OpName | undefined>;
 
   checkout(path: string, branch: string): Promise<boolean>;
-  /** Branche distante (`origin/x`) : passe sur la locale qui la suit, créée au besoin. */
+  /** Branche distante (`origin/x`) : passe sur la locale du même nom, créée au besoin (elle suit
+   *  alors la distante). Une locale qui existait déjà est ensuite mise à jour depuis la distante,
+   *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
@@ -54,6 +58,10 @@ interface OpsStore {
   pushAll(path: string): Promise<boolean>;
   /** Demande un nom et une URL, ajoute le remote, puis le récupère si la case est cochée. */
   addRemote(path: string): Promise<boolean>;
+  /** Dépôt distant tout juste créé (fenêtre « Publier ») : ajoute le remote `remote`, lui donne
+   *  le profil `profile` (celui du compte) si le choix automatique en désigne un autre, puis, si
+   *  `push`, pousse la branche courante en configurant son suivi. */
+  publish(path: string, remote: string, url: string, profile: string | null, push: boolean): Promise<boolean>;
   renameRemote(path: string, remote: string): Promise<boolean>;
   editRemoteUrl(path: string, remote: string): Promise<boolean>;
   /** Après confirmation : ses branches distantes disparaissent, rien n'est touché sur le serveur. */
@@ -150,23 +158,40 @@ export const useOps = create<OpsStore>((set, get) => {
     return false;
   };
 
-  /** Checkout générique : auto-stash, compte rendu, sélection du nouveau HEAD. */
-  const switchTo = async (path: string, call: (stash: boolean) => Promise<OpResult>) => {
+  /** Checkout générique : auto-stash, compte rendu, sélection du nouveau HEAD. Renvoie le
+   *  résultat de la commande (`null` : échec, erreur affichée). */
+  const switchWith = async (path: string, call: (stash: boolean) => Promise<OpResult>) => {
     const label = currentBranch(path) ?? "HEAD";
     const out = await exec(path, "checkout", () => call(autoStash()));
-    if (!out.ok) return fail(out.error);
+    if (!out.ok) return fail(out.error) && null;
     report(out.value, label);
     await selectHead(path);
-    return true;
+    return out.value;
   };
+  const switchTo = async (path: string, call: (stash: boolean) => Promise<OpResult>) => !!(await switchWith(path, call));
 
   return {
     running: {},
 
     checkout: (path, branch) => switchTo(path, (stash) => api.checkout(path, branch, stash)),
 
-    checkoutRemote: (path, branch) =>
-      switchTo(path, async (stash) => (await api.checkoutRemote(path, branch, stash))[0]),
+    async checkoutRemote(path, branch) {
+      const before = useGraph.getState().graphs[path]?.refs;
+      const split = splitRemoteBranch((before?.remotes ?? []).map((r) => r.name), branch);
+      const existed = !!split && !!before?.refs.some((r) => r.kind === "local" && r.short === split.local);
+      let local = "";
+      const r = await switchWith(path, async (stash) => {
+        const [res, l] = await api.checkoutRemote(path, branch, stash);
+        local = l;
+        return res;
+      });
+      if (!r) return false;
+      // Locale créée à l'instant : déjà à jour. Conflits ou stash gardé : à régler d'abord.
+      if (!existed || !split || r.conflicts || r.stashKept || currentBranch(path) !== local) return true;
+      const upstream = useGraph.getState().graphs[path]?.refs?.refs.find((x) => x.kind === "local" && x.short === local)?.upstream;
+      // Elle suit cette distante : le Pull habituel ; sinon, tirée depuis celle-ci sans changer son suivi.
+      return upstream === branch ? get().pull(path) : get().pullFrom(path, split.remote, local);
+    },
 
     checkoutDetached: (path, sha) => switchTo(path, (stash) => api.checkoutDetached(path, sha, stash)),
 
@@ -365,6 +390,19 @@ export const useOps = create<OpsStore>((set, get) => {
       if (answer.checked) return get().fetch(path);
       notify(t("remotes.added", { remote: answer.value }));
       return true;
+    },
+
+    async publish(path, remote, url, profile, push) {
+      const out = await exec(path, "remote", () => api.addRemote(path, remote, url));
+      if (!out.ok) return fail(out.error);
+      // La clé SSH et le compte du remote : ceux du profil du compte qui vient de créer le dépôt.
+      const store = useProfiles.getState();
+      if (profile && remoteProfile(store.profiles, store.repoProfiles[path], { name: remote, url }).profile?.id !== profile) {
+        await store.setRemoteProfile(path, remote, profile);
+      }
+      if (!push) return true;
+      // Sans suivi, `push` pousse vers la branche du même nom et la fait suivre (`-u`).
+      return get().push(path, false, remote);
     },
 
     async renameRemote(path, remote) {

@@ -121,6 +121,32 @@
     "cloning": "Clonage…",
     "submit": "Cloner"
   },
+  "publish": {
+    "title": "Publier sur GitHub / GitLab",
+    "button": "Publier",
+    "buttonHint": "Aucun remote : créer le dépôt sur GitHub / GitLab et y pousser la branche courante",
+    "menu": "Publier sur GitHub / GitLab…",
+    "sidebar": "Publier le dépôt…",
+    "noRemote": "Aucun remote",
+    "noAccount": "Aucun compte GitHub / GitLab connecté. Connectez-en un à un profil pour y créer le dépôt.",
+    "owner": "Propriétaire",
+    "loadingOwners": "Chargement…",
+    "name": "Nom du dépôt",
+    "invalidName": "Nom invalide : lettres sans accent, chiffres, « . », « _ » et « - » seulement, sans « . » ni « - » en tête.",
+    "description": "Description",
+    "optional": "Facultative",
+    "visibility": "Visibilité",
+    "private": "Privé",
+    "public": "Public",
+    "push": "Pousser {{branch}} vers {{remote}} et la suivre",
+    "pushNone": "Pousser la branche courante",
+    "nothingToPush": "Aucun commit à pousser",
+    "dest": "Sera créé sur {{provider}} : {{repo}}",
+    "publishing": "Publication…",
+    "submit": "Publier",
+    "done": "Dépôt {{repo}} publié.",
+    "createdButFailed": "Dépôt {{repo}} créé ({{url}}), mais la suite a échoué : {{error}}"
+  },
   "repo": {
     "pull": "Pull",
     "push": "Push",
@@ -238,7 +264,8 @@
     "hidden_one": "{{count}} section masquée · Afficher",
     "hidden_other": "{{count}} sections masquées · Afficher",
     "notFound": "Ce commit n’apparaît pas dans l’historique.",
-    "dblClick": "Double-clic : checkout"
+    "dblClick": "Double-clic : checkout",
+    "dblClickPull": "Double-clic : checkout de {{branch}}, puis pull"
   },
   "staging": {
     "label": "Modifications en cours",
@@ -558,7 +585,11 @@
     "pull_head_missing": "Le dernier commit de la demande est introuvable, même après un fetch.",
     "pull_base_missing": "La branche cible n’est pas récupérée en local : faites un fetch.",
     "notification_invalid": "Notification introuvable chez le provider.",
-    "pull_edit_reviewers_failed": "Titre, description, assignés et étiquettes enregistrés, mais les relecteurs n’ont pas pu être changés (l’auteur ne peut pas relire sa propre demande, ou droits insuffisants)."
+    "pull_edit_reviewers_failed": "Titre, description, assignés et étiquettes enregistrés, mais les relecteurs n’ont pas pu être changés (l’auteur ne peut pas relire sa propre demande, ou droits insuffisants).",
+    "repo_exists": "Un dépôt porte déjà ce nom à cet endroit.",
+    "repo_create_forbidden": "Impossible de créer un dépôt ici : droits insuffisants sur l’organisation / le groupe, ou token sans le droit « repo » (GitHub) / « api » (GitLab).",
+    "invalid_repo_name": "Nom de dépôt invalide.",
+    "invalid_namespace": "Propriétaire invalide."
   },
   "profiles": {
     "title": "Profils",

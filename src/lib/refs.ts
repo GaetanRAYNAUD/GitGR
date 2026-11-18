@@ -136,3 +136,10 @@ export function refTree(items: GitRef[], label: (r: GitRef) => string = sectionL
   ];
   return build(root, "");
 }
+
+/** Remote et branche locale d'une branche distante : `origin/feature/x` → `origin`,
+ *  `feature/x`. Même lecture que `local_name_of` (src-tauri/src/branches.rs). */
+export function splitRemoteBranch(remotes: string[], branch: string): { remote: string; local: string } | null {
+  const remote = remoteOfShort(branch, remotes);
+  return remote && branch.length > remote.length + 1 ? { remote, local: branch.slice(remote.length + 1) } : null;
+}

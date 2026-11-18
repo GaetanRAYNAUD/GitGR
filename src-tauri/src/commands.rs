@@ -538,18 +538,34 @@ pub fn disconnect_account(profile: String, account: String, store: StoreState<'_
     Ok(())
 }
 
+/// Compte connecté à l'un des profils.
+fn find_account(store: &StoreState<'_>, account: &str) -> Result<Account, String> {
+    let s = store.lock().unwrap();
+    s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned().ok_or_else(|| "account_not_found".into())
+}
+
 /// Le token du compte est-il toujours valable ? (`token_missing`, `token_invalid`…)
 #[tauri::command]
 pub async fn check_account(account: String, store: StoreState<'_>) -> Result<Account, String> {
-    let found = store.lock().unwrap().state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned();
-    providers::check(&found.ok_or("account_not_found")?)
+    providers::check(&find_account(&store, &account)?)
 }
 
 /// Dépôts accessibles au compte (fenêtre de clone).
 #[tauri::command]
 pub async fn list_account_repos(account: String, store: StoreState<'_>) -> Result<providers::RepoList, String> {
-    let found = store.lock().unwrap().state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned();
-    providers::list_repos(&found.ok_or("account_not_found")?)
+    providers::list_repos(&find_account(&store, &account)?)
+}
+
+/// Où le compte peut créer un dépôt (fenêtre « Publier »).
+#[tauri::command]
+pub async fn list_account_namespaces(account: String, store: StoreState<'_>) -> Result<Vec<providers::Namespace>, String> {
+    providers::list_namespaces(&find_account(&store, &account)?)
+}
+
+/// Crée un dépôt distant vide sur le compte (fenêtre « Publier ») ; renvoie ses adresses.
+#[tauri::command]
+pub async fn create_account_repo(account: String, repo: providers::NewRepo, store: StoreState<'_>) -> Result<providers::ProviderRepo, String> {
+    providers::create_repo(&find_account(&store, &account)?, &repo)
 }
 
 // --- Clone ----------------------------------------------------------------------
@@ -800,10 +816,7 @@ pub async fn person_avatars(kind: String, url: String, account: Option<String>, 
 
 /// Compte enregistré (dans n'importe quel profil) et son token.
 fn account_token(store: &StoreState<'_>, account: &str) -> Result<(providers::Account, String), String> {
-    let found = {
-        let s = store.lock().unwrap();
-        s.state.profiles.iter().flat_map(|p| &p.accounts).find(|a| a.id == account).cloned().ok_or("account_not_found")?
-    };
+    let found = find_account(store, account)?;
     let token = crate::secrets::token(&found.id).ok_or("token_missing")?;
     Ok((found, token))
 }

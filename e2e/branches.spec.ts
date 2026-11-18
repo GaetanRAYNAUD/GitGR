@@ -76,6 +76,15 @@ test.describe("dépôt propre", () => {
     await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
   });
 
+  test("double-clic sur une distante dont la locale existe : checkout puis pull", async ({ page }) => {
+    // Section « origin » : la distante origin/fix/ssh-agent, en avance d'un commit sur la locale.
+    const origin = sidebar(page).locator(".side-group").filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
+    await origin.getByRole("button", { name: /^ssh-agent/ }).dblclick();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
+    await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
+    await expect(branch(page, "ssh-agent")).toHaveClass(/current/);
+  });
+
   test("le mode du pull se choisit dans le menu du bouton", async ({ page }) => {
     await page.getByRole("button", { name: "Mode du pull" }).click();
     await menu(page).getByRole("menuitemradio", { name: "Rebase" }).click();

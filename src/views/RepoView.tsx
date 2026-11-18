@@ -19,6 +19,7 @@ import { changedCount, useWork } from "../store/worktree";
 import type { PullStrategy } from "../lib/types";
 import { remoteMarkOf } from "../components/RemoteMark";
 import { useProfiles } from "../store/profiles";
+import { usePublishDialog } from "../store/publish";
 import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
@@ -112,11 +113,16 @@ function Tools({ path, changes }: { path: string; changes: number }) {
     ]);
   };
 
-  const pushButton = tool("push", "push", () => ops.push(path), {
-    disabled: detached || !!operation,
-    title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
-    badge: data?.ahead,
-  });
+  // Sans remote, rien où pousser : « Publier » crée le dépôt distant (et y pousse la branche).
+  // Seulement une fois les remotes lus, pour ne pas faire clignoter le bouton à l'ouverture.
+  const noRemote = useGraph((s) => s.graphs[path]?.refs?.remotes.length === 0);
+  const pushButton = noRemote
+    ? tool("push", "cloud", () => usePublishDialog.getState().show(path), { title: t("publish.buttonHint"), label: t("publish.button") })
+    : tool("push", "push", () => ops.push(path), {
+        disabled: detached || !!operation,
+        title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
+        badge: data?.ahead,
+      });
 
   return (
     <div className="tools">
