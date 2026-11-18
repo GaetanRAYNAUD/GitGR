@@ -150,3 +150,23 @@ test("modifier la MR après sa création : titre, description, relecteurs, étiq
   expect(edit.reviewers.map((r) => r.login)).toEqual(["max", "dev-007"]);
   expect(edit.labels).toEqual([]);
 });
+test("section Merge requests décochée : rien n'est lu d'office, relu dès qu'elle est recochée", async ({ page }) => {
+  await seed(page);
+  await expect(pulls(page).locator(".pull-item")).toHaveCount(3);
+  await sidebar(page).getByRole("button", { name: "Sections affichées" }).click();
+  await page.getByRole("dialog", { name: "Sections affichées" }).getByRole("checkbox", { name: "Merge requests" }).uncheck();
+  await page.keyboard.press("Escape");
+
+  // Au redémarrage (préférence gardée), aucune liste lue : pas d'étiquette !12 sur la branche.
+  await page.reload();
+  await expect(page.locator(".commit-row").first()).toBeVisible();
+  await expect(pulls(page)).toHaveCount(0);
+  // Laisse au backend simulé le temps de répondre s'il avait été appelé.
+  await page.waitForTimeout(500);
+  await expect(page.locator(".chip .chip-pull")).toHaveCount(0);
+
+  await sidebar(page).getByRole("button", { name: "Sections affichées" }).click();
+  await page.getByRole("dialog", { name: "Sections affichées" }).getByRole("checkbox", { name: "Merge requests" }).check();
+  await expect(pulls(page).locator(".pull-item")).toHaveCount(3);
+  await expect(page.locator(".chip .chip-pull", { hasText: "!12" })).toBeVisible();
+});
