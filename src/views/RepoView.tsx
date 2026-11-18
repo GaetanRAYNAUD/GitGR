@@ -23,6 +23,7 @@ import { usePublishDialog } from "../store/publish";
 import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
+import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
 
@@ -203,6 +204,11 @@ export function RepoView({ path }: { path: string }) {
     loadWork(path);
   }, [loadGraph, loadWork, path]);
 
+  // Section PR / MR décochée dans la barre latérale : l'utilisateur ne s'en sert pas, rien n'est
+  // lu d'office (ni la liste, ni le préchargement). Ce qui est déjà là reste utilisé (étiquettes
+  // des branches) ; la fenêtre de création et la vue d'une PR / MR lisent ce qu'il leur faut.
+  const pullsShown = useApp((s) => !s.repoUi[path]?.hidden.includes(PULLS_SECTION));
+
   // Personnes et étiquettes des remotes (pour les PR / MR) préchargées dès l'ouverture du dépôt,
   // en arrière-plan : la fenêtre de création n'aura rien à attendre. Relu au plus toutes les
   // six heures (cf. store/pullOptions).
@@ -217,8 +223,9 @@ export function RepoView({ path }: { path: string }) {
       .flatMap((m): OptionsContext[] => (m?.url && m.account ? [{ kind: m.provider, url: m.url, repo: m.repo, account: m.account }] : [])),
   );
   useEffect(() => {
+    if (!pullsShown) return;
     for (const ctx of JSON.parse(prefetchKey) as OptionsContext[]) void ensureOptions(ctx);
-  }, [prefetchKey, ensureOptions]);
+  }, [prefetchKey, ensureOptions, pullsShown]);
 
   // PR / MR ouvertes : lues à l'ouverture, relues quand les refs changent (fetch, fetch
   // automatique) au plus toutes les deux minutes (cf. store/pullList).
@@ -227,8 +234,9 @@ export function RepoView({ path }: { path: string }) {
   const refsVersion = useGraph((s) => s.graphs[path]?.refs);
   const openPull = usePullList((s) => s.open[path]);
   useEffect(() => {
+    if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
-  }, [pullContexts, ensurePulls, refsVersion]);
+  }, [pullContexts, ensurePulls, refsVersion, pullsShown]);
 
   // Copie de travail sale et rien de sélectionné : on montre les modifications en cours.
   // Plus rien à commiter (après un commit, un abandon…) : on passe au commit courant.
