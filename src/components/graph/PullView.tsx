@@ -334,7 +334,8 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
     const local = refs?.refs.find((r) => r.kind === "local" && r.short === refs.headBranch);
     if (!d.fork && local?.upstream === `${ctx.remote}/${d.sourceBranch}`) {
       const back = await confirm(t("prv.backTitle", { target: d.targetBranch }), t("prv.backBody", { source: d.sourceBranch, target: d.targetBranch }), t("prv.backOk"));
-      if (back && (await ops.checkoutRemote(path, `${ctx.remote}/${d.targetBranch}`))) await ops.pull(path);
+      // La locale de la cible, si elle existe déjà, est mise à jour par le checkout lui-même.
+      if (back) await ops.checkoutRemote(path, `${ctx.remote}/${d.targetBranch}`);
     }
   };
 

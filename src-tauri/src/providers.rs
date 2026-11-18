@@ -481,6 +481,132 @@ pub fn list_repos(account: &Account) -> Result<RepoList, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Publier un dépôt local : créer le dépôt distant
+// ---------------------------------------------------------------------------
+
+/// Où créer le dépôt : le compte lui-même, une de ses organisations (GitHub) ou un de ses
+/// groupes (GitLab).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Namespace {
+    /// GitHub : login de l'organisation (vide pour le compte) ; GitLab : identifiant numérique.
+    pub id: String,
+    /// Chemin affiché, et préfixe du dépôt (`moi`, `mon-org`, `groupe/sous-groupe`).
+    pub path: String,
+    /// "user" | "org" | "group"
+    pub kind: String,
+}
+
+/// Nom de dépôt accepté par les deux providers (GitLab : aussi le chemin du projet) : lettres
+/// ASCII, chiffres, `.`, `_`, `-` ; ni `.` ni `-` en tête, ni `.git` / `.atom` à la fin. Même
+/// règle que `validRepoName` (lib/publish.ts).
+pub fn valid_repo_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 100
+        && name.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+        && !name.starts_with(['.', '-'])
+        && !name.ends_with(".git")
+        && !name.ends_with(".atom")
+}
+
+fn list_namespaces_with(kind: Kind, api: &str, token: &str) -> Result<Vec<Namespace>, String> {
+    let text = |v: &serde_json::Value, key: &str| v[key].as_str().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    let mut out = Vec::new();
+    match kind {
+        Kind::GitHub => {
+            let (login, _) = fetch_user(kind, api, token)?;
+            out.push(Namespace { id: String::new(), path: login, kind: "user".into() });
+            let orgs = get(kind, api, &format!("/user/orgs?per_page={PER_PAGE}"), token)?;
+            for o in orgs.as_array().ok_or("provider_unexpected")? {
+                if let Some(login) = text(o, "login") {
+                    out.push(Namespace { id: login.clone(), path: login, kind: "org".into() });
+                }
+            }
+        }
+        Kind::GitLab => {
+            let all = get_limited(kind, api, &format!("/namespaces?per_page={PER_PAGE}"), token, MAX_LIST_BODY)?;
+            for n in all.as_array().ok_or("provider_unexpected")? {
+                let (Some(id), Some(path)) = (n["id"].as_u64(), text(n, "full_path")) else { continue };
+                let kind = if text(n, "kind").as_deref() == Some("user") { "user" } else { "group" };
+                out.push(Namespace { id: id.to_string(), path, kind: kind.into() });
+            }
+            // Le compte d'abord, puis les groupes par chemin.
+            out.sort_by_key(|n| (n.kind != "user", n.path.to_lowercase()));
+        }
+    }
+    Ok(out)
+}
+
+/// Où le compte peut créer un dépôt : lui-même d'abord, puis ses organisations / groupes.
+pub fn list_namespaces(account: &Account) -> Result<Vec<Namespace>, String> {
+    let token = crate::secrets::token(&account.id).ok_or("token_missing")?;
+    let kind = Kind::parse(&account.kind)?;
+    list_namespaces_with(kind, &instance(kind, &account.url)?.api, &token)
+}
+
+/// Le dépôt à créer.
+#[derive(Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NewRepo {
+    /// `Namespace::id` ; vide : le compte lui-même.
+    pub namespace: String,
+    pub name: String,
+    pub description: String,
+    pub private: bool,
+}
+
+fn create_repo_with(kind: Kind, api: &str, token: &str, repo: &NewRepo) -> Result<ProviderRepo, String> {
+    use serde_json::json;
+    check_token(token)?;
+    if !valid_repo_name(&repo.name) {
+        return Err("invalid_repo_name".into());
+    }
+    let description = repo.description.trim();
+    let ns = repo.namespace.trim();
+    let (path, body) = match kind {
+        Kind::GitHub => {
+            // Login d'organisation : lettres, chiffres et `-` (il va dans l'adresse).
+            if !ns.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
+                return Err("invalid_namespace".into());
+            }
+            let path = if ns.is_empty() { "/user/repos".to_string() } else { format!("/orgs/{ns}/repos") };
+            (path, json!({ "name": repo.name, "description": description, "private": repo.private, "auto_init": false }))
+        }
+        Kind::GitLab => {
+            let visibility = if repo.private { "private" } else { "public" };
+            let mut body = json!({ "name": repo.name, "path": repo.name, "description": description, "visibility": visibility });
+            if !ns.is_empty() {
+                body["namespace_id"] = json!(ns.parse::<u64>().map_err(|_| "invalid_namespace")?);
+            }
+            ("/projects".to_string(), body)
+        }
+    };
+    let request = headers(kind, agent().post(format!("{api}{path}")), token).header("Content-Type", "application/json");
+    let mut response = send_api(api, Some(token), || request.send(body.to_string()))?;
+    let status = response.status().as_u16();
+    let text = response.body_mut().with_config().limit(MAX_BODY).read_to_string().unwrap_or_default();
+    let lower = text.to_lowercase();
+    match status {
+        200..=299 => {}
+        401 => return Err("token_invalid".into()),
+        // Pas le droit de créer ici (organisation, groupe), ou token sans le droit `repo` / `api`.
+        403 | 404 => return Err("repo_create_forbidden".into()),
+        400 | 409 | 422 if ["already exists", "already been taken"].iter().any(|w| lower.contains(w)) => return Err("repo_exists".into()),
+        300..=399 => return Err("provider_not_found".into()),
+        _ => return Err("provider_error".into()),
+    }
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|_| "provider_unexpected")?;
+    parse_repo(kind, &v).ok_or_else(|| "provider_unexpected".into())
+}
+
+/// Crée le dépôt distant (vide) sur le compte ; renvoie ses adresses.
+pub fn create_repo(account: &Account, repo: &NewRepo) -> Result<ProviderRepo, String> {
+    let token = crate::secrets::token(&account.id).ok_or("token_missing")?;
+    let kind = Kind::parse(&account.kind)?;
+    create_repo_with(kind, &instance(kind, &account.url)?.api, &token, repo)
+}
+
+// ---------------------------------------------------------------------------
 // Clés du profil sur le compte (SSH d'authentification, SSH de signature, GPG)
 // ---------------------------------------------------------------------------
 
@@ -903,6 +1029,85 @@ pub(crate) mod tests {
         assert_eq!(list_repos_with(Kind::GitHub, &url, "ghp_x").unwrap_err(), "token_invalid");
         let (url, _r) = serve(vec![(200, r#"{"message":"pas une liste"}"#)]);
         assert_eq!(list_repos_with(Kind::GitLab, &url, "glpat-x").unwrap_err(), "provider_unexpected");
+    }
+
+    #[test]
+    fn repo_names() {
+        for ok in ["gitgr", "Mon_Depot-2.0", "a"] {
+            assert!(valid_repo_name(ok), "{ok}");
+        }
+        let long = "a".repeat(101);
+        for bad in ["", "-x", ".x", "a b", "été", "a/b", "x.git", "x.atom", long.as_str()] {
+            assert!(!valid_repo_name(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn github_namespaces_are_the_account_then_its_orgs() {
+        let (url, requests) = serve(vec![(200, r#"{"login":"octo","name":null}"#), (200, r#"[{"login":"mon-org"},{"nope":1}]"#)]);
+        let list = list_namespaces_with(Kind::GitHub, &url, "ghp_x").unwrap();
+        assert_eq!(
+            list,
+            vec![
+                Namespace { id: "".into(), path: "octo".into(), kind: "user".into() },
+                Namespace { id: "mon-org".into(), path: "mon-org".into(), kind: "org".into() },
+            ]
+        );
+        requests.recv().unwrap();
+        assert!(requests.recv().unwrap().starts_with("GET /user/orgs?per_page=100"));
+    }
+
+    #[test]
+    fn gitlab_namespaces_put_the_user_first() {
+        let body = r#"[{"id":7,"full_path":"groupe/sous","kind":"group"},{"id":3,"full_path":"moi","kind":"user"},{"id":5,"full_path":"Autre","kind":"group"},{"full_path":"sans-id"}]"#;
+        let (url, _r) = serve(vec![(200, body)]);
+        let list = list_namespaces_with(Kind::GitLab, &url, "glpat-x").unwrap();
+        let paths: Vec<_> = list.iter().map(|n| (n.id.as_str(), n.path.as_str(), n.kind.as_str())).collect();
+        assert_eq!(paths, vec![("3", "moi", "user"), ("5", "Autre", "group"), ("7", "groupe/sous", "group")]);
+    }
+
+    #[test]
+    fn github_repo_is_created_on_the_account_or_an_org() {
+        let created = r#"{"full_name":"octo/neuf","name":"neuf","private":true,"clone_url":"https://github.com/octo/neuf.git","ssh_url":"git@github.com:octo/neuf.git"}"#;
+        let (url, requests) = serve(vec![(201, created), (201, created)]);
+        let repo = NewRepo { name: "neuf".into(), description: " Un dépôt ".into(), private: true, ..Default::default() };
+        let r = create_repo_with(Kind::GitHub, &url, "ghp_x", &repo).unwrap();
+        assert_eq!((r.full_name.as_str(), r.ssh_url.as_deref()), ("octo/neuf", Some("git@github.com:octo/neuf.git")));
+        let sent = requests.recv().unwrap();
+        assert!(sent.starts_with("POST /user/repos "), "{sent}");
+        assert!(sent.contains(r#""private":true"#) && sent.contains(r#""description":"Un dépôt""#) && sent.contains(r#""auto_init":false"#), "{sent}");
+        create_repo_with(Kind::GitHub, &url, "ghp_x", &NewRepo { namespace: "mon-org".into(), ..repo }).unwrap();
+        assert!(requests.recv().unwrap().starts_with("POST /orgs/mon-org/repos "));
+    }
+
+    #[test]
+    fn gitlab_project_is_created_in_its_group() {
+        let created = r#"{"path_with_namespace":"groupe/neuf","name":"neuf","visibility":"public","http_url_to_repo":"https://gitlab.exemple.fr/groupe/neuf.git","ssh_url_to_repo":"git@gitlab.exemple.fr:groupe/neuf.git"}"#;
+        let (url, requests) = serve(vec![(201, created)]);
+        let repo = NewRepo { namespace: "7".into(), name: "neuf".into(), description: String::new(), private: false };
+        let r = create_repo_with(Kind::GitLab, &url, "glpat-x", &repo).unwrap();
+        assert_eq!((r.full_name.as_str(), r.private), ("groupe/neuf", false));
+        let sent = requests.recv().unwrap();
+        assert!(sent.starts_with("POST /projects "), "{sent}");
+        assert!(sent.contains(r#""namespace_id":7"#) && sent.contains(r#""visibility":"public""#) && sent.contains(r#""path":"neuf""#), "{sent}");
+    }
+
+    #[test]
+    fn repo_creation_refusals() {
+        let repo = NewRepo { name: "neuf".into(), ..Default::default() };
+        let (url, _r) = serve(vec![(422, r#"{"message":"Repository creation failed.","errors":[{"message":"name already exists on this account"}]}"#)]);
+        assert_eq!(create_repo_with(Kind::GitHub, &url, "ghp_x", &repo).unwrap_err(), "repo_exists");
+        let (url, _r) = serve(vec![(400, r#"{"message":{"path":["has already been taken"]}}"#)]);
+        assert_eq!(create_repo_with(Kind::GitLab, &url, "glpat-x", &repo).unwrap_err(), "repo_exists");
+        let (url, _r) = serve(vec![(403, "{}")]);
+        assert_eq!(create_repo_with(Kind::GitHub, &url, "ghp_x", &repo).unwrap_err(), "repo_create_forbidden");
+        // Rien n'est envoyé pour un nom ou un espace de noms invalide.
+        let bad = NewRepo { name: "a b".into(), ..Default::default() };
+        assert_eq!(create_repo_with(Kind::GitHub, "http://127.0.0.1:1", "ghp_x", &bad).unwrap_err(), "invalid_repo_name");
+        let bad = NewRepo { namespace: "../x".into(), ..repo.clone() };
+        assert_eq!(create_repo_with(Kind::GitHub, "http://127.0.0.1:1", "ghp_x", &bad).unwrap_err(), "invalid_namespace");
+        let bad = NewRepo { namespace: "groupe".into(), ..repo };
+        assert_eq!(create_repo_with(Kind::GitLab, "http://127.0.0.1:1", "glpat-x", &bad).unwrap_err(), "invalid_namespace");
     }
 
     #[test]

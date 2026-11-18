@@ -35,14 +35,33 @@ export function useOwnerAvatar(kind: ProviderKind | null, url: string | null, ow
   const k = kind && url && owner ? key(kind, url, owner, account) : null;
   const avatar = useAvatars((s) => (k ? s.avatars[k] : undefined));
   useEffect(() => {
-    if (!k || !kind || !url || !owner || pending.has(k) || k in useAvatars.getState().avatars) return;
-    pending.add(k);
-    api.ownerAvatar(kind, url, owner, account).then(
-      (data) => useAvatars.setState((s) => ({ avatars: { ...s.avatars, [k]: data } })),
-      () => {},
-    );
-  }, [k, kind, url, owner, account]);
+    if (kind && url && owner) requestOwner(kind, url, owner, account);
+  }, [kind, url, owner, account]);
   return avatar ?? null;
+}
+
+/** Demande l'avatar d'un propriétaire s'il n'est ni lu ni en cours. */
+function requestOwner(kind: ProviderKind, url: string, owner: string, account: string | null) {
+  const k = key(kind, url, owner, account);
+  if (pending.has(k) || k in useAvatars.getState().avatars) return;
+  pending.add(k);
+  api.ownerAvatar(kind, url, owner, account).then(
+    (data) => useAvatars.setState((s) => ({ avatars: { ...s.avatars, [k]: data } })),
+    () => {},
+  );
+}
+
+/** Avatars de plusieurs propriétaires d'une même instance (liste d'un menu) : propriétaire →
+ *  data URL, `null` tant qu'il n'est pas là ou s'il n'existe pas. */
+export function useOwnerAvatars(kind: ProviderKind | null, url: string | null, owners: string[], account: string | null): Record<string, string | null> {
+  const avatars = useAvatars((s) => s.avatars);
+  // Dépendance stable : la liste peut être recréée à chaque rendu.
+  const list = JSON.stringify(owners);
+  useEffect(() => {
+    if (!kind || !url) return;
+    for (const owner of JSON.parse(list) as string[]) requestOwner(kind, url, owner, account);
+  }, [kind, url, list, account]);
+  return Object.fromEntries(owners.map((o) => [o, (kind && url && avatars[key(kind, url, o, account)]) || null]));
 }
 
 /** Dépôt dont on affiche les auteurs : provider et dépôt du remote `origin` (s'il est connu),

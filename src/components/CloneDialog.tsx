@@ -10,62 +10,18 @@ import { filterRepos, groupByOwner, joinPath, overallPercent, repoNameFromUrl, r
 import { errorMessage } from "../lib/errors";
 import { relativeTime } from "../lib/format";
 import { parseRemote, profileColor, suggestProfile } from "../lib/profiles";
-import { instanceLabel, PROVIDER_NAMES } from "../lib/providers";
-import type { Account, CloneProgress, Profile, ProviderRepo, RepoList } from "../lib/types";
+import { accountLabel, linkedAccounts, PROVIDER_NAMES } from "../lib/providers";
+import type { Account, CloneProgress, ProviderRepo, RepoList } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
 import { useApp } from "../store/app";
 import { useOwnerAvatar } from "../store/avatars";
 import { useProfiles } from "../store/profiles";
-import { type MenuItem, openMenuBelow } from "./ContextMenu";
 import { Icon } from "./Icon";
-import { ProfileAvatar } from "./ProfileAvatar";
+import { Picker, ProfileMark } from "./Picker";
 
 type Mode = "url" | "account";
 
-/** Un compte connecté et le profil qui le porte (le premier, s'il est lié à plusieurs). */
-interface LinkedAccount {
-  account: Account;
-  profile: Profile;
-}
-
 type RepoState = { status: "loading" } | { status: "error"; error: string } | { status: "ready"; list: RepoList };
-
-function linkedAccounts(profiles: Profile[]): LinkedAccount[] {
-  const out: LinkedAccount[] = [];
-  for (const profile of profiles) {
-    for (const account of profile.accounts ?? []) {
-      if (!out.some((l) => l.account.id === account.id)) out.push({ account, profile });
-    }
-  }
-  return out;
-}
-
-const accountLabel = (a: Account) => `${a.login} · ${instanceLabel(a.url)}`;
-
-/** Avatar du profil (image, sinon initiales sur sa couleur) ; cercle vide pour « aucun ». */
-function ProfileMark({ profile }: { profile: Profile | null }) {
-  if (!profile) return <span className="menu-swatch none" aria-hidden="true" />;
-  return <ProfileAvatar profile={profile} className="picker-avatar" />;
-}
-
-/** Bouton de choix qui ouvre un menu (avatars des profils, ce qu'un <select> ne sait pas montrer). */
-function Picker({ label, disabled, items, children }: { label: string; disabled?: boolean; items: () => MenuItem[]; children: React.ReactNode }) {
-  const ref = useRef<HTMLButtonElement>(null);
-  return (
-    <button
-      ref={ref}
-      type="button"
-      className="pf-input picker"
-      aria-label={label}
-      aria-haspopup="menu"
-      disabled={disabled}
-      onClick={() => ref.current && openMenuBelow(ref.current, items())}
-    >
-      <span className="picker-value">{children}</span>
-      <Icon name="chevron" size={14} />
-    </button>
-  );
-}
 
 /** Avatar du propriétaire (compte, organisation, groupe) en tête de sa section. */
 function OwnerAvatar({ account, owner }: { account: Account | null; owner: string }) {

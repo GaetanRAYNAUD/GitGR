@@ -115,3 +115,23 @@ export function remoteInstance(profiles: Profile[], remote: Remote | null, accou
 export function withAccount(accounts: Account[] | undefined, account: Account): Account[] {
   return [...(accounts ?? []).filter((a) => !(a.kind === account.kind && a.url === account.url)), account];
 }
+
+/** Un compte connecté et le profil qui le porte (le premier, s'il est lié à plusieurs). */
+export interface LinkedAccount {
+  account: Account;
+  profile: Profile;
+}
+
+/** Comptes connectés aux profils, chacun une fois. */
+export function linkedAccounts(profiles: Profile[]): LinkedAccount[] {
+  const out: LinkedAccount[] = [];
+  for (const profile of profiles) {
+    for (const account of profile.accounts ?? []) {
+      if (!out.some((l) => l.account.id === account.id)) out.push({ account, profile });
+    }
+  }
+  return out;
+}
+
+/** `octo · github.com` */
+export const accountLabel = (a: Account) => `${a.login} · ${instanceLabel(a.url)}`;

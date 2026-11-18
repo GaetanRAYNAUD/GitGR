@@ -11,6 +11,7 @@ import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
 import { useApp } from "./store/app";
 import { useOps } from "./store/ops";
+import { PublishDialogHost } from "./components/PublishDialog";
 import { PullDialogHost } from "./components/PullDialog";
 import { useProfiles } from "./store/profiles";
 import { ProfilesPage } from "./views/ProfilesPage";
@@ -229,6 +230,7 @@ export default function App() {
       )}
 
       <PullDialogHost />
+      <PublishDialogHost />
       <DialogHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}

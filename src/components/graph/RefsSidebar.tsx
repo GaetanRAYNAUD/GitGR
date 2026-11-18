@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { parseRemote, profileColor, remoteProfile } from "../../lib/profiles";
 import { PROVIDER_NAMES, remoteAccount, remoteInstance, remoteOwner, remoteProvider } from "../../lib/providers";
-import { refSections, refTree, type RefNode, type RefSection } from "../../lib/refs";
+import { refSections, refTree, splitRemoteBranch, type RefNode, type RefSection } from "../../lib/refs";
 import type { GitRef, RemoteInfo, RepoUi } from "../../lib/types";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import { useDismiss } from "../../lib/useDismiss";
@@ -13,6 +13,7 @@ import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
+import { usePublishDialog } from "../../store/publish";
 import { openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
 import { ProfileAvatar } from "../ProfileAvatar";
@@ -68,11 +69,18 @@ export function RefsSidebar({ path }: { path: string }) {
     if (!(await reveal(path, r.target))) setMissing(r.name);
   };
 
+  const remoteNames = useMemo(() => (refs?.remotes ?? []).map((x) => x.name), [refs]);
+  const localNames = useMemo(() => new Set((refs?.refs ?? []).filter((x) => x.kind === "local").map((x) => x.short)), [refs]);
+
   const refButton = (r: GitRef, label: string, depth: number) => {
     const current = r.kind === "local" && r.short === refs?.headBranch;
     const meta = [r.ahead ? `↑${r.ahead}` : "", r.behind ? `↓${r.behind}` : ""].filter(Boolean).join(" ");
     const cls = ["side-item", current && "current", selected === r.target && "sel"].filter(Boolean).join(" ");
     const pr = pullOfRef(pullLists, contexts, refs, r);
+    // Distante dont la locale existe déjà : le double-clic la met aussi à jour.
+    const split = r.kind === "remote" ? splitRemoteBranch(remoteNames, r.short) : null;
+    const pulls = !!split && localNames.has(split.local);
+    const hint = pulls ? t("sidebar.dblClickPull", { branch: split.local }) : t("sidebar.dblClick");
     return (
       <li key={r.name}>
         <button
@@ -81,7 +89,7 @@ export function RefsSidebar({ path }: { path: string }) {
           onClick={() => go(r)}
           onDoubleClick={() => checkoutRef(path, r, refs)}
           onContextMenu={(e) => openContextMenu(e, refMenu(t, path, r, refs))}
-          title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${t("sidebar.dblClick")}`}
+          title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${hint}`}
         >
           <span className="side-label">{label}</span>
           {pr && (
@@ -238,6 +246,15 @@ export function RefsSidebar({ path }: { path: string }) {
       </div>
 
       {shown.filter((s) => s.kind !== "tags").map(renderSection)}
+      {refs?.remotes.length === 0 && !q && (
+        <div className="side-group side-publish">
+          <p className="side-empty">{t("publish.noRemote")}</p>
+          <button className="btn side-publish-btn" title={t("publish.buttonHint")} onClick={() => usePublishDialog.getState().show(path)}>
+            <Icon name="cloud" size={15} />
+            {t("publish.sidebar")}
+          </button>
+        </div>
+      )}
       {showPulls && <PullsSection path={path} contexts={contexts} query={q} ui={ui} />}
       {shown.filter((s) => s.kind === "tags").map(renderSection)}
 

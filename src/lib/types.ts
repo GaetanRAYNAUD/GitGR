@@ -369,6 +369,24 @@ export interface ProviderRepo {
   updatedAt: string | null;
 }
 
+/** Où créer un dépôt sur un compte (src-tauri/src/providers.rs). */
+export interface Namespace {
+  /** GitHub : login de l'organisation (vide pour le compte) ; GitLab : identifiant numérique. */
+  id: string;
+  /** `moi`, `mon-org`, `groupe/sous-groupe` */
+  path: string;
+  kind: "user" | "org" | "group";
+}
+
+/** Le dépôt à créer (fenêtre « Publier »). */
+export interface NewRepo {
+  /** `Namespace.id` ; vide : le compte lui-même. */
+  namespace: string;
+  name: string;
+  description: string;
+  private: boolean;
+}
+
 export interface RepoList {
   repos: ProviderRepo[];
   /** Le compte a plus de dépôts que ceux lus. */

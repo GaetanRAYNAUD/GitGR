@@ -336,3 +336,85 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     gitlab.server.close();
   }
 });
+
+/** Faux GitLab qui crée des projets : `GET /api/v4/namespaces`, `POST /api/v4/projects`. Le
+ *  projet créé a pour adresse `bare` (un dépôt nu local, qui reçoit le push). */
+async function fakeGitlabCreatingProjects(bare: string) {
+  const created: Record<string, unknown>[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      const json = (status: number, value: unknown) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(value));
+      };
+      if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(401, { message: "401 Unauthorized" });
+      if (req.url === "/api/v4/user") return json(200, { id: 7, username: "camille", name: "Camille Boulot" });
+      if (req.url?.startsWith("/api/v4/namespaces?")) {
+        return json(200, [
+          { id: 12, full_path: "equipe", kind: "group" },
+          { id: 3, full_path: "camille", kind: "user" },
+        ]);
+      }
+      if (req.url === "/api/v4/projects" && req.method === "POST") {
+        const p = JSON.parse(body);
+        created.push(p);
+        return json(201, { path_with_namespace: `equipe/${p.path}`, name: p.name, visibility: p.visibility, http_url_to_repo: bare, ssh_url_to_repo: null });
+      }
+      json(404, { message: "404 Not Found" });
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, created };
+}
+
+test("publier un dépôt sans remote dans un groupe GitLab : projet créé, branche poussée et suivie", async ({ sandbox }) => {
+  // Dépôt local sans remote, et le dépôt nu qui tiendra lieu de projet GitLab.
+  const mine = join(sandbox.root, "local-seul");
+  git(sandbox.root, "init", "-q", "-b", "main", mine);
+  git(mine, "config", "user.name", "Test");
+  git(mine, "config", "user.email", "test@exemple.fr");
+  sandbox.commit(mine, "a.txt", "a\n", "premier commit");
+  const bare = join(sandbox.root, "publie.git").replace(/\\/g, "/");
+  git(sandbox.root, "init", "-q", "--bare", "-b", "main", bare);
+  const gitlab = await fakeGitlabCreatingProjects(bare);
+
+  const app = await launchApp(sandbox, [mine], {
+    profiles: [boulot],
+    repoProfiles: { [sandbox.top(mine)]: { active: "boulot", allowed: ["boulot"] } },
+  });
+  const { page } = app;
+  try {
+    await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await page.getByRole("region", { name: "Comptes GitHub / GitLab" }).getByRole("button", { name: "Connecter un compte…" }).click();
+    const connect = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
+    await connect.getByRole("radio", { name: "GitLab" }).click();
+    await connect.getByLabel("Instance").fill(gitlab.url);
+    await connect.getByLabel("Token personnel").fill(TOKEN);
+    await connect.getByRole("button", { name: "Connecter", exact: true }).click();
+    await expect(connect).toBeHidden();
+    await page.getByRole("button", { name: "Fermer les profils" }).click();
+
+    await page.locator(".tools").getByRole("button", { name: /^Publier/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Publier sur GitHub / GitLab" });
+    // Le compte d'abord, puis ses groupes.
+    await dialog.getByRole("button", { name: "Propriétaire" }).click();
+    await expect(page.getByRole("menu").getByRole("menuitemradio")).toHaveText(["camille", "equipe"]);
+    await page.getByRole("menu").getByRole("menuitemradio", { name: "equipe" }).click();
+    await expect(dialog.getByLabel("Nom du dépôt")).toHaveValue("local-seul");
+    await dialog.getByLabel("Description").fill("Publié depuis GitGR");
+    await dialog.getByRole("button", { name: "Publier" }).click();
+
+    await expect(page.locator(".toast", { hasText: "Dépôt equipe/local-seul publié." })).toBeVisible();
+    expect(gitlab.created).toEqual([{ name: "local-seul", path: "local-seul", description: "Publié depuis GitGR", visibility: "private", namespace_id: 12 }]);
+    expect(git(mine, "remote", "get-url", "origin")).toBe(bare);
+    // Poussée, et suivie : ahead / behind tout de suite (pas de `branch -u` à faire à la main).
+    expect(git(mine, "rev-parse", "--abbrev-ref", "main@{u}")).toBe("origin/main");
+    expect(git(bare, "log", "-1", "--format=%s", "main")).toBe("premier commit");
+    await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
+  } finally {
+    await app.close();
+    gitlab.server.close();
+  }
+});

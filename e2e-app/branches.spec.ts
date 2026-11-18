@@ -109,3 +109,32 @@ test("push d'une nouvelle branche : créée sur origin et suivie", async ({ sand
     await app.close();
   }
 });
+
+test("double-clic sur une distante dont la locale existe : checkout puis pull", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const other = sandbox.clone("other");
+  // `feature` existe en local, suivie, et la distante a un commit de plus.
+  git(other, "switch", "-q", "-c", "feature");
+  git(other, "push", "-q", "-u", "origin", "feature");
+  git(mine, "fetch", "-q");
+  git(mine, "branch", "-q", "--track", "feature", "origin/feature");
+  sandbox.commit(other, "f.txt", "f\n", "distant: feature");
+  git(other, "push", "-q");
+  git(mine, "fetch", "-q");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const origin = page
+      .getByRole("navigation", { name: "Branches et tags" })
+      .locator(".side-group")
+      .filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
+    await origin.getByRole("button", { name: /^feature/ }).dblclick();
+    await expect(page.locator(".branch-chip-label")).toHaveText("feature");
+    await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
+    expect(git(mine, "log", "-1", "--format=%s")).toBe("distant: feature");
+    expect(git(mine, "rev-parse", "--abbrev-ref", "@{u}")).toBe("origin/feature");
+  } finally {
+    await app.close();
+  }
+});

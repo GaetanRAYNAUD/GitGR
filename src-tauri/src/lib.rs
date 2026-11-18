@@ -159,6 +159,8 @@ pub fn run() {
             commands::disconnect_account,
             commands::check_account,
             commands::list_account_repos,
+            commands::list_account_namespaces,
+            commands::create_account_repo,
             commands::clone_repo,
             commands::cancel_clone,
             commands::account_keys,
