@@ -187,6 +187,12 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
 - [x] **Diff d'un fichier : afficher le nombre de lignes ajoutées, modifiées, supprimées** de ce fichier en tête du diff (+12 −3 : git ne distingue pas les lignes modifiées, qui comptent comme une suppression et un ajout).
 - [x] **Double-clic sur une branche distante dont la locale est la branche courante et en retard** : la locale est mise à jour (pull) — fait avec l'entrée du même sujet de l'étape 4 ci-dessous.
 - [ ] **Colonne Branche / tag trop étroite pour la branche courante + son tag** : quand une ligne porte HEAD, une branche (locale + distante fusionnées) et un tag (ex. `main` + `v0.1.2` sur le commit courant), les étiquettes ne tiennent pas et l'affichage se dérègle : la coche de HEAD se détache dans sa propre pastille, le tag est coupé contre la colonne du graphe. À faire : une règle de débordement claire — la branche courante d'abord, tronquée en dernier ; les autres étiquettes raccourcies (nom tronqué avec « … ») puis regroupées en « +N » avec la liste complète en infobulle ; coche de HEAD toujours collée à sa branche ; rien qui déborde sur la colonne suivante.
+- [ ] **Création de PR / MR : le champ Assignés ne prend pas toute la largeur**, contrairement à Relecteurs : même largeur pour les deux (et pour Étiquettes).
+- [ ] **Création de PR / MR : la liste des étiquettes dépasse en bas de la fenêtre**, cachée derrière son défilement : on ne la voit pas. L'ouvrir vers le haut quand la place manque en dessous (ou la limiter à la zone visible), comme un menu.
+- [ ] **Checks d'une PR / MR : groupe des jobs annulés replié par défaut**, comme celui des réussis.
+- [ ] **Mise en forme des descriptions et commentaires de PR / MR** : aujourd'hui texte brut, d'où des `<!-- … -->` (commentaires HTML des modèles de PR, à masquer) et des `` `code` `` / blocs ```` ``` ```` affichés tels quels. Rendre le Markdown (titres, listes, liens, code en ligne et en bloc, citations, cases à cocher), sans HTML brut interprété (assaini). Rejoint « rendu Markdown » des limites de l'étape 6.
+- [ ] **Afficher le numéro de version de GitGR** quelque part : bas de la page Réglages (avec un lien vers les notes de version), et dans le titre de la fenêtre « À propos » s'il y en a une.
+- [ ] **Installateur Windows : option pour ne pas créer le raccourci sur le bureau** (case décochable à l'installation ; vérifier ce que permettent les installateurs NSIS / MSI de Tauri, `bundle.windows`).
 
 ### Étape 4 — branches et réseau (compléments)
 
