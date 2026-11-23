@@ -119,6 +119,7 @@ impl Default for Settings {
             notifications_off: false,
             system_notifications_off: false,
             notification_speed: "standard".into(),
+            auto_update_off: false,
         }
     }
 }

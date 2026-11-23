@@ -31,7 +31,7 @@ function UpdatesFooter() {
   else if (status === "upToDate") line = <span>{t("updates.upToDate")}</span>;
   else if (status === "downloading" && update)
     line = <span>{t("updates.downloadingBackground", { version: update.version, percent: percent ?? 0 })}</span>;
-  else if (status === "ready" && update)
+  else if (status === "ready" && update && !autoOff)
     line = (
       <>
         <span>{t("updates.ready", { version: update.version })}</span>
@@ -44,7 +44,7 @@ function UpdatesFooter() {
       </>
     );
   else if (status === "installing") line = <span>{percent === null ? t("updates.installing") : t("updates.downloading", { percent })}</span>;
-  else if (update && (status === "available" || status === "error"))
+  else if (update && (status === "available" || status === "ready" || status === "error"))
     line = (
       <>
         <span>{mode === "auto" ? t("updates.available", { version: update.version }) : t("updates.availableManual", { version: update.version })}</span>

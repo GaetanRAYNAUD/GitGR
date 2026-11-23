@@ -277,6 +277,7 @@ export interface Api {
     toggleMaximize(): Promise<void>;
     startDragging(): Promise<void>;
     close(): Promise<void>;
+    hide(): Promise<void>;
     /** `cb` est attendu avant la fermeture de la fenêtre (croix de l'app, Alt+F4…). */
     onCloseRequested(cb: () => Promise<void>): Promise<() => void>;
   };
@@ -462,6 +463,7 @@ const tauriApi: Api = {
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
     startDragging: async () => (await currentWindow()).startDragging(),
     close: async () => (await currentWindow()).close(),
+    hide: async () => (await currentWindow()).hide(),
     onCloseRequested: async (cb) => (await currentWindow()).onCloseRequested(() => cb()),
   },
 };
@@ -1172,6 +1174,7 @@ const mockApi: Api = {
     toggleMaximize: async () => {},
     startDragging: async () => {},
     close: async () => {},
+    hide: async () => {},
     onCloseRequested: async (cb) => {
       mockWindow().__mockCloseRequested = cb;
       return () => {

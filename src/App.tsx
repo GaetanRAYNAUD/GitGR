@@ -200,7 +200,9 @@ export default function App() {
     void useUpdates.getState().check(true);
     let unlisten: (() => void) | null = null;
     let gone = false;
-    void api.window.onCloseRequested(() => useUpdates.getState().installOnClose()).then((u) => (gone ? u() : (unlisten = u)));
+    // Jamais d'erreur renvoyée : Tauri attend ce gestionnaire avant de fermer la fenêtre.
+    const onClose = () => useUpdates.getState().installOnClose().catch(() => {});
+    void api.window.onCloseRequested(onClose).then((u) => (gone ? u() : (unlisten = u)));
     return () => {
       gone = true;
       unlisten?.();

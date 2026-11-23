@@ -148,6 +148,9 @@ export const useUpdates = create<UpdatesState>((set, get) => ({
     if (get().status !== "ready" || !autoInstall()) return;
     set({ status: "installing" });
     try {
+      // La fenêtre disparaît tout de suite : l'installation (remplacer l'AppImage…) peut
+      // prendre quelques secondes.
+      await api.window.hide().catch(() => {});
       // Sans relance : l'utilisateur ferme GitGR. Sous Windows l'installateur (silencieux)
       // termine l'app ; ailleurs la fenêtre se ferme ensuite normalement.
       await api.installUpdate(() => {}, false);
