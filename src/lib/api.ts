@@ -21,6 +21,9 @@ import {
   mockRenameBranch,
   mockAutostash,
   mockStashCount,
+  mockListStashes,
+  mockStashApply,
+  mockStashDrop,
   mockStashPop,
   mockStashPush,
 } from "./mockBranches";
@@ -87,6 +90,7 @@ import type {
   Settings,
   SshKeyInfo,
   WorkStatus,
+  StashEntry,
 } from "./types";
 
 export interface Api {
@@ -158,6 +162,10 @@ export interface Api {
   /** Supprime le remote, ses branches distantes et le suivi des branches locales. */
   removeRemote(path: string, name: string): Promise<void>;
   stashPop(path: string): Promise<OpResult>;
+  listStashes(path: string): Promise<StashEntry[]>;
+  /** Réapplique un stash ; `drop` : le retire aussi de la pile (sauf conflit). */
+  stashApply(path: string, sha: string, drop: boolean): Promise<OpResult>;
+  stashDrop(path: string, sha: string): Promise<void>;
   abortOperation(path: string): Promise<void>;
   continueOperation(path: string): Promise<OpResult>;
   /** Surveille ce dépôt sur disque (un seul à la fois ; `null` : aucun). */
@@ -362,6 +370,9 @@ const tauriApi: Api = {
   setRemoteUrl: (path, name, url) => invoke("set_remote_url", { path, name, url }),
   removeRemote: (path, name) => invoke("remove_remote", { path, name }),
   stashPop: (path) => invoke("stash_pop", { path }),
+  listStashes: (path) => invoke("list_stashes", { path }),
+  stashApply: (path, sha, drop) => invoke("stash_apply", { path, sha, drop }),
+  stashDrop: (path, sha) => invoke("stash_drop", { path, sha }),
   abortOperation: (path) => invoke("abort_operation", { path }),
   continueOperation: (path) => invoke("continue_operation", { path }),
   watchRepo: (path) => invoke("watch_repo", { path }),
@@ -782,6 +793,9 @@ const mockApi: Api = {
   setRemoteUrl: async (path, name, url) => mockSetRemoteUrl(path, name, url),
   removeRemote: async (path, name) => mockRemoveRemote(path, name),
   stashPop: async (path) => mockStashPop(path),
+  listStashes: async (path) => mockListStashes(path),
+  stashApply: async (path, sha, drop) => mockStashApply(path, sha, drop),
+  stashDrop: async (path, sha) => mockStashDrop(path, sha),
   async abortOperation() {
     throw "no_operation";
   },

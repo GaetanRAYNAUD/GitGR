@@ -296,6 +296,17 @@
     "split": "Side by side",
     "stats": "{{added}} lines added, {{removed}} removed"
   },
+  "stashes": {
+    "section": "Stashes",
+    "apply": "Apply (keep it)",
+    "pop": "Apply and remove (pop)",
+    "drop": "Delete",
+    "dropMenu": "Delete…",
+    "dropTitle": "Delete this stash?",
+    "dropBody": "“{{name}}” will be removed from the stack, with its changes.",
+    "copy": "Copy message",
+    "hint": "Click: the commit it starts from. Right-click: apply, pop, delete."
+  },
   "sidebar": {
     "label": "Branches and tags",
     "filter": "Filter",
@@ -580,6 +591,7 @@
     "network_unreachable": "Server unreachable: check the network connection and the remote address.",
     "remote_not_found": "Remote repository not found (remote address or access rights).",
     "no_stash": "No stash to reapply.",
+    "stash_missing": "This stash is no longer in the stack.",
     "stash_would_overwrite": "The stash would overwrite current changes: commit or stash them first.",
     "key_not_found": "Key file not found.",
     "key_exists": "A file with this name already exists: pick another one (an existing key is never overwritten).",

@@ -4,7 +4,7 @@
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, GitRef, OpResult, PullStrategy, RemoteInfo } from "./types";
+import type { AutoStash, GitRef, OpResult, PullStrategy, RemoteInfo, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -12,6 +12,8 @@ const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 interface MockStash {
   sha: string;
   message: string;
+  base: string;
+  time: number;
   files: ReturnType<typeof mockSnapshot>;
 }
 const stashes = new Map<string, MockStash[]>();
@@ -30,7 +32,8 @@ export function mockAutostash(path: string): AutoStash | null {
 export function mockStashPush(path: string, message: string) {
   const list = stashes.get(path) ?? [];
   stashSeq += 1;
-  list.unshift({ sha: stashSeq.toString(16).padStart(40, "0"), message, files: mockSnapshot(path) });
+  const h = mockHistory(path).refs;
+  list.unshift({ sha: stashSeq.toString(16).padStart(40, "0"), message, base: h.head ?? "", time: Math.floor(Date.now() / 1000), files: mockSnapshot(path) });
   stashes.set(path, list);
   mockRestore(path, []);
 }
@@ -41,6 +44,36 @@ export function mockStashPop(path: string): OpResult {
   if (mockChangeCount(path) > 0) throw "stash_would_overwrite";
   mockRestore(path, list.shift()!.files);
   return OK;
+}
+
+export function mockListStashes(path: string): StashEntry[] {
+  const branch = mockHistory(path).refs.headBranch ?? "HEAD";
+  return (stashes.get(path) ?? []).map(({ sha, message, base, time }) => ({ sha, base, time, message: `On ${branch}: ${message}` }));
+}
+
+export function mockStashApply(path: string, sha: string, drop: boolean): OpResult {
+  const list = stashes.get(path) ?? [];
+  const i = list.findIndex((s) => s.sha === sha);
+  if (i < 0) throw "stash_missing";
+  if (mockChangeCount(path) > 0) throw "stash_would_overwrite";
+  mockRestore(path, list[i].files);
+  if (drop) list.splice(i, 1);
+  touchRefs(path);
+  return OK;
+}
+
+export function mockStashDrop(path: string, sha: string) {
+  const list = stashes.get(path) ?? [];
+  const i = list.findIndex((s) => s.sha === sha);
+  if (i < 0) throw "stash_missing";
+  list.splice(i, 1);
+  touchRefs(path);
+}
+
+/** Nouvel objet refs (nombre de stashes à jour) : l'empreinte change, la barre latérale relit. */
+function touchRefs(path: string) {
+  const h = mockHistory(path);
+  h.refs = { ...h.refs, stashes: mockStashCount(path), autostash: mockAutostash(path) };
 }
 
 /** Remplace les refs (nouvel objet : l'empreinte change, le graphe se recharge). */

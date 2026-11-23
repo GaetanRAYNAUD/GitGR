@@ -247,6 +247,16 @@ export interface RemoteInfo {
   pushUrl: string | null;
 }
 
+/** Une entrée de la pile de stash (la plus récente d'abord). */
+export interface StashEntry {
+  sha: string;
+  /** Commit sur lequel le stash a été fait. */
+  base: string;
+  /** `On main: message` ou `WIP on main: abc1234 sujet`. */
+  message: string;
+  time: number;
+}
+
 export interface AutoStash {
   sha: string;
   /** `GitGR-autostash: main` */

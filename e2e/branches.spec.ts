@@ -130,6 +130,27 @@ test.describe("dépôt avec des modifications", () => {
     await expect(tool(page, "Pop")).toBeDisabled();
   });
 
+  test("section Stashes : toute la pile, appliquer sans retirer, supprimer après confirmation", async ({ page }) => {
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await tool(page, "Stash").click();
+    await expect(stashes.getByRole("button")).toHaveCount(1);
+    await expect(stashes).toContainText("main");
+
+    const menu = page.getByRole("menu");
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Appliquer (le garder)" }).click();
+    await expect(panel).toContainText("render.ts");
+    await expect(stashes.getByRole("button")).toHaveCount(1);
+
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Supprimer…" }).click();
+    await page.getByRole("alertdialog", { name: "Supprimer ce stash ?" }).getByRole("button", { name: "Supprimer" }).click();
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await expect(tool(page, "Pop")).toBeDisabled();
+  });
+
   test("« pousser après le commit » est mémorisé et pousse", async ({ page }) => {
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
     await panel.getByLabel("Pousser après le commit").check();

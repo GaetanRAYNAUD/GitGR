@@ -385,6 +385,22 @@ pub async fn stash_pop(path: String) -> Result<OpResult, String> {
 }
 
 #[tauri::command]
+pub async fn list_stashes(path: String) -> Result<Vec<branches::StashEntry>, String> {
+    branches::list_stashes(Path::new(&path))
+}
+
+/// Réapplique un stash (`drop` : et le retire de la pile).
+#[tauri::command]
+pub async fn stash_apply(path: String, sha: String, drop: bool) -> Result<OpResult, String> {
+    branches::stash_apply(Path::new(&path), &sha, drop)
+}
+
+#[tauri::command]
+pub async fn stash_drop(path: String, sha: String) -> Result<(), String> {
+    branches::stash_drop(Path::new(&path), &sha).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
 pub async fn abort_operation(path: String) -> Result<(), String> {
     branches::abort_operation(Path::new(&path)).map_err(|e| branches::classify(&e))
 }
