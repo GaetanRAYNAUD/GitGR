@@ -676,6 +676,23 @@ pub fn reset_to(path: &Path, sha: &str, mode: &str) -> Result<(), String> {
 /// sur un conflit, le cherry-pick reste en cours (Continuer / Annuler). Les merges sont
 /// refusés (il faudrait choisir le parent de référence).
 pub fn cherry_pick(path: &Path, shas: &[String], auto_stash: bool) -> Result<OpResult, String> {
+    apply_commits(path, "cherry-pick", shas, auto_stash)
+}
+
+/// Annule les commits donnés (du plus récent au plus ancien) par de nouveaux commits, avec
+/// l'auto-stash ; mêmes règles que `cherry_pick` (déjà annulé : sauté ; conflit : en cours ;
+/// merges refusés).
+pub fn revert(path: &Path, shas: &[String], auto_stash: bool) -> Result<OpResult, String> {
+    apply_commits(path, "revert", shas, auto_stash)
+}
+
+/// Suite de cherry-pick / revert gardée par git (`.git/sequencer`).
+fn sequencer(path: &Path) -> bool {
+    git_dir(path).map(|d| d.join("sequencer").is_dir()).unwrap_or(false)
+}
+
+/// `verb` : « cherry-pick » ou « revert » (même séquenceur de git, mêmes arrêts).
+fn apply_commits(path: &Path, verb: &'static str, shas: &[String], auto_stash: bool) -> Result<OpResult, String> {
     check_dir(path)?;
     if shas.is_empty() {
         return Err("no_commits".into());
@@ -689,33 +706,37 @@ pub fn cherry_pick(path: &Path, shas: &[String], auto_stash: bool) -> Result<OpR
     for s in shas {
         let line = run(Some(path), &["rev-list", "--parents", "-n", "1", s.as_str()])?;
         if line.split_whitespace().count() > 2 {
-            return Err("cherry_pick_merge".into());
+            return Err(if verb == "revert" { "revert_merge" } else { "cherry_pick_merge" }.into());
         }
     }
     let label = current_branch(path).unwrap_or_else(|| "HEAD".into());
     let editor = [("GIT_EDITOR", "true")];
     with_autostash(path, auto_stash, &label, || {
-        let mut args = vec!["cherry-pick"];
+        let mut args = vec![verb, "--no-edit"];
         args.extend(shas.iter().map(String::as_str));
         let mut res = run_env(Some(path), &args, &editor);
         // Au plus un « skip » par commit : jamais de boucle sans fin.
         for _ in 0..=shas.len() {
             match res {
                 Ok(_) => return Ok(OpResult::default()),
-                Err(_) if operation(path) == Some("cherry-pick") && has_conflicts(path) => {
+                Err(_) if operation(path) == Some(verb) && has_conflicts(path) => {
                     return Ok(OpResult { conflicts: true, ..Default::default() });
                 }
-                // Le commit est déjà sur la branche (vide une fois appliqué) : sauté. Tout autre
+                // Le commit est déjà sur la branche (ou déjà annulé) : vide, sauté. Tout autre
                 // arrêt (signature, hook…) reste en cours, à finir ou annuler par l'utilisateur.
-                Err(e) if operation(path) == Some("cherry-pick") && e.contains("is now empty") => {
-                    res = run_env(Some(path), &["cherry-pick", "--skip"], &editor)
+                Err(e) if operation(path) == Some(verb) && (e.contains("is now empty") || e.contains("nothing to commit")) => {
+                    res = run_env(Some(path), &[verb, "--skip"], &editor)
+                }
+                // Un seul commit, déjà là : git s'arrête sans rien laisser en cours.
+                Err(e) if operation(path).is_none() && !sequencer(path) && (e.contains("is now empty") || e.contains("nothing to commit")) => {
+                    return Ok(OpResult::default());
                 }
                 Err(e) => {
                     // Refusé avant d'avoir commencé un commit (modifications locales) : git garde
                     // la suite dans `.git/sequencer`, qui bloquerait un nouvel essai. Les commits
-                    // déjà appliqués restent ; ils seront sautés (vides) au nouvel essai.
-                    if operation(path).is_none() && git_dir(path).map(|d| d.join("sequencer").is_dir()).unwrap_or(false) {
-                        let _ = run(Some(path), &["cherry-pick", "--quit"]);
+                    // déjà faits restent ; ils seront sautés (vides) au nouvel essai.
+                    if operation(path).is_none() && sequencer(path) {
+                        let _ = run(Some(path), &[verb, "--quit"]);
                     }
                     return Err(classify(&e));
                 }
@@ -1289,6 +1310,29 @@ mod tests {
         assert!(main.iter().any(|e| e.sha == lost));
         assert_eq!(crate::history::reflog(p, "absente").unwrap_err(), "branch_not_found");
         assert_eq!(crate::history::reflog(p, "--all").unwrap_err(), "invalid_branch_name");
+    }
+
+    #[test]
+    fn revert_several_commits() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        commit_file(p, "b.txt", "b
+");
+        let b = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "c.txt", "c
+");
+        let c = git(p, &["rev-parse", "HEAD"]);
+        // Du plus récent au plus ancien : deux commits d'annulation.
+        assert_eq!(revert(p, &[c.clone(), b.clone()], true).unwrap(), OpResult::default());
+        assert!(!p.join("b.txt").exists() && !p.join("c.txt").exists());
+        assert!(git(p, &["log", "--format=%s", "-n", "1"]).starts_with("Revert"));
+        // Déjà annulé : sauté sans erreur ni commit vide.
+        let before = git(p, &["rev-parse", "HEAD"]);
+        assert_eq!(revert(p, &[c], true).unwrap(), OpResult::default());
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), before);
+        assert_eq!(operation(p), None);
     }
 
     #[test]
