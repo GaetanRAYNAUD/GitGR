@@ -266,6 +266,12 @@ pub async fn stash_all(path: String, message: String) -> Result<(), String> {
     worktree::stash_all(Path::new(&path), &message).map_err(classify)
 }
 
+/// Stash partiel : seulement les fichiers donnés.
+#[tauri::command]
+pub async fn stash_files(path: String, message: String, files: Vec<String>) -> Result<(), String> {
+    worktree::stash_files(Path::new(&path), &message, &files).map_err(classify)
+}
+
 /// Indexe (`unstage = false`) ou retire de l'index les lignes choisies d'un fichier.
 #[tauri::command]
 pub async fn stage_lines(

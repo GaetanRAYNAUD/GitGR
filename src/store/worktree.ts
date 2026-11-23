@@ -51,6 +51,7 @@ interface WorkStore {
   /** Ne plus suivre un fichier (`rm --cached`) et l'ignorer. */
   untrack(path: string, file: string, pattern: string): Promise<void>;
   stashAll(path: string, message: string): Promise<void>;
+  stashFiles(path: string, message: string, files: string[]): Promise<void>;
   /** Lignes du diff ouvert : indexer, retirer de l'index, ou abandonner. */
   applyLines(path: string, lines: LineRef[], action: "stage" | "unstage" | "discard"): Promise<void>;
   setDraft(path: string, patch: Partial<Pick<CommitDraft, "summary" | "body">>): void;
@@ -191,6 +192,7 @@ export const useWork = create<WorkStore>((set, get) => {
     ignore: (path, pattern) => act(path, () => api.addToGitignore(path, pattern)).then(() => {}),
     untrack: (path, file, pattern) => act(path, () => api.untrackFile(path, file, pattern)).then(() => {}),
     stashAll: (path, message) => act(path, () => api.stashAll(path, message)).then(() => {}),
+    stashFiles: (path, message, files) => act(path, () => api.stashFiles(path, message, files)).then(() => {}),
 
     async applyLines(path, lines, action) {
       const d = repo(path).diff;

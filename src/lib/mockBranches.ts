@@ -29,13 +29,16 @@ export function mockAutostash(path: string): AutoStash | null {
   return top?.message.startsWith(AUTOSTASH_PREFIX) ? { sha: top.sha, message: top.message } : null;
 }
 
-export function mockStashPush(path: string, message: string) {
+/** `only` : stash partiel, seulement ces fichiers. */
+export function mockStashPush(path: string, message: string, only?: string[]) {
   const list = stashes.get(path) ?? [];
   stashSeq += 1;
   const h = mockHistory(path).refs;
-  list.unshift({ sha: stashSeq.toString(16).padStart(40, "0"), message, base: h.head ?? "", time: Math.floor(Date.now() / 1000), files: mockSnapshot(path) });
+  const all = mockSnapshot(path);
+  const picked = only ? all.filter((f) => only.includes(f.path)) : all;
+  list.unshift({ sha: stashSeq.toString(16).padStart(40, "0"), message, base: h.head ?? "", time: Math.floor(Date.now() / 1000), files: picked });
   stashes.set(path, list);
-  mockRestore(path, []);
+  mockRestore(path, only ? all.filter((f) => !only.includes(f.path)) : []);
 }
 
 export function mockStashPop(path: string): OpResult {

@@ -45,13 +45,27 @@ export function StagingPanel({ path }: { path: string }) {
     if (ok) w.discard(path, files);
   };
 
+  /** Stash partiel : ce fichier seulement, message demandé. */
+  const askStashFile = async (f: StatusFile) => {
+    const answer = await useDialogs.getState().input({
+      title: t("staging.stashFileTitle", { file: f.path }),
+      label: t("staging.stashFileLabel"),
+      initial: t("staging.stashMessage", { branch: branch ?? "HEAD" }),
+      submit: t("staging.stashFileSubmit"),
+      validate: (v) => (v.trim() ? null : t("staging.stashFileEmpty")),
+    });
+    if (answer) await w.stashFiles(path, answer.value.trim(), [f.path]);
+  };
+  const stashItem = (f: StatusFile): MenuItem => ({ label: t("staging.stashFile"), disabled: busy, onClick: () => void askStashFile(f) });
+
   /** Clic droit sur un fichier : ses actions dans cette liste, avant celles de tout fichier. */
   const stagingItems = (kind: ListKind, f: StatusFile): MenuItem[] => {
-    if (kind === "staged") return [{ label: t("staging.unstage"), disabled: busy, onClick: () => w.unstage(path, [f]) }];
+    if (kind === "staged") return [{ label: t("staging.unstage"), disabled: busy, onClick: () => w.unstage(path, [f]) }, stashItem(f)];
     if (kind === "conflicted") return [{ label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) }];
     const items: MenuItem[] = [
       { label: t("staging.stage"), disabled: busy, onClick: () => w.stage(path, [f]) },
       { label: t("staging.discard"), danger: true, disabled: busy, onClick: () => void askDiscard([f]) },
+      stashItem(f),
     ];
     if (f.status === "?") {
       items.push("sep", ...ignoreChoices(f.path).map((c): MenuItem => ({ label: t(`staging.ignore.${c.kind}`, { name: c.label }), disabled: busy, onClick: () => w.ignore(path, c.pattern) })));

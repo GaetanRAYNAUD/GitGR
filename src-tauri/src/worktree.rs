@@ -260,6 +260,16 @@ pub fn stash_all(path: &Path, message: &str) -> Result<(), String> {
     run(Some(path), &["stash", "push", "-q", "-u", "-m", message]).map(|_| ())
 }
 
+/// Stash partiel : seulement ces fichiers (suivis ou non), le reste ne bouge pas.
+pub fn stash_files(path: &Path, message: &str, files: &[String]) -> Result<(), String> {
+    check_dir(path)?;
+    if files.is_empty() {
+        return Err("no_files".into());
+    }
+    files.iter().try_for_each(|f| check_relative(f))?;
+    run(Some(path), &with_paths(&["stash", "push", "-q", "-u", "-m", message], files)).map(|_| ())
+}
+
 // ---------------------------------------------------------------------------
 // Blocs et lignes
 // ---------------------------------------------------------------------------
@@ -739,6 +749,27 @@ mod tests {
         let s = status(p).unwrap();
         assert_eq!(s.staged, vec![file("c.txt", None, 'A')]);
         assert_eq!(s.unstaged, vec![file("a.txt", None, 'M'), file("dir/b.txt", None, '?')]);
+    }
+
+    #[test]
+    fn stash_files_keeps_the_others() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1
+");
+        commit_file(p, "b.txt", "1
+");
+        write(p, "a.txt", "2
+");
+        write(p, "b.txt", "2
+");
+        write(p, "neuf.txt", "n
+");
+        stash_files(p, "partiel", &["a.txt".into(), "neuf.txt".into()]).unwrap();
+        let s = status(p).unwrap();
+        assert_eq!(s.unstaged, vec![file("b.txt", None, 'M')]);
+        assert!(!p.join("neuf.txt").exists());
+        assert!(stash_files(p, "x", &["../x".into()]).is_err());
     }
 
     #[test]

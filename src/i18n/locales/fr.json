@@ -330,6 +330,11 @@
     "dblClickPull": "Double-clic : checkout de {{branch}}, puis pull"
   },
   "staging": {
+    "stashFile": "Mettre de côté (stash)…",
+    "stashFileTitle": "Mettre de côté {{file}}",
+    "stashFileLabel": "Message du stash",
+    "stashFileSubmit": "Mettre de côté",
+    "stashFileEmpty": "Un message est nécessaire.",
     "ignore": {
       "file": "Ignorer {{name}}",
       "ext": "Ignorer les fichiers {{name}}",

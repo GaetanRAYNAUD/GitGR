@@ -133,6 +133,8 @@ export interface Api {
   /** Ne plus suivre un fichier (gardé sur le disque) et ajouter `pattern` au `.gitignore`. */
   untrackFile(path: string, file: string, pattern: string): Promise<void>;
   stashAll(path: string, message: string): Promise<void>;
+  /** Stash partiel : seulement ces fichiers. */
+  stashFiles(path: string, message: string, files: string[]): Promise<void>;
   /** Indexe (ou retire de l'index si `unstage`) des lignes ; `fingerprint` = celle du diff affiché. */
   stageLines(path: string, file: string, oldFile: string | null, lines: LineRef[], fingerprint: string, unstage: boolean): Promise<void>;
   discardLines(path: string, file: string, lines: LineRef[], fingerprint: string): Promise<void>;
@@ -355,6 +357,7 @@ const tauriApi: Api = {
   addToGitignore: (path, pattern) => invoke("add_to_gitignore", { path, pattern }),
   untrackFile: (path, file, pattern) => invoke("untrack_file", { path, file, pattern }),
   stashAll: (path, message) => invoke("stash_all", { path, message }),
+  stashFiles: (path, message, files) => invoke("stash_files", { path, message, files }),
   stageLines: (path, file, oldFile, lines, fingerprint, unstage) =>
     invoke("stage_lines", { path, file, oldFile, lines, fingerprint, unstage }),
   discardLines: (path, file, lines, fingerprint) => invoke("discard_lines", { path, file, lines, fingerprint }),
@@ -756,6 +759,9 @@ const mockApi: Api = {
   },
   async stashAll(path, message) {
     mockStashPush(path, message);
+  },
+  async stashFiles(path, message, files) {
+    mockStashPush(path, message, files);
   },
   async stageLines(path, file, _oldFile, lines, _fingerprint, unstage) {
     mockStageLines(path, file, lines, unstage);
