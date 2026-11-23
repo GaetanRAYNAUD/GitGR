@@ -1,6 +1,6 @@
 [package]
 name = "gitgr"
-version = "0.1.3"
+version = "0.2.0"
 description = "GitGR — client Git de bureau visuel, multi-profils et multi-dépôts"
 authors = ["GitGR contributors"]
 license = "MIT"

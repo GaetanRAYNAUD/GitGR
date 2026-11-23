@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+## [0.2.0] — 2026-11-23
+
 - Barre du bas : date du dernier fetch.
 - Annuler / rétablir (Ctrl+Z / Ctrl+Y, ou les boutons de la barre d'outils) la dernière opération : commit, checkout, branche créée ou supprimée, pull, merge, rebase, cherry-pick, reset… Les modifications en cours sont gardées.
 - Glisser un commit du graphe sur une branche : cherry-pick dessus, reset de la branche courante, ou déplacement d'une autre branche sur ce commit.
