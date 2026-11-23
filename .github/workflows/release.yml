@@ -23,10 +23,6 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
 jobs:
   check:
     name: Version du tag
@@ -68,7 +64,11 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Clé de l'updater donnée à cette étape seulement (pas à `npm ci` ni aux actions).
       - run: npx tauri build --bundles appimage,deb,rpm --config src-tauri/tauri.release.conf.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - name: Paquets
         run: |
           mkdir out
@@ -99,6 +99,9 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npx tauri build --bundles nsis --config src-tauri/tauri.release.conf.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v6
         with:
           name: release-windows
@@ -132,6 +135,9 @@ jobs:
       - run: npm ci
       # `app` : l'archive .app.tar.gz (et sa signature) de l'updater.
       - run: npx tauri build --target universal-apple-darwin --bundles app,dmg --config src-tauri/tauri.release.conf.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - name: Paquets
         run: |
           mkdir out

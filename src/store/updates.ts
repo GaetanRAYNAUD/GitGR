@@ -81,6 +81,8 @@ export const useUpdates = create<UpdatesState>((set, get) => ({
     try {
       await api.installUpdate((done, total) => {
         const percent = total ? Math.min(100, Math.round((done / total) * 100)) : null;
+        // Un appel par bloc téléchargé : le message ne change qu'avec le pourcentage.
+        if (percent === get().percent) return;
         set({ percent });
         progress(percent);
       });

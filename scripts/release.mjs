@@ -24,7 +24,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const path = (p) => join(ROOT, p);
-const read = (p) => readFileSync(path(p), "utf8");
+// Fins de ligne LF : un dépôt cloné sous Windows (core.autocrlf) a des CRLF.
+const read = (p) => readFileSync(path(p), "utf8").replace(/\r\n/g, "\n");
 const UNRELEASED = "## Non publié";
 
 /** Version suivante selon le niveau (`current` : inchangée). */
@@ -105,21 +106,24 @@ export function manifest(version, notes, files, readSig, baseUrl, date) {
   return { version, notes, pub_date: date, platforms };
 }
 
-function setVersion(version) {
+/** Nouveaux contenus des fichiers qui portent la version (rien n'est écrit ici). */
+function versionFiles(version) {
+  const out = {};
   for (const p of ["package.json", "package-lock.json"]) {
     const json = JSON.parse(read(p));
     json.version = version;
     if (json.packages?.[""]) json.packages[""].version = version;
-    writeFileSync(path(p), JSON.stringify(json, null, 2) + "\n");
+    out[p] = JSON.stringify(json, null, 2) + "\n";
   }
   const cargo = read("src-tauri/Cargo.toml");
   const updated = cargo.replace(/^(\[package\][^[]*?\nversion = ")[^"]+"/m, `$1${version}"`);
-  if (updated === cargo && !cargo.includes(`version = "${version}"`)) throw new Error("src-tauri/Cargo.toml : version introuvable");
-  writeFileSync(path("src-tauri/Cargo.toml"), updated);
+  if (!/^\[package\][^[]*?\nversion = "/m.test(cargo)) throw new Error("src-tauri/Cargo.toml : version introuvable");
+  out["src-tauri/Cargo.toml"] = updated;
   const lock = read("src-tauri/Cargo.lock");
   const lockUpdated = lock.replace(/(\[\[package\]\]\nname = "gitgr"\nversion = ")[^"]+"/, `$1${version}"`);
   if (!lockUpdated.includes(`name = "gitgr"\nversion = "${version}"`)) throw new Error("src-tauri/Cargo.lock : paquet gitgr introuvable");
-  writeFileSync(path("src-tauri/Cargo.lock"), lockUpdated);
+  out["src-tauri/Cargo.lock"] = lockUpdated;
+  return out;
 }
 
 function bump(level, args) {
@@ -133,11 +137,12 @@ function bump(level, args) {
   const prs = args.includes("--prs") && existsSync(prsFile) ? JSON.parse(readFileSync(prsFile, "utf8")) : [];
   const date = new Date().toISOString().slice(0, 10);
   const changelog = releaseChangelog(read("CHANGELOG.md"), version, date, prs);
+  // Tout est calculé et vérifié avant d'écrire : une erreur ne laisse pas de versions mêlées.
+  const files = { ...(version !== current ? versionFiles(version) : {}), "CHANGELOG.md": changelog };
   if (args.includes("--dry-run")) {
-    console.error(`${current} → ${version}\n\n${releaseNotes(changelog, version)}`);
+    console.error(`${current} → ${version} (${Object.keys(files).join(", ")})\n\n${releaseNotes(changelog, version)}`);
   } else {
-    if (version !== current) setVersion(version);
-    writeFileSync(path("CHANGELOG.md"), changelog);
+    for (const [p, content] of Object.entries(files)) writeFileSync(path(p), content);
   }
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
   console.log(version);

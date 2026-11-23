@@ -413,6 +413,8 @@ const tauriApi: Api = {
   async checkUpdate() {
     const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
+    // L'ancienne mise à jour trouvée libère sa ressource côté Rust.
+    await pendingUpdate?.close().catch(() => {});
     pendingUpdate = update;
     return update ? { version: update.version, notes: update.body ?? null, date: update.date ?? null } : null;
   },
