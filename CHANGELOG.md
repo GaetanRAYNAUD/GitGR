@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+## [0.1.3] — 2026-11-23
+
 - Aucun changement fonctionnel : version qui sert à vérifier la mise à jour silencieuse (téléchargement en arrière-plan, installation à la fermeture) depuis la 0.1.2.
 
 ## [0.1.2] — 2026-11-23
