@@ -70,6 +70,9 @@ export interface Settings {
   notificationsOff?: boolean;
   /** Notifications du système désactivées (le badge de l'app reste). */
   systemNotificationsOff?: boolean;
+  /** Mises à jour seulement annoncées, plus téléchargées en arrière-plan ni installées à la
+   *  fermeture (absent : installation automatique). */
+  autoUpdateOff?: boolean;
   /** `standard` : 2 min, 10 en arrière-plan ; `fast` : 1 et 5. */
   notificationSpeed?: "standard" | "fast";
 }

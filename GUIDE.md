@@ -59,8 +59,9 @@ Un profil réunit un nom, un e-mail, une clé SSH, une signature des commits et 
 
 ## Mises à jour
 
-- Au démarrage, GitGR regarde s'il existe une nouvelle version. Si oui, un message propose **Installer et redémarrer** (et **Nouveautés** pour lire les notes de version).
-- En bas des **Réglages** : la version installée et **Rechercher les mises à jour**.
+- Vous n'avez rien à faire : au démarrage, GitGR télécharge la nouvelle version en arrière-plan, sans vous interrompre, puis l'installe quand vous le fermez. Le lancement suivant ouvre la nouvelle version.
+- Un message discret prévient quand elle est prête ; **Redémarrer maintenant** l'installe tout de suite, **Nouveautés** ouvre les notes de version.
+- En bas des **Réglages** : la version installée, **Rechercher les mises à jour**, et la case **Installer les mises à jour automatiquement**. Décochée, GitGR annonce seulement la nouvelle version, avec **Installer et redémarrer**.
 - Installé avec un paquet `.deb` ou `.rpm`, GitGR prévient seulement : la mise à jour passe par votre gestionnaire de paquets (`apt`, `dnf`…).
 - Windows : à l'installation, la case « Créer un raccourci sur le bureau » est décochée par défaut ; les mises à jour n'en créent pas.
 

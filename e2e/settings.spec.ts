@@ -79,16 +79,50 @@ test.describe("mises à jour", () => {
     await expect(settings.getByText("GitGR est à jour.")).toBeVisible();
   });
 
-  test("nouvelle version annoncée au démarrage, installée puis redémarrage", async ({ page }) => {
-    await page.addInitScript(() => {
-      (window as unknown as { __mockUpdate: unknown }).__mockUpdate = { version: "9.9.0", notes: null, date: null };
+  type UpdateWindow = { __mockUpdate: unknown; __mockInstalled?: boolean; __mockRelaunched?: boolean; __mockCloseRequested?: () => Promise<void> };
+  const withUpdate = (page: import("@playwright/test").Page) =>
+    page.addInitScript(() => {
+      (window as unknown as UpdateWindow).__mockUpdate = { version: "9.9.0", notes: null, date: null };
     });
+
+  test("nouvelle version téléchargée au démarrage, installée à la fermeture sans relance", async ({ page }) => {
+    await withUpdate(page);
+    await page.reload();
+    const notice = page.getByRole("status").filter({ hasText: "GitGR 9.9.0 est prête : elle s'installera à la fermeture de GitGR." });
+    await expect(notice).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as UpdateWindow).__mockInstalled)).toBeUndefined();
+
+    // Fermeture de la fenêtre : installation, sans relance.
+    await page.evaluate(() => (window as unknown as UpdateWindow).__mockCloseRequested!());
+    expect(await page.evaluate(() => (window as unknown as UpdateWindow).__mockInstalled)).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as UpdateWindow).__mockRelaunched)).toBeUndefined();
+  });
+
+  test("« Redémarrer maintenant » installe tout de suite", async ({ page }) => {
+    await withUpdate(page);
+    await page.reload();
+    const notice = page.getByRole("status").filter({ hasText: "GitGR 9.9.0 est prête" });
+    await notice.getByRole("button", { name: "Redémarrer maintenant" }).click();
+    await expect(page.getByText("Mise à jour installée, redémarrage de GitGR…")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as unknown as UpdateWindow).__mockRelaunched)).toBe(true);
+  });
+
+  test("installation automatique décochée : la version est annoncée, installée à la demande", async ({ page }) => {
+    let settings = await openSettings(page);
+    const box = settings.getByRole("checkbox", { name: "Installer les mises à jour automatiquement, à la fermeture de GitGR" });
+    await expect(box).toBeChecked();
+    await box.uncheck();
+
+    await withUpdate(page);
     await page.reload();
     const notice = page.getByRole("status").filter({ hasText: "GitGR 9.9.0 est disponible." });
     await expect(notice).toBeVisible();
-    await notice.getByRole("button", { name: "Installer et redémarrer" }).click();
-    await expect(page.getByText("Mise à jour installée, redémarrage de GitGR…")).toBeVisible();
-    expect(await page.evaluate(() => (window as unknown as { __mockRelaunched?: boolean }).__mockRelaunched)).toBe(true);
+    settings = await openSettings(page);
+    await expect(settings.getByRole("checkbox", { name: /Installer les mises à jour automatiquement/ })).not.toBeChecked();
+    await page.evaluate(() => (window as unknown as UpdateWindow).__mockCloseRequested!());
+    expect(await page.evaluate(() => (window as unknown as UpdateWindow).__mockInstalled)).toBeUndefined();
+    await settings.getByRole("button", { name: "Installer et redémarrer" }).click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as UpdateWindow).__mockRelaunched)).toBe(true);
   });
 
   test("paquet deb : les Réglages renvoient vers le gestionnaire de paquets", async ({ page }) => {

@@ -78,7 +78,12 @@
     "restarting": "Update installed, restarting GitGR…",
     "installFailed": "The update could not be installed: {{error}}",
     "checkFailed": "Could not check for updates: {{error}}",
-    "unavailable": "Development build: no automatic updates."
+    "unavailable": "Development build: no automatic updates.",
+    "ready": "GitGR {{version}} is ready: it will be installed when GitGR closes.",
+    "restartNow": "Restart now",
+    "downloadingBackground": "Downloading GitGR {{version}} in the background… {{percent}}%",
+    "autoInstall": "Install updates automatically when GitGR closes",
+    "installing": "Installing the update…"
   },
   "welcome": {
     "title": "Repositories",

@@ -16,6 +16,8 @@ import { useUpdates } from "../store/updates";
 function UpdatesFooter() {
   const { t } = useTranslation();
   const { kind, status, update, percent, error, check, install } = useUpdates();
+  const autoOff = useApp((s) => s.settings.autoUpdateOff);
+  const updateSettings = useApp((s) => s.updateSettings);
   useEffect(() => {
     // Paquet installé : dit ce qui est possible (rien en développement).
     if (!kind) void api.installKind().then((k) => useUpdates.setState({ kind: k }), () => useUpdates.setState({ kind: "none" }));
@@ -27,8 +29,22 @@ function UpdatesFooter() {
   if (mode === "none") line = <span>{t("updates.unavailable")}</span>;
   else if (status === "checking") line = <span>{t("updates.checking")}</span>;
   else if (status === "upToDate") line = <span>{t("updates.upToDate")}</span>;
-  else if (status === "installing") line = <span>{percent === null ? t("updates.downloadingUnknown") : t("updates.downloading", { percent })}</span>;
-  else if (update && (status === "available" || status === "error"))
+  else if (status === "downloading" && update)
+    line = <span>{t("updates.downloadingBackground", { version: update.version, percent: percent ?? 0 })}</span>;
+  else if (status === "ready" && update && !autoOff)
+    line = (
+      <>
+        <span>{t("updates.ready", { version: update.version })}</span>
+        <button type="button" className="btn primary sm" onClick={() => void install()}>
+          {t("updates.restartNow")}
+        </button>
+        <button type="button" className="link" onClick={() => open(releaseUrl(update.version))}>
+          {t("updates.notes")}
+        </button>
+      </>
+    );
+  else if (status === "installing") line = <span>{percent === null ? t("updates.installing") : t("updates.downloading", { percent })}</span>;
+  else if (update && (status === "available" || status === "ready" || status === "error"))
     line = (
       <>
         <span>{mode === "auto" ? t("updates.available", { version: update.version }) : t("updates.availableManual", { version: update.version })}</span>
@@ -52,11 +68,22 @@ function UpdatesFooter() {
           {t("settings.releaseNotes")}
         </button>
         {mode && mode !== "none" && (
-          <button type="button" className="btn sm" disabled={status === "checking" || status === "installing"} onClick={() => void check()}>
+          <button
+            type="button"
+            className="btn sm"
+            disabled={status === "checking" || status === "downloading" || status === "ready" || status === "installing"}
+            onClick={() => void check()}
+          >
             {t("updates.check")}
           </button>
         )}
       </div>
+      {mode === "auto" && (
+        <label className="menu-check">
+          <input type="checkbox" checked={!autoOff} onChange={(e) => updateSettings({ autoUpdateOff: !e.target.checked })} />
+          {t("updates.autoInstall")}
+        </label>
+      )}
       {(line || failed) && (
         <div className="settings-version-row" role="status">
           {line}
