@@ -328,6 +328,22 @@ pub fn rename_branch(path: &Path, old: &str, new: &str) -> Result<(), String> {
     run(Some(path), &["branch", "-m", old, new]).map(|_| ()).map_err(|e| classify(&e))
 }
 
+/// Déplace une branche locale qui n'est pas la courante sur `sha` (`git branch -f`) ; les
+/// commits qu'elle seule contenait restent dans son reflog.
+pub fn move_branch(path: &Path, name: &str, sha: &str) -> Result<(), String> {
+    check_dir(path)?;
+    check_sha(sha)?;
+    if name.starts_with('-') || !local_exists(path, name) {
+        return Err("branch_not_found".into());
+    }
+    if current_branch(path).as_deref() == Some(name) {
+        return Err("same_branch".into());
+    }
+    run(Some(path), &["branch", "-f", name, sha]).map(|_| ()).map_err(|e| {
+        if e.contains("used by worktree") || e.contains("checked out at") { "branch_checked_out".into() } else { classify(&e) }
+    })
+}
+
 /// Supprime une branche locale ; sans `force`, refusé si elle n'est pas fusionnée.
 pub fn delete_branch(path: &Path, name: &str, force: bool) -> Result<(), String> {
     check_dir(path)?;
@@ -1748,6 +1764,25 @@ mod tests {
         set_upstream(p, "autre", Some("origin/main")).unwrap();
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/main");
         assert_eq!(set_upstream(p, "autre", Some("origin/nulle-part")).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn move_another_branch_to_a_commit() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        let first = git(p, &["rev-parse", "HEAD"]);
+        git(p, &["branch", "autre"]);
+        commit_file(p, "b.txt", "b
+");
+        let second = git(p, &["rev-parse", "HEAD"]);
+        move_branch(p, "autre", &second).unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), second);
+        move_branch(p, "autre", &first).unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), first);
+        assert_eq!(move_branch(p, "main", &first).unwrap_err(), "same_branch");
+        assert_eq!(move_branch(p, "nulle-part", &first).unwrap_err(), "branch_not_found");
     }
 
     #[test]

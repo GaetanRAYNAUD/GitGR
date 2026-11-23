@@ -633,7 +633,10 @@
       "ffOnly": "Without checkout: only when a fast-forward is possible.",
       "current": "This is the current branch.",
       "deleteCurrent": "The current branch cannot be deleted."
-    }
+    },
+    "cherryPickOnto": "Cherry-pick {{sha}} onto {{branch}}",
+    "cherryPickOntoOther": "Cherry-pick {{sha}} onto {{branch}} (checkout {{branch}} first)",
+    "moveBranch": "Move {{branch}} to {{sha}}…"
   },
   "op": {
     "merge": "Merge in progress",
@@ -1222,5 +1225,10 @@
     "label": "Remote branch (remote/branch)",
     "submit": "Track",
     "unknown": "No remote branch with this name: fetch, or push the branch."
+  },
+  "move": {
+    "title": "Move {{branch}} to {{sha}}?",
+    "body": "{{branch}} will point to this commit. Commits only it contained will no longer show in the graph (its reflog keeps them for a while). Nothing is sent to the server.",
+    "confirm": "Move"
   }
 }

@@ -67,6 +67,10 @@ interface OpsStore {
   mergeInto(path: string, ref: GitRef): Promise<boolean>;
   /** Rebase la branche courante sur une branche (locale ou distante). */
   rebaseOnto(path: string, ref: GitRef): Promise<boolean>;
+  /** Déplace une branche qui n'est pas la courante sur un commit (confirmation). */
+  moveBranch(path: string, branch: string, sha: string): Promise<boolean>;
+  /** Cherry-pick d'un commit sur une autre branche : checkout de celle-ci (auto-stash), puis cherry-pick. */
+  cherryPickOnto(path: string, branch: string, sha: string): Promise<boolean>;
   /** `silent` (fetch automatique) : ni erreur ni message, et rien si une commande tourne déjà. */
   fetch(path: string, silent?: boolean): Promise<boolean>;
   /** `strategy` absente : celle des réglages. */
@@ -416,6 +420,26 @@ export const useOps = create<OpsStore>((set, get) => {
         await selectHead(path);
       }
       return true;
+    },
+
+    async moveBranch(path, branch, sha) {
+      const ok = await useDialogs.getState().choose({
+        title: t("move.title", { branch, sha: sha.slice(0, 7) }),
+        body: t("move.body", { branch }),
+        choices: [{ id: "move", label: t("move.confirm"), danger: true }],
+      });
+      if (ok !== "move") return false;
+      const out = await exec(path, "branch", () => api.moveBranch(path, branch, sha));
+      if (!out.ok) return fail(out.error);
+      notify(t("reset.done", { branch, sha: sha.slice(0, 7) }));
+      return true;
+    },
+
+    async cherryPickOnto(path, branch, sha) {
+      if (branch !== currentBranch(path) && !(await get().checkout(path, branch))) return false;
+      // Checkout arrêté (stash gardé en conflit) : la branche n'est peut-être pas celle visée.
+      if (currentBranch(path) !== branch) return false;
+      return get().cherryPick(path, [sha]);
     },
 
     async fetch(path, silent = false) {

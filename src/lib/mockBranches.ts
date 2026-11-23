@@ -407,6 +407,16 @@ export function mockFastForward(path: string, branch: string): boolean {
   return true;
 }
 
+export function mockMoveBranch(path: string, branch: string, sha: string) {
+  const h = mockHistory(path);
+  const l = local(path, branch);
+  if (!l) throw "branch_not_found";
+  if (branch === h.refs.headBranch) throw "same_branch";
+  if (!h.commits.some((c) => c.sha === sha)) throw "invalid_start_point";
+  const refs = h.refs.refs.map((r) => (r === l ? { ...r, target: sha } : r));
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
 export function mockSetUpstream(path: string, branch: string, upstream: string | null) {
   const h = mockHistory(path);
   const l = local(path, branch);

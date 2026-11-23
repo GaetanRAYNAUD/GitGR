@@ -269,6 +269,34 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
   ];
 }
 
+/** Commit déposé sur une branche locale (glisser-déposer) : cherry-pick dessus, et reset de la
+ *  courante ou déplacement d'une autre branche sur ce commit. */
+export function commitDropMenu(t: TFunction, path: string, sha: string, target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const short = sha.slice(0, 7);
+  const merge = isMergeCommit(path, sha);
+  const there = sha === target.target;
+  const current = target.short === refs?.headBranch;
+  const pickWhy = merge ? t("multi.cherryPickMerge") : there ? t("menu.why.sameCommit", { branch: target.short }) : undefined;
+  return [
+    {
+      label: current ? t("menu.cherryPickOnto", { sha: short, branch: target.short }) : t("menu.cherryPickOntoOther", { sha: short, branch: target.short }),
+      disabled: merge || there || !refs?.head,
+      title: pickWhy,
+      onClick: () => void ops.cherryPickOnto(path, target.short, sha),
+    },
+    current
+      ? resetSub(t, path, sha, refs, short)
+      : {
+          label: t("menu.moveBranch", { branch: target.short, sha: short }),
+          danger: true,
+          disabled: there,
+          title: there ? t("menu.why.sameCommit", { branch: target.short }) : undefined,
+          onClick: () => void ops.moveBranch(path, target.short, sha),
+        },
+  ];
+}
+
 /** Clic droit sur un remote (en-tête de sa section) : pousser / tirer la branche courante,
  *  profil du remote — celui dont la clé SSH (et le compte) sert pour ce remote —, puis le
  *  gérer (renommer, changer l'URL, supprimer). */

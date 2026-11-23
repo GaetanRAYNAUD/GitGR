@@ -5422,3 +5422,31 @@ p.pf-account-keys.bad,
   padding: 8px 12px;
   border-top: 1px solid var(--border);
 }
+
+/* Glisser-déposer d'un commit sur une branche (graph/commitDrag.ts) */
+.commit-drag-ghost {
+  position: fixed;
+  z-index: 60;
+  max-width: 320px;
+  padding: 4px 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+body.commit-dragging,
+body.commit-dragging * {
+  cursor: grabbing !important;
+}
+
+.drop-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

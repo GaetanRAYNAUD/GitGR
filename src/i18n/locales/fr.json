@@ -633,7 +633,10 @@
       "ffOnly": "Sans checkout : seulement si l’avance rapide est possible.",
       "current": "C’est la branche courante.",
       "deleteCurrent": "Impossible de supprimer la branche courante."
-    }
+    },
+    "cherryPickOnto": "Cherry-pick de {{sha}} sur {{branch}}",
+    "cherryPickOntoOther": "Cherry-pick de {{sha}} sur {{branch}} (checkout de {{branch}} d’abord)",
+    "moveBranch": "Déplacer {{branch}} sur {{sha}}…"
   },
   "op": {
     "merge": "Merge en cours",
@@ -1222,5 +1225,10 @@
     "label": "Branche distante (remote/branche)",
     "submit": "Suivre",
     "unknown": "Aucune branche distante de ce nom : faites un fetch, ou poussez la branche."
+  },
+  "move": {
+    "title": "Déplacer {{branch}} sur {{sha}} ?",
+    "body": "{{branch}} pointera sur ce commit. Les commits qu’elle seule contenait ne seront plus visibles dans le graphe (son reflog les garde quelque temps). Rien n’est envoyé au serveur.",
+    "confirm": "Déplacer"
   }
 }

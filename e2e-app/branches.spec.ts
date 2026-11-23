@@ -218,3 +218,30 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
     await app.close();
   }
 });
+
+test("glisser un commit sur une autre branche : checkout puis cherry-pick", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  git(mine, "branch", "cible");
+  sandbox.commit(mine, "c.txt", "c\n", "à reprendre");
+  const sha = git(mine, "rev-parse", "HEAD");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
+    const target = locals.getByRole("button", { name: /^cible/ });
+    const row = page.locator(`#commit-${sha}`);
+    const from = (await row.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + 40, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.getByRole("menu").first().getByRole("menuitem", { name: `Cherry-pick de ${sha.slice(0, 7)} sur cible (checkout de cible d’abord)` }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur cible terminé." })).toBeVisible();
+    expect(git(mine, "branch", "--show-current")).toBe("cible");
+    expect(git(mine, "log", "-1", "--format=%s")).toBe("à reprendre");
+  } finally {
+    await app.close();
+  }
+});

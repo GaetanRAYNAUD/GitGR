@@ -425,6 +425,12 @@ pub async fn set_upstream(path: String, branch: String, upstream: Option<String>
     branches::set_upstream(Path::new(&path), &branch, upstream.as_deref())
 }
 
+/// Déplace une branche qui n'est pas la courante sur un commit.
+#[tauri::command]
+pub async fn move_branch(path: String, branch: String, sha: String) -> Result<(), String> {
+    branches::move_branch(Path::new(&path), &branch, &sha)
+}
+
 /// Fusionne une branche (nom complet) dans la branche courante.
 #[tauri::command]
 pub async fn merge_branch(path: String, branch: String, auto_stash: bool) -> Result<OpResult, String> {

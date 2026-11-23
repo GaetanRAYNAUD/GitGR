@@ -129,6 +129,34 @@ test.describe("dépôt propre", () => {
     await expect(page.getByRole("status").filter({ hasText: /^main est maintenant sur / })).toBeVisible();
   });
 
+  test("glisser un commit sur une branche : déplacer la branche, cherry-pick dessus", async ({ page }) => {
+    const row = graph(page).getByRole("option").nth(3);
+    const sha = (await row.getAttribute("id"))!.replace("commit-", "").slice(0, 7);
+    const drag = async (target: ReturnType<typeof branch>) => {
+      const from = (await row.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + 40, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 60, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+      await expect(target).toHaveClass(/drop-over/);
+      await page.mouse.up();
+    };
+
+    // Sur une autre branche : la déplacer (confirmation).
+    await drag(branch(page, "profils"));
+    await menu(page).getByRole("menuitem", { name: `Déplacer feature/profils sur ${sha}…` }).click();
+    await page.getByRole("alertdialog", { name: `Déplacer feature/profils sur ${sha} ?` }).getByRole("button", { name: "Déplacer" }).click();
+    await expect(row).toContainText("feature/profils");
+    await expect(current(page)).toHaveText("main");
+
+    // Sur la branche courante : cherry-pick.
+    await drag(branch(page, "main"));
+    await expect(menu(page).getByRole("menuitem", { name: `Reset de main sur ${sha}` })).toBeVisible();
+    await menu(page).getByRole("menuitem", { name: `Cherry-pick de ${sha} sur main` }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur main terminé." })).toBeVisible();
+  });
+
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {
     const row = graph(page).getByRole("option").nth(3);
     await row.click({ button: "right" });
