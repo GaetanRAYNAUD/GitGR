@@ -256,7 +256,8 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
 ### Étape 7 — distribution (suite)
 
 - [x] **Première release** : v0.1.0 publiée (installateur Windows essayé), puis v0.1.1 pour essayer la mise à jour.
-- [ ] **Vérifier une vraie mise à jour** entre deux versions publiées : Windows 0.1.0 → 0.1.1 **vérifiée** (« Installer et redémarrer », mode passif ; juste après la publication, `releases/latest` a pu servir l'ancien manifeste quelques instants), puis la mise à jour silencieuse à la fermeture (mode `quiet`, à partir de la version qui l'apporte) ; AppImage ; deb / rpm : seulement le message. macOS : rien de testé (archive `.app.tar.gz`, signature ad hoc).
+- [x] **Vérifier une vraie mise à jour** : Windows **vérifiée** — 0.1.0 → 0.1.1 (« Installer et redémarrer », mode passif ; juste après la publication, `releases/latest` a pu servir l'ancien manifeste quelques instants), 0.1.1 → 0.1.2 (même chemin), puis 0.1.2 → 0.1.3 en **mise à jour silencieuse** (téléchargement au démarrage, installation `quiet` à la fermeture, 0.1.3 au lancement suivant).
+- [ ] **Vérifier sous Linux et macOS** : AppImage (remplacement du fichier à la fermeture) ; deb / rpm : seulement le message. macOS : rien de testé (archive `.app.tar.gz`, signature ad hoc).
 - [x] **Mise à jour silencieuse** : téléchargement en arrière-plan, installation à la fermeture, sans interruption (réglage pour revenir à l'annonce seule). Cf. §6.4.
 - [ ] **Flatpak** (Flathub) : peut-être plus tard.
 - [ ] **Dépôt apt / rpm** pour que les paquets deb / rpm se mettent à jour avec le système : pas prévu.
