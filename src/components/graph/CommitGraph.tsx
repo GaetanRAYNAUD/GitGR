@@ -230,7 +230,8 @@ function textWidth(text: string, font: string): number {
     measureCtx.font = font;
     w = measureCtx.measureText(text).width;
   }
-  textWidths.set(key, w);
+  // Gardée seulement une fois les polices chargées (sinon mesurée avec celle de secours).
+  if (!measureCtx || document.fonts?.status !== "loading") textWidths.set(key, w);
   return w;
 }
 
