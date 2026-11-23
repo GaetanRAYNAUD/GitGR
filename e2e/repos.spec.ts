@@ -63,3 +63,16 @@ test("cliquer sur un récent rouvre son onglet", async ({ page }) => {
   await expect(tab(page, "GitGR")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("tab")).toHaveCount(2);
 });
+
+test("barre du bas : le dossier s'ouvre dans l'explorateur, origin dans le navigateur", async ({ page }) => {
+  await openNextRepo(page, "GitGR");
+  const bar = page.locator(".statusbar");
+  await bar.getByRole("button", { name: /GitGR/ }).first().click();
+  const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { path: string; file: string; how: string }[] }).__mockOpened);
+  expect(opened).toEqual([{ path: expect.stringContaining("GitGR"), file: "", how: "open" }]);
+
+  await page.context().route("https://gitlab.exemple.fr/**", (r) => r.fulfill({ body: "ok" }));
+  const popup = page.waitForEvent("popup");
+  await bar.getByRole("button", { name: /origin · gitlab\.exemple\.fr/ }).click();
+  expect((await popup).url()).toBe("https://gitlab.exemple.fr/demo/GitGR");
+});

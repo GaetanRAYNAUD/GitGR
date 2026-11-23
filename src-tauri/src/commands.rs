@@ -233,7 +233,9 @@ pub async fn open_repo_file(app: AppHandle, path: String, file: String, how: Str
     use tauri_plugin_opener::OpenerExt;
     let full = worktree::repo_file(Path::new(&path), &file)?;
     match how.as_str() {
-        "open" if full.is_file() => app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string()),
+        // Un fichier avec son programme ; un dossier (`file` vide : la racine du dépôt) dans
+        // l'explorateur.
+        "open" if full.is_file() || full.is_dir() => app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string()),
         "open" => Err("file_missing".into()),
         "reveal" if full.exists() => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
         "reveal" => {

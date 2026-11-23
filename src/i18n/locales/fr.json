@@ -197,7 +197,9 @@
     "pullFrom": "Tirer depuis {{remote}}",
     "pushTo": "Pousser vers {{remote}}",
     "pushAll": "Pousser vers tous les remotes",
-    "pushMenu": "Pousser vers…"
+    "pushMenu": "Pousser vers…",
+    "openFolder": "Ouvrir le dossier dans l'explorateur",
+    "openRemote": "Ouvrir {{url}} dans le navigateur"
   },
   "graph": {
     "label": "Historique des commits",
