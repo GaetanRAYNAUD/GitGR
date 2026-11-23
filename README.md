@@ -46,7 +46,7 @@ npm run tauri build -- --no-bundle
 
 L'exécutable est dans `src-tauri/target/release/` : `gitgr.exe` sous Windows, `gitgr` sous Linux. Il se lance tel quel, sans installation.
 
-Avec les installeurs (NSIS et MSI sous Windows ; AppImage, `.deb` et `.rpm` sous Linux ; `.app` et `.dmg` sous macOS), rangés dans `src-tauri/target/release/bundle/<format>/` :
+Avec les installeurs (NSIS sous Windows ; AppImage, `.deb` et `.rpm` sous Linux ; `.app` et `.dmg` sous macOS), rangés dans `src-tauri/target/release/bundle/<format>/` :
 
 ```bash
 npm run tauri build                      # tous les formats de la plateforme
@@ -121,6 +121,15 @@ src-tauri/src/       backend Rust (tests dans un module `tests` en bas de chaque
   store.rs           état persistant (dépôts, onglets, réglages, profils)
   commands.rs        commandes exposées à l'interface
 ```
+
+## Publier une version
+
+1. Chaque PR ajoute ses changements sous « Non publié » dans [CHANGELOG.md](CHANGELOG.md).
+2. Onglet **Actions** → **Nouvelle version** → **Run workflow**, niveau `patch`, `minor` ou `major` (`current` : garder la version actuelle), ou `gh workflow run version.yml -f niveau=patch`. Le workflow monte la version (`package.json`, `Cargo.toml` et les verrous), date le changelog, pousse le commit « Version x.y.z » et le tag `vx.y.z`.
+3. Le tag lance **Release** : paquets des trois plateformes, signatures de l'updater, `latest.json`, et une release GitHub **en brouillon**, notes tirées du changelog.
+4. Relire le brouillon sur la page Releases et le publier : les apps installées proposent alors la mise à jour.
+
+Secrets nécessaires : `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (clé de l'updater, `npm run tauri -- signer generate`, clé publique dans `tauri.conf.json`), `RELEASE_DEPLOY_KEY` (clé de déploiement en écriture, en exception du ruleset de `main`).
 
 ## Windows : avertissement SmartScreen
 

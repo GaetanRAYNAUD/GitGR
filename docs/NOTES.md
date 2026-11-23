@@ -19,6 +19,9 @@
 | Thème | Clair **et** sombre, option « suivre l'OS » ou forcer |
 | Langue | **i18n dès le départ** (FR + EN) |
 | macOS | Porte ouverte : paquet `.dmg` construit par la CI (`build.yml`), mais ni testé ni signé (pas de machine) |
+| Installateur Windows | **NSIS seul** (`-setup.exe`, installation par utilisateur, sans droits administrateur). **MSI abandonné** : il crée toujours un raccourci sur le bureau, et deux installateurs (par machine / par utilisateur) donneraient deux installations |
+| Mises à jour | **`tauri-plugin-updater`** : manifeste `latest.json` joint à chaque GitHub Release, lu à `releases/latest/download/latest.json` ; paquets signés avec la clé de l'updater (clé privée hors du dépôt, dans les secrets GitHub). Se mettent à jour seuls : NSIS, AppImage, macOS (non testé) ; deb / rpm : l'app prévient seulement |
+| Releases | Workflow **« Nouvelle version »** (`version.yml`, niveau patch / minor / major au choix, lançable de partout) qui monte la version, date le `CHANGELOG.md`, tague et pousse ; le tag lance **`release.yml`** qui construit tout et crée une release **en brouillon**, publiée à la main |
 | Répartition du travail | Claude fait le gros du développement ; intervention humaine en cas de blocage |
 
 ## État d'avancement
@@ -168,6 +171,10 @@
   - **Dans l'ordre** : dépôt créé vide (`POST /user/repos` ou `/orgs/<org>/repos`, `auto_init: false` ; GitLab `POST /projects` avec `namespace_id`) — un nom déjà pris ou un refus de droits reste affiché dans la fenêtre ; puis remote ajouté, **profil du compte** donné au remote si le choix automatique en désigne un autre (sa clé SSH sert au push), et push avec **suivi configuré** (`push -u` : ahead / behind tout de suite, contrairement à GitKraken). Message final avec « Ouvrir dans le navigateur » et « Copier le lien ».
   - Limites connues : pas de choix du nom de la branche par défaut côté provider (celle poussée la devient si le dépôt était vide) ; GitLab : visibilité « interne » non proposée ; pas de modèle de `.gitignore` / licence (le dépôt est créé vide).
   - Tests : 304 unitaires front, 201 unitaires Rust, 84 E2E, 19 E2E sur l'app compilée.
+- **Étape 7 — distribution** : terminée côté code et CI (vérifiée par les tests unitaires du script de release et du store, les E2E simulés, l'app compilée, et un build NSIS signé en local avec une clé jetable) ; la première release et une vraie mise à jour restent à faire (cf. « Étape 7 — distribution (suite) »).
+  - Mises à jour automatiques (`tauri-plugin-updater` + `tauri-plugin-process`), manifeste `latest.json` des GitHub Releases, paquets signés ; deb / rpm : annonce seulement. Détail en §6.4.
+  - Workflows `version.yml` (« Nouvelle version ») et `release.yml` (sur tag, release en brouillon) ; `scripts/release.mjs` (montée de version, changelog, notes, manifeste) ; `CHANGELOG.md`.
+  - Windows : NSIS seul, case du raccourci sur le bureau décochée par défaut.
 - **Logo** : un G tracé comme une branche du graphe (trois commits colorés, HEAD au centre). Variante sombre = icône de l'app (`src-tauri/icons/logo.svg`, icônes générées par `tauri icon`, cibles desktop seulement) ; variante claire (`logo-light.svg`) utilisée dans l'app avec le thème clair (`components/Logo.tsx`, couleurs `--logo-*`). Le dessin existe en trois exemplaires (deux SVG + le composant) : les modifier ensemble, puis relancer `npx tauri icon src-tauri/icons/logo.svg` (et retirer les dossiers `android/` et `ios/` générés).
 
 ## À faire / plus tard
@@ -192,7 +199,7 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
 - [x] **Checks d'une PR / MR : groupe des jobs annulés replié par défaut**, comme celui des réussis. Groupe « Ignorés ou annulés » replié d'office.
 - [x] **Mise en forme des descriptions et commentaires de PR / MR** : aujourd'hui texte brut, d'où des `<!-- … -->` (commentaires HTML des modèles de PR, à masquer) et des `` `code` `` / blocs ```` ``` ```` affichés tels quels. Rendre le Markdown (titres, listes, liens, code en ligne et en bloc, citations, cases à cocher), sans HTML brut interprété (assaini). Rejoint « rendu Markdown » des limites de l'étape 6. Fait sans dépendance : `lib/markdown.ts` lit le texte en un arbre (titres, paragraphes, listes imbriquées et cases à cocher, citations, blocs de code, tableaux, filets ; code en ligne, gras, italique, barré, liens et adresses nues), `components/Markdown.tsx` le rend en éléments React. HTML brut jamais interprété : commentaires retirés (hors code), balises retirées en gardant leur texte, `<br>` et fins de bloc en retour à la ligne. Liens http(s) / mailto seulement, ouverts dans le navigateur ; images montrées comme des liens (rien n'est chargé). Description faite seulement de commentaires de modèle : « Pas de description ».
 - [x] **Afficher le numéro de version de GitGR** quelque part : bas de la page Réglages (avec un lien vers les notes de version), et dans le titre de la fenêtre « À propos » s'il y en a une. Bas des Réglages : « GitGR x.y.z » et « Notes de version » (page des releases GitHub, vide tant qu'aucun tag `v*` n'est publié). Une seule source : `package.json`, que `tauri.conf.json` reprend (`"version": "../package.json"`) et que Vite injecte (`__APP_VERSION__`). Pas de fenêtre « À propos » pour l'instant.
-- [ ] **Installateur Windows : option pour ne pas créer le raccourci sur le bureau** (case décochable à l'installation ; vérifier ce que permettent les installateurs NSIS / MSI de Tauri, `bundle.windows`). **Constat** : l'installateur **NSIS** (`.exe`) a déjà la case « Créer un raccourci sur le bureau » sur sa page de fin (cochée par défaut ; modèle de Tauri, `MUI_FINISHPAGE_SHOWREADME`) ; on peut la décocher par défaut avec le crochet `NSIS_HOOK_PREFINISHPAGE`. Le **MSI** crée toujours le raccourci (composant `ApplicationShortcutDesktop` du modèle WiX, sans condition réglable) : seul un modèle WiX à nous (`bundle.windows.wix.template`, à maintenir avec Tauri) ou l'abandon du MSI au profit du seul `.exe` y changent quelque chose. **[?]** Quel installateur a utilisé le testeur ; décocher par défaut côté NSIS ?
+- [x] **Installateur Windows : option pour ne pas créer le raccourci sur le bureau** (case décochable à l'installation ; vérifier ce que permettent les installateurs NSIS / MSI de Tauri, `bundle.windows`). **Fait** : le testeur avait utilisé le MSI ; MSI abandonné, NSIS seul, case décochée par défaut (`src-tauri/windows/hooks.nsh`, `MUI_FINISHPAGE_SHOWREADME_NOTCHECKED`). Les mises à jour (`/UPDATE`) ne créent jamais ce raccourci. Le testeur doit désinstaller le MSI avant d'installer le `.exe` (sinon deux installations). **Constat** : l'installateur **NSIS** (`.exe`) a déjà la case « Créer un raccourci sur le bureau » sur sa page de fin (cochée par défaut ; modèle de Tauri, `MUI_FINISHPAGE_SHOWREADME`) ; on peut la décocher par défaut avec le crochet `NSIS_HOOK_PREFINISHPAGE`. Le **MSI** crée toujours le raccourci (composant `ApplicationShortcutDesktop` du modèle WiX, sans condition réglable) : seul un modèle WiX à nous (`bundle.windows.wix.template`, à maintenir avec Tauri) ou l'abandon du MSI au profit du seul `.exe` y changent quelque chose. **[?]** Quel installateur a utilisé le testeur ; décocher par défaut côté NSIS ?
 
 ### Étape 4 — branches et réseau (compléments)
 
@@ -245,6 +252,16 @@ Retours d'utilisation et idées, rangés par étape (cf. §7). Les étapes 1 à 
   - Notifications d'une issue (assignation, mention) : ouvrent la vue dans GitGR, comme pour les PR / MR.
   - **Aucun appel tant que la section « Issues » est décochée** (règle commune aux sections de la barre latérale qui lisent un provider, déjà appliquée à « Pull requests » / « Merge requests ») : qui ne s'en sert pas ne paie aucune requête. Lue dès qu'elle est recochée. Si une même requête sert aussi une section affichée, elle reste, et tout ce qu'elle rapporte est utilisé.
 - [ ] **Liens cliquables dans les messages de commit** (détails, graphe en infobulle, PR / MR) : `#12` / `!5` ouvrent la PR / MR (ou l'issue) dans GitGR, `owner/repo#12` aussi si un dépôt ouvert y correspond ; un SHA sélectionne le commit dans le graphe ; une URL s'ouvre dans le navigateur. D'après le provider du remote (`#` : GitHub PR et issue, GitLab issue ; `!` : GitLab MR). **Fait pour les détails d'un commit** (titre et message) : `lib/commitLinks.ts` repère adresses, SHA, `#N` / `!N` / `owner/repo#N` ; `CommitText` en fait des liens. Adresse : navigateur. SHA d'un commit de l'historique : sélectionné (pages suivantes chargées au besoin). `!N` GitLab et `#N` d'une PR GitHub ouverte connue, sur le dépôt du remote avec un compte : vue de la PR / MR dans GitGR ; sinon la page du provider (`/issues/N` sur GitHub, qui renvoie vers la PR ; `/-/issues/N`, `/-/merge_requests/N` sur GitLab). Reste : infobulle du graphe, messages dans la vue d'une PR / MR.
+
+### Étape 7 — distribution (suite)
+
+- [ ] **Première release** : lancer « Nouvelle version » avec `current` (v0.1.0), relire le brouillon, le publier.
+- [ ] **Vérifier une vraie mise à jour** entre deux versions publiées : Windows (NSIS, passif), AppImage ; deb / rpm : seulement le message. macOS : rien de testé (archive `.app.tar.gz`, signature ad hoc).
+- [ ] **Flatpak** (Flathub) : peut-être plus tard.
+- [ ] **Dépôt apt / rpm** pour que les paquets deb / rpm se mettent à jour avec le système : pas prévu.
+- [ ] **Page de téléchargement** sur https://git.gaetanraynaud.fr (liens vers `releases/latest`).
+- [x] ~~Vérifier les mises à jour aussi pendant que l'app reste ouverte longtemps (toutes les N heures)~~ → **non** (décidé) : au démarrage et à la demande depuis les Réglages suffisent.
+- [x] ~~Canal de pré-versions (bêta) pour les testeurs~~ → **non** (décidé) : les testeurs suivent les versions publiées (`releases/latest`).
 
 ### Étape 8 — historique avancé
 
@@ -421,11 +438,15 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 - Secrets → trousseau OS (crate `keyring`).
 
 ### 6.4 Distribution & mises à jour
-- **Windows** : installeur NSIS (ou MSI) — mise à jour auto via `tauri-plugin-updater`.
-- **Linux** : **AppImage** (supporte la mise à jour auto) + `.deb` / `.rpm` (mis à jour par le gestionnaire de paquets, pas par l'app) ; Flatpak éventuel plus tard.
-- Mises à jour signées (clé de signature Tauri), manifeste `latest.json` hébergé sur GitHub Releases.
-- CI : GitHub Actions, build matrix Windows + Linux + macOS (`.dmg` universel, signature ad hoc) à chaque tag.
-- Pas de signature de code Windows (acté) : avertissement SmartScreen accepté, à mentionner dans le README.
+- **Windows** : installateur **NSIS** seul (MSI abandonné, cf. §0) — mise à jour auto via `tauri-plugin-updater` (installation en mode `passive`, qui ne recrée pas le raccourci du bureau).
+- **Linux** : **AppImage** (mise à jour auto) + `.deb` / `.rpm` (mis à jour par le gestionnaire de paquets : l'app annonce la version, sans l'installer) ; Flatpak éventuel plus tard.
+- **macOS** : `.dmg` universel (signature ad hoc) + archive `.app.tar.gz` de l'updater ; rien de testé.
+- **Signature des mises à jour** : clé de l'updater Tauri (minisign). Clé publique dans `tauri.conf.json` (`plugins.updater.pubkey`) ; clé privée et son mot de passe dans les secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, et sauvegardés hors du dépôt. **La perdre = plus aucune mise à jour automatique** pour les versions installées (il faudrait réinstaller à la main une version avec une nouvelle clé).
+- **Manifeste** : `latest.json` (généré par `scripts/release.mjs manifest` à partir des `.sig`), joint à chaque release ; l'app lit `https://github.com/GaetanRAYNAUD/GitGR/releases/latest/download/latest.json`, qui ne voit que la dernière release **publiée** (ni brouillon ni pré-version).
+- **Côté app** (`store/updates.ts`) : vérification silencieuse au démarrage (message « GitGR x.y.z est disponible » avec « Installer et redémarrer » et « Nouveautés ») et bouton « Rechercher les mises à jour » en bas des Réglages ; téléchargement avec progression, installation, redémarrage (`tauri-plugin-process`). Le paquet installé vient de `install_kind` (Rust, `tauri::utils::platform::bundle_type`) ; un build de développement ne vérifie rien.
+- **CI** : `version.yml` (« Nouvelle version », à la demande) → commit « Version x.y.z » + tag `vx.y.z`, poussés avec la clé de déploiement `RELEASE_DEPLOY_KEY` (en exception du ruleset de main ; un push de `GITHUB_TOKEN` serait refusé et ne lancerait pas `release.yml`). `release.yml` (sur tag) : build Linux / Windows / macOS avec `src-tauri/tauri.release.conf.json` (`createUpdaterArtifacts`), puis release en brouillon (paquets, `.sig`, `latest.json`, notes du changelog). `build.yml` reste pour des paquets à la demande, non signés.
+- **Changelog** : `CHANGELOG.md`, une section par version ; chaque PR ajoute ses lignes sous « Non publié ». Section vide au moment de la release : remplie avec les titres des PR fusionnées depuis le tag précédent (nos commits ne suivent pas les *conventional commits*, les titres de PR sont la meilleure source).
+- Pas de signature de code Windows (acté) : avertissement SmartScreen accepté, mentionné dans le README, le guide et les notes de release.
 
 ## 7. Découpage en étapes (proposition)
 
@@ -435,7 +456,7 @@ Rendu du graphe : liste virtualisée + **Canvas** pour les lignes (le DOM/SVG ne
 4. **Branches & réseau** : checkout avec auto-stash, création/suppression, fetch/pull/push.
 5. **Profils** : CRUD, génération de clé SSH, association repo↔profils, injection identité + SSH.
 6. **Providers** : profils par remote (clé SSH par hôte, « Pousser vers… / vers tous », « Tirer depuis… ») en premier, puis connexion GitHub (token ou OAuth) / GitLab (token), comptes liés aux profils, clone depuis la liste, ajout de clé SSH et de clé de signature, PR/MR.
-7. **Distribution** : installeurs, updater, CI de release.
+7. **Distribution** : installeurs, updater, CI de release (fait, cf. §6.4).
 8. **Historique avancé** : merge / rebase / cherry-pick / revert / reset depuis le graphe (et glisser-déposer d'une branche sur une autre), sélection de plusieurs commits (changements cumulés), liste des stash, recherche / filtre et masquer / solo des branches dans le graphe, undo/redo, palette de commandes.
 9. **Organisation multi-dépôt** : groupes de dépôts (un onglet par groupe, barre de second niveau ; repris à l'accueil, repliables, avec un résumé), état des dépôts à l'accueil (branche, retard, travail en attente) et indicateur discret de travail en attente sur les onglets, worktrees, sélecteur rapide de tous les dépôts connus, fetch en arrière-plan des dépôts ouverts avec badges, image / icône d'onglet.
 10. **Conflits et v2** : résolution de conflits intégrée (3 panneaux, résultat éditable), rebase interactif visuel, blame et historique d'un fichier, submodules, LFS.
@@ -477,3 +498,5 @@ Conventions :
 - [x] ~~Langue~~ → i18n dès le départ
 - [x] ~~macOS~~ → plus tard
 - [ ] Linux : comment fournir Git s'il manque ? (probablement juste indiquer la commande du gestionnaire de paquets)
+- [x] ~~MSI ou NSIS~~ → NSIS seul (cf. §0)
+- [x] ~~Montée de version~~ → workflow « Nouvelle version », niveau au choix, release en brouillon publiée à la main (cf. §6.4)

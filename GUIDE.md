@@ -57,6 +57,13 @@ Un profil réunit un nom, un e-mail, une clé SSH, une signature des commits et 
 - Sous chaque compte, GitGR indique si la clé SSH et la clé de signature du profil sont déjà enregistrées sur le compte. **Ajouter au compte** les envoie en un clic.
 - Les avatars des organisations et des groupes s'affichent devant les remotes et dans la fenêtre de clone.
 
+## Mises à jour
+
+- Au démarrage, GitGR regarde s'il existe une nouvelle version. Si oui, un message propose **Installer et redémarrer** (et **Nouveautés** pour lire les notes de version).
+- En bas des **Réglages** : la version installée et **Rechercher les mises à jour**.
+- Installé avec un paquet `.deb` ou `.rpm`, GitGR prévient seulement : la mise à jour passe par votre gestionnaire de paquets (`apt`, `dnf`…).
+- Windows : à l'installation, la case « Créer un raccourci sur le bureau » est décochée par défaut ; les mises à jour n'en créent pas.
+
 ## À venir
 
-Pull requests et merge requests depuis l'app, groupes de dépôts, état des dépôts sur l'accueil, résolution de conflits intégrée, mises à jour automatiques… Le détail est dans [docs/NOTES.md](docs/NOTES.md).
+Groupes de dépôts, état des dépôts sur l'accueil, résolution de conflits intégrée… Le détail est dans [docs/NOTES.md](docs/NOTES.md).
