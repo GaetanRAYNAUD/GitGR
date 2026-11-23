@@ -54,7 +54,8 @@ export function StagingPanel({ path }: { path: string }) {
       submit: t("staging.stashFileSubmit"),
       validate: (v) => (v.trim() ? null : t("staging.stashFileEmpty")),
     });
-    if (answer) await w.stashFiles(path, answer.value.trim(), [f.path]);
+    // Renommage : l'ancien chemin part avec, sinon sa suppression resterait indexée.
+    if (answer) await w.stashFiles(path, answer.value.trim(), f.oldPath ? [f.oldPath, f.path] : [f.path]);
   };
   const stashItem = (f: StatusFile): MenuItem => ({ label: t("staging.stashFile"), disabled: busy, onClick: () => void askStashFile(f) });
 

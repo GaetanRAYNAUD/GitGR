@@ -50,16 +50,6 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
   /** Stash dont le commit de départ n'a pas été trouvé dans l'historique. */
   const [missing, setMissing] = useState<string | null>(null);
 
-  // Stash ouvert à la place du graphe qui n'est plus dans la pile (pop, supprimé) : fermé.
-  const opened = useStashView((s) => s.open[path]);
-  useEffect(() => {
-    if (opened && list.length && !list.some((s) => s.sha === opened.sha)) useStashView.getState().close(path);
-    if (opened && !count) useStashView.getState().close(path);
-    // Renommé : la vue reprend le nouveau message.
-    const now = opened && list.find((s) => s.sha === opened.sha);
-    if (now && now.message !== opened.message) useStashView.getState().show(path, now);
-  }, [opened, list, count, path]);
-
   // Relue à chaque nouvel état des refs (stash fait, appliqué, supprimé…).
   useEffect(() => {
     if (!count) {

@@ -9,6 +9,7 @@ import { errorMessage } from "../../lib/errors";
 import { EMPTY_TREE, stashLabel } from "../../lib/stashes";
 import type { FileChange, FileDiff, StashChanges, StashEntry } from "../../lib/types";
 import { useApp } from "../../store/app";
+import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useStashView } from "../../store/range";
 import { openContextMenu } from "../ContextMenu";
@@ -43,6 +44,25 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
       live = false;
     };
   }, [path, entry.sha]);
+
+  // La pile a changé (pop, suppression, renommage, d'ici ou d'ailleurs) : la vue suit son stash,
+  // et se ferme s'il n'y est plus.
+  const refs = useGraph((s) => s.graphs[path]?.refs);
+  useEffect(() => {
+    let live = true;
+    api.listStashes(path).then(
+      (list) => {
+        if (!live) return;
+        const now = list.find((s) => s.sha === entry.sha);
+        if (!now) close(path);
+        else if (now.message !== entry.message) useStashView.getState().show(path, now);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, refs, entry.sha, entry.message, close]);
 
   const files = useMemo<StashFile[]>(
     () => (data ? [...data.files, ...data.untrackedFiles.map((f) => ({ ...f, untracked: true }))] : []),
