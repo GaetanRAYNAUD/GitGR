@@ -202,4 +202,7 @@ test("liens d'un message de commit : !12 ouvre la MR dans GitGR, un SHA sélecti
 
   await details.locator(".details-body .commit-link", { hasText: "!12" }).click();
   await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");
+  // Même chose dans la description d'une MR : !13 ouvre l'autre MR.
+  await view(page).locator(".pull-text .commit-link", { hasText: "!13" }).click();
+  await expect(view(page).locator(".pull-view-title")).toHaveText("Corriger la phrase de passe de l'agent SSH");
 });

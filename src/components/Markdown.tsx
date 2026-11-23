@@ -6,21 +6,24 @@ import { type ReactNode, useMemo } from "react";
 import { api } from "../lib/api";
 import { type Block, type Inline, parseMarkdown } from "../lib/markdown";
 
-function inlines(nodes: Inline[]): ReactNode[] {
+/** Rendu d'un morceau de texte brut (hors code et hors lien), ex. pour y repérer `#12`. */
+export type RenderText = (text: string, key: number) => ReactNode;
+
+function inlines(nodes: Inline[], rt?: RenderText): ReactNode[] {
   return nodes.map((n, i) => {
     switch (n.t) {
       case "text":
-        return n.v;
+        return rt ? rt(n.v, i) : n.v;
       case "code":
         return <code key={i}>{n.v}</code>;
       case "br":
         return <br key={i} />;
       case "strong":
-        return <strong key={i}>{inlines(n.c)}</strong>;
+        return <strong key={i}>{inlines(n.c, rt)}</strong>;
       case "em":
-        return <em key={i}>{inlines(n.c)}</em>;
+        return <em key={i}>{inlines(n.c, rt)}</em>;
       case "del":
-        return <del key={i}>{inlines(n.c)}</del>;
+        return <del key={i}>{inlines(n.c, rt)}</del>;
       case "link":
         if (!n.href) return <span key={i}>{inlines(n.c)}</span>;
         return (
@@ -41,16 +44,16 @@ function inlines(nodes: Inline[]): ReactNode[] {
   });
 }
 
-function blocks(nodes: Block[]): ReactNode[] {
+function blocks(nodes: Block[], rt?: RenderText): ReactNode[] {
   return nodes.map((b, i) => {
     switch (b.t) {
       case "p":
-        return <p key={i}>{inlines(b.c)}</p>;
+        return <p key={i}>{inlines(b.c, rt)}</p>;
       case "h": {
         const H = `h${Math.min(6, b.level + 2)}` as "h3";
         return (
           <H key={i} className={`md-h md-h${b.level}`}>
-            {inlines(b.c)}
+            {inlines(b.c, rt)}
           </H>
         );
       }
@@ -61,14 +64,14 @@ function blocks(nodes: Block[]): ReactNode[] {
           </pre>
         );
       case "quote":
-        return <blockquote key={i}>{blocks(b.c)}</blockquote>;
+        return <blockquote key={i}>{blocks(b.c, rt)}</blockquote>;
       case "hr":
         return <hr key={i} />;
       case "list": {
         const items = b.items.map((it, k) => (
           <li key={k} className={it.task === null ? undefined : "md-task"}>
             {it.task !== null && <input type="checkbox" checked={it.task} disabled readOnly />}
-            {blocks(it.c)}
+            {blocks(it.c, rt)}
           </li>
         ));
         return b.ordered ? (
@@ -87,7 +90,7 @@ function blocks(nodes: Block[]): ReactNode[] {
                 <tr>
                   {b.head.map((c, k) => (
                     <th key={k} style={{ textAlign: b.align[k] ?? undefined }}>
-                      {inlines(c)}
+                      {inlines(c, rt)}
                     </th>
                   ))}
                 </tr>
@@ -97,7 +100,7 @@ function blocks(nodes: Block[]): ReactNode[] {
                   <tr key={k}>
                     {r.map((c, j) => (
                       <td key={j} style={{ textAlign: b.align[j] ?? undefined }}>
-                        {inlines(c)}
+                        {inlines(c, rt)}
                       </td>
                     ))}
                   </tr>
@@ -112,8 +115,8 @@ function blocks(nodes: Block[]): ReactNode[] {
 
 /** `empty` : affiché à la place quand il ne reste rien (texte vide ou fait seulement de
  *  commentaires HTML, comme un modèle de PR laissé tel quel). */
-export function Markdown({ text, className, empty }: { text: string; className?: string; empty?: ReactNode }) {
+export function Markdown({ text, className, empty, renderText }: { text: string; className?: string; empty?: ReactNode; renderText?: RenderText }) {
   const tree = useMemo(() => parseMarkdown(text), [text]);
   if (tree.length === 0 && empty !== undefined) return <>{empty}</>;
-  return <div className={className ? `md ${className}` : "md"}>{blocks(tree)}</div>;
+  return <div className={className ? `md ${className}` : "md"}>{blocks(tree, renderText)}</div>;
 }

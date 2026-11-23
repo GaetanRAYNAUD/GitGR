@@ -27,6 +27,7 @@ import { BackButton } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { useApp } from "../../store/app";
 import { checkoutPull } from "./PullsSection";
+import { CommitText } from "./CommitText";
 import { fileMenu } from "./menus";
 import { openContextMenu } from "../ContextMenu";
 
@@ -138,8 +139,10 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
   );
 }
 
-function Body({ text, empty }: { text: string; empty?: React.ReactNode }) {
-  return <Markdown text={text} className="pull-text" empty={empty} />;
+/** Texte d'une PR / MR ou d'un commentaire : Markdown, avec les liens des messages de commit
+ *  (`#12`, `!5`, SHA) dans le texte. */
+function Body({ path, text, empty }: { path: string; text: string; empty?: React.ReactNode }) {
+  return <Markdown text={text} className="pull-text" empty={empty} renderText={(v, k) => <CommitText key={k} path={path} text={v} />} />;
 }
 
 function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullContext; d: PullDetail; people: PersonContext; term: "pr" | "mr" }) {
@@ -168,7 +171,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
               {t("prv.edit")}
             </button>
           )}
-          <Body text={d.body} empty={<p className="muted">{t("prv.noBody")}</p>} />
+          <Body path={path} text={d.body} empty={<p className="muted">{t("prv.noBody")}</p>} />
           {d.assignees.length > 0 && (
             <p className="pull-assignees muted">
               {t("pr.assignees")} :
@@ -200,7 +203,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
       )}
 
       {d.threads.map((th) => (
-        <ThreadCard key={th.id} ctx={ctx} d={d} th={th} people={people} />
+        <ThreadCard path={path} key={th.id} ctx={ctx} d={d} th={th} people={people} />
       ))}
 
       {entry?.actionError && (
@@ -239,7 +242,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
   );
 }
 
-function ThreadCard({ ctx, d, th, people }: { ctx: PullContext; d: PullDetail; th: PullThread; people: PersonContext }) {
+function ThreadCard({ path, ctx, d, th, people }: { path: string; ctx: PullContext; d: PullDetail; th: PullThread; people: PersonContext }) {
   const { t } = useTranslation();
   const ago = useAgo();
   const act = usePullList((s) => s.act);
@@ -264,7 +267,7 @@ function ThreadCard({ ctx, d, th, people }: { ctx: PullContext; d: PullDetail; t
               <strong>{c.author?.name ?? c.author?.login ?? "?"}</strong>
               <span className="muted">{ago(c.at)}</span>
             </div>
-            <Body text={c.body} />
+            <Body path={path} text={c.body} />
           </div>
         ))}
       {!folded && (th.replyable || th.resolvable) && (
