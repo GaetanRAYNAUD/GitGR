@@ -1,23 +1,22 @@
-# Paquets de GitGR, à la demande ou sur un tag `v*` :
+# Paquets de GitGR à la demande, pour essayer une branche (les releases passent par
+# release.yml, avec les signatures de l'updater) :
 # - Linux (AppImage, .deb, .rpm), artefact `gitgr-linux`. Compilé sur Ubuntu 22.04 : la glibc
 #   la plus ancienne qu'on vise, pour que l'AppImage tourne aussi sur des distributions moins
 #   récentes.
-# - Windows (installeurs NSIS `.exe` et MSI), artefact `gitgr-windows`. Tauri télécharge
-#   lui-même NSIS et WiX.
+# - Windows (installateur NSIS `.exe`), artefact `gitgr-windows`. Tauri télécharge lui-même
+#   NSIS. Pas de MSI : il crée toujours un raccourci sur le bureau.
 # - macOS (image disque `.dmg`, binaire universel Intel + Apple Silicon), artefact
 #   `gitgr-macos`. Signature ad hoc seulement (pas de certificat Apple) : à la première
 #   ouverture, macOS bloque l'app (« endommagée » ou « développeur non identifié ») ; la
 #   débloquer avec `xattr -cr /Applications/GitGR.app`, ou clic droit → Ouvrir.
 #
 # Lancer : onglet Actions → « Build » → Run workflow. Les paquets sont joints au run.
-# Binaires non signés, pas de mise à jour automatique pour l'instant (étape 7).
+# Binaires non signés, sans les signatures de l'updater.
 
 name: Build
 
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
 
 permissions:
   contents: read
@@ -55,7 +54,7 @@ jobs:
           retention-days: 30
 
   windows:
-    name: Windows (NSIS, MSI)
+    name: Windows (NSIS)
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -70,13 +69,11 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       # `tauri build` lance aussi `npm run build` (interface) avant de compiler le Rust.
-      - run: npx tauri build --bundles nsis,msi
+      - run: npx tauri build --bundles nsis
       - uses: actions/upload-artifact@v6
         with:
           name: gitgr-windows
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+          path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 30
 

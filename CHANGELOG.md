@@ -1,0 +1,16 @@
+# Changelog
+
+Les changements de chaque version de GitGR. Chaque PR ajoute ses lignes sous « Non publié » ;
+le workflow « Nouvelle version » en fait la section de la version, et ce texte devient les
+notes de la release GitHub (et celles que l'app affiche à la mise à jour).
+
+## Non publié
+
+Première version publique.
+
+- Graphe des commits de tous les dépôts ouverts en onglets, détails et diff (en ligne ou côte à côte).
+- Copie de travail : indexation par fichier, bloc ou ligne, commit, amend, stash.
+- Branches et réseau : checkout avec auto-stash, fetch / pull / push, plusieurs remotes.
+- Profils : identité Git, clé SSH et signature des commits par profil, appliqués par dépôt et par remote.
+- Comptes GitHub et GitLab (y compris auto-hébergés) : clone depuis la liste, publication d'un dépôt, pull / merge requests, notifications.
+- Mises à jour automatiques (installateur Windows, AppImage) ; les paquets deb / rpm passent par le gestionnaire de paquets.
