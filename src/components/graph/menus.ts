@@ -160,6 +160,19 @@ export function absolutePath(repo: string, file: string): string {
   return `${repo.replace(/[\\/]+$/, "")}${sep}${file.split("/").join(sep)}`;
 }
 
+/** Clic droit sur un dossier : l'ouvrir dans l'explorateur, copier son chemin. */
+export function dirMenu(t: TFunction, repo: string, dir: string): MenuItem[] {
+  const run = (how: "open" | "reveal") => () =>
+    void api.openRepoFile(repo, dir, how).catch((e) => useApp.setState({ error: errorCode(e) }));
+  return [
+    { label: t("menu.openDir"), onClick: run("open") },
+    { label: t("menu.revealFile"), onClick: run("reveal") },
+    "sep",
+    { label: t("menu.copyPath"), onClick: () => copy(dir) },
+    { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, dir)) },
+  ];
+}
+
 /** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). */
 export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
   const run = (how: "open" | "reveal") => () =>

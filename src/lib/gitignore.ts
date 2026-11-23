@@ -13,6 +13,11 @@ function escape(path: string): string {
   return path.replace(/[\\*?[\]]/g, (c) => `\\${c}`).replace(/ +$/, (sp) => sp.replace(/ /g, "\\ "));
 }
 
+/** Motif d'un dossier entier (clic droit sur un dossier de fichiers non suivis). */
+export function dirIgnore(dir: string): IgnoreChoice {
+  return { kind: "dir", pattern: `/${escape(dir)}/`, label: `${dir}/` };
+}
+
 export function ignoreChoices(file: string): IgnoreChoice[] {
   const slash = file.lastIndexOf("/");
   const name = file.slice(slash + 1);
@@ -24,8 +29,7 @@ export function ignoreChoices(file: string): IgnoreChoice[] {
     out.push({ kind: "ext", pattern: `*${escape(ext)}`, label: `*${ext}` });
   }
   if (slash > 0) {
-    const dir = file.slice(0, slash);
-    out.push({ kind: "dir", pattern: `/${escape(dir)}/`, label: `${dir}/` });
+    out.push(dirIgnore(file.slice(0, slash)));
   }
   return out;
 }
