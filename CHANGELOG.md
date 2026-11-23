@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Mises à jour silencieuses : la nouvelle version se télécharge en arrière-plan et s'installe à la fermeture de GitGR, sans rien à faire ni interruption. « Redémarrer maintenant » pour l'installer tout de suite ; une case des Réglages pour revenir à l'annonce seule.
+
 ## [0.1.1] — 2026-11-23
 
 - Aucun changement fonctionnel : version qui sert à vérifier la mise à jour automatique depuis la 0.1.0.
