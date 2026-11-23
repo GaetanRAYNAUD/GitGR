@@ -241,3 +241,23 @@ test("reset de main sur un commit plus ancien, puis le reflog retrouve l'ancienn
   await page.keyboard.press("Escape");
   await expect(view).toHaveCount(0);
 });
+
+test("chercher dans les modifications : résultats, détails au clic, erreur d'expression, retour au graphe", async ({ page }) => {
+  await page.getByRole("button", { name: "Chercher", exact: true }).click();
+  const view = page.getByRole("region", { name: "Recherche dans les modifications" });
+  await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
+  await view.getByRole("button", { name: "Chercher" }).click();
+  const results = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+  await expect(results.first()).toContainText("perf: rendu virtualisé des lignes");
+  await results.first().getByRole("button").click();
+  await expect(panel(page)).toContainText("perf: rendu virtualisé des lignes");
+
+  await view.getByLabel(/Expression régulière/).check();
+  await view.getByLabel("Texte cherché").fill("perf(");
+  await view.getByRole("button", { name: "Chercher" }).click();
+  await expect(view.getByRole("alert")).toHaveText("Expression régulière invalide.");
+
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+  await expect(graph(page)).toBeVisible();
+});

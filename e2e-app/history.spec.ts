@@ -77,3 +77,30 @@ test("reset hard, puis le reflog retrouve le commit perdu et une branche le réc
     await app.close();
   }
 });
+
+test("chercher quand un texte a été ajouté puis retiré, limité à un fichier", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "aiguille\n", "ajout de l'aiguille");
+  sandbox.commit(mine, "b.txt", "aiguille aussi\n", "aiguille dans b");
+  sandbox.commit(mine, "a.txt", "rien\n", "retrait de l'aiguille");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await page.getByRole("button", { name: "Chercher", exact: true }).click();
+    const view = page.getByRole("region", { name: "Recherche dans les modifications" });
+    await view.getByLabel("Texte cherché").fill("aiguille");
+    await view.getByLabel("Fichier ou dossier (facultatif)").fill("a.txt");
+    await view.getByRole("button", { name: "Chercher" }).click();
+    const results = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+    await expect(results).toHaveText([/retrait de l'aiguille/, /ajout de l'aiguille/]);
+    await view.getByLabel("Fichier ou dossier (facultatif)").fill("");
+    await view.getByRole("button", { name: "Chercher" }).click();
+    await expect(results).toHaveCount(3);
+    await results.nth(1).getByRole("button").dblclick();
+    await expect(view).toHaveCount(0);
+    await expect(page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { selected: true })).toContainText("aiguille dans b");
+  } finally {
+    await app.close();
+  }
+});

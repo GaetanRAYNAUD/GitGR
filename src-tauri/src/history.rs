@@ -81,6 +81,35 @@ fn parse_log(out: &str) -> Vec<Commit> {
 }
 
 // ---------------------------------------------------------------------------
+// Recherche dans les modifications
+// ---------------------------------------------------------------------------
+
+const SEARCH_LIMIT: u32 = 200;
+
+/// Commits (de toutes les branches) qui ajoutent ou retirent `text` : `git log -S` (nombre
+/// d'occurrences qui change), ou `-G` si `regex` (lignes modifiées qui correspondent à
+/// l'expression). `file` : limité à ce chemin (fichier ou dossier), suivi littéralement.
+pub fn search_changes(path: &Path, text: &str, regex: bool, file: Option<&str>) -> Result<Vec<Commit>, String> {
+    check_dir(path)?;
+    if text.is_empty() {
+        return Err("search_empty".into());
+    }
+    let pickaxe = format!("{}{text}", if regex { "-G" } else { "-S" });
+    let limit = format!("--max-count={SEARCH_LIMIT}");
+    let mut args = vec!["--literal-pathspecs", "log", "--exclude=refs/stash", "--exclude=refs/notes/*", "--all", "--date-order", "-z", LOG_FORMAT, &limit, &pickaxe, "--"];
+    if let Some(f) = file.filter(|f| !f.is_empty()) {
+        args.push(f);
+    }
+    match run(Some(path), &args) {
+        Ok(out) => Ok(parse_log(&out)),
+        Err(e) if regex && (e.contains("Invalid regular expression") || e.contains("invalid regex") || e.contains("regcomp")) => Err("search_bad_regex".into()),
+        // Dépôt sans commit : rien à chercher.
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") => Ok(vec![]),
+        Err(e) => Err(e),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Reflog
 // ---------------------------------------------------------------------------
 
@@ -563,6 +592,25 @@ pub(crate) fn parse_hunk_header(rest: &str) -> (u32, u32) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn search_changes_finds_when_text_came_and_went() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "rien\n");
+        crate::git::tests::commit_file(p, "a.txt", "rien\naiguille\n");
+        let added = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        crate::git::tests::commit_file(p, "b.txt", "autre\n");
+        crate::git::tests::commit_file(p, "a.txt", "rien\n");
+        let removed = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        let shas = |v: Vec<Commit>| v.into_iter().map(|c| c.sha).collect::<Vec<_>>();
+        assert_eq!(shas(search_changes(p, "aiguille", false, None).unwrap()), [removed.clone(), added.clone()]);
+        assert_eq!(shas(search_changes(p, "aig.ille", true, None).unwrap()), [removed, added]);
+        assert!(search_changes(p, "aiguille", false, Some("b.txt")).unwrap().is_empty());
+        assert!(search_changes(p, "-aiguille", false, None).unwrap().is_empty());
+        assert_eq!(search_changes(p, "", false, None).unwrap_err(), "search_empty");
+        assert_eq!(search_changes(p, "a(", true, None).unwrap_err(), "search_bad_regex");
+    }
     use super::*;
     use crate::git::tests::{commit_file, temp_repo};
 
