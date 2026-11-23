@@ -177,6 +177,11 @@ pub async fn range_diff(path: String, base: String, tip: String, file: String, o
 }
 
 #[tauri::command]
+pub async fn search_changes(path: String, text: String, regex: bool, file: Option<String>) -> Result<Vec<Commit>, String> {
+    history::search_changes(Path::new(&path), &text, regex, file.as_deref()).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn reflog(path: String, refname: String) -> Result<Vec<history::ReflogEntry>, String> {
     history::reflog(Path::new(&path), &refname).map_err(classify)
 }

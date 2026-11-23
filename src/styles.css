@@ -5026,6 +5026,37 @@ p.pf-account-keys.bad,
   padding: 2px 12px 6px;
 }
 
+/* Recherche dans les modifications (SearchView). */
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 12px;
+}
+
+.search-text {
+  flex: 2 1 220px;
+}
+
+.search-file {
+  flex: 1 1 160px;
+}
+
+.search-regex {
+  flex-basis: 100%;
+  min-height: 22px;
+  font-size: 12px;
+}
+
+.search-author {
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Sélection de plusieurs commits (PickedPanel). */
 .multi-hint {
   margin: 4px 0 0;

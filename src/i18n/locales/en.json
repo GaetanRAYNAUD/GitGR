@@ -241,6 +241,21 @@
     "pullBadge_one": "See the commit the pull brings",
     "pullBadge_other": "See the {{count}} commits the pull brings"
   },
+  "contentSearch": {
+    "label": "Search in changes",
+    "title": "When was this text added or removed?",
+    "text": "Text to find",
+    "regex": "Regular expression (changed lines that match)",
+    "file": "File or folder (optional)",
+    "submit": "Search",
+    "results_one": "{{count}} commit",
+    "results_other": "{{count}} commits",
+    "limit": "Only the 200 most recent.",
+    "none": "No commit adds or removes this text.",
+    "hint": "Commits on all branches where this text appears or disappears. Click: details; double-click: show in the graph.",
+    "toolbar": "Search",
+    "toolbarHint": "Search in changes: when a text was added or removed"
+  },
   "reset": {
     "title": "Reset {{branch}} to {{sha}}",
     "body": "What to do with the changes between the current position and this commit? Soft: kept and staged. Mixed: kept, unstaged. Hard: discarded, along with uncommitted changes to tracked files (irreversible for those; commits stay in the reflog). Untracked files are left alone.",
@@ -652,6 +667,8 @@
     "invalid_strategy": "Unknown pull mode.",
     "local_changes_conflict": "Your local changes would be overwritten. Commit them, stash them, or enable auto-stash in the settings.",
     "unresolved_conflicts": "Some conflicts are not resolved: finish them first.",
+    "search_empty": "Type the text to find.",
+    "search_bad_regex": "Invalid regular expression.",
     "cherry_pick_merge": "A merge commit cannot be cherry-picked here: remove it from the selection.",
     "no_commits": "No commit chosen.",
     "operation_in_progress": "An operation (merge, rebase…) is in progress: finish or abort it first.",

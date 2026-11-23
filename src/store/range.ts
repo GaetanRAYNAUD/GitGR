@@ -15,6 +15,7 @@ export const useRangeView = create<RangeState>((set) => ({
   show: (path, direction) => {
     useStashView.getState().close(path);
     useReflogView.getState().close(path);
+    useSearchView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: direction } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -31,6 +32,7 @@ export const useStashView = create<StashViewState>((set) => ({
   open: {},
   show: (path, entry) => {
     useReflogView.getState().close(path);
+    useSearchView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: entry } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -48,7 +50,37 @@ export const useReflogView = create<ReflogViewState>((set) => ({
   show: (path, refname) => {
     useRangeView.getState().close(path);
     useStashView.getState().close(path);
+    useSearchView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: refname } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
+}));
+
+/** Recherche dans les modifications : la dernière demande, gardée en revenant au graphe. */
+export interface ContentQuery {
+  text: string;
+  regex: boolean;
+  file: string;
+}
+
+/** Recherche dans les modifications ouverte à la place du graphe, une par dépôt. */
+interface SearchViewState {
+  open: Record<string, boolean | undefined>;
+  queries: Record<string, ContentQuery | undefined>;
+  show(path: string): void;
+  close(path: string): void;
+  setQuery(path: string, q: ContentQuery): void;
+}
+
+export const useSearchView = create<SearchViewState>((set) => ({
+  open: {},
+  queries: {},
+  show: (path) => {
+    useRangeView.getState().close(path);
+    useStashView.getState().close(path);
+    useReflogView.getState().close(path);
+    set((s) => ({ open: { ...s.open, [path]: true } }));
+  },
+  close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
+  setQuery: (path, q) => set((s) => ({ queries: { ...s.queries, [path]: q } })),
 }));

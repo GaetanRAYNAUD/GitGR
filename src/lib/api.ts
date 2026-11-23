@@ -122,6 +122,8 @@ export interface Api {
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
   /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
+  /** Commits qui ajoutent ou retirent `text` (`git log -S`, ou `-G` si `regex`), toutes branches. */
+  searchChanges(path: string, text: string, regex: boolean, file: string | null): Promise<Commit[]>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -364,6 +366,7 @@ const tauriApi: Api = {
   rangeDiff: (path, base, tip, file, oldFile) => invoke("range_diff", { path, base, tip, file, oldFile }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
+  searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   workStatus: (path) => invoke("work_status", { path }),
@@ -753,6 +756,22 @@ const mockApi: Api = {
     return [...files.values()];
   },
   cherryPick: async (path, shas, autoStash) => mockCherryPick(path, shas, autoStash),
+  async searchChanges(path, text, regex, file) {
+    await mockDelay();
+    if (!text) throw "search_empty";
+    let re: RegExp | null = null;
+    try {
+      re = regex ? new RegExp(text) : null;
+    } catch {
+      throw "search_bad_regex";
+    }
+    // Simulé : le texte cherché dans le sujet des commits (et le chemin dans leurs fichiers).
+    const { commits } = mockHistory(path);
+    return commits
+      .filter((c) => (re ? re.test(c.subject) : c.subject.includes(text)))
+      .filter((c) => !file || mockDetails(path, c.sha).files.some((f) => f.path.startsWith(file)))
+      .slice(0, 200);
+  },
   async reflog(path, refname) {
     await mockDelay();
     return mockReflog(path, refname);

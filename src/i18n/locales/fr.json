@@ -241,6 +241,21 @@
     "pullBadge_one": "Voir le commit qui arrive au pull",
     "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull"
   },
+  "contentSearch": {
+    "label": "Recherche dans les modifications",
+    "title": "Quand ce texte a-t-il été ajouté ou retiré ?",
+    "text": "Texte cherché",
+    "regex": "Expression régulière (lignes modifiées qui correspondent)",
+    "file": "Fichier ou dossier (facultatif)",
+    "submit": "Chercher",
+    "results_one": "{{count}} commit",
+    "results_other": "{{count}} commits",
+    "limit": "Les 200 plus récents seulement.",
+    "none": "Aucun commit n’ajoute ni ne retire ce texte.",
+    "hint": "Commits de toutes les branches où ce texte apparaît ou disparaît. Clic : ses détails ; double-clic : le montrer dans le graphe.",
+    "toolbar": "Chercher",
+    "toolbarHint": "Chercher dans les modifications : quand un texte a été ajouté ou retiré"
+  },
   "reset": {
     "title": "Reset de {{branch}} sur {{sha}}",
     "body": "Que faire des modifications entre la position actuelle et ce commit ? Soft : gardées et indexées. Mixed : gardées, non indexées. Hard : abandonnées, avec les modifications en cours des fichiers suivis (irréversible pour elles ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés.",
@@ -652,6 +667,8 @@
     "invalid_strategy": "Mode de pull inconnu.",
     "local_changes_conflict": "Vos modifications locales seraient écrasées. Commitez-les, mettez-les de côté (stash) ou activez l’auto-stash dans les réglages.",
     "unresolved_conflicts": "Des conflits ne sont pas résolus : terminez-les d’abord.",
+    "search_empty": "Saisissez le texte à chercher.",
+    "search_bad_regex": "Expression régulière invalide.",
     "cherry_pick_merge": "Un commit de fusion ne peut pas être cherry-pické ici : retirez-le de la sélection.",
     "no_commits": "Aucun commit choisi.",
     "operation_in_progress": "Une opération (merge, rebase…) est en cours : terminez-la ou annulez-la d’abord.",
