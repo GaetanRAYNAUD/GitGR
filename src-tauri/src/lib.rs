@@ -129,6 +129,7 @@ pub fn run() {
             commands::reset_to,
             commands::cherry_pick,
             commands::revert,
+            commands::squash,
             commands::work_status,
             commands::work_diff,
             commands::stage_files,

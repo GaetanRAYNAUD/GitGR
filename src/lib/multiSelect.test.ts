@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareOf, orderPicked, rangeShas } from "./multiSelect";
+import { compareOf, orderPicked, rangeShas, squashable } from "./multiSelect";
 import { EMPTY_TREE } from "./stashes";
 
 const c = (sha: string, ...parents: string[]) => ({ sha, parents });
@@ -28,6 +28,14 @@ describe("sélection de plusieurs commits", () => {
     expect(compareOf(orderPicked(graph, ["m", "f2"]))).toEqual({ kind: "chain", base: "f1", tip: "m" });
     // Jusqu'au premier commit : depuis l'arbre vide.
     expect(compareOf(orderPicked(graph, ["b", "a"]))).toEqual({ kind: "chain", base: EMPTY_TREE, tip: "b" });
+  });
+
+  it("squash : chaîne de premiers parents, sans fusion", () => {
+    expect(squashable(orderPicked(graph, ["f1", "f2"]))).toBe(true);
+    expect(squashable(orderPicked(graph, ["b", "a"]))).toBe(false); // jusqu'au premier commit
+    expect(squashable(orderPicked(graph, ["m", "b"]))).toBe(false); // fusion
+    expect(squashable(orderPicked(graph, ["f2", "a"]))).toBe(false); // pas contigus
+    expect(squashable(orderPicked(graph, ["b"]))).toBe(false);
   });
 
   it("deux commits sans lien direct : de l'un à l'autre ; plus : seulement la liste", () => {

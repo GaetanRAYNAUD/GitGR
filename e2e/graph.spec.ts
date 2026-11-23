@@ -271,3 +271,19 @@ test("clic droit sur un commit : revert, un nouveau commit l'annule en haut de m
   await expect(page.getByText("Revert sur main terminé.")).toBeVisible();
   await expect(rows.first()).toContainText(`Revert "${all[i]}"`);
 });
+
+test("squash des deux derniers commits de main : un seul commit, avec le message choisi", async ({ page }) => {
+  const rows = graph(page).getByRole("option");
+  // HEAD et son parent (lu dans les détails).
+  await rows.nth(0).click();
+  const parent = (await panel(page).locator(".parents .link").first().innerText()).trim();
+  await graph(page).getByRole("option").filter({ has: page.locator(".commit-sha", { hasText: parent }) }).click({ modifiers: ["Control"] });
+  await page.getByRole("complementary", { name: "Commits sélectionnés" }).getByRole("button", { name: "Squash des 2 commits…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Squash de 2 commits" });
+  await dialog.getByRole("textbox").fill("deux en un");
+  await dialog.getByRole("button", { name: "Réunir" }).click();
+  // Le second est déjà sur origin/main : confirmation demandée.
+  await page.getByRole("alertdialog", { name: "Commits déjà poussés" }).getByRole("button", { name: "Réunir quand même" }).click();
+  await expect(page.getByText("2 commits réunis en un seul.")).toBeVisible();
+  await expect(rows.first()).toContainText("deux en un");
+});

@@ -309,6 +309,23 @@ export function mockCherryPick(path: string, shas: string[], autoStash: boolean)
   return res;
 }
 
+/** Squash simulé : les commits choisis (en haut de la branche courante) remplacés par un seul. */
+export function mockSquash(path: string, shas: string[], message: string, allowPushed: boolean): OpResult {
+  const h = mockHistory(path);
+  if (shas.length < 2) throw "no_commits";
+  if (!message.trim()) throw "empty_message";
+  const branch = h.refs.headBranch;
+  const cur = h.refs.refs.find((r) => r.kind === "local" && r.short === branch);
+  const remoteHas = h.refs.refs.some((r) => r.kind === "remote" && shas.includes(r.target));
+  if (!allowPushed && remoteHas) throw "squash_pushed";
+  const oldest = h.commits.find((c) => c.sha === shas[shas.length - 1]);
+  if (!oldest || oldest.parents.length !== 1) throw "squash_root";
+  const head = mockNewCommit(path, [oldest.parents[0]], message.split("\n")[0]);
+  const refs = h.refs.refs.map((r) => (r === cur ? { ...r, target: head } : r));
+  setRefs(path, refs, head, branch);
+  return OK;
+}
+
 /** Revert simulé : un commit « Revert "…" » par commit choisi (du plus récent au plus ancien). */
 export function mockRevert(path: string, shas: string[], autoStash: boolean): OpResult {
   const h = mockHistory(path);

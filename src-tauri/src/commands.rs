@@ -198,6 +198,12 @@ pub async fn compare_files(path: String, base: String, tip: String) -> Result<Ve
 }
 
 /// Cherry-pick des commits donnés (du plus ancien au plus récent) sur la branche courante.
+/// Réunit une suite contiguë de commits de la branche courante en un seul.
+#[tauri::command]
+pub async fn squash(path: String, shas: Vec<String>, message: String, allow_pushed: bool, auto_stash: bool) -> Result<OpResult, String> {
+    branches::squash(Path::new(&path), &shas, &message, allow_pushed, auto_stash)
+}
+
 /// Annule les commits donnés (du plus récent au plus ancien) par de nouveaux commits.
 #[tauri::command]
 pub async fn revert(path: String, shas: Vec<String>, auto_stash: bool) -> Result<OpResult, String> {

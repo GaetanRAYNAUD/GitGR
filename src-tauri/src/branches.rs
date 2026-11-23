@@ -686,6 +686,86 @@ pub fn revert(path: &Path, shas: &[String], auto_stash: bool) -> Result<OpResult
     apply_commits(path, "revert", shas, auto_stash)
 }
 
+// ---------------------------------------------------------------------------
+// Squash
+// ---------------------------------------------------------------------------
+
+/// Réunit en un seul commit une suite contiguë de commits de la branche courante (`shas` :
+/// du plus récent au plus ancien, chacun premier parent du précédent, sans merge). Le nouveau
+/// commit garde l'auteur et la date du plus ancien, l'arbre du plus récent, et `message` ; les
+/// commits qui suivaient sont rejoués dessus (`rebase --onto`, auto-stash). Refusé si un merge
+/// suit la plage, et, sans `allow_pushed`, si un de ces commits est déjà sur une branche
+/// distante (`squash_pushed` : il faudrait forcer le push).
+pub fn squash(path: &Path, shas: &[String], message: &str, allow_pushed: bool, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    if shas.len() < 2 {
+        return Err("no_commits".into());
+    }
+    for s in shas {
+        check_sha(s)?;
+    }
+    let message = message.trim();
+    if message.is_empty() {
+        return Err("empty_message".into());
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    let parents = |s: &str| -> Result<Vec<String>, String> {
+        let line = run(Some(path), &["rev-list", "--parents", "-n", "1", s])?;
+        Ok(line.split_whitespace().skip(1).map(str::to_string).collect())
+    };
+    for (i, s) in shas.iter().enumerate() {
+        let p = parents(s)?;
+        if p.len() > 1 {
+            return Err("squash_merge".into());
+        }
+        if let Some(next) = shas.get(i + 1) {
+            if p.first() != Some(next) {
+                return Err("squash_not_contiguous".into());
+            }
+        }
+    }
+    let tip = &shas[0];
+    let oldest = &shas[shas.len() - 1];
+    let base = parents(oldest)?.into_iter().next().ok_or("squash_root")?;
+    let head = run(Some(path), &["rev-parse", "HEAD"])?;
+    if run(Some(path), &["merge-base", "--is-ancestor", tip, &head]).is_err() {
+        return Err("squash_not_on_branch".into());
+    }
+    if !run(Some(path), &["rev-list", "--merges", &format!("{tip}..{head}")])?.is_empty() {
+        return Err("squash_merges_after".into());
+    }
+    if !allow_pushed && !run(Some(path), &["branch", "-r", "--contains", oldest])?.is_empty() {
+        return Err("squash_pushed".into());
+    }
+    // Auteur et date du plus ancien, comme `rebase -i` avec `squash`.
+    let who = run(Some(path), &["log", "-1", "--format=%an%x1f%ae%x1f%ad", "--date=raw", oldest])?;
+    let mut who = who.splitn(3, '\x1f');
+    let (name, email, date) = (who.next().unwrap_or(""), who.next().unwrap_or(""), who.next().unwrap_or(""));
+    let tree = format!("{tip}^{{tree}}");
+    let new = run_env(
+        Some(path),
+        &["commit-tree", &tree, "-p", &base, "-m", message],
+        &[("GIT_AUTHOR_NAME", name), ("GIT_AUTHOR_EMAIL", email), ("GIT_AUTHOR_DATE", date)],
+    )
+    .map_err(|e| classify(&e))?;
+    check_sha(&new)?;
+    let label = current_branch(path).unwrap_or_else(|| "HEAD".into());
+    if *tip == head {
+        // Même arbre : l'index et la copie de travail ne bougent pas.
+        let reason = format!("squash: {} commits", shas.len());
+        return run_env(Some(path), &["reset", "-q", "--soft", &new], &[("GIT_REFLOG_ACTION", &reason)])
+            .map(|_| OpResult::default())
+            .map_err(|e| classify(&e));
+    }
+    with_autostash(path, auto_stash, &label, || match run_env(Some(path), &["rebase", "-q", "--onto", &new, tip], &[("GIT_EDITOR", "true")]) {
+        Ok(_) => Ok(OpResult::default()),
+        Err(_) if operation(path) == Some("rebase") && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
+        Err(e) => Err(classify(&e)),
+    })
+}
+
 /// Suite de cherry-pick / revert gardée par git (`.git/sequencer`).
 fn sequencer(path: &Path) -> bool {
     git_dir(path).map(|d| d.join("sequencer").is_dir()).unwrap_or(false)
@@ -1310,6 +1390,38 @@ mod tests {
         assert!(main.iter().any(|e| e.sha == lost));
         assert_eq!(crate::history::reflog(p, "absente").unwrap_err(), "branch_not_found");
         assert_eq!(crate::history::reflog(p, "--all").unwrap_err(), "invalid_branch_name");
+    }
+
+    #[test]
+    fn squash_contiguous_commits() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        commit_file(p, "b.txt", "b\n");
+        let b = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "c.txt", "c\n");
+        let c = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "d.txt", "d\n");
+        let d = git(p, &["rev-parse", "HEAD"]);
+        let count = |p: &Path| git(p, &["rev-list", "--count", "HEAD"]).trim().parse::<u32>().unwrap();
+        // Pas contigus, ou dans le mauvais ordre : refusé.
+        assert_eq!(squash(p, &[d.clone(), b.clone()], "x", false, true).unwrap_err(), "squash_not_contiguous");
+        assert_eq!(squash(p, &[c.clone(), b.clone()], " ", false, true).unwrap_err(), "empty_message");
+        // Au milieu de la branche : d rejoué sur le commit réuni, avec une modification locale.
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        let r = squash(p, &[c.clone(), b.clone()], "b et c", false, true).unwrap();
+        assert!(!r.conflicts);
+        assert_eq!(count(p), 3);
+        assert_eq!(git(p, &["log", "--format=%s", "-n", "2"]).lines().collect::<Vec<_>>(), [git(p, &["log", "-1", "--format=%s", &d]).trim(), "b et c"]);
+        assert!(p.join("b.txt").exists() && p.join("c.txt").exists() && p.join("d.txt").exists());
+        assert_eq!(read(p, "a.txt"), "local\n");
+        // En haut de la branche : HEAD et le commit d'avant.
+        git(p, &["checkout", "-q", "--", "a.txt"]);
+        let top: Vec<String> = git(p, &["rev-list", "-n", "2", "HEAD"]).lines().map(str::to_string).collect();
+        squash(p, &top, "tout", false, true).unwrap();
+        assert_eq!(count(p), 2);
+        assert_eq!(git(p, &["log", "-1", "--format=%s"]).trim(), "tout");
+        assert!(git(p, &["status", "--porcelain"]).trim().is_empty());
     }
 
     #[test]

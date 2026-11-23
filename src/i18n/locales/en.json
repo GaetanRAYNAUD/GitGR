@@ -256,6 +256,15 @@
     "toolbar": "Search",
     "toolbarHint": "Search in changes: when a text was added or removed"
   },
+  "squash": {
+    "title": "Squash {{count}} commits",
+    "subtitle": "One commit replaces them; later commits on the branch are replayed on top. The combined subjects are added below the message.",
+    "message": "Message of the combined commit",
+    "submit": "Combine",
+    "pushedTitle": "Commits already pushed",
+    "pushedBody": "At least one of these commits is already on a remote branch. After the squash you will have to force push, which rewrites history for everyone who fetched it.",
+    "pushedGo": "Combine anyway"
+  },
   "reset": {
     "title": "Reset {{branch}} to {{sha}}",
     "body": "What to do with the changes between the current position and this commit? Soft: kept and staged. Mixed: kept, unstaged. Hard: discarded, along with uncommitted changes to tracked files (irreversible for those; commits stay in the reflog). Untracked files are left alone.",
@@ -294,6 +303,10 @@
     "revert_other": "Revert {{count}} commits",
     "revertHint": "Undoes these changes with new commits (newest first); history is not rewritten",
     "revertMerge": "The selection contains a merge commit: it cannot be reverted here.",
+    "squash_one": "Squash…",
+    "squash_other": "Squash {{count}} commits…",
+    "squashHint": "Combines these commits into one; later commits on the branch are replayed on top (history is rewritten)",
+    "squashNot": "Squash only works on consecutive commits of one branch, without merges",
     "copyShas": "Copy SHAs",
     "diffRange": "Combined diff of the selection"
   },
@@ -605,6 +618,8 @@
     "fetched": "Fetch complete.",
     "pushedTo": "{{branch}} pushed to {{remote}}.",
     "pulledFrom": "{{source}} pulled.",
+    "squashed_one": "Commit combined.",
+    "squashed_other": "{{count}} commits combined into one.",
     "reverted_one": "Revert on {{branch}} done.",
     "reverted_other": "Revert of {{count}} commits on {{branch}} done.",
     "cherryPicked_one": "Cherry-pick onto {{branch}} done.",
@@ -678,6 +693,12 @@
     "search_empty": "Type the text to find.",
     "search_bad_regex": "Invalid regular expression.",
     "revert_merge": "A merge commit cannot be reverted here: remove it from the selection.",
+    "squash_pushed": "These commits are already on the server.",
+    "squash_not_contiguous": "Cannot squash: the chosen commits are not consecutive.",
+    "squash_merge": "Cannot squash: the selection contains a merge commit.",
+    "squash_root": "Cannot squash from the very first commit.",
+    "squash_not_on_branch": "Cannot squash: these commits are not on the current branch.",
+    "squash_merges_after": "Cannot squash: a merge follows these commits on the current branch.",
     "cherry_pick_merge": "A merge commit cannot be cherry-picked here: remove it from the selection.",
     "no_commits": "No commit chosen.",
     "operation_in_progress": "An operation (merge, rebase…) is in progress: finish or abort it first.",
