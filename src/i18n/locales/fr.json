@@ -256,6 +256,15 @@
     "toolbar": "Chercher",
     "toolbarHint": "Chercher dans les modifications : quand un texte a été ajouté ou retiré"
   },
+  "squash": {
+    "title": "Squash de {{count}} commits",
+    "subtitle": "Un seul commit les remplace ; ceux qui suivent sur la branche sont rejoués dessus. Les sujets réunis sont ajoutés sous le message.",
+    "message": "Message du commit réuni",
+    "submit": "Réunir",
+    "pushedTitle": "Commits déjà poussés",
+    "pushedBody": "Au moins un de ces commits est déjà sur une branche distante. Après le squash, il faudra forcer le push, ce qui réécrit l’historique pour tous ceux qui l’ont récupéré.",
+    "pushedGo": "Réunir quand même"
+  },
   "reset": {
     "title": "Reset de {{branch}} sur {{sha}}",
     "body": "Que faire des modifications entre la position actuelle et ce commit ? Soft : gardées et indexées. Mixed : gardées, non indexées. Hard : abandonnées, avec les modifications en cours des fichiers suivis (irréversible pour elles ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés.",
@@ -294,6 +303,10 @@
     "revert_other": "Revert des {{count}} commits",
     "revertHint": "Annule ces modifications par de nouveaux commits (du plus récent au plus ancien) ; l'historique n'est pas réécrit",
     "revertMerge": "La sélection contient un commit de fusion : il ne peut pas être annulé ici.",
+    "squash_one": "Squash…",
+    "squash_other": "Squash des {{count}} commits…",
+    "squashHint": "Réunit ces commits en un seul ; les commits qui suivent sur la branche sont rejoués dessus (l'historique est réécrit)",
+    "squashNot": "Squash possible seulement pour une suite de commits qui se suivent sur une même branche, sans fusion",
     "copyShas": "Copier les SHA",
     "diffRange": "Diff cumulé de la sélection"
   },
@@ -605,6 +618,8 @@
     "fetched": "Fetch terminé.",
     "pushedTo": "{{branch}} poussée vers {{remote}}.",
     "pulledFrom": "{{source}} tirée.",
+    "squashed_one": "Commit réuni.",
+    "squashed_other": "{{count}} commits réunis en un seul.",
     "reverted_one": "Revert sur {{branch}} terminé.",
     "reverted_other": "Revert de {{count}} commits sur {{branch}} terminé.",
     "cherryPicked_one": "Cherry-pick sur {{branch}} terminé.",
@@ -678,6 +693,12 @@
     "search_empty": "Saisissez le texte à chercher.",
     "search_bad_regex": "Expression régulière invalide.",
     "revert_merge": "Un commit de fusion ne peut pas être annulé ici : retirez-le de la sélection.",
+    "squash_pushed": "Ces commits sont déjà sur le serveur.",
+    "squash_not_contiguous": "Squash impossible : les commits choisis ne se suivent pas.",
+    "squash_merge": "Squash impossible : la sélection contient un commit de fusion.",
+    "squash_root": "Squash impossible à partir du tout premier commit.",
+    "squash_not_on_branch": "Squash impossible : ces commits ne sont pas sur la branche courante.",
+    "squash_merges_after": "Squash impossible : une fusion suit ces commits sur la branche courante.",
     "cherry_pick_merge": "Un commit de fusion ne peut pas être cherry-pické ici : retirez-le de la sélection.",
     "no_commits": "Aucun commit choisi.",
     "operation_in_progress": "Une opération (merge, rebase…) est en cours : terminez-la ou annulez-la d’abord.",

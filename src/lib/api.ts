@@ -26,6 +26,7 @@ import {
   mockStashApply,
   mockCherryPick,
   mockRevert,
+  mockSquash,
   mockReflog,
   mockResetTo,
   mockStashDrop,
@@ -131,6 +132,8 @@ export interface Api {
   resetTo(path: string, sha: string, mode: ResetMode): Promise<void>;
   /** Fichiers modifiés entre deux commits (`base` : un commit ou l'arbre vide). */
   compareFiles(path: string, base: string, tip: string): Promise<FileChange[]>;
+  /** Réunit une suite contiguë de commits (du plus récent au plus ancien) en un seul. */
+  squash(path: string, shas: string[], message: string, allowPushed: boolean, autoStash: boolean): Promise<OpResult>;
   /** Annule les commits donnés (du plus récent au plus ancien) par de nouveaux commits. */
   revert(path: string, shas: string[], autoStash: boolean): Promise<OpResult>;
   /** Cherry-pick des commits donnés, du plus ancien au plus récent, sur la branche courante. */
@@ -373,6 +376,7 @@ const tauriApi: Api = {
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   revert: (path, shas, autoStash) => invoke("revert", { path, shas, autoStash }),
+  squash: (path, shas, message, allowPushed, autoStash) => invoke("squash", { path, shas, message, allowPushed, autoStash }),
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
@@ -761,6 +765,7 @@ const mockApi: Api = {
   },
   cherryPick: async (path, shas, autoStash) => mockCherryPick(path, shas, autoStash),
   revert: async (path, shas, autoStash) => mockRevert(path, shas, autoStash),
+  squash: async (path, shas, message, allowPushed) => mockSquash(path, shas, message, allowPushed),
   async searchChanges(path, text, regex, file) {
     await mockDelay();
     if (!text) throw "search_empty";

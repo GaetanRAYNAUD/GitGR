@@ -43,3 +43,9 @@ export function compareOf(ordered: Node[]): Comparison {
   if (ordered.length === 2) return { kind: "pair", base: ordered[1].sha, tip: ordered[0].sha };
   return { kind: "sparse" };
 }
+
+/** Squash possible : au moins deux commits sans merge, chacun premier parent du précédent
+ *  (`ordered` : dans l'ordre du graphe). Le reste (sur la branche courante…) est vérifié par git. */
+export function squashable(ordered: Node[]): boolean {
+  return ordered.length > 1 && ordered.every((c, i) => c.parents.length === 1 && (i === ordered.length - 1 || c.parents[0] === ordered[i + 1].sha));
+}

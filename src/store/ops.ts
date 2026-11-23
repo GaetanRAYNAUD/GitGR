@@ -37,6 +37,8 @@ interface OpsStore {
   cherryPick(path: string, shas: string[]): Promise<boolean>;
   /** Annule les commits donnés (du plus récent au plus ancien) par de nouveaux commits. */
   revert(path: string, shas: string[]): Promise<boolean>;
+  /** Squash d'une suite contiguë de commits (`ordered` : du plus récent au plus ancien), message demandé. */
+  squash(path: string, ordered: { sha: string; subject: string }[]): Promise<boolean>;
   /** Branche distante (`origin/x`) : passe sur la locale du même nom, créée au besoin (elle suit
    *  alors la distante). Une locale qui existait déjà est ensuite mise à jour depuis la distante,
    *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
@@ -490,6 +492,40 @@ export const useOps = create<OpsStore>((set, get) => {
       report(out.value, label);
       if (!out.value.conflicts) {
         notify(t("notice.cherryPicked", { count: shas.length, branch: label }));
+        await selectHead(path);
+      }
+      return true;
+    },
+
+    async squash(path, ordered) {
+      const oldest = ordered[ordered.length - 1];
+      const answer = await useDialogs.getState().input({
+        title: t("squash.title", { count: ordered.length }),
+        subtitle: t("squash.subtitle"),
+        label: t("squash.message"),
+        initial: oldest?.subject ?? "",
+        submit: t("squash.submit"),
+        validate: (v) => (v.trim() ? null : t("errors.empty_message")),
+      });
+      if (!answer) return false;
+      // Résumé choisi, puis les sujets réunis (du plus ancien au plus récent), comme git.
+      const message = [answer.value.trim(), "", ...[...ordered].reverse().map((c) => `* ${c.subject}`)].join("\n");
+      const shas = ordered.map((c) => c.sha);
+      const label = currentBranch(path) ?? "HEAD";
+      let out = await exec(path, "operation", () => api.squash(path, shas, message, false, autoStash()));
+      if (!out.ok && out.error === "squash_pushed") {
+        const go = await useDialogs.getState().choose({
+          title: t("squash.pushedTitle"),
+          body: t("squash.pushedBody"),
+          choices: [{ id: "go", label: t("squash.pushedGo"), danger: true }],
+        });
+        if (go !== "go") return false;
+        out = await exec(path, "operation", () => api.squash(path, shas, message, true, autoStash()));
+      }
+      if (!out.ok) return fail(out.error);
+      report(out.value, label);
+      if (!out.value.conflicts) {
+        notify(t("notice.squashed", { count: shas.length }));
         await selectHead(path);
       }
       return true;

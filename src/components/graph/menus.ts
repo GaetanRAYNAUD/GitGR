@@ -11,6 +11,7 @@ import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
 import type { MenuItem } from "../ContextMenu";
+import { squashable } from "../../lib/multiSelect";
 import { remoteMarkOf } from "../RemoteMark";
 
 const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => {});
@@ -143,8 +144,9 @@ export function remoteMenu(t: TFunction, path: string, remote: RemoteInfo, refs:
 
 /** Clic droit sur une sélection de plusieurs commits (`ordered` : dans l'ordre du graphe,
  *  du plus récent au plus ancien). */
-export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; parents: string[] }[], refs: RefsInfo | null): MenuItem[] {
+export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; parents: string[]; subject: string }[], refs: RefsInfo | null): MenuItem[] {
   const merges = ordered.some((c) => c.parents.length > 1);
+  const canSquash = squashable(ordered);
   const branch = refs?.headBranch ?? "HEAD";
   return [
     {
@@ -158,6 +160,12 @@ export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; p
       title: merges ? t("multi.revertMerge") : t("multi.revertHint"),
       disabled: merges || !refs?.head,
       onClick: () => void useOps.getState().revert(path, ordered.map((c) => c.sha)),
+    },
+    {
+      label: t("multi.squash", { count: ordered.length }),
+      title: canSquash ? t("multi.squashHint") : t("multi.squashNot"),
+      disabled: !canSquash || !refs?.head,
+      onClick: () => void useOps.getState().squash(path, ordered),
     },
     "sep",
     { label: t("multi.copyShas"), onClick: () => copy(ordered.map((c) => c.sha).join("\n")) },

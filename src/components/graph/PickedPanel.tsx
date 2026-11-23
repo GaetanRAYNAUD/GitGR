@@ -8,7 +8,7 @@ import { api, errorCode } from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
 import { relativeTime } from "../../lib/format";
 import { LAYOUT, useWidthStyle } from "../../lib/layout";
-import { compareOf, orderPicked } from "../../lib/multiSelect";
+import { compareOf, orderPicked, squashable } from "../../lib/multiSelect";
 import type { FileChange } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
@@ -71,6 +71,11 @@ export function PickedPanel({ path }: { path: string }) {
             >
               {t("multi.cherryPick", { count: ordered.length, branch })}
             </button>
+            {squashable(ordered) && (
+              <button className="btn" disabled={running || !refs?.head} title={t("multi.squashHint")} onClick={() => void useOps.getState().squash(path, ordered)}>
+                {t("multi.squash", { count: ordered.length })}
+              </button>
+            )}
           </div>
         </div>
         <ul className="range-commits" aria-label={t("multi.commits")}>

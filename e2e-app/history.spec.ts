@@ -125,3 +125,31 @@ test("revert de deux commits sélectionnés : leurs fichiers retirés par deux n
     await app.close();
   }
 });
+
+test("squash de deux commits au milieu de la branche : le suivant rejoué, un commit de moins", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "p.txt", "p\n", "partie 1");
+  sandbox.commit(mine, "q.txt", "q\n", "partie 2");
+  sandbox.commit(mine, "r.txt", "r\n", "suite");
+  const before = Number(git(mine, "rev-list", "--count", "HEAD"));
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option", { name: /partie 2/ }).click();
+    await graph.getByRole("option", { name: /partie 1/ }).click({ modifiers: ["Control"] });
+    await graph.getByRole("option", { name: /partie 1/ }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Squash des 2 commits…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Squash de 2 commits" });
+    await expect(dialog.getByRole("textbox")).toHaveValue("partie 1");
+    await dialog.getByRole("textbox").fill("les deux parties");
+    await dialog.getByRole("button", { name: "Réunir" }).click();
+    await expect(page.getByText("2 commits réunis en un seul.")).toBeVisible();
+    expect(Number(git(mine, "rev-list", "--count", "HEAD"))).toBe(before - 1);
+    expect(git(mine, "log", "--format=%s", "-n", "2").split("\n")).toEqual(["suite", "les deux parties"]);
+    expect(git(mine, "log", "-1", "--format=%b", "HEAD~1")).toContain("* partie 2");
+  } finally {
+    await app.close();
+  }
+});
