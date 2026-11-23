@@ -591,6 +591,7 @@
     "network_unreachable": "Serveur injoignable : vérifiez la connexion réseau et l’adresse du remote.",
     "remote_not_found": "Dépôt distant introuvable (adresse du remote ou droits d’accès).",
     "no_stash": "Aucun stash à réappliquer.",
+    "untrack_staged": "Ce fichier a des modifications indexées : retirez-les de l’index d’abord.",
     "stash_missing": "Ce stash n’est plus dans la pile.",
     "stash_would_overwrite": "Le stash écraserait des modifications en cours : commitez-les ou mettez-les de côté d’abord.",
     "key_not_found": "Fichier de clé introuvable.",

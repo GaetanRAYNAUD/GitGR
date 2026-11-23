@@ -568,7 +568,8 @@ pub fn stash_apply(path: &Path, sha: &str, drop: bool) -> Result<OpResult, Strin
     if !has_conflicts(path) && is_dirty(path)? == before {
         return Err("stash_would_overwrite".into());
     }
-    Ok(OpResult { stash_kept: drop, ..Default::default() })
+    // Conflits : le stash reste dans la pile (toujours le cas avec `apply`).
+    Ok(OpResult { stash_kept: true, ..Default::default() })
 }
 
 /// Supprime un stash de la pile.

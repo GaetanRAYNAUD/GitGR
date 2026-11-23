@@ -560,7 +560,10 @@ pub fn untrack_file(path: &Path, file: &str, pattern: &str) -> Result<(), String
     check_dir(path)?;
     check_relative(file)?;
     let files = [file.to_string()];
-    run(Some(path), &with_paths(&["rm", "-q", "--cached"], &files))?;
+    run(Some(path), &with_paths(&["rm", "-q", "--cached"], &files)).map_err(|e| {
+        // Contenu indexé différent à la fois de HEAD et du fichier : git refuse sans -f.
+        if e.contains("staged content different") { "untrack_staged".to_string() } else { e }
+    })?;
     add_to_gitignore(path, pattern).map(|_| ())
 }
 
