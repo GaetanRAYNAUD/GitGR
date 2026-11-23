@@ -168,6 +168,7 @@ export async function launchApp(
   writeFileSync(join(config, "state.json"), JSON.stringify(state));
 
   const port = nextPort++;
+  const launchedAt = Date.now();
   const proc: ChildProcess = spawn(EXE, [], {
     env: {
       ...process.env,
@@ -203,9 +204,31 @@ export async function launchApp(
       await new Promise((r) => setTimeout(r, 500));
     }
   }
+  const cdpAt = Date.now();
   const context = browser.contexts()[0];
-  const page = context.pages()[0] ?? (await context.waitForEvent("page"));
-  await expect(page.locator(".app")).toBeVisible();
+  // La page de l'app, pas un `about:blank` le temps que WebView2 navigue.
+  let page = context.pages().find((p) => !p.url().startsWith("about:")) ?? context.pages()[0] ?? (await context.waitForEvent("page"));
+  // Démarrage, pas une assertion : sur le runner (WebView2 à froid, profil neuf à chaque
+  // test), l'interface met souvent ~20 s à paraître, autant que le délai des `expect`.
+  const startup = process.env.CI ? 90_000 : 30_000;
+  try {
+    await expect
+      .poll(
+        async () => {
+          const app = context.pages().find((p) => !p.url().startsWith("about:"));
+          if (app) page = app;
+          return page.locator(".app").isVisible();
+        },
+        { timeout: startup, intervals: [250, 500, 1000] },
+      )
+      .toBe(true);
+  } catch (e) {
+    const err = failed(`Interface absente après ${Math.round((Date.now() - cdpAt) / 1000)} s (pages : ${context.pages().map((p) => p.url()).join(", ") || "aucune"})`);
+    await browser.close().catch(() => {});
+    proc.kill();
+    throw Object.assign(err, { cause: e });
+  }
+  if (process.env.CI) console.log(`app prête : CDP ${Math.round((cdpAt - launchedAt) / 1000)} s, interface ${Math.round((Date.now() - cdpAt) / 1000)} s`);
 
   const exited = new Promise<void>((r) => (proc.exitCode !== null ? r() : proc.once("exit", () => r())));
   return {
