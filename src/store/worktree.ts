@@ -1,6 +1,8 @@
 // État de la copie de travail de chaque dépôt : fichiers indexés / non indexés, diff ouvert,
 // brouillon du message de commit, actions d'indexation et commit.
 
+import { snapshot, unchanged } from "../lib/undo";
+import { useUndo } from "./undo";
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import type { DiffArea, FileDiff, LineRef, StatusFile, WorkStatus } from "../lib/types";
@@ -232,8 +234,14 @@ export const useWork = create<WorkStore>((set, get) => {
 
     async commit(path) {
       const draft = repo(path).draft;
+      // Pour Ctrl+Z : refs relues juste avant, puis celles du graphe relu après le commit.
+      const before = await api.repoRefs(path).then(snapshot, () => null);
       const ok = await act(path, () => api.commit(path, fullMessage(draft), draft.amend));
       if (ok) patch(path, { draft: emptyDraft() });
+      const refs = useGraph.getState().graphs[path]?.refs;
+      if (ok && before && refs && !unchanged(before, snapshot(refs))) {
+        useUndo.getState().record(path, { label: draft.amend ? "amend" : "commit", before, after: snapshot(refs), soft: true });
+      }
       return ok;
     },
 

@@ -73,7 +73,7 @@ fn check_start(path: &Path, start: &str) -> Result<(), String> {
 
 /// Dossier `.git` du dépôt, gardé en mémoire : il ne change pas, et `status` le consulte à
 /// chaque rafraîchissement (opération en cours). Relu s'il a disparu (dépôt déplacé…).
-fn git_dir(path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn git_dir(path: &Path) -> Result<PathBuf, String> {
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
     static CACHE: OnceLock<Mutex<HashMap<PathBuf, PathBuf>>> = OnceLock::new();
@@ -328,6 +328,82 @@ pub fn rename_branch(path: &Path, old: &str, new: &str) -> Result<(), String> {
     run(Some(path), &["branch", "-m", old, new]).map(|_| ()).map_err(|e| classify(&e))
 }
 
+/// Déplace une branche locale qui n'est pas la courante sur `sha` (`git branch -f`) ; les
+/// commits qu'elle seule contenait restent dans son reflog.
+pub fn move_branch(path: &Path, name: &str, sha: &str) -> Result<(), String> {
+    check_dir(path)?;
+    check_sha(sha)?;
+    if name.starts_with('-') || !local_exists(path, name) {
+        return Err("branch_not_found".into());
+    }
+    if current_branch(path).as_deref() == Some(name) {
+        return Err("same_branch".into());
+    }
+    run(Some(path), &["branch", "-f", name, sha]).map(|_| ()).map_err(|e| {
+        if e.contains("used by worktree") || e.contains("checked out at") { "branch_checked_out".into() } else { classify(&e) }
+    })
+}
+
+/// Annuler / rétablir (cf. `store/undo.ts`) : remet la branche `branch` (`None` : HEAD
+/// détachée) de `expected` à `target`, seulement si elle est toujours sur `expected`
+/// (`undo_stale` sinon : le dépôt a changé depuis). `expected` absent : la branche ne doit pas
+/// exister (elle est recréée) ; `target` absent : elle est supprimée. La branche courante (ou
+/// HEAD) passe par `reset` : `mode` « soft » (annuler un commit : ses modifications restent
+/// indexées) ou « keep » (les modifications en cours sont gardées ; refusé, sans rien toucher,
+/// si elles touchent les mêmes fichiers : `undo_local_changes`).
+pub fn set_branch_tip(path: &Path, branch: Option<&str>, expected: Option<&str>, target: Option<&str>, mode: &str) -> Result<(), String> {
+    check_dir(path)?;
+    for sha in expected.iter().chain(target.iter()) {
+        check_sha(sha)?;
+    }
+    let flag = match mode {
+        "soft" => "--soft",
+        "keep" => "--keep",
+        _ => return Err(format!("unknown mode: {mode}")),
+    };
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    let tip = |r: &str| run(Some(path), &["rev-parse", "-q", "--verify", &format!("{r}^{{commit}}")]).ok();
+    let current = current_branch(path);
+    let reset = |expected: Option<&str>, target: Option<&str>, at: &str| -> Result<(), String> {
+        let (Some(expected), Some(target)) = (expected, target) else { return Err("undo_stale".into()) };
+        if tip(at).as_deref() != Some(expected) {
+            return Err("undo_stale".into());
+        }
+        run(Some(path), &["reset", "-q", flag, target]).map(|_| ()).map_err(|e| {
+            if e.contains("not uptodate") || e.contains("Cannot do a keep reset") { "undo_local_changes".into() } else { classify(&e) }
+        })
+    };
+    let Some(branch) = branch else {
+        if current.is_some() {
+            return Err("undo_stale".into());
+        }
+        return reset(expected, target, "HEAD");
+    };
+    if branch.starts_with('-') {
+        return Err("branch_not_found".into());
+    }
+    if current.as_deref() == Some(branch) {
+        return reset(expected, target, "HEAD");
+    }
+    let full = format!("refs/heads/{branch}");
+    if tip(&full).as_deref() != expected {
+        return Err("undo_stale".into());
+    }
+    let msg = "GitGR: annuler / rétablir";
+    let res = match (expected, target) {
+        (_, Some(t)) => {
+            check_branch_name(path, branch)?;
+            // Ancienne valeur vide : la branche ne doit pas exister (recréée).
+            run(Some(path), &["update-ref", "-m", msg, &full, t, expected.unwrap_or("")])
+        }
+        (Some(e), None) => run(Some(path), &["update-ref", "-m", msg, "-d", &full, e]),
+        (None, None) => return Ok(()),
+    };
+    res.map(|_| ()).map_err(|e| classify(&e))
+}
+
 /// Supprime une branche locale ; sans `force`, refusé si elle n'est pas fusionnée.
 pub fn delete_branch(path: &Path, name: &str, force: bool) -> Result<(), String> {
     check_dir(path)?;
@@ -451,6 +527,113 @@ fn contains(path: &Path, commit: &str) -> bool {
     run(Some(path), &["merge-base", "--is-ancestor", commit, "HEAD"]).is_ok()
 }
 
+/// Met à jour une branche locale qui n'est pas la courante depuis sa branche suivie, sans
+/// checkout : `git fetch <remote> <merge>:refs/heads/<branch>`, en avance rapide seulement
+/// (`not_fast_forward` si elles ont divergé). Remote « . » : la branche locale suivie.
+/// Renvoie faux si la branche était déjà à jour (ou en avance : rien à tirer).
+pub fn fast_forward_branch(path: &Path, branch: &str) -> Result<bool, String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
+    if current_branch(path).as_deref() == Some(branch) {
+        return Err("same_branch".into());
+    }
+    let (remote, merge) = upstream_of(path, branch).ok_or("no_upstream")?;
+    let local = format!("refs/heads/{branch}");
+    let before = run(Some(path), &["rev-parse", &local])?;
+    let refspec = format!("{merge}:{local}");
+    // Sans `-q` : git ne dirait pas pourquoi il refuse.
+    match run(Some(path), &["fetch", &remote, &refspec]) {
+        Ok(_) => Ok(run(Some(path), &["rev-parse", &local])? != before),
+        Err(e) if e.contains("[rejected]") || e.contains("non-fast-forward") => {
+            // Refusé aussi quand la branche est en avance (git la ferait reculer) : rien à tirer.
+            run(Some(path), &["fetch", "-q", &remote, &merge]).map_err(|e| classify(&e))?;
+            let ahead = run(Some(path), &["merge-base", "--is-ancestor", "FETCH_HEAD", &local]).is_ok();
+            if ahead { Ok(false) } else { Err("not_fast_forward".into()) }
+        }
+        Err(e) if e.contains("checked out") || e.contains("refusing to fetch into") => Err("branch_checked_out".into()),
+        Err(e) => Err(classify(&e)),
+    }
+}
+
+/// Branche suivie par `branch` : `upstream` = branche distante (`origin/x`) ; `None` : ne plus
+/// rien suivre.
+pub fn set_upstream(path: &Path, branch: &str, upstream: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
+    match upstream {
+        Some(u) => {
+            if u.starts_with('-') || !ref_exists(path, &format!("refs/remotes/{u}")) {
+                return Err("branch_not_found".into());
+            }
+            let arg = format!("--set-upstream-to=refs/remotes/{u}");
+            run(Some(path), &["branch", "-q", &arg, branch]).map(|_| ()).map_err(|e| classify(&e))
+        }
+        None if upstream_of(path, branch).is_none() => Ok(()),
+        None => run(Some(path), &["branch", "-q", "--unset-upstream", branch]).map(|_| ()).map_err(|e| classify(&e)),
+    }
+}
+
+/// Branche à fusionner ou sur laquelle rebaser : nom complet d'une branche locale ou distante.
+fn check_branch_ref(path: &Path, full: &str) -> Result<(), String> {
+    let kind_ok = full.starts_with("refs/heads/") || full.starts_with("refs/remotes/");
+    if !kind_ok || !ref_exists(path, full) {
+        return Err("branch_not_found".into());
+    }
+    Ok(())
+}
+
+/// Lance une commande qui peut s'arrêter sur des conflits (merge, rebase). Conflits : l'opération
+/// reste en cours. Arrêt sans conflit (signature refusée, hook…) : annulée, erreur de git rendue
+/// (comme pour le pull).
+fn run_stoppable(path: &Path, args: &[&str]) -> Result<OpResult, String> {
+    match run_env(Some(path), args, &[("GIT_EDITOR", "true")]) {
+        Ok(_) => Ok(OpResult::default()),
+        Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
+        Err(e) if operation(path).is_some() => match abort_operation(path) {
+            Ok(()) => Err(classify(&e)),
+            Err(_) => Ok(OpResult { conflicts: true, ..Default::default() }),
+        },
+        Err(e) => Err(classify(&e)),
+    }
+}
+
+/// Fusionne la branche `full` (`refs/heads/x` ou `refs/remotes/origin/x`) dans la branche
+/// courante, avec l'auto-stash ; avance rapide quand c'est possible, sinon commit de merge.
+pub fn merge_branch(path: &Path, full: &str, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    check_branch_ref(path, full)?;
+    let branch = current_branch(path).ok_or("detached_head")?;
+    if full == format!("refs/heads/{branch}") {
+        return Err("same_branch".into());
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    with_autostash(path, auto_stash, &branch, || run_stoppable(path, &["merge", "--no-edit", full]))
+}
+
+/// Rejoue les commits de la branche courante sur la branche `full`, avec l'auto-stash.
+pub fn rebase_onto(path: &Path, full: &str, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    check_branch_ref(path, full)?;
+    let branch = current_branch(path).ok_or("detached_head")?;
+    if full == format!("refs/heads/{branch}") {
+        return Err("same_branch".into());
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    // Déjà à jour : rien à rejouer, et git refuserait une copie sale sans raison.
+    if contains(path, full) {
+        return Ok(OpResult::default());
+    }
+    with_autostash(path, auto_stash, &branch, || run_stoppable(path, &["rebase", full]))
+}
+
 /// Pousse la branche courante. `to` : remote choisi (« Pousser vers… ») ; absent : celui de la
 /// branche distante suivie, sinon `origin` (ou le premier remote). Sur le remote de la branche
 /// suivie, elle va vers celle-ci ; ailleurs, vers la branche du même nom. Une branche qui n'en
@@ -459,6 +642,15 @@ fn contains(path: &Path, commit: &str) -> bool {
 pub fn push(path: &Path, force: bool, to: Option<&str>) -> Result<(), String> {
     check_dir(path)?;
     let branch = current_branch(path).ok_or("detached_head")?;
+    push_branch(path, &branch, force, to)
+}
+
+/// Pousse la branche locale `branch`, courante ou non, avec les mêmes règles que `push`.
+pub fn push_branch(path: &Path, branch: &str, force: bool, to: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
     let all = remotes(path);
     if to.is_some_and(|r| !all.iter().any(|x| x == r)) {
         return Err("remote_not_found".into());
@@ -470,7 +662,7 @@ pub fn push(path: &Path, force: bool, to: Option<&str>) -> Result<(), String> {
     let local = format!("refs/heads/{branch}");
     // Branche qui suit une branche locale (remote « . ») : ce n'est pas une destination de
     // push — on y écraserait l'autre branche. Elle part vers le remote, sans changer ce suivi.
-    let upstream = upstream_of(path, &branch);
+    let upstream = upstream_of(path, branch);
     let tracks_local = upstream.as_ref().is_some_and(|(r, _)| r == ".");
     let upstream = upstream.filter(|_| !tracks_local);
     let remote = match (to, &upstream) {
@@ -840,6 +1032,7 @@ pub fn classify(stderr: &str) -> String {
         || has("would be overwritten by merge")
         || has("cannot pull with rebase")
         || has("cannot rebase: You have unstaged changes")
+        || has("cannot rebase: Your index contains uncommitted changes")
         || has("Please commit or stash them")
     {
         "local_changes_conflict"
@@ -1579,5 +1772,191 @@ mod tests {
         assert_eq!(current_branch(p), None);
         assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
         assert_eq!(checkout_detached(p, "--help", true).unwrap_err(), "invalid_start_point");
+    }
+
+    #[test]
+    fn fast_forward_of_another_branch_without_checkout() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        git(p, &["switch", "-q", "-c", "travail"]);
+        // Le distant avance sur `main` (second clone).
+        let b = clone_of(remote.path());
+        commit_file(b.path(), "g.txt", "g\n");
+        git(b.path(), &["push", "-q"]);
+        git(p, &["fetch", "-q"]);
+        assert!(fast_forward_branch(p, "main").unwrap());
+        assert_eq!(git(p, &["rev-parse", "main"]), git(p, &["rev-parse", "origin/main"]));
+        assert_eq!(current_branch(p).as_deref(), Some("travail"));
+        assert_eq!(fast_forward_branch(p, "travail").unwrap_err(), "same_branch");
+        assert!(!fast_forward_branch(p, "main").unwrap(), "déjà à jour");
+
+        // Divergé : refusé, rien ne bouge.
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "local.txt", "l\n");
+        let local = git(p, &["rev-parse", "main"]);
+        // En avance seulement : rien à tirer, pas une divergence.
+        git(p, &["switch", "-q", "travail"]);
+        assert!(!fast_forward_branch(p, "main").unwrap());
+        assert_eq!(git(p, &["rev-parse", "main"]), local);
+        commit_file(b.path(), "h.txt", "h\n");
+        git(b.path(), &["push", "-q"]);
+        git(p, &["fetch", "-q"]);
+        git(p, &["switch", "-q", "travail"]);
+        assert_eq!(fast_forward_branch(p, "main").unwrap_err(), "not_fast_forward");
+        assert_eq!(git(p, &["rev-parse", "main"]), local);
+    }
+
+    #[test]
+    fn push_and_upstream_of_another_branch() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        git(p, &["switch", "-q", "-c", "autre"]);
+        commit_file(p, "x.txt", "x\n");
+        git(p, &["switch", "-q", "main"]);
+        push_branch(p, "autre", false, None).unwrap();
+        assert_eq!(git(remote.path(), &["--git-dir=.", "rev-parse", "autre"]), git(p, &["rev-parse", "autre"]));
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/autre");
+        assert_eq!(current_branch(p).as_deref(), Some("main"));
+
+        set_upstream(p, "autre", None).unwrap();
+        assert!(run(Some(p), &["rev-parse", "--abbrev-ref", "autre@{u}"]).is_err());
+        set_upstream(p, "autre", None).unwrap();
+        set_upstream(p, "autre", Some("origin/main")).unwrap();
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/main");
+        assert_eq!(set_upstream(p, "autre", Some("origin/nulle-part")).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn summary_gives_the_last_fetch() {
+        let (_remote, a) = with_remote();
+        let p = a.path();
+        assert_eq!(crate::git::summary(p).unwrap().last_fetch, None);
+        fetch(p).unwrap();
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let at = crate::git::summary(p).unwrap().last_fetch.unwrap();
+        assert!(at + 60 > now && at <= now + 1);
+    }
+
+    #[test]
+    fn set_branch_tip_for_undo() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        let first = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "b.txt", "b
+");
+        let second = git(p, &["rev-parse", "HEAD"]);
+
+        // Courante, soft : le commit annulé, ses modifications indexées.
+        set_branch_tip(p, Some("main"), Some(&second), Some(&first), "soft").unwrap();
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
+        assert_eq!(git(p, &["diff", "--cached", "--name-only"]), "b.txt");
+        // Plus sur `second` : refusé.
+        assert_eq!(set_branch_tip(p, Some("main"), Some(&second), Some(&first), "soft").unwrap_err(), "undo_stale");
+        set_branch_tip(p, Some("main"), Some(&first), Some(&second), "soft").unwrap();
+        assert_eq!(git(p, &["status", "--porcelain"]), "");
+
+        // Courante, keep : modification sans rapport gardée ; en conflit, refusé sans rien toucher.
+        std::fs::write(p.join("a.txt"), "local
+").unwrap();
+        set_branch_tip(p, Some("main"), Some(&second), Some(&first), "keep").unwrap();
+        assert_eq!(read(p, "a.txt"), "local
+");
+        assert!(!p.join("b.txt").exists());
+        set_branch_tip(p, Some("main"), Some(&first), Some(&second), "keep").unwrap();
+        std::fs::write(p.join("b.txt"), "local
+").unwrap();
+        assert_eq!(set_branch_tip(p, Some("main"), Some(&second), Some(&first), "keep").unwrap_err(), "undo_local_changes");
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), second);
+        git(p, &["checkout", "--", "."]);
+
+        // Autre branche : recréée, déplacée, supprimée ; jamais si elle a bougé.
+        set_branch_tip(p, Some("autre"), None, Some(&first), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), first);
+        assert_eq!(set_branch_tip(p, Some("autre"), None, Some(&first), "keep").unwrap_err(), "undo_stale");
+        set_branch_tip(p, Some("autre"), Some(&first), Some(&second), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), second);
+        set_branch_tip(p, Some("autre"), Some(&second), None, "keep").unwrap();
+        assert!(!local_exists(p, "autre"));
+
+        // HEAD détachée.
+        git(p, &["switch", "-q", "--detach", &second]);
+        set_branch_tip(p, None, Some(&second), Some(&first), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
+        assert_eq!(current_branch(p), None);
+    }
+
+    #[test]
+    fn move_another_branch_to_a_commit() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        let first = git(p, &["rev-parse", "HEAD"]);
+        git(p, &["branch", "autre"]);
+        commit_file(p, "b.txt", "b
+");
+        let second = git(p, &["rev-parse", "HEAD"]);
+        move_branch(p, "autre", &second).unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), second);
+        move_branch(p, "autre", &first).unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), first);
+        assert_eq!(move_branch(p, "main", &first).unwrap_err(), "same_branch");
+        assert_eq!(move_branch(p, "nulle-part", &first).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn merge_a_branch_into_the_current_one() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "b.txt", "b\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "c.txt", "c\n");
+        // Modification locale sans rapport : gardée telle quelle.
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        assert_eq!(merge_branch(p, "refs/heads/feature", true).unwrap(), OpResult::default());
+        assert_eq!(git(p, &["rev-list", "--parents", "-n", "1", "HEAD"]).split_whitespace().count(), 3);
+        assert_eq!(read(p, "b.txt"), "b\n");
+        assert_eq!(read(p, "a.txt"), "local\n");
+        assert_eq!(merge_branch(p, "refs/heads/main", true).unwrap_err(), "same_branch");
+        assert_eq!(merge_branch(p, "refs/tags/x", true).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn merge_conflict_stays_in_progress() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "a.txt", "feature\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "a.txt", "main\n");
+        let r = merge_branch(p, "refs/heads/feature", true).unwrap();
+        assert!(r.conflicts);
+        assert_eq!(operation(p), Some("merge"));
+        assert_eq!(merge_branch(p, "refs/heads/feature", true).unwrap_err(), "operation_in_progress");
+    }
+
+    #[test]
+    fn rebase_the_current_branch_onto_another() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "b.txt", "b\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "c.txt", "c\n");
+        git(p, &["switch", "-q", "feature"]);
+        // Copie sale : git refuse le rebase, l'auto-stash la met de côté puis la réapplique.
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        let r = rebase_onto(p, "refs/heads/main", true).unwrap();
+        assert_eq!(r, OpResult { stashed: true, stash_kept: false, conflicts: false });
+        assert_eq!(git(p, &["rev-parse", "HEAD~1"]), git(p, &["rev-parse", "main"]));
+        assert_eq!(read(p, "a.txt"), "local\n");
+        // Déjà à jour : rien à faire, même avec la copie sale.
+        assert_eq!(rebase_onto(p, "refs/heads/main", false).unwrap(), OpResult::default());
     }
 }

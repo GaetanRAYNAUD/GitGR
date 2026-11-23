@@ -1,3 +1,4 @@
+import { useUndo } from "../store/undo";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitGraph } from "../components/graph/CommitGraph";
@@ -11,7 +12,7 @@ import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
 import { api, errorCode } from "../lib/api";
-import { remoteHost, remoteWebUrl } from "../lib/format";
+import { relativeTime, remoteHost, remoteWebUrl } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
@@ -73,6 +74,8 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   const stashes = useGraph((s) => s.graphs[path]?.refs?.stashes ?? 0);
   const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
   const running = useOps((s) => s.running[path]);
+  const undoNext = useUndo((s) => s.stacks[path]?.undo.slice(-1)[0]);
+  const redoNext = useUndo((s) => s.stacks[path]?.redo.slice(-1)[0]);
   const ops = useOps.getState();
   const showRange = (p: string, d: "push" | "pull") => {
     usePullList.getState().close(p);
@@ -150,8 +153,27 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         badgeTitle: t("range.pushBadge", { count: data?.ahead ?? 0 }),
       });
 
+  const undoTool = (dir: "undo" | "redo") => {
+    const entry = dir === "undo" ? undoNext : redoNext;
+    const keys = dir === "undo" ? "Ctrl+Z" : "Ctrl+Y";
+    return (
+      <button
+        className="tbtn"
+        disabled={!!running || !entry}
+        title={entry ? t(`undo.${dir}Hint`, { label: t(`undo.label.${entry.label}`), keys }) : t(`undo.${dir}None`)}
+        onClick={() => void ops.replay(path, dir)}
+      >
+        <Icon name={dir} />
+        <span>{t(`undo.${dir}`)}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="tools">
+      {undoTool("undo")}
+      {undoTool("redo")}
+      <span className="tool-sep" />
       <span className="tool-wrap tool-split">
         {tool("pull", "pull", () => ops.pull(path), {
           disabled: !data?.upstream || !!operation,
@@ -225,6 +247,23 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         <span>{t("contentSearch.toolbar")}</span>
       </button>
     </div>
+  );
+}
+
+/** Date du dernier fetch (barre d'état), remise à jour chaque minute. */
+function LastFetch({ seconds }: { seconds: number | null }) {
+  const { t, i18n } = useTranslation();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (!seconds) return <span className="status-item muted">{t("repo.neverFetched")}</span>;
+  const r = relativeTime(seconds * 1000);
+  return (
+    <span className="status-item" title={new Date(seconds * 1000).toLocaleString(i18n.language)}>
+      {t("repo.lastFetch", { when: t(`time.${r.key}`, { count: r.count }) })}
+    </span>
   );
 }
 
@@ -437,6 +476,7 @@ export function RepoView({ path }: { path: string }) {
             ↑{data.ahead} ↓{data.behind}
           </span>
         )}
+        {data && <LastFetch seconds={data.lastFetch} />}
       </footer>
     </div>
   );

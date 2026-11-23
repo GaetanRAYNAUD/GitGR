@@ -529,6 +529,8 @@ pub struct RepoSummary {
     /// Nombre de fichiers modifiés / non suivis / en conflit.
     pub changes: u32,
     pub remote_url: Option<String>,
+    /// Dernier fetch (date de `FETCH_HEAD`, en secondes depuis 1970) ; `None` : jamais.
+    pub last_fetch: Option<u64>,
 }
 
 /// Résumé rapide de l'état du dépôt, lu depuis `git status --porcelain=v2 --branch`.
@@ -540,7 +542,22 @@ pub fn summary(path: &Path) -> Result<RepoSummary, String> {
         .map_err(|e| classify_error(&e).map(str::to_string).unwrap_or(e))?;
     let mut s = parse_status(&out);
     s.remote_url = run(Some(path), &["remote", "get-url", "origin"]).ok();
+    s.last_fetch = last_fetch(path);
     Ok(s)
+}
+
+/// Date du dernier fetch : celle de `FETCH_HEAD`, dans le dossier `.git` (ou, pour un worktree
+/// lié, dans le dossier commun du dépôt).
+fn last_fetch(path: &Path) -> Option<u64> {
+    let mtime = |p: std::path::PathBuf| -> Option<u64> {
+        let t = std::fs::metadata(p).ok()?.modified().ok()?;
+        Some(t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs())
+    };
+    let dir = crate::branches::git_dir(path).ok()?;
+    mtime(dir.join("FETCH_HEAD")).or_else(|| {
+        let common = run(Some(path), &["rev-parse", "--path-format=absolute", "--git-common-dir"]).ok()?;
+        (std::path::Path::new(&common) != dir).then(|| mtime(std::path::Path::new(&common).join("FETCH_HEAD")))?
+    })
 }
 
 fn parse_status(out: &str) -> RepoSummary {

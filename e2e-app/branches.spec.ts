@@ -172,3 +172,124 @@ test("badges ↑ / ↓ : ce qui part au push et ce qui arrive au pull, avec le d
     await app.close();
   }
 });
+
+test("menu d'une autre branche : pull sans checkout, push, merge et rebase", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const other = sandbox.clone("other");
+  // Le distant avance sur main ; ici, on travaille sur une autre branche.
+  sandbox.commit(other, "b.txt", "distant\n", "distant: b");
+  git(other, "push", "-q");
+  git(mine, "fetch", "-q");
+  git(mine, "switch", "-q", "-c", "travail");
+  sandbox.commit(mine, "t.txt", "t\n", "travail: t");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
+    const menu = page.getByRole("menu").first();
+
+    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Pull de main (avance rapide)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "main mise à jour." })).toBeVisible();
+    expect(git(mine, "log", "-1", "--format=%s", "main")).toBe("distant: b");
+    expect(git(mine, "branch", "--show-current")).toBe("travail");
+
+    // Rebase de la courante sur main : t.txt rejoué après « distant: b ».
+    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Rebase de travail sur main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail rebasée sur main." })).toBeVisible();
+    expect(git(mine, "log", "-1", "--format=%s", "HEAD~1")).toBe("distant: b");
+
+    // Push de travail sans y être : suivie sur origin.
+    git(mine, "switch", "-q", "main");
+    // Le menu lit les refs de la barre latérale : attendre qu'elle soit relue.
+    await expect(locals.getByRole("button", { name: /^main/ })).toHaveClass(/current/);
+    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Push de travail" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail poussée." })).toBeVisible();
+    expect(git(mine, "rev-parse", "--abbrev-ref", "travail@{u}")).toBe("origin/travail");
+
+    // Merge de travail dans main : avance rapide.
+    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Merge de travail dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail fusionnée dans main." })).toBeVisible();
+    expect(git(mine, "rev-parse", "main")).toBe(git(mine, "rev-parse", "travail"));
+  } finally {
+    await app.close();
+  }
+});
+
+test("glisser un commit sur une autre branche : checkout puis cherry-pick", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  git(mine, "branch", "cible");
+  sandbox.commit(mine, "c.txt", "c\n", "à reprendre");
+  const sha = git(mine, "rev-parse", "HEAD");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
+    const target = locals.getByRole("button", { name: /^cible/ });
+    const row = page.locator(`#commit-${sha}`);
+    const from = (await row.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + 40, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.getByRole("menu").first().getByRole("menuitem", { name: `Cherry-pick de ${sha.slice(0, 7)} sur cible (checkout de cible d’abord)` }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur cible terminé." })).toBeVisible();
+    expect(git(mine, "branch", "--show-current")).toBe("cible");
+    expect(git(mine, "log", "-1", "--format=%s")).toBe("à reprendre");
+  } finally {
+    await app.close();
+  }
+});
+
+test("Ctrl+Z annule un commit (modifications indexées) puis un merge ; Ctrl+Y rétablit", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  git(mine, "switch", "-q", "-c", "feature");
+  sandbox.commit(mine, "f.txt", "f\n", "feature: f");
+  git(mine, "switch", "-q", "main");
+  const start = git(mine, "rev-parse", "HEAD");
+  sandbox.write(mine, "n.txt", "nouveau\n");
+  git(mine, "add", "n.txt");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await page.getByPlaceholder("Résumé").fill("ajout de n");
+    await page.getByRole("button", { name: /^Commiter/ }).click();
+    await expect.poll(() => git(mine, "log", "-1", "--format=%s")).toBe("ajout de n");
+    const committed = git(mine, "rev-parse", "HEAD");
+
+    const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
+    await locals.getByRole("button", { name: /^feature/ }).click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Merge de feature dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "feature fusionnée dans main." })).toBeVisible();
+
+    // Annuler le merge, puis le commit : n.txt revient indexé.
+    await page.locator("body").press("Control+z");
+    await expect(page.getByRole("status").filter({ hasText: "Annulé : merge." })).toBeVisible();
+    expect(git(mine, "rev-parse", "HEAD")).toBe(committed);
+    await page.locator("body").press("Control+z");
+    await expect(page.getByRole("status").filter({ hasText: "Annulé : commit." })).toBeVisible();
+    expect(git(mine, "rev-parse", "HEAD")).toBe(start);
+    expect(git(mine, "status", "--porcelain")).toBe("A  n.txt");
+
+    // Rétablir le commit.
+    await page.locator("body").press("Control+y");
+    await expect(page.getByRole("status").filter({ hasText: "Rétabli : commit." })).toBeVisible();
+    expect(git(mine, "rev-parse", "HEAD")).toBe(committed);
+    expect(git(mine, "status", "--porcelain")).toBe("");
+
+    // Le dépôt change hors de GitGR : plus rien à rétablir de fiable.
+    sandbox.commit(mine, "x.txt", "x\n", "ailleurs");
+    await page.locator("body").press("Control+y");
+    await expect(page.getByRole("alert")).toContainText("Le dépôt a changé depuis cette opération");
+    expect(git(mine, "log", "-1", "--format=%s")).toBe("ailleurs");
+  } finally {
+    await app.close();
+  }
+});

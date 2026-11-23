@@ -6,6 +6,8 @@ import { pullSource, pullTargetOf } from "../../lib/pulls";
 import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { api, errorCode } from "../../lib/api";
 import { useApp } from "../../store/app";
+import { useGraph } from "../../store/graph";
+import { useWork } from "../../store/worktree";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
@@ -57,48 +59,241 @@ function pullItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null)
   ];
 }
 
+/** Reset de la branche courante sur un commit : sous-menu soft / mixed / hard (hard confirmé). */
+function resetSub(t: TFunction, path: string, sha: string, refs: RefsInfo | null, label: string): MenuItem {
+  const ops = useOps.getState();
+  const head = refs?.headBranch ?? "HEAD";
+  const same = !refs?.head || sha === refs.head;
+  return {
+    label: t("menu.resetSub", { branch: head, target: label }),
+    disabled: same,
+    title: !refs?.head ? t("menu.why.noHead") : same ? t("menu.why.sameCommit", { branch: head }) : undefined,
+    items: [
+      { label: t("menu.resetSoft"), onClick: () => void ops.resetTo(path, sha, "soft") },
+      { label: t("menu.resetMixed"), onClick: () => void ops.resetTo(path, sha, "mixed") },
+      { label: t("menu.resetHard"), danger: true, onClick: () => void ops.resetTo(path, sha, "hard") },
+    ],
+  };
+}
+
+/** Actions sur le commit pointé par une branche : nouvelle branche, cherry-pick, reset, revert. */
+function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const head = refs?.headBranch ?? "HEAD";
+  const merge = isMergeCommit(path, r.target);
+  const noHead = !refs?.head;
+  return [
+    { label: t("menu.newBranchFrom", { branch: r.short }), onClick: () => ops.newBranch(path, r.name, r.short) },
+    {
+      label: t("menu.cherryPickTip", { source: r.short, branch: head }),
+      disabled: noHead || r.target === refs?.head || merge,
+      title: noHead ? t("menu.why.noHead") : merge ? t("multi.cherryPickMerge") : r.target === refs?.head ? t("menu.why.sameCommit", { branch: head }) : undefined,
+      onClick: () => void ops.cherryPick(path, [r.target]),
+    },
+    resetSub(t, path, r.target, refs, r.short),
+    {
+      label: t("menu.revertTip", { branch: r.short }),
+      disabled: noHead || merge,
+      title: noHead ? t("menu.why.noHead") : merge ? t("multi.revertMerge") : t("multi.revertHint"),
+      onClick: () => void ops.revert(path, [r.target]),
+    },
+  ];
+}
+
+/** Le commit est-il un merge (d'après l'historique chargé) ? */
+function isMergeCommit(path: string, sha: string): boolean {
+  return (useGraph.getState().graphs[path]?.commits.find((c) => c.sha === sha)?.parents.length ?? 0) > 1;
+}
+
+/** Merge de la branche dans la courante, rebase de la courante sur elle. */
+function integrateItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const head = refs?.headBranch;
+  const busy = !!useWork.getState().repos[path]?.status?.operation;
+  const why = !head ? t("menu.why.detached") : busy ? t("menu.why.operation") : undefined;
+  const label = head ?? "HEAD";
+  return [
+    { label: t("menu.mergeInto", { source: r.short, branch: label }), disabled: !!why, title: why, onClick: () => void ops.mergeInto(path, r) },
+    { label: t("menu.rebaseOnto", { branch: label, onto: r.short }), disabled: !!why, title: why, onClick: () => void ops.rebaseOnto(path, r) },
+  ];
+}
+
+/** Branche suivie : les branches du même nom sur chaque remote, une autre au choix, aucune. */
+function upstreamSub(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem {
+  const ops = useOps.getState();
+  const remotes = (refs?.remotes ?? []).map((x) => x.name);
+  const candidates = (refs?.refs ?? []).filter((x) => x.kind === "remote" && remotes.some((rm) => x.short === `${rm}/${r.short}`));
+  const items: MenuItem[] = candidates.map((x) => ({
+    label: x.short,
+    checked: r.upstream === x.short,
+    onClick: () => void ops.setUpstream(path, r.short, x.short),
+  }));
+  if (r.upstream && !candidates.some((x) => x.short === r.upstream)) {
+    items.push({ label: r.upstream, checked: true, onClick: () => {} });
+  }
+  items.push(
+    { label: t("menu.upstreamOther"), onClick: () => void ops.chooseUpstream(path, r.short) },
+    "sep",
+    { label: t("menu.upstreamNone"), checked: !r.upstream, onClick: () => void ops.setUpstream(path, r.short, null) },
+  );
+  return {
+    label: r.upstream ? t("menu.upstreamOf", { upstream: r.upstream }) : t("menu.upstream"),
+    items,
+  };
+}
+
+/** Clic droit sur une branche (barre latérale ou étiquette du graphe), par groupes : réseau,
+ *  merge / rebase, checkout, commit pointé, PR / MR, gestion de la branche. */
 export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
   const ops = useOps.getState();
-  const current = r.kind === "local" && r.short === refs?.headBranch;
-  const newBranch: MenuItem = { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) };
+  const head = refs?.headBranch ?? null;
   const copyName: MenuItem = { label: t("menu.copyName"), onClick: () => copy(r.short) };
   const pulls = pullItems(t, path, r, refs);
   const pullGroup: MenuItem[] = pulls.length ? ["sep", ...pulls] : [];
+  const detached: MenuItem = {
+    label: t("menu.checkoutDetachedAt", { branch: r.short }),
+    disabled: r.target === refs?.head && !head,
+    onClick: () => ops.checkoutDetached(path, r.target),
+  };
 
   if (r.kind === "local") {
+    const current = r.short === head;
+    const upstream = r.upstream && !r.gone ? r.upstream : null;
+    const noUpstream = r.gone ? t("menu.why.gone", { upstream: r.upstream }) : t("menu.why.noUpstream");
+    const remoteOf = upstream ? (refs?.refs ?? []).find((x) => x.kind === "remote" && x.short === upstream) : undefined;
     return [
-      { label: t("menu.checkoutBranch", { branch: r.short }), disabled: current, onClick: () => ops.checkout(path, r.short) },
-      ...(current
-        ? ([
-            { label: t("menu.pull"), disabled: !r.upstream || r.gone, onClick: () => ops.pull(path) },
-            { label: t("menu.push"), onClick: () => ops.push(path) },
-          ] as MenuItem[])
-        : []),
+      {
+        label: current ? t("menu.pull") : t("menu.pullBranch", { branch: r.short }),
+        disabled: !upstream,
+        title: !upstream ? noUpstream : current ? undefined : t("menu.why.ffOnly"),
+        onClick: () => void (current ? ops.pull(path) : ops.fastForward(path, r.short)),
+      },
+      {
+        label: current ? t("menu.push") : t("menu.pushBranch", { branch: r.short }),
+        onClick: () => void (current ? ops.push(path) : ops.pushBranch(path, r.short)),
+      },
+      upstreamSub(t, path, r, refs),
+      ...(current ? [] : (["sep", ...integrateItems(t, path, r, refs)] as MenuItem[])),
+      "sep",
+      {
+        label: t("menu.checkout"),
+        items: [
+          { label: t("menu.checkoutBranch", { branch: r.short }), disabled: current, title: current ? t("menu.why.current") : undefined, onClick: () => ops.checkout(path, r.short) },
+          detached,
+        ],
+      },
+      "sep",
+      ...tipItems(t, path, r, refs),
       ...pullGroup,
       "sep",
-      newBranch,
       { label: t("menu.rename"), onClick: () => ops.renameBranch(path, r.short) },
-      { label: t("menu.delete"), danger: true, disabled: current, onClick: () => ops.deleteBranch(path, r.short) },
+      {
+        label: t("menu.deleteLocal", { branch: r.short }),
+        danger: true,
+        disabled: current,
+        title: current ? t("menu.why.deleteCurrent") : undefined,
+        onClick: () => ops.deleteBranch(path, r.short),
+      },
+      ...(remoteOf
+        ? ([
+            { label: t("menu.deleteRemoteOf", { branch: remoteOf.short }), danger: true, onClick: () => ops.deleteRemoteBranch(path, remoteOf.short) },
+            {
+              label: t("menu.deleteBoth", { branch: r.short, remote: remoteOf.short }),
+              danger: true,
+              disabled: current,
+              title: current ? t("menu.why.deleteCurrent") : undefined,
+              onClick: () => ops.deleteBoth(path, r.short, remoteOf.short),
+            },
+          ] as MenuItem[])
+        : []),
       "sep",
       copyName,
     ];
   }
   if (r.kind === "remote") {
+    // Branche locale qui suit celle-ci : le pull et la suppression des deux passent par elle.
+    const local = (refs?.refs ?? []).find((x) => x.kind === "local" && x.upstream === r.short && !x.gone);
+    const localCurrent = !!local && local.short === head;
     return [
-      { label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkoutRemote(path, r.short) },
+      ...(local
+        ? ([
+            {
+              label: t("menu.pullInto", { branch: local.short }),
+              title: localCurrent ? undefined : t("menu.why.ffOnly"),
+              onClick: () => void (localCurrent ? ops.pull(path) : ops.fastForward(path, local.short)),
+            },
+            "sep",
+          ] as MenuItem[])
+        : []),
+      ...integrateItems(t, path, r, refs),
+      "sep",
+      {
+        label: t("menu.checkout"),
+        items: [
+          { label: t("menu.checkoutTracking", { branch: local?.short ?? r.short }), onClick: () => ops.checkoutRemote(path, r.short) },
+          detached,
+        ],
+      },
+      "sep",
+      ...tipItems(t, path, r, refs),
       ...pullGroup,
       "sep",
-      newBranch,
-      { label: t("menu.deleteRemote"), danger: true, onClick: () => ops.deleteRemoteBranch(path, r.short) },
+      { label: t("menu.deleteRemoteOf", { branch: r.short }), danger: true, onClick: () => ops.deleteRemoteBranch(path, r.short) },
+      ...(local
+        ? ([
+            {
+              label: t("menu.deleteLocal", { branch: local.short }),
+              danger: true,
+              disabled: localCurrent,
+              title: localCurrent ? t("menu.why.deleteCurrent") : undefined,
+              onClick: () => ops.deleteBranch(path, local.short),
+            },
+            {
+              label: t("menu.deleteBoth", { branch: local.short, remote: r.short }),
+              danger: true,
+              disabled: localCurrent,
+              title: localCurrent ? t("menu.why.deleteCurrent") : undefined,
+              onClick: () => ops.deleteBoth(path, local.short, r.short),
+            },
+          ] as MenuItem[])
+        : []),
       "sep",
       copyName,
     ];
   }
   return [
-    newBranch,
+    { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     { label: t("menu.checkoutDetached"), onClick: () => ops.checkoutDetached(path, r.target) },
     "sep",
     copyName,
+  ];
+}
+
+/** Commit déposé sur une branche locale (glisser-déposer) : cherry-pick dessus, et reset de la
+ *  courante ou déplacement d'une autre branche sur ce commit. */
+export function commitDropMenu(t: TFunction, path: string, sha: string, target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const short = sha.slice(0, 7);
+  const merge = isMergeCommit(path, sha);
+  const there = sha === target.target;
+  const current = target.short === refs?.headBranch;
+  const pickWhy = merge ? t("multi.cherryPickMerge") : there ? t("menu.why.sameCommit", { branch: target.short }) : undefined;
+  return [
+    {
+      label: current ? t("menu.cherryPickOnto", { sha: short, branch: target.short }) : t("menu.cherryPickOntoOther", { sha: short, branch: target.short }),
+      disabled: merge || there || !refs?.head,
+      title: pickWhy,
+      onClick: () => void ops.cherryPickOnto(path, target.short, sha),
+    },
+    current
+      ? resetSub(t, path, sha, refs, short)
+      : {
+          label: t("menu.moveBranch", { branch: target.short, sha: short }),
+          danger: true,
+          disabled: there,
+          title: there ? t("menu.why.sameCommit", { branch: target.short }) : undefined,
+          onClick: () => void ops.moveBranch(path, target.short, sha),
+        },
   ];
 }
 

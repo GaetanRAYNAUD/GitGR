@@ -196,6 +196,8 @@ export interface RepoSummary {
   behind: number;
   changes: number;
   remoteUrl: string | null;
+  /** Dernier fetch (secondes depuis 1970) ; `null` : jamais. */
+  lastFetch: number | null;
 }
 
 // --- Historique (src-tauri/src/history.rs) ---------------------------------

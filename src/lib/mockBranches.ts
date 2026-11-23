@@ -379,6 +379,91 @@ export function mockPush(path: string, force: boolean, to: string | null = null)
   setRefs(path, [...others, makeRef("remote", name, l.target)], h.refs.head, h.refs.headBranch);
 }
 
+/** Push simulé d'une autre branche que la courante : sa distante du même nom, suivie. */
+export function mockPushBranch(path: string, branch: string, force: boolean, to: string | null = null) {
+  const h = mockHistory(path);
+  if (branch === h.refs.headBranch) return mockPush(path, force, to);
+  const l = local(path, branch);
+  if (!l) throw "branch_not_found";
+  const name = l.upstream && !l.gone ? l.upstream : `${to ?? "origin"}/${branch}`;
+  const there = remote(path, name);
+  if (there && !force && !ancestors(path, l.target).has(there.target)) throw "push_rejected";
+  const others = h.refs.refs.filter((r) => r !== there).map((r) => (r === l ? { ...r, upstream: name, ahead: 0, behind: 0, gone: false } : r));
+  setRefs(path, [...others, makeRef("remote", name, l.target)], h.refs.head, h.refs.headBranch);
+}
+
+/** Avance rapide simulée d'une branche qui n'est pas la courante. */
+export function mockFastForward(path: string, branch: string): boolean {
+  const h = mockHistory(path);
+  const l = local(path, branch);
+  if (!l) throw "branch_not_found";
+  if (branch === h.refs.headBranch) throw "same_branch";
+  const up = l.upstream && !l.gone ? remote(path, l.upstream) : undefined;
+  if (!up) throw "no_upstream";
+  if (up.target === l.target || ancestors(path, l.target).has(up.target)) return false;
+  if (!ancestors(path, up.target).has(l.target)) throw "not_fast_forward";
+  const refs = h.refs.refs.map((r) => (r === l ? { ...r, target: up.target, behind: 0 } : r));
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+  return true;
+}
+
+export function mockMoveBranch(path: string, branch: string, sha: string) {
+  const h = mockHistory(path);
+  const l = local(path, branch);
+  if (!l) throw "branch_not_found";
+  if (branch === h.refs.headBranch) throw "same_branch";
+  if (!h.commits.some((c) => c.sha === sha)) throw "invalid_start_point";
+  const refs = h.refs.refs.map((r) => (r === l ? { ...r, target: sha } : r));
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
+/** Annuler / rétablir simulé : la branche (ou HEAD détachée) de `expected` à `target`. */
+export function mockSetBranchTip(path: string, branch: string | null, expected: string | null, target: string | null) {
+  const h = mockHistory(path);
+  if (branch === null || branch === h.refs.headBranch) {
+    if (h.refs.head !== expected || !target) throw "undo_stale";
+    const refs = h.refs.refs.map((r) => (r.kind === "local" && r.short === branch ? { ...r, target } : r));
+    setRefs(path, refs, target, h.refs.headBranch);
+    return;
+  }
+  const l = local(path, branch);
+  if ((l?.target ?? null) !== expected) throw "undo_stale";
+  const others = h.refs.refs.filter((r) => r !== l);
+  const refs = target ? [...others, l ? { ...l, target } : makeRef("local", branch, target)] : others;
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
+export function mockSetUpstream(path: string, branch: string, upstream: string | null) {
+  const h = mockHistory(path);
+  const l = local(path, branch);
+  if (!l) throw "branch_not_found";
+  if (upstream && !remote(path, upstream)) throw "branch_not_found";
+  const refs = h.refs.refs.map((r) => (r === l ? { ...r, upstream, ahead: 0, behind: 0, gone: false } : r));
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
+/** Merge / rebase simulés : un commit de merge, ou la branche rejouée (un commit) sur l'autre. */
+export function mockMergeOrRebase(path: string, full: string, rebase: boolean, autoStash: boolean): OpResult {
+  const h = mockHistory(path);
+  const other = h.refs.refs.find((r) => r.name === full && (r.kind === "local" || r.kind === "remote"));
+  if (!other) throw "branch_not_found";
+  const { l } = tracked(path);
+  if (other === l) throw "same_branch";
+  const mine = ancestors(path, l.target);
+  if (mine.has(other.target)) return OK;
+  const res = stashResult(path, autoStash);
+  let target = other.target;
+  // Avance rapide si la branche courante est un ancêtre de l'autre.
+  if (!ancestors(path, other.target).has(l.target)) {
+    target = rebase
+      ? mockNewCommit(path, [other.target], `${l.short} (rebasée)`)
+      : mockNewCommit(path, [l.target, other.target], `Merge branch '${other.short}' into ${l.short}`);
+  }
+  const refs = h.refs.refs.map((r) => (r === l ? { ...r, target } : r));
+  setRefs(path, refs, target, l.short);
+  return res;
+}
+
 // --- Remotes -------------------------------------------------------------------
 
 const sortRemotes = (list: RemoteInfo[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));

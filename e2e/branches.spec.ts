@@ -19,7 +19,8 @@ const locals = (page: Page) => sidebar(page).locator(".side-group").first();
 /** Bouton d'une branche locale (son nom affiché est suivi des compteurs ↑ ↓). */
 const branch = (page: Page, label: string) => locals(page).getByRole("button", { name: new RegExp(`^${label}( |$)`) });
 const graph = (page: Page) => page.getByRole("listbox", { name: "Historique des commits" });
-const menu = (page: Page) => page.getByRole("menu");
+/** Menu contextuel principal (un sous-menu ouvert est un second `menu`, imbriqué). */
+const menu = (page: Page) => page.getByRole("menu").first();
 
 test.describe("dépôt propre", () => {
   test.beforeEach(async ({ page }) => {
@@ -51,7 +52,7 @@ test.describe("dépôt propre", () => {
     await branch(page, "main").dblclick();
     await expect(current(page)).toHaveText("main");
     await branch(page, "neuve").click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Supprimer…" }).click();
+    await menu(page).getByRole("menuitem", { name: "Supprimer essai/neuve…" }).click();
     const confirm = page.getByRole("alertdialog", { name: "Supprimer essai/neuve ?" });
     await confirm.getByRole("button", { name: "Supprimer" }).click();
     await expect(branch(page, "neuve")).toHaveCount(0);
@@ -59,7 +60,10 @@ test.describe("dépôt propre", () => {
 
   test("la branche courante ne peut pas être supprimée depuis son menu", async ({ page }) => {
     await branch(page, "main").click({ button: "right" });
-    await expect(menu(page).getByRole("menuitem", { name: "Supprimer…" })).toBeDisabled();
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toBeDisabled();
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toHaveAttribute("title", "Impossible de supprimer la branche courante.");
+    // Pas de merge / rebase d'une branche sur elle-même.
+    await expect(menu(page).getByRole("menuitem", { name: /^Merge de/ })).toHaveCount(0);
     await expect(menu(page).getByRole("menuitem", { name: "Push" })).toBeEnabled();
     await page.keyboard.press("Escape");
     await expect(menu(page)).toBeHidden();
@@ -71,6 +75,12 @@ test.describe("dépôt propre", () => {
     await expect(page.getByRole("status").filter({ hasText: "main poussée." })).toBeVisible();
     await expect(tool(page, "Push").locator(".badge")).toHaveCount(0);
     await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
+  });
+
+  test("barre d'état : date du dernier fetch", async ({ page }) => {
+    // Fetch automatique à l'ouverture de l'onglet.
+    await expect(page.locator(".statusbar")).toContainText("Fetch à l’instant");
+    await expect(page.locator(".statusbar").getByText("Fetch à l’instant")).toHaveAttribute("title", /\d/);
   });
 
   test("pull en avance rapide sur une branche en retard", async ({ page }) => {
@@ -95,6 +105,82 @@ test.describe("dépôt propre", () => {
     await menu(page).getByRole("menuitemradio", { name: "Rebase" }).click();
     await page.getByRole("button", { name: "Mode du pull" }).click();
     await expect(menu(page).getByRole("menuitemradio", { name: "Rebase" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("menu d'une autre branche : pull sans checkout, merge, reset en sous-menu", async ({ page }) => {
+    // fix/ssh-agent a un commit à tirer : mise à jour sans quitter main.
+    await branch(page, "ssh-agent").click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Pull de fix/ssh-agent (avance rapide)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "fix/ssh-agent mise à jour." })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+
+    // Merge de feature/profils dans main.
+    await branch(page, "profils").click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Merge de feature/profils dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "feature/profils fusionnée dans main." })).toBeVisible();
+
+    // Reset : le mode se choisit dans le sous-menu (au clavier ici), hard demande confirmation.
+    await branch(page, "profils").click({ button: "right" });
+    const reset = menu(page).getByRole("menuitem", { name: "Reset de main sur feature/profils" });
+    await reset.focus();
+    await page.keyboard.press("ArrowRight");
+    const sub = page.locator(".context-menu.submenu");
+    await expect(sub.getByRole("menuitem", { name: /^Soft/ })).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(sub).toHaveCount(0);
+    await expect(reset).toBeFocused();
+    await reset.hover();
+    await sub.getByRole("menuitem", { name: /^Hard/ }).click();
+    await page.getByRole("alertdialog", { name: /^Reset de main sur / }).getByRole("button", { name: "Hard (tout abandonner)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /^main est maintenant sur / })).toBeVisible();
+  });
+
+  test("glisser un commit sur une branche : déplacer la branche, cherry-pick dessus", async ({ page }) => {
+    const row = graph(page).getByRole("option").nth(3);
+    const sha = (await row.getAttribute("id"))!.replace("commit-", "").slice(0, 7);
+    const drag = async (target: ReturnType<typeof branch>) => {
+      const from = (await row.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + 40, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 60, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+      await expect(target).toHaveClass(/drop-over/);
+      await page.mouse.up();
+    };
+
+    // Sur une autre branche : la déplacer (confirmation).
+    await drag(branch(page, "profils"));
+    await menu(page).getByRole("menuitem", { name: `Déplacer feature/profils sur ${sha}…` }).click();
+    await page.getByRole("alertdialog", { name: `Déplacer feature/profils sur ${sha} ?` }).getByRole("button", { name: "Déplacer" }).click();
+    await expect(row).toContainText("feature/profils");
+    await expect(current(page)).toHaveText("main");
+
+    // Sur la branche courante : cherry-pick.
+    await drag(branch(page, "main"));
+    await expect(menu(page).getByRole("menuitem", { name: `Reset de main sur ${sha}` })).toBeVisible();
+    await menu(page).getByRole("menuitem", { name: `Cherry-pick de ${sha} sur main` }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur main terminé." })).toBeVisible();
+  });
+
+  test("Ctrl+Z / Ctrl+Y : annuler puis rétablir la création d'une branche extraite", async ({ page }) => {
+    await expect(tool(page, "Annuler")).toBeDisabled();
+    await tool(page, "Branche").click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+    await dialog.getByLabel("Nom de la branche").fill("essai/annuler");
+    await dialog.getByRole("button", { name: "Créer" }).click();
+    await expect(current(page)).toHaveText("essai/annuler");
+    await expect(tool(page, "Annuler")).toHaveAttribute("title", "Annuler : création de branche (Ctrl+Z)");
+
+    await page.locator("body").press("Control+z");
+    await expect(page.getByRole("status").filter({ hasText: "Annulé : création de branche." })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+    await expect(branch(page, "annuler")).toHaveCount(0);
+
+    await tool(page, "Rétablir").click();
+    await expect(current(page)).toHaveText("essai/annuler");
+    await expect(branch(page, "annuler")).toHaveCount(1);
+    await expect(tool(page, "Rétablir")).toBeDisabled();
   });
 
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {

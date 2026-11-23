@@ -19,10 +19,11 @@ import { useApp } from "../../store/app";
 import { type AuthorContext, useAuthorAvatars, useAvatarImages } from "../../store/avatars";
 import { useProfiles } from "../../store/profiles";
 import { useGraph, WIP } from "../../store/graph";
-import { openContextMenu } from "../ContextMenu";
+import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitMenu, pickedMenu, refMenu } from "./menus";
+import { checkoutRef, commitDropMenu, commitMenu, pickedMenu, refMenu } from "./menus";
+import { startCommitDrag } from "./commitDrag";
 import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
 import { pullOfRef, usePullContexts, usePullList, type PullContext } from "../../store/pullList";
@@ -325,6 +326,7 @@ function Chip({
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
+      data-drop-ref={r?.kind === "local" ? r.name : undefined}
     >
       {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
       {chip.current && <Icon name="check" size={12} />}
@@ -759,7 +761,16 @@ export function CommitGraph({ path, changes }: Props) {
                 if (stash) openStash(path, stash);
                 else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
                 else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
-                else select(path, c.sha);
+                else {
+                  select(path, c.sha);
+                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer.
+                  if (!isWip)
+                    startCommitDrag(e, `${c.sha.slice(0, 7)} ${c.subject}`, (drop) => {
+                      const refs = useGraph.getState().graphs[path]?.refs ?? null;
+                      const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+                      if (target) useContextMenu.getState().open(drop.x, drop.y, commitDropMenu(t, path, c.sha, target, refs));
+                    });
+                }
               }}
               onContextMenu={(e) => {
                 if (isWip) return e.preventDefault();
