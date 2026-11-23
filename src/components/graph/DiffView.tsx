@@ -36,7 +36,9 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
           {file.path}
         </span>
         {diff.data && <DiffStats diff={diff.data} />}
-        <span className="mono muted diff-sha">{diff.sha.slice(0, 7)}</span>
+        <span className="mono muted diff-sha" title={diff.base ? t("multi.diffRange") : undefined}>
+          {diff.base ? `${diff.base.slice(0, 7)}..${diff.sha.slice(0, 7)}` : diff.sha.slice(0, 7)}
+        </span>
         <DiffViewToggle />
       </header>
       <div className="diff-body">

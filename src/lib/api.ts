@@ -24,6 +24,7 @@ import {
   mockListStashes,
   mockStashChanges,
   mockStashApply,
+  mockCherryPick,
   mockStashDrop,
   mockStashRename,
   mockStashPop,
@@ -117,6 +118,10 @@ export interface Api {
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
   /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
+  /** Fichiers modifiés entre deux commits (`base` : un commit ou l'arbre vide). */
+  compareFiles(path: string, base: string, tip: string): Promise<FileChange[]>;
+  /** Cherry-pick des commits donnés, du plus ancien au plus récent, sur la branche courante. */
+  cherryPick(path: string, shas: string[], autoStash: boolean): Promise<OpResult>;
   /** Diff cumulé d'un fichier entre `base` et `tip`. */
   rangeDiff(path: string, base: string, tip: string, file: string, oldFile: string | null): Promise<FileDiff>;
   // Copie de travail
@@ -349,6 +354,8 @@ const tauriApi: Api = {
   commitDiff: (path, sha, file, oldFile) => invoke("commit_diff", { path, sha, file, oldFile }),
   rangeChanges: (path, direction) => invoke("range_changes", { path, direction }),
   rangeDiff: (path, base, tip, file, oldFile) => invoke("range_diff", { path, base, tip, file, oldFile }),
+  compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
+  cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
@@ -721,6 +728,21 @@ const mockApi: Api = {
     for (const c of list) for (const f of mockDetails(path, c.sha).files) files.set(f.path, f);
     return { base: sha ?? tip, tip, commits: list, files: [...files.values()] };
   },
+  async compareFiles(path, base, tip) {
+    await mockDelay();
+    // Fichiers des commits de `tip` jusqu'à `base` (premiers parents), comme un diff cumulé.
+    const { commits } = mockHistory(path);
+    const files = new Map<string, FileChange>();
+    let sha: string | undefined = tip;
+    for (let n = 0; sha && sha !== base && n < 200; n++) {
+      const c = commits.find((x) => x.sha === sha);
+      if (!c) break;
+      for (const f of mockDetails(path, c.sha).files) if (!files.has(f.path)) files.set(f.path, f);
+      sha = c.parents[0];
+    }
+    return [...files.values()];
+  },
+  cherryPick: async (path, shas, autoStash) => mockCherryPick(path, shas, autoStash),
   async rangeDiff(_path, _base, tip, file) {
     await mockDelay();
     return mockDiff(tip, file);

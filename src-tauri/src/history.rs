@@ -15,7 +15,7 @@ const MAX_DIFF_LINES: usize = 20_000;
 
 /// Refuse tout ce qui n'est pas un SHA (abrégé ou complet) : évite qu'une valeur
 /// commençant par `-` soit prise pour une option de git.
-fn check_sha(sha: &str) -> Result<(), String> {
+pub(crate) fn check_sha(sha: &str) -> Result<(), String> {
     if (4..=64).contains(&sha.len()) && sha.chars().all(|c| c.is_ascii_hexdigit()) {
         Ok(())
     } else {
@@ -400,6 +400,15 @@ pub fn stash_changes(path: &Path, sha: &str) -> Result<StashChanges, String> {
         None => vec![],
     };
     Ok(StashChanges { base, tip: sha.to_string(), untracked, files, untracked_files })
+}
+
+/// Fichiers modifiés entre deux commits (changements cumulés d'une sélection de commits ;
+/// `base` peut être l'arbre vide, pour une plage qui part du premier commit).
+pub fn compare_files(path: &Path, base: &str, tip: &str) -> Result<Vec<FileChange>, String> {
+    check_dir(path)?;
+    check_sha(base)?;
+    check_sha(tip)?;
+    Ok(parse_name_status(&run_raw(Some(path), &["diff-tree", "-r", "-M", "-z", "--name-status", "--no-ext-diff", base, tip, "--"])?))
 }
 
 /// Diff d'un fichier entre deux commits (diff cumulé d'une plage).

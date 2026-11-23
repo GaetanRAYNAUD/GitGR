@@ -149,3 +149,41 @@ describe("graphe : sélection, détails, diff", () => {
     expect(g().details[detailsKey(REPO_A, sha)]).toBeUndefined();
   });
 });
+
+describe("graphe : sélection de plusieurs commits", () => {
+  it("Ctrl+clic ajoute et retire ; revenue à un seul commit, la sélection est simple", async () => {
+    await g().refresh(REPO_A);
+    const [a, b, c] = repo().commits.map((x) => x.sha);
+    g().select(REPO_A, a);
+    g().togglePick(REPO_A, c);
+    expect(repo().picked).toEqual([a, c]);
+    expect(repo().selected).toBe(c);
+    g().togglePick(REPO_A, b);
+    expect(repo().picked).toEqual([a, c, b]);
+    g().togglePick(REPO_A, c);
+    g().togglePick(REPO_A, a);
+    expect(repo().picked).toEqual([]);
+    expect(repo().selected).toBe(b);
+  });
+
+  it("Maj+clic : la plage depuis le commit de départ ; un clic simple la vide", async () => {
+    await g().refresh(REPO_A);
+    const shas = repo().commits.map((x) => x.sha);
+    g().select(REPO_A, shas[4]);
+    g().pickRange(REPO_A, shas[1]);
+    expect(repo().picked).toEqual(shas.slice(1, 5));
+    expect(repo().selected).toBe(shas[4]);
+    g().pickRange(REPO_A, shas[6]);
+    expect(repo().picked).toEqual(shas.slice(4, 7));
+    g().select(REPO_A, shas[2]);
+    expect(repo().picked).toEqual([]);
+  });
+
+  it("la ligne « en cours » n'entre pas dans une sélection multiple", async () => {
+    await g().refresh(REPO_A);
+    g().select(REPO_A, WIP);
+    g().togglePick(REPO_A, repo().commits[0].sha);
+    expect(repo().picked).toEqual([]);
+    expect(repo().selected).toBe(repo().commits[0].sha);
+  });
+});

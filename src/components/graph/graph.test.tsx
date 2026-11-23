@@ -49,7 +49,7 @@ describe("<CommitGraph />", () => {
 
   it("dépôt sans commit", async () => {
     useGraph.setState({
-      graphs: { [REPO_A]: { commits: [], refs: null, loading: false, done: true, selected: null, fingerprint: "" } },
+      graphs: { [REPO_A]: { commits: [], refs: null, loading: false, done: true, selected: null, picked: [], focus: null, fingerprint: "" } },
     });
     render(<CommitGraph path={REPO_A} changes={0} />);
     expect(screen.getByText("Aucun commit pour l’instant.")).toBeInTheDocument();

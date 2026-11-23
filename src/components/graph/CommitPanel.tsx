@@ -14,6 +14,7 @@ import { detailsKey, useGraph, WIP } from "../../store/graph";
 import { Icon } from "../Icon";
 import { ResizableBlock } from "../Splitter";
 import { ChangeCounts, FileList, FileViewToggle } from "./FileList";
+import { PickedPanel } from "./PickedPanel";
 import { StagingPanel } from "./StagingPanel";
 
 function CopySha({ sha }: { sha: string }) {
@@ -122,7 +123,9 @@ export function CommitPanel({ path }: { path: string }) {
   const { t } = useTranslation();
   const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
   const entry = useGraph((s) => (selected && selected !== WIP ? s.details[detailsKey(path, selected)] : undefined));
+  const multi = useGraph((s) => (s.graphs[path]?.picked.length ?? 0) > 1);
   const widthStyle = useWidthStyle(LAYOUT.panel);
+  if (multi) return <PickedPanel path={path} />;
 
   let content;
   if (!selected) {

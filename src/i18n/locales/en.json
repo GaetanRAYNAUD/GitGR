@@ -241,6 +241,22 @@
     "pullBadge_one": "See the commit the pull brings",
     "pullBadge_other": "See the {{count}} commits the pull brings"
   },
+  "multi": {
+    "label": "Selected commits",
+    "title_one": "{{count}} commit selected",
+    "title_other": "{{count}} commits selected",
+    "commits": "Chosen commits",
+    "chain": "Contiguous range: combined file changes.",
+    "pair": "Differences from {{from}} to {{to}}.",
+    "sparse": "Select a contiguous range, or one or two commits, to see the changed files.",
+    "selectOne": "Select only this commit",
+    "cherryPick_one": "Cherry-pick onto {{branch}}",
+    "cherryPick_other": "Cherry-pick {{count}} commits onto {{branch}}",
+    "cherryPickHint": "Applies these commits onto {{branch}}, oldest first (those already there are skipped)",
+    "cherryPickMerge": "The selection contains a merge commit: it cannot be cherry-picked.",
+    "copyShas": "Copy SHAs",
+    "diffRange": "Combined diff of the selection"
+  },
   "details": {
     "selectCommit": "Select this commit",
     "openPull": "Open in GitGR",
@@ -545,7 +561,9 @@
     "pushed": "{{branch}} pushed.",
     "fetched": "Fetch complete.",
     "pushedTo": "{{branch}} pushed to {{remote}}.",
-    "pulledFrom": "{{source}} pulled."
+    "pulledFrom": "{{source}} pulled.",
+    "cherryPicked_one": "Cherry-pick onto {{branch}} done.",
+    "cherryPicked_other": "Cherry-pick of {{count}} commits onto {{branch}} done."
   },
   "autostash": {
     "pending": "Changes put aside by GitGR (“{{message}}”) have not been reapplied.",
@@ -612,6 +630,8 @@
     "invalid_strategy": "Unknown pull mode.",
     "local_changes_conflict": "Your local changes would be overwritten. Commit them, stash them, or enable auto-stash in the settings.",
     "unresolved_conflicts": "Some conflicts are not resolved: finish them first.",
+    "cherry_pick_merge": "A merge commit cannot be cherry-picked here: remove it from the selection.",
+    "no_commits": "No commit chosen.",
     "operation_in_progress": "An operation (merge, rebase…) is in progress: finish or abort it first.",
     "no_operation": "No operation in progress.",
     "merge_needs_commit": "To finish a merge, commit the resolved files.",
