@@ -22,6 +22,7 @@ import {
   mockAutostash,
   mockStashCount,
   mockListStashes,
+  mockStashChanges,
   mockStashApply,
   mockStashDrop,
   mockStashPop,
@@ -90,6 +91,7 @@ import type {
   Settings,
   SshKeyInfo,
   WorkStatus,
+  StashChanges,
   StashEntry,
 } from "./types";
 
@@ -166,6 +168,8 @@ export interface Api {
   /** Réapplique un stash ; `drop` : le retire aussi de la pile (sauf conflit). */
   stashApply(path: string, sha: string, drop: boolean): Promise<OpResult>;
   stashDrop(path: string, sha: string): Promise<void>;
+  /** Fichiers d'un stash ; diff de chacun avec `rangeDiff` (non suivis : depuis l'arbre vide). */
+  stashChanges(path: string, sha: string): Promise<StashChanges>;
   /** `git stash branch` : nouvelle branche extraite sur le commit du stash, stash réappliqué. */
   stashBranch(path: string, sha: string, name: string): Promise<void>;
   abortOperation(path: string): Promise<void>;
@@ -375,6 +379,7 @@ const tauriApi: Api = {
   listStashes: (path) => invoke("list_stashes", { path }),
   stashApply: (path, sha, drop) => invoke("stash_apply", { path, sha, drop }),
   stashDrop: (path, sha) => invoke("stash_drop", { path, sha }),
+  stashChanges: (path, sha) => invoke("stash_changes", { path, sha }),
   stashBranch: (path, sha, name) => invoke("stash_branch", { path, sha, name }),
   abortOperation: (path) => invoke("abort_operation", { path }),
   continueOperation: (path) => invoke("continue_operation", { path }),
@@ -799,6 +804,7 @@ const mockApi: Api = {
   listStashes: async (path) => mockListStashes(path),
   stashApply: async (path, sha, drop) => mockStashApply(path, sha, drop),
   stashDrop: async (path, sha) => mockStashDrop(path, sha),
+  stashChanges: async (path, sha) => mockStashChanges(path, sha),
   async stashBranch(path, sha, name) {
     const base = mockListStashes(path).find((s) => s.sha === sha)?.base;
     if (!base) throw "stash_missing";

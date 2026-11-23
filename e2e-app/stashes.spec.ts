@@ -11,7 +11,8 @@ test("stashes : toute la pile, appliquer le plus ancien sans le retirer, supprim
   sandbox.write(mine, "a.txt", "ancien\n");
   git(mine, "stash", "push", "-q", "-m", "le plus ancien");
   sandbox.write(mine, "a.txt", "récent\n");
-  git(mine, "stash", "push", "-q", "-m", "le plus récent");
+  sandbox.write(mine, "neuf.txt", "n\n");
+  git(mine, "stash", "push", "-q", "-u", "-m", "le plus récent");
 
   const app = await launchApp(sandbox, [mine]);
   try {
@@ -19,6 +20,15 @@ test("stashes : toute la pile, appliquer le plus ancien sans le retirer, supprim
     const stashes = page.getByRole("navigation", { name: "Branches et tags" }).getByRole("list", { name: "Stashes" });
     await expect(stashes.getByRole("button")).toHaveText([/le plus récent/, /le plus ancien/]);
     const menu = page.getByRole("menu");
+
+    // Contenu du plus récent : le fichier suivi et le non suivi, chacun avec son diff.
+    await stashes.getByRole("button", { name: /le plus récent/ }).click();
+    const view = page.getByRole("region", { name: "Stash « le plus récent »" });
+    await view.locator(".file-row", { hasText: "neuf.txt" }).click();
+    await expect(view.locator(".pull-file-diff tr.add")).toHaveCount(1);
+    await view.locator(".file-row", { hasText: "a.txt" }).click();
+    await expect(view.locator(".pull-file-diff tr.add")).toContainText("récent");
+    await page.keyboard.press("Escape");
 
     await stashes.getByRole("button", { name: /le plus ancien/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Appliquer (le garder)" }).click();

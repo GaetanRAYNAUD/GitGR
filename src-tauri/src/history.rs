@@ -369,6 +369,39 @@ pub fn range_changes(path: &Path, direction: &str) -> Result<RangeChanges, Strin
     Ok(RangeChanges { base, tip, commits, files: parse_name_status(&raw) })
 }
 
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StashChanges {
+    /// Commit d'où part le stash.
+    pub base: String,
+    /// Le stash lui-même (copie de travail au moment du stash).
+    pub tip: String,
+    /// Commit des fichiers non suivis mis de côté (`stash -u`), s'il y en a.
+    pub untracked: Option<String>,
+    /// Fichiers suivis modifiés : diff `base..tip`.
+    pub files: Vec<FileChange>,
+    /// Fichiers non suivis : diff depuis l'arbre vide jusqu'à `untracked`.
+    pub untracked_files: Vec<FileChange>,
+}
+
+/// Fichiers d'un stash : ceux qui étaient suivis (diff par rapport à son commit de départ)
+/// et les non suivis mis de côté avec lui.
+pub fn stash_changes(path: &Path, sha: &str) -> Result<StashChanges, String> {
+    check_dir(path)?;
+    check_sha(sha)?;
+    let base = run(Some(path), &["rev-parse", "-q", "--verify", &format!("{sha}^1")])?;
+    let untracked = run(Some(path), &["rev-parse", "-q", "--verify", &format!("{sha}^3")]).ok();
+    let tree = |from: &str, to: &str| -> Result<Vec<FileChange>, String> {
+        Ok(parse_name_status(&run_raw(Some(path), &["diff-tree", "-r", "-M", "-z", "--name-status", "--no-ext-diff", from, to, "--"])?))
+    };
+    let files = tree(&base, sha)?;
+    let untracked_files = match &untracked {
+        Some(u) => tree(EMPTY_TREE, u)?,
+        None => vec![],
+    };
+    Ok(StashChanges { base, tip: sha.to_string(), untracked, files, untracked_files })
+}
+
 /// Diff d'un fichier entre deux commits (diff cumulé d'une plage).
 pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>) -> Result<FileDiff, String> {
     check_dir(path)?;
@@ -463,6 +496,25 @@ mod tests {
 
     fn git(repo: &Path, args: &[&str]) -> String {
         run(Some(repo), args).unwrap()
+    }
+
+    #[test]
+    fn stash_changes_lists_tracked_and_untracked_files() {
+        let dir = temp_repo();
+        let p = dir.path();
+        commit_file(p, "a.txt", "1
+");
+        std::fs::write(p.join("a.txt"), "2
+").unwrap();
+        std::fs::write(p.join("neuf.txt"), "n
+").unwrap();
+        git(p, &["stash", "push", "-q", "-u"]);
+        let sha = git(p, &["rev-parse", "stash@{0}"]).trim().to_string();
+        let c = stash_changes(p, &sha).unwrap();
+        assert_eq!(c.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), ["a.txt"]);
+        assert_eq!(c.untracked_files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect::<Vec<_>>(), [("A", "neuf.txt")]);
+        let d = range_diff(p, EMPTY_TREE, c.untracked.as_deref().unwrap(), "neuf.txt", None).unwrap();
+        assert_eq!(d.hunks.len(), 1);
     }
 
     #[test]

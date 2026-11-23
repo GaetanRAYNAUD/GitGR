@@ -4,7 +4,7 @@
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, GitRef, OpResult, PullStrategy, RemoteInfo, StashEntry } from "./types";
+import type { AutoStash, FileChange, GitRef, OpResult, PullStrategy, RemoteInfo, StashChanges, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -49,6 +49,20 @@ export function mockStashPop(path: string): OpResult {
 export function mockListStashes(path: string): StashEntry[] {
   const branch = mockHistory(path).refs.headBranch ?? "HEAD";
   return (stashes.get(path) ?? []).map(({ sha, message, base, time }) => ({ sha, base, time, message: `On ${branch}: ${message}` }));
+}
+
+export function mockStashChanges(path: string, sha: string): StashChanges {
+  const s = (stashes.get(path) ?? []).find((x) => x.sha === sha);
+  if (!s) throw "stash_missing";
+  const change = (p: string): FileChange => ({ status: "M", path: p, oldPath: null });
+  const untracked = s.files.filter((f) => f.unstaged?.status === "?");
+  return {
+    base: s.base,
+    tip: s.sha,
+    untracked: untracked.length ? `${s.sha.slice(0, 39)}u` : null,
+    files: s.files.filter((f) => f.unstaged?.status !== "?").map((f) => change(f.path)),
+    untrackedFiles: untracked.map((f) => ({ ...change(f.path), status: "A" })),
+  };
 }
 
 export function mockStashApply(path: string, sha: string, drop: boolean): OpResult {

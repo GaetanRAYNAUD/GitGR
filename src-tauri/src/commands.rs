@@ -167,6 +167,11 @@ pub async fn range_changes(path: String, direction: String) -> Result<history::R
 }
 
 #[tauri::command]
+pub async fn stash_changes(path: String, sha: String) -> Result<history::StashChanges, String> {
+    history::stash_changes(Path::new(&path), &sha).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
     history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
 }

@@ -297,6 +297,11 @@
     "stats": "{{added}} lignes ajoutées, {{removed}} supprimées"
   },
   "stashes": {
+    "showBase": "Voir le commit de départ dans le graphe",
+    "viewLabel": "Stash « {{name}} »",
+    "applyShort": "Appliquer",
+    "popShort": "Pop",
+    "untracked": "non suivi",
     "section": "Stashes",
     "apply": "Appliquer (le garder)",
     "pop": "Appliquer et retirer (pop)",
@@ -307,7 +312,7 @@
     "dropTitle": "Supprimer ce stash ?",
     "dropBody": "« {{name}} » sera retiré de la pile, avec ses modifications.",
     "copy": "Copier le message",
-    "hint": "Clic : le commit d'où il part. Clic droit : appliquer, pop, supprimer."
+    "hint": "Clic : son contenu. Clic droit : appliquer, pop, branche, supprimer."
   },
   "sidebar": {
     "label": "Branches et tags",

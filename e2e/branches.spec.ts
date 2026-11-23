@@ -138,6 +138,16 @@ test.describe("dépôt avec des modifications", () => {
     await expect(stashes.getByRole("button")).toHaveCount(1);
     await expect(stashes).toContainText("main");
 
+    // Clic : son contenu à la place du graphe, fichiers et diff ; Échap revient au graphe.
+    await stashes.getByRole("button").first().click();
+    const view = page.getByRole("region", { name: /^Stash/ });
+    await expect(view.locator(".file-row")).toHaveCount(4);
+    await view.locator(".file-row", { hasText: "notes.txt" }).click();
+    await expect(view.locator(".pull-file-diff .diff-path")).toHaveText("notes.txt");
+    await expect(view.locator(".file-item", { hasText: "notes.txt" })).toContainText("non suivi");
+    await page.keyboard.press("Escape");
+    await expect(view).toHaveCount(0);
+
     const menu = page.getByRole("menu");
     await stashes.getByRole("button").first().click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Appliquer (le garder)" }).click();

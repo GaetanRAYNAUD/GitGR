@@ -297,6 +297,11 @@
     "stats": "{{added}} lines added, {{removed}} removed"
   },
   "stashes": {
+    "showBase": "Show base commit in graph",
+    "viewLabel": "Stash “{{name}}”",
+    "applyShort": "Apply",
+    "popShort": "Pop",
+    "untracked": "untracked",
     "section": "Stashes",
     "apply": "Apply (keep it)",
     "pop": "Apply and remove (pop)",
@@ -307,7 +312,7 @@
     "dropTitle": "Delete this stash?",
     "dropBody": "“{{name}}” will be removed from the stack, with its changes.",
     "copy": "Copy message",
-    "hint": "Click: the commit it starts from. Right-click: apply, pop, delete."
+    "hint": "Click: its content. Right-click: apply, pop, branch, delete."
   },
   "sidebar": {
     "label": "Branches and tags",

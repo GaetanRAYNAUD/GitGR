@@ -257,6 +257,16 @@ export interface StashEntry {
   time: number;
 }
 
+/** Fichiers d'un stash (cf. `stash_changes`). */
+export interface StashChanges {
+  base: string;
+  tip: string;
+  /** Commit des fichiers non suivis mis de côté, s'il y en a. */
+  untracked: string | null;
+  files: FileChange[];
+  untrackedFiles: FileChange[];
+}
+
 export interface AutoStash {
   sha: string;
   /** `GitGR-autostash: main` */
