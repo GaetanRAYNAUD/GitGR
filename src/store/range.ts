@@ -14,6 +14,7 @@ export const useRangeView = create<RangeState>((set) => ({
   open: {},
   show: (path, direction) => {
     useStashView.getState().close(path);
+    useReflogView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: direction } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -28,6 +29,26 @@ interface StashViewState {
 
 export const useStashView = create<StashViewState>((set) => ({
   open: {},
-  show: (path, entry) => set((s) => ({ open: { ...s.open, [path]: entry } })),
+  show: (path, entry) => {
+    useReflogView.getState().close(path);
+    set((s) => ({ open: { ...s.open, [path]: entry } }));
+  },
+  close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
+}));
+
+/** Reflog ouvert à la place du graphe (`HEAD` ou une branche locale), un par dépôt. */
+interface ReflogViewState {
+  open: Record<string, string | undefined>;
+  show(path: string, refname: string): void;
+  close(path: string): void;
+}
+
+export const useReflogView = create<ReflogViewState>((set) => ({
+  open: {},
+  show: (path, refname) => {
+    useRangeView.getState().close(path);
+    useStashView.getState().close(path);
+    set((s) => ({ open: { ...s.open, [path]: refname } }));
+  },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
 }));

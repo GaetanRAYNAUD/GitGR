@@ -44,3 +44,36 @@ test("plage de commits : fichiers cumulés, diff de la plage, puis cherry-pick s
     await app.close();
   }
 });
+
+test("reset hard, puis le reflog retrouve le commit perdu et une branche le récupère", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "perdu.txt", "p\n", "commit à retrouver");
+  const lost = git(mine, "rev-parse", "HEAD");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option").nth(1).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Reset de main ici…" }).click();
+    await page.getByRole("alertdialog", { name: /^Reset de main sur/ }).getByRole("button", { name: "Hard (tout abandonner)" }).click();
+    await expect(graph).not.toContainText("commit à retrouver");
+    expect(git(mine, "status", "--porcelain")).toBe("");
+
+    await page.getByRole("button", { name: "Reflog" }).click();
+    const list = page.getByRole("region", { name: "Reflog" }).getByRole("list", { name: "Reflog" });
+    await expect(list.getByRole("listitem").first()).toContainText("reset");
+    const entry = list.getByRole("listitem").filter({ hasText: "commit à retrouver" }).first();
+    await expect(entry).toContainText("hors des branches");
+    await entry.getByRole("button").click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Nouvelle branche ici…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+    await dialog.getByLabel("Nom de la branche").fill("retrouvee");
+    await dialog.getByLabel("Passer sur la nouvelle branche").uncheck();
+    await dialog.getByRole("button", { name: "Créer" }).click();
+    await expect(entry).not.toContainText("hors des branches");
+    expect(git(mine, "rev-parse", "retrouvee")).toBe(lost);
+  } finally {
+    await app.close();
+  }
+});

@@ -647,6 +647,27 @@ pub fn stash_pop(path: &Path) -> Result<OpResult, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Reset
+// ---------------------------------------------------------------------------
+
+/// Déplace la branche courante (ou HEAD détachée) sur `sha` : `soft` garde l'index et la copie
+/// de travail, `mixed` garde la copie de travail, `hard` les remet à l'état du commit.
+pub fn reset_to(path: &Path, sha: &str, mode: &str) -> Result<(), String> {
+    check_dir(path)?;
+    check_sha(sha)?;
+    let flag = match mode {
+        "soft" => "--soft",
+        "mixed" => "--mixed",
+        "hard" => "--hard",
+        _ => return Err(format!("unknown reset mode: {mode}")),
+    };
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    run(Some(path), &["reset", "-q", flag, sha]).map(|_| ()).map_err(|e| classify(&e))
+}
+
+// ---------------------------------------------------------------------------
 // Cherry-pick
 // ---------------------------------------------------------------------------
 
@@ -1240,6 +1261,34 @@ mod tests {
         commit_file(repo.path(), "a.txt", "a\n");
         assert_eq!(pull(repo.path(), "ff-only", true).unwrap_err(), "no_upstream");
         assert_eq!(push(repo.path(), false, None).unwrap_err(), "no_remote");
+    }
+
+    #[test]
+    fn reset_and_reflog_find_a_lost_commit() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        let first = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "b.txt", "b\n");
+        let lost = git(p, &["rev-parse", "HEAD"]);
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        reset_to(p, &first, "soft").unwrap();
+        assert_eq!(git(p, &["diff", "--cached", "--name-only"]).trim(), "b.txt");
+        assert_eq!(read(p, "a.txt"), "local\n");
+        reset_to(p, &lost, "hard").unwrap();
+        reset_to(p, &first, "hard").unwrap();
+        assert!(!p.join("b.txt").exists());
+        assert_eq!(reset_to(p, &first, "dur").unwrap_err(), "unknown reset mode: dur");
+        // Le commit perdu est dans le reflog de HEAD et de main.
+        let head = crate::history::reflog(p, "HEAD").unwrap();
+        assert_eq!(head[0].action, "reset");
+        assert_eq!(head[0].sha, first);
+        assert!(head.iter().any(|e| e.sha == lost && e.action == "reset"));
+        assert!(head[0].time > 1_000_000_000);
+        let main = crate::history::reflog(p, "main").unwrap();
+        assert!(main.iter().any(|e| e.sha == lost));
+        assert_eq!(crate::history::reflog(p, "absente").unwrap_err(), "branch_not_found");
+        assert_eq!(crate::history::reflog(p, "--all").unwrap_err(), "invalid_branch_name");
     }
 
     #[test]

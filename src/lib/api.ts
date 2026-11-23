@@ -25,6 +25,8 @@ import {
   mockStashChanges,
   mockStashApply,
   mockCherryPick,
+  mockReflog,
+  mockResetTo,
   mockStashDrop,
   mockStashRename,
   mockStashPop,
@@ -49,6 +51,8 @@ import { instance, withAccount } from "./providers";
 import { validRepoName } from "./publish";
 import type {
   Account,
+  ReflogEntry,
+  ResetMode,
   AccountKey,
   AccountKeyKind,
   AppState,
@@ -118,6 +122,10 @@ export interface Api {
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
   /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
+  /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
+  reflog(path: string, refname: string): Promise<ReflogEntry[]>;
+  /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
+  resetTo(path: string, sha: string, mode: ResetMode): Promise<void>;
   /** Fichiers modifiés entre deux commits (`base` : un commit ou l'arbre vide). */
   compareFiles(path: string, base: string, tip: string): Promise<FileChange[]>;
   /** Cherry-pick des commits donnés, du plus ancien au plus récent, sur la branche courante. */
@@ -355,6 +363,8 @@ const tauriApi: Api = {
   rangeChanges: (path, direction) => invoke("range_changes", { path, direction }),
   rangeDiff: (path, base, tip, file, oldFile) => invoke("range_diff", { path, base, tip, file, oldFile }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
+  reflog: (path, refname) => invoke("reflog", { path, refname }),
+  resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
@@ -743,6 +753,11 @@ const mockApi: Api = {
     return [...files.values()];
   },
   cherryPick: async (path, shas, autoStash) => mockCherryPick(path, shas, autoStash),
+  async reflog(path, refname) {
+    await mockDelay();
+    return mockReflog(path, refname);
+  },
+  resetTo: async (path, sha, mode) => mockResetTo(path, sha, mode),
   async rangeDiff(_path, _base, tip, file) {
     await mockDelay();
     return mockDiff(tip, file);

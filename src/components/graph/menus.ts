@@ -166,6 +166,11 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     ...here.map((r): MenuItem => ({ label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkout(path, r.short) })),
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
+    {
+      label: t("menu.resetHere", { branch: refs?.headBranch ?? "HEAD" }),
+      disabled: !refs?.head || sha === refs.head,
+      onClick: () => void ops.resetTo(path, sha),
+    },
     "sep",
     { label: t("menu.copySha"), onClick: () => copy(sha) },
   ];

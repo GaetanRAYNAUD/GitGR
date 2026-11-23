@@ -2,9 +2,9 @@
 // refs de l'historique simulé (mockHistory) comme le ferait git, en restant simples.
 
 import { mockHistory, mockNewCommit } from "./mockHistory";
-import { mockChangeCount, mockRestore, mockSnapshot } from "./mockWorktree";
+import { mockChangeCount, mockDiscardAll, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, FileChange, GitRef, OpResult, PullStrategy, RemoteInfo, StashChanges, StashEntry } from "./types";
+import type { AutoStash, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -144,7 +144,55 @@ function ancestors(path: string, sha: string | null): Set<string> {
 const stashResult = (path: string, autoStash: boolean): OpResult => ({ ...OK, stashed: autoStash && mockChangeCount(path) > 0 });
 
 function moveHead(path: string, branch: string | null, target: string) {
+  seed(path);
+  const from = mockHistory(path).refs.headBranch ?? mockHistory(path).refs.head?.slice(0, 7) ?? "";
   setRefs(path, mockHistory(path).refs.refs, target, branch);
+  record(path, target, "checkout", `moving from ${from} to ${branch ?? target.slice(0, 7)}`);
+}
+
+/** Reflog simulé de HEAD : les opérations faites pendant la session, au-dessus des commits
+ *  de la branche courante (premiers parents). */
+const reflogs = new Map<string, ReflogEntry[]>();
+
+/** Avant la première opération : les commits de la branche courante, comme point de départ. */
+function seed(path: string) {
+  if (!reflogs.has(path)) reflogs.set(path, chain(path, mockHistory(path).refs.head));
+}
+
+function chain(path: string, from: string | null | undefined): ReflogEntry[] {
+  const h = mockHistory(path);
+  const out: ReflogEntry[] = [];
+  let sha = from ?? undefined;
+  for (let n = 0; sha && n < 20; n++) {
+    const c = h.commits.find((x) => x.sha === sha);
+    if (!c) break;
+    out.push({ sha: c.sha, action: n === 19 || c.parents.length === 0 ? "commit (initial)" : "commit", message: c.subject, time: c.time, subject: c.subject });
+    sha = c.parents[0];
+  }
+  return out;
+}
+
+function record(path: string, sha: string, action: string, message: string) {
+  const subject = mockHistory(path).commits.find((c) => c.sha === sha)?.subject ?? "";
+  reflogs.set(path, [{ sha, action, message, time: Math.floor(Date.now() / 1000), subject }, ...(reflogs.get(path) ?? [])]);
+}
+
+export function mockReflog(path: string, refname: string): ReflogEntry[] {
+  const h = mockHistory(path);
+  if (refname !== "HEAD" && !local(path, refname)) throw "branch_not_found";
+  if (refname !== "HEAD") return chain(path, local(path, refname)!.target);
+  return reflogs.get(path) ?? chain(path, h.refs.head);
+}
+
+export function mockResetTo(path: string, sha: string, mode: ResetMode) {
+  const h = mockHistory(path);
+  if (!h.commits.some((c) => c.sha === sha)) throw "invalid_start_point";
+  seed(path);
+  const branch = h.refs.headBranch;
+  const refs = h.refs.refs.map((r) => (r.kind === "local" && r.short === branch ? { ...r, target: sha } : r));
+  if (mode === "hard") mockDiscardAll(path);
+  setRefs(path, refs, sha, branch);
+  record(path, sha, "reset", `moving to ${sha.slice(0, 7)}`);
 }
 
 export function mockCheckout(path: string, branch: string, autoStash: boolean): OpResult {
@@ -354,4 +402,5 @@ export function mockRemoveRemote(path: string, name: string) {
 /** Tests : repart de piles de stash vides. */
 export function resetMockBranches() {
   stashes.clear();
+  reflogs.clear();
 }

@@ -241,6 +241,27 @@
     "pullBadge_one": "Voir le commit qui arrive au pull",
     "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull"
   },
+  "reset": {
+    "title": "Reset de {{branch}} sur {{sha}}",
+    "body": "Que faire des modifications entre la position actuelle et ce commit ? Soft : gardées et indexées. Mixed : gardées, non indexées. Hard : abandonnées, avec les modifications en cours des fichiers suivis (irréversible pour elles ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés.",
+    "soft": "Soft",
+    "mixed": "Mixed",
+    "hard": "Hard (tout abandonner)",
+    "done": "{{branch}} est maintenant sur {{sha}}."
+  },
+  "reflog": {
+    "label": "Reflog",
+    "title": "Où était {{ref}}",
+    "ref": "Référence",
+    "head": "HEAD",
+    "empty": "Aucune position enregistrée.",
+    "hint": "Clic : ses détails à droite ; double-clic : le montrer dans le graphe ; clic droit : branche, checkout, reset.",
+    "notInGraph": "Ce commit n’est plus dans l’historique des branches : créez une branche dessus pour le retrouver.",
+    "lost": "hors des branches",
+    "showInGraph": "Montrer dans le graphe",
+    "toolbar": "Reflog",
+    "toolbarHint": "Où était HEAD : retrouver un commit perdu (reset, rebase, branche supprimée)"
+  },
   "multi": {
     "label": "Commits sélectionnés",
     "title_one": "{{count}} commit sélectionné",
@@ -534,6 +555,7 @@
     "deleteRemote": "Supprimer sur le serveur…",
     "pull": "Pull",
     "push": "Push",
+    "resetHere": "Reset de {{branch}} ici…",
     "copySha": "Copier le SHA",
     "copyName": "Copier le nom",
     "openFile": "Ouvrir avec le programme par défaut",

@@ -81,6 +81,69 @@ fn parse_log(out: &str) -> Vec<Commit> {
 }
 
 // ---------------------------------------------------------------------------
+// Reflog
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReflogEntry {
+    /// Commit où était la ref après cette opération.
+    pub sha: String,
+    /// Opération (`commit`, `checkout`, `reset`, `rebase (finish)`, `pull`…).
+    pub action: String,
+    /// Le reste du message du reflog (`moving from main to x`, sujet du commit…).
+    pub message: String,
+    /// Date de l'opération (secondes Unix), pas celle du commit.
+    pub time: i64,
+    /// Sujet du commit.
+    pub subject: String,
+}
+
+const REFLOG_LIMIT: u32 = 500;
+
+/// Positions passées de HEAD (`refname = "HEAD"`) ou d'une branche locale, de la plus récente
+/// à la plus ancienne : de quoi retrouver un commit perdu (reset, rebase, branche supprimée).
+pub fn reflog(path: &Path, refname: &str) -> Result<Vec<ReflogEntry>, String> {
+    check_dir(path)?;
+    let full = if refname == "HEAD" {
+        "HEAD".to_string()
+    } else {
+        if refname.is_empty() || refname.starts_with('-') {
+            return Err("invalid_branch_name".into());
+        }
+        let full = format!("refs/heads/{refname}");
+        run(Some(path), &["rev-parse", "-q", "--verify", &full]).map_err(|_| "branch_not_found".to_string())?;
+        full
+    };
+    let limit = format!("--max-count={REFLOG_LIMIT}");
+    // `%gd` avec `--date=unix` : `HEAD@{1700000000}`, la date de l'entrée du reflog.
+    let out = match run(Some(path), &["log", "-g", "-z", "--date=unix", "--format=%H%x1f%gd%x1f%gs%x1f%s", &limit, &full, "--"]) {
+        Ok(out) => out,
+        // Dépôt sans commit, ou ref sans reflog : rien à montrer.
+        Err(_) => return Ok(vec![]),
+    };
+    Ok(out
+        .split('\0')
+        .filter_map(|rec| {
+            let rec = rec.trim_start_matches('\n');
+            if rec.is_empty() {
+                return None;
+            }
+            let mut f = rec.splitn(4, '\x1f');
+            let sha = f.next()?.to_string();
+            let selector = f.next()?;
+            let time = selector.rsplit_once('{').and_then(|(_, t)| t.trim_end_matches('}').parse().ok()).unwrap_or(0);
+            let gs = f.next().unwrap_or("");
+            let (action, message) = match gs.split_once(": ") {
+                Some((a, m)) => (a.to_string(), m.to_string()),
+                None => (gs.to_string(), String::new()),
+            };
+            Some(ReflogEntry { sha, action, message, time, subject: f.next().unwrap_or("").to_string() })
+        })
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
 // Refs
 // ---------------------------------------------------------------------------
 

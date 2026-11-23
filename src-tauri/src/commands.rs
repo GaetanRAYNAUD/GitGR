@@ -177,6 +177,17 @@ pub async fn range_diff(path: String, base: String, tip: String, file: String, o
 }
 
 #[tauri::command]
+pub async fn reflog(path: String, refname: String) -> Result<Vec<history::ReflogEntry>, String> {
+    history::reflog(Path::new(&path), &refname).map_err(classify)
+}
+
+/// Déplace la branche courante sur un commit (`mode` : soft, mixed ou hard).
+#[tauri::command]
+pub async fn reset_to(path: String, sha: String, mode: String) -> Result<(), String> {
+    branches::reset_to(Path::new(&path), &sha, &mode)
+}
+
+#[tauri::command]
 pub async fn compare_files(path: String, base: String, tip: String) -> Result<Vec<FileChange>, String> {
     history::compare_files(Path::new(&path), &base, &tip).map_err(classify)
 }
