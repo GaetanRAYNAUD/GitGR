@@ -22,7 +22,8 @@ import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitMenu, refMenu } from "./menus";
+import { checkoutRef, commitMenu, pickedMenu, refMenu } from "./menus";
+import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
 import { pullOfRef, usePullContexts, usePullList, type PullContext } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
@@ -454,6 +455,8 @@ export function CommitGraph({ path, changes }: Props) {
   const graphW = Math.max(72, GRAPH_PAD * 2 + Math.max(1, Math.min(layout.width, MAX_LANES)) * laneW);
   const selected = graph?.selected ?? null;
   const selectedIndex = selected ? shas.indexOf(selected) : -1;
+  const picked = graph?.picked;
+  const pickedSet = useMemo(() => new Set(picked ?? []), [picked]);
 
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
   const last = Math.min(commits.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
@@ -553,7 +556,10 @@ export function CommitGraph({ path, changes }: Props) {
     };
     if (!(e.key in moves)) return;
     e.preventDefault();
-    const from = selectedIndex < 0 ? -1 : selectedIndex;
+    // Maj+flèche : la plage s'étend depuis son bout (ou le commit sélectionné).
+    const extend = e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && selected !== null && selected !== WIP;
+    const focusIndex = extend && graph?.focus ? shas.indexOf(graph.focus) : -1;
+    const from = focusIndex >= 0 ? focusIndex : selectedIndex < 0 ? -1 : selectedIndex;
     let to = Math.max(0, Math.min(commits.length - 1, from + moves[e.key]));
     // Une ligne de stash ne se sélectionne pas : on passe à la suivante dans le même sens,
     // ou dans l'autre en bout de liste (Début sur un stash tout en haut).
@@ -565,6 +571,12 @@ export function CommitGraph({ path, changes }: Props) {
     to = skip(to, step);
     if (to < 0) to = skip(Math.max(0, Math.min(commits.length - 1, from + moves[e.key])), -step);
     if (to < 0) return;
+    if (extend) {
+      if (shas[to] === WIP) return;
+      useGraph.getState().pickRange(path, shas[to]);
+      ensureVisible(to);
+      return;
+    }
     select(path, shas[to]);
   };
 
@@ -726,7 +738,7 @@ export function CommitGraph({ path, changes }: Props) {
           const stash = stashes.get(c.sha);
           const isStash = !!stash;
           // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
-          const sel = !isStash && c.sha === selected;
+          const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
           const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far"]
             .filter(Boolean)
             .join(" ");
@@ -745,11 +757,15 @@ export function CommitGraph({ path, changes }: Props) {
                 scrollRef.current?.focus();
                 if (e.button !== 0) return;
                 if (stash) openStash(path, stash);
+                else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
+                else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
                 else select(path, c.sha);
               }}
               onContextMenu={(e) => {
                 if (isWip) return e.preventDefault();
                 if (stash) return openContextMenu(e, stashMenu(t, path, stash, () => {}));
+                // Dans une sélection multiple : le menu de la sélection.
+                if (pickedSet.has(c.sha)) return openContextMenu(e, pickedMenu(t, path, orderPicked(graph.commits, picked ?? []), graph.refs));
                 select(path, c.sha);
                 openContextMenu(e, commitMenu(t, path, c.sha, graph.refs));
               }}

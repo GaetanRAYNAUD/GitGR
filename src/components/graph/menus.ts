@@ -141,6 +141,23 @@ export function remoteMenu(t: TFunction, path: string, remote: RemoteInfo, refs:
   return items;
 }
 
+/** Clic droit sur une sélection de plusieurs commits (`ordered` : dans l'ordre du graphe,
+ *  du plus récent au plus ancien). */
+export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; parents: string[] }[], refs: RefsInfo | null): MenuItem[] {
+  const merges = ordered.some((c) => c.parents.length > 1);
+  const branch = refs?.headBranch ?? "HEAD";
+  return [
+    {
+      label: t("multi.cherryPick", { count: ordered.length, branch }),
+      title: merges ? t("multi.cherryPickMerge") : undefined,
+      disabled: merges || !refs?.head,
+      onClick: () => void useOps.getState().cherryPick(path, ordered.map((c) => c.sha).reverse()),
+    },
+    "sep",
+    { label: t("multi.copyShas"), onClick: () => copy(ordered.map((c) => c.sha).join("\n")) },
+  ];
+}
+
 /** Clic droit sur un commit du graphe. */
 export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsInfo | null): MenuItem[] {
   const ops = useOps.getState();

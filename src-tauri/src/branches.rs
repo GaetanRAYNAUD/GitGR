@@ -9,7 +9,7 @@
 //! `push_rejected`, `auth_failed`…), traduits côté interface.
 
 use crate::git::{run, run_env};
-use crate::history::check_dir;
+use crate::history::{check_dir, check_sha};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -647,6 +647,64 @@ pub fn stash_pop(path: &Path) -> Result<OpResult, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Cherry-pick
+// ---------------------------------------------------------------------------
+
+/// Applique les commits donnés (du plus ancien au plus récent) sur la branche courante, avec
+/// l'auto-stash. Un commit déjà présent sur la branche (vide une fois appliqué) est sauté ;
+/// sur un conflit, le cherry-pick reste en cours (Continuer / Annuler). Les merges sont
+/// refusés (il faudrait choisir le parent de référence).
+pub fn cherry_pick(path: &Path, shas: &[String], auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    if shas.is_empty() {
+        return Err("no_commits".into());
+    }
+    for s in shas {
+        check_sha(s)?;
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    for s in shas {
+        let line = run(Some(path), &["rev-list", "--parents", "-n", "1", s.as_str()])?;
+        if line.split_whitespace().count() > 2 {
+            return Err("cherry_pick_merge".into());
+        }
+    }
+    let label = current_branch(path).unwrap_or_else(|| "HEAD".into());
+    let editor = [("GIT_EDITOR", "true")];
+    with_autostash(path, auto_stash, &label, || {
+        let mut args = vec!["cherry-pick"];
+        args.extend(shas.iter().map(String::as_str));
+        let mut res = run_env(Some(path), &args, &editor);
+        // Au plus un « skip » par commit : jamais de boucle sans fin.
+        for _ in 0..=shas.len() {
+            match res {
+                Ok(_) => return Ok(OpResult::default()),
+                Err(_) if operation(path) == Some("cherry-pick") && has_conflicts(path) => {
+                    return Ok(OpResult { conflicts: true, ..Default::default() });
+                }
+                // Le commit est déjà sur la branche (vide une fois appliqué) : sauté. Tout autre
+                // arrêt (signature, hook…) reste en cours, à finir ou annuler par l'utilisateur.
+                Err(e) if operation(path) == Some("cherry-pick") && e.contains("is now empty") => {
+                    res = run_env(Some(path), &["cherry-pick", "--skip"], &editor)
+                }
+                Err(e) => {
+                    // Refusé avant d'avoir commencé un commit (modifications locales) : git garde
+                    // la suite dans `.git/sequencer`, qui bloquerait un nouvel essai. Les commits
+                    // déjà appliqués restent ; ils seront sautés (vides) au nouvel essai.
+                    if operation(path).is_none() && git_dir(path).map(|d| d.join("sequencer").is_dir()).unwrap_or(false) {
+                        let _ = run(Some(path), &["cherry-pick", "--quit"]);
+                    }
+                    return Err(classify(&e));
+                }
+            }
+        }
+        res.map(|_| OpResult::default()).map_err(|e| classify(&e))
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Erreurs
 // ---------------------------------------------------------------------------
 
@@ -1182,6 +1240,59 @@ mod tests {
         commit_file(repo.path(), "a.txt", "a\n");
         assert_eq!(pull(repo.path(), "ff-only", true).unwrap_err(), "no_upstream");
         assert_eq!(push(repo.path(), false, None).unwrap_err(), "no_remote");
+    }
+
+    #[test]
+    fn cherry_pick_several_commits() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["checkout", "-q", "-b", "autre"]);
+        commit_file(p, "b.txt", "b\n");
+        let b = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "c.txt", "c\n");
+        let c = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "a.txt", "a modifié\n");
+        let conflict = git(p, &["rev-parse", "HEAD"]);
+        git(p, &["checkout", "-q", "main"]);
+        // Déjà appliqué sur main : sauté sans erreur.
+        git(p, &["cherry-pick", &b]);
+        std::fs::write(p.join("local.txt"), "garde\n").unwrap();
+        let r = cherry_pick(p, &[b.clone(), c.clone()], true).unwrap();
+        assert_eq!(r, OpResult::default());
+        assert!(p.join("c.txt").exists());
+        assert_eq!(read(p, "local.txt"), "garde\n");
+        assert_eq!(git(p, &["log", "--format=%s", "-n", "3"]).lines().count(), 3);
+        // Modifications locales sur un fichier touché par le second commit : refusé, puis
+        // refait avec l'auto-stash (le premier, déjà appliqué, est sauté au nouvel essai).
+        commit_file(p, "d.txt", "d
+");
+        git(p, &["checkout", "-q", "autre"]);
+        commit_file(p, "e.txt", "e
+");
+        let e = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "d.txt", "d autre
+");
+        let d = git(p, &["rev-parse", "HEAD"]);
+        git(p, &["checkout", "-q", "main"]);
+        std::fs::write(p.join("d.txt"), "d local
+").unwrap();
+        assert_eq!(cherry_pick(p, &[e.clone(), d.clone()], false).unwrap_err(), "local_changes_conflict");
+        assert!(!git_dir(p).unwrap().join("sequencer").exists());
+        let r = cherry_pick(p, &[e, d], true).unwrap();
+        assert!(r.stashed);
+        assert_eq!(git(p, &["log", "--format=%s", "-n", "1"]).trim(), git(p, &["log", "--format=%s", "-n", "1", "autre"]).trim());
+        git(p, &["reset", "-q", "--hard"]);
+        git(p, &["stash", "clear"]);
+        // Conflit : le cherry-pick reste en cours.
+        let _ = std::fs::remove_file(p.join("local.txt"));
+        commit_file(p, "a.txt", "a sur main\n");
+        let r = cherry_pick(p, &[conflict], true).unwrap();
+        assert!(r.conflicts);
+        assert_eq!(operation(p), Some("cherry-pick"));
+        assert_eq!(cherry_pick(p, &[c.clone()], true).unwrap_err(), "operation_in_progress");
+        abort_operation(p).unwrap();
+        assert_eq!(cherry_pick(p, &[], true).unwrap_err(), "no_commits");
     }
 
     #[test]

@@ -33,6 +33,8 @@ interface OpsStore {
   running: Record<string, OpName | undefined>;
 
   checkout(path: string, branch: string): Promise<boolean>;
+  /** Cherry-pick des commits donnés (du plus ancien au plus récent) sur la branche courante. */
+  cherryPick(path: string, shas: string[]): Promise<boolean>;
   /** Branche distante (`origin/x`) : passe sur la locale du même nom, créée au besoin (elle suit
    *  alors la distante). Une locale qui existait déjà est ensuite mise à jour depuis la distante,
    *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
@@ -456,6 +458,18 @@ export const useOps = create<OpsStore>((set, get) => {
       // Un remote ajouté plus tard sous ce nom ne reprend ni son profil ni sa section masquée.
       moveRemoteUi(path, remote, null);
       await useProfiles.getState().moveRemoteProfile(path, remote, null);
+      return true;
+    },
+
+    async cherryPick(path, shas) {
+      const label = currentBranch(path) ?? "HEAD";
+      const out = await exec(path, "operation", () => api.cherryPick(path, shas, autoStash()));
+      if (!out.ok) return fail(out.error);
+      report(out.value, label);
+      if (!out.value.conflicts) {
+        notify(t("notice.cherryPicked", { count: shas.length, branch: label }));
+        await selectHead(path);
+      }
       return true;
     },
 

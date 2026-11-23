@@ -5,7 +5,7 @@
 
 use crate::branches::{self, OpResult};
 use crate::git::{self, GitInfo, RepoSummary};
-use crate::history::{self, Commit, CommitDetails, FileDiff, RefsInfo};
+use crate::history::{self, Commit, CommitDetails, FileChange, FileDiff, RefsInfo};
 use crate::profiles::{self, SshKeyInfo};
 use crate::providers::{self, Account};
 use crate::worktree::{self, LineRef, WorkStatus};
@@ -174,6 +174,17 @@ pub async fn stash_changes(path: String, sha: String) -> Result<history::StashCh
 #[tauri::command]
 pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
     history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn compare_files(path: String, base: String, tip: String) -> Result<Vec<FileChange>, String> {
+    history::compare_files(Path::new(&path), &base, &tip).map_err(classify)
+}
+
+/// Cherry-pick des commits donnés (du plus ancien au plus récent) sur la branche courante.
+#[tauri::command]
+pub async fn cherry_pick(path: String, shas: Vec<String>, auto_stash: bool) -> Result<OpResult, String> {
+    branches::cherry_pick(Path::new(&path), &shas, auto_stash)
 }
 
 #[tauri::command]

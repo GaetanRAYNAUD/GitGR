@@ -156,6 +156,8 @@ test("modifier la MR après sa création : titre, description, relecteurs, étiq
   await view(page).getByLabel("Description").fill("Nouvelle description");
   const reviewers = view(page).getByRole("combobox", { name: "Relecteurs" });
   await reviewers.fill("dev-007");
+  // La recherche répond après un délai : Entrée choisit la première option une fois là.
+  await expect(view(page).getByRole("option", { name: /dev-007/ }).first()).toBeVisible();
   await reviewers.press("Enter");
   await view(page).locator(".mpick-chip", { hasText: "enhancement" }).getByRole("button").click();
   await view(page).getByRole("button", { name: "Enregistrer" }).click();

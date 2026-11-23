@@ -180,3 +180,40 @@ test("badge ↑ du bouton Push : commits qui partent et leurs fichiers, avant de
   await expect(view).toHaveCount(0);
   await expect(graph(page)).toBeVisible();
 });
+
+test.describe("sélection de plusieurs commits", () => {
+  const picked = (page: Page) => page.getByRole("complementary", { name: "Commits sélectionnés" });
+
+  test("Maj+clic : plage, fichiers cumulés et diff de la plage ; un clic simple revient à un commit", async ({ page }) => {
+    const rows = graph(page).getByRole("option");
+    await rows.nth(4).click();
+    await rows.nth(6).click({ modifiers: ["Shift"] });
+    await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(3);
+    await expect(picked(page)).toContainText("3 commits sélectionnés");
+    await expect(picked(page).getByRole("list", { name: "Commits choisis" }).getByRole("listitem")).toHaveCount(3);
+    // Maj+↓ étend la plage d'un commit.
+    await page.keyboard.press("Shift+ArrowDown");
+    await expect(picked(page)).toContainText("4 commits sélectionnés");
+
+    await rows.nth(1).click();
+    await expect(picked(page)).toHaveCount(0);
+    await expect(panel(page)).toBeVisible();
+  });
+
+  test("Ctrl+clic sur des commits épars : liste seulement, puis cherry-pick du lot sur la branche courante", async ({ page }) => {
+    const rows = graph(page).getByRole("option");
+    // Trois commits espacés, aucun de fusion (refusés au cherry-pick).
+    const all = await rows.locator(".commit-msg").allInnerTexts();
+    const idx = [2, 9, 15].map((i) => all.findIndex((m, k) => k >= i && !m.startsWith("Merge")));
+    const subjects = idx.map((i) => all[i]);
+    await rows.nth(idx[0]).click();
+    await rows.nth(idx[1]).click({ modifiers: ["Control"] });
+    await rows.nth(idx[2]).click({ modifiers: ["Control"] });
+    await expect(picked(page)).toContainText("Sélectionnez une plage contiguë");
+    await picked(page).getByRole("button", { name: /^Cherry-pick des 3 commits sur main/ }).click();
+    await expect(page.getByText("Cherry-pick de 3 commits sur main terminé.")).toBeVisible();
+    // Les trois nouveaux commits en haut, le plus récent d'abord (appliqués du plus ancien au plus récent).
+    await expect(rows.nth(0)).toContainText(subjects[0]);
+    await expect(rows.nth(2)).toContainText(subjects[2]);
+  });
+});

@@ -123,6 +123,8 @@ pub fn run() {
             commands::commit_diff,
             commands::range_changes,
             commands::range_diff,
+            commands::compare_files,
+            commands::cherry_pick,
             commands::work_status,
             commands::work_diff,
             commands::stage_files,

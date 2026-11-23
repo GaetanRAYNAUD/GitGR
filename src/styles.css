@@ -4945,6 +4945,18 @@ p.pf-account-keys.bad,
   background: var(--hover);
 }
 
+/* Sélection de plusieurs commits (PickedPanel). */
+.multi-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.multi-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 .range-subject,
 .range-meta {
   overflow: hidden;

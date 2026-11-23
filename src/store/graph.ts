@@ -3,6 +3,7 @@
 
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
+import { rangeShas } from "../lib/multiSelect";
 import type { Commit, CommitDetails, FileChange, FileDiff, RefsInfo } from "../lib/types";
 
 /** Taille d'une page d'historique. */
@@ -20,8 +21,13 @@ export interface RepoGraph {
   /** Tout l'historique est chargé. */
   done: boolean;
   error?: string;
-  /** SHA sélectionné, `WIP`, ou rien. */
+  /** SHA sélectionné, `WIP`, ou rien. Avec une sélection multiple : le point de départ
+   *  des plages (Maj+clic). */
   selected: string | null;
+  /** Sélection multiple (Ctrl+clic, Maj+clic) : au moins deux commits, sinon vide. */
+  picked: string[];
+  /** Bout de la plage étendue au clavier (Maj+↑ / Maj+↓). */
+  focus: string | null;
   /** Empreinte des refs au dernier chargement : si elle ne change pas, inutile de relire le log. */
   fingerprint: string;
 }
@@ -34,6 +40,8 @@ export interface Loadable<T> {
 export interface OpenDiff extends Loadable<FileDiff> {
   sha: string;
   file: FileChange;
+  /** Diff cumulé de plusieurs commits : départ (un commit ou l'arbre vide), `sha` en est le bout. */
+  base?: string;
 }
 
 interface GraphStore {
@@ -46,10 +54,15 @@ interface GraphStore {
   refresh(path: string): Promise<void>;
   loadMore(path: string): Promise<void>;
   select(path: string, sha: string | null): void;
+  /** Ctrl+clic : ajoute ou retire un commit de la sélection. */
+  togglePick(path: string, sha: string): void;
+  /** Maj+clic (ou Maj+flèche) : la plage du graphe entre le point de départ et `sha`. */
+  pickRange(path: string, sha: string): void;
   /** Charge les pages nécessaires jusqu'à trouver `sha`, puis le sélectionne. Faux si introuvable. */
   reveal(path: string, sha: string): Promise<boolean>;
   loadDetails(path: string, sha: string): Promise<void>;
-  openDiff(path: string, sha: string, file: FileChange): Promise<void>;
+  /** `base` : diff cumulé depuis ce commit (sélection multiple). */
+  openDiff(path: string, sha: string, file: FileChange, base?: string): Promise<void>;
   closeDiff(path: string): void;
   /** Oublie tout ce qui concerne ce dépôt (onglet fermé). */
   drop(path: string): void;
@@ -61,6 +74,8 @@ const empty = (): RepoGraph => ({
   loading: false,
   done: false,
   selected: null,
+  picked: [],
+  focus: null,
   fingerprint: "",
 });
 
@@ -107,7 +122,10 @@ export const useGraph = create<GraphStore>((set, get) => {
         if (generation[path] !== gen) return;
         const selected = get().graphs[path]?.selected ?? null;
         const keep = selected === WIP || (selected !== null && commits.some((c) => c.sha === selected));
+        const known = new Set(commits.map((c) => c.sha));
+        const picked = (get().graphs[path]?.picked ?? []).filter((s) => known.has(s));
         patch(path, {
+          picked: picked.length > 1 ? picked : [],
           commits,
           loading: false,
           done: commits.length < PAGE_SIZE,
@@ -150,9 +168,30 @@ export const useGraph = create<GraphStore>((set, get) => {
     },
 
     select(path, sha) {
-      patch(path, { selected: sha });
+      patch(path, { selected: sha, picked: [], focus: null });
       if (get().diffs[path]) get().closeDiff(path);
       if (sha && sha !== WIP) get().loadDetails(path, sha);
+    },
+
+    togglePick(path, sha) {
+      const g = get().graphs[path];
+      if (!g || sha === WIP) return;
+      const start = g.picked.length ? g.picked : g.selected && g.selected !== WIP ? [g.selected] : [];
+      const next = start.includes(sha) ? start.filter((s) => s !== sha) : [...start, sha];
+      if (next.length < 2) return get().select(path, next[0] ?? null);
+      if (get().diffs[path]) get().closeDiff(path);
+      // Le dernier ajouté devient le départ des plages.
+      patch(path, { picked: next, selected: start.includes(sha) ? g.selected : sha, focus: null });
+    },
+
+    pickRange(path, sha) {
+      const g = get().graphs[path];
+      if (!g || sha === WIP) return;
+      const anchor = g.selected && g.selected !== WIP ? g.selected : sha;
+      const next = rangeShas(g.commits, anchor, sha);
+      if (next.length < 2) return get().select(path, sha);
+      if (get().diffs[path]) get().closeDiff(path);
+      patch(path, { picked: next, selected: anchor, focus: sha });
     },
 
     async reveal(path, sha) {
@@ -187,14 +226,17 @@ export const useGraph = create<GraphStore>((set, get) => {
       }
     },
 
-    async openDiff(path, sha, file) {
-      const open: OpenDiff = { sha, file };
+    async openDiff(path, sha, file, base) {
+      const open: OpenDiff = { sha, file, base };
       set((s) => ({ diffs: { ...s.diffs, [path]: open } }));
       let next: OpenDiff;
       try {
-        next = { sha, file, data: await api.commitDiff(path, sha, file.path, file.oldPath) };
+        const data = base
+          ? await api.rangeDiff(path, base, sha, file.path, file.oldPath)
+          : await api.commitDiff(path, sha, file.path, file.oldPath);
+        next = { sha, file, base, data };
       } catch (e) {
-        next = { sha, file, error: errorCode(e) };
+        next = { sha, file, base, error: errorCode(e) };
       }
       // Ignoré si un autre fichier a été ouvert (ou le diff fermé) entre-temps.
       if (get().diffs[path] === open) set((s) => ({ diffs: { ...s.diffs, [path]: next } }));
