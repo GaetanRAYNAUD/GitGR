@@ -15,7 +15,7 @@ import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branc
 import { errorMessage } from "../lib/errors";
 import { remoteProfile } from "../lib/profiles";
 import { splitRemoteBranch } from "../lib/refs";
-import type { OpResult, ProviderKind, PullStrategy } from "../lib/types";
+import type { GitRef, OpResult, ProviderKind, PullStrategy, ResetMode } from "../lib/types";
 import { useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph, WIP } from "./graph";
@@ -45,7 +45,7 @@ interface OpsStore {
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
   /** Déplace la branche courante sur `sha`, mode demandé (soft / mixed / hard). */
-  resetTo(path: string, sha: string): Promise<boolean>;
+  resetTo(path: string, sha: string, mode?: ResetMode): Promise<boolean>;
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
   checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean): Promise<boolean>;
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
@@ -53,6 +53,20 @@ interface OpsStore {
   renameBranch(path: string, branch: string): Promise<boolean>;
   deleteBranch(path: string, branch: string): Promise<boolean>;
   deleteRemoteBranch(path: string, branch: string): Promise<boolean>;
+  /** Supprime une branche locale et sa branche distante (`remoteBranch` : `origin/x`), une seule confirmation. */
+  deleteBoth(path: string, branch: string, remoteBranch: string): Promise<boolean>;
+  /** Avance rapide d'une branche qui n'est pas la courante depuis sa branche suivie (sans checkout). */
+  fastForward(path: string, branch: string): Promise<boolean>;
+  /** Pousse une branche locale qui n'est pas forcément la courante. */
+  pushBranch(path: string, branch: string, force?: boolean): Promise<boolean>;
+  /** Branche suivie par `branch` (`origin/x`, ou `null` : plus aucune). */
+  setUpstream(path: string, branch: string, upstream: string | null): Promise<boolean>;
+  /** Demande la branche distante à suivre (saisie), puis la règle. */
+  chooseUpstream(path: string, branch: string): Promise<boolean>;
+  /** Fusionne une branche (locale ou distante) dans la branche courante. */
+  mergeInto(path: string, ref: GitRef): Promise<boolean>;
+  /** Rebase la branche courante sur une branche (locale ou distante). */
+  rebaseOnto(path: string, ref: GitRef): Promise<boolean>;
   /** `silent` (fetch automatique) : ni erreur ni message, et rien si une commande tourne déjà. */
   fetch(path: string, silent?: boolean): Promise<boolean>;
   /** `strategy` absente : celle des réglages. */
@@ -214,17 +228,27 @@ export const useOps = create<OpsStore>((set, get) => {
     checkoutPull: (path, remote, kind, number, branch, fork) =>
       switchTo(path, async (stash) => (await api.checkoutPull(path, remote, kind, number, branch, fork, stash))[0]),
 
-    async resetTo(path, sha) {
+    async resetTo(path, sha, chosen) {
       const branch = currentBranch(path) ?? "HEAD";
-      const mode = await useDialogs.getState().choose({
-        title: t("reset.title", { branch, sha: sha.slice(0, 7) }),
-        body: t("reset.body"),
-        choices: [
-          { id: "soft", label: t("reset.soft") },
-          { id: "mixed", label: t("reset.mixed") },
-          { id: "hard", label: t("reset.hard"), danger: true },
-        ],
-      });
+      const title = t("reset.title", { branch, sha: sha.slice(0, 7) });
+      // Mode choisi dans le menu : seul « hard » demande confirmation (il abandonne des modifications).
+      const mode =
+        chosen === "hard"
+          ? await useDialogs.getState().choose({
+              title,
+              body: t("reset.hardBody"),
+              choices: [{ id: "hard", label: t("reset.hard"), danger: true }],
+            })
+          : (chosen ??
+            (await useDialogs.getState().choose({
+              title,
+              body: t("reset.body"),
+              choices: [
+                { id: "soft", label: t("reset.soft") },
+                { id: "mixed", label: t("reset.mixed") },
+                { id: "hard", label: t("reset.hard"), danger: true },
+              ],
+            })));
       if (mode !== "soft" && mode !== "mixed" && mode !== "hard") return false;
       const out = await exec(path, "operation", () => api.resetTo(path, sha, mode));
       if (!out.ok) return fail(out.error);
@@ -297,6 +321,101 @@ export const useOps = create<OpsStore>((set, get) => {
       if (!ok) return false;
       const out = await exec(path, "push", () => api.deleteRemoteBranch(path, branch));
       return out.ok || fail(out.error);
+    },
+
+    async deleteBoth(path, branch, remoteBranch) {
+      const dialogs = useDialogs.getState();
+      const ok = await dialogs.choose({
+        title: t("branch.deleteBothTitle", { branch, remote: remoteBranch }),
+        body: t("branch.deleteBothBody"),
+        choices: [{ id: "delete", label: t("branch.deleteBoth"), danger: true }],
+      });
+      if (!ok) return false;
+      let out = await exec(path, "branch", () => api.deleteBranch(path, branch, false));
+      if (!out.ok && out.error === "branch_not_merged") {
+        const force = await dialogs.choose({
+          title: t("branch.notMergedTitle", { branch }),
+          body: t("branch.notMergedBody"),
+          choices: [{ id: "force", label: t("branch.forceDelete"), danger: true }],
+        });
+        if (!force) return false;
+        out = await exec(path, "branch", () => api.deleteBranch(path, branch, true));
+      }
+      if (!out.ok) return fail(out.error);
+      const remote = await exec(path, "push", () => api.deleteRemoteBranch(path, remoteBranch));
+      return remote.ok || fail(remote.error);
+    },
+
+    async fastForward(path, branch) {
+      const out = await exec(path, "pull", () => api.fastForwardBranch(path, branch));
+      if (!out.ok) return fail(out.error === "not_fast_forward" ? "ff_branch_diverged" : out.error);
+      notify(t(out.value ? "notice.fastForwarded" : "notice.upToDate", { branch }));
+      return true;
+    },
+
+    async pushBranch(path, branch, force = false) {
+      if (branch === currentBranch(path)) return get().push(path, force);
+      if (!force && !(await useProfiles.getState().confirmIdentity(path))) return false;
+      const out = await exec(path, "push", () => api.pushBranch(path, branch, force, null));
+      if (!out.ok && out.error === "push_rejected" && !force) {
+        const pick = await useDialogs.getState().choose({
+          title: t("push.rejectedTitle"),
+          body: t("push.rejectedOtherBody", { branch }),
+          choices: [{ id: "force", label: t("push.force"), danger: true }],
+        });
+        return pick === "force" ? get().pushBranch(path, branch, true) : false;
+      }
+      if (!out.ok) return fail(out.error);
+      notify(t("notice.pushed", { branch }));
+      return true;
+    },
+
+    async setUpstream(path, branch, upstream) {
+      const out = await exec(path, "branch", () => api.setUpstream(path, branch, upstream));
+      if (!out.ok) return fail(out.error);
+      notify(upstream ? t("notice.upstreamSet", { branch, upstream }) : t("notice.upstreamUnset", { branch }));
+      return true;
+    },
+
+    async chooseUpstream(path, branch) {
+      const refs = useGraph.getState().graphs[path]?.refs;
+      const remote = new Set((refs?.refs ?? []).filter((r) => r.kind === "remote").map((r) => r.short));
+      const current = refs?.refs.find((r) => r.kind === "local" && r.short === branch)?.upstream ?? "";
+      const answer = await useDialogs.getState().input({
+        title: t("upstream.title", { branch }),
+        label: t("upstream.label"),
+        initial: current,
+        submit: t("upstream.submit"),
+        validate: (v) => (remote.has(v) ? null : t("upstream.unknown")),
+      });
+      if (!answer || answer.value === current) return false;
+      return get().setUpstream(path, branch, answer.value);
+    },
+
+    async mergeInto(path, ref) {
+      const label = currentBranch(path);
+      if (!label) return fail("detached_head");
+      const out = await exec(path, "operation", () => api.mergeBranch(path, ref.name, autoStash()));
+      if (!out.ok) return fail(out.error);
+      report(out.value, label);
+      if (!out.value.conflicts) {
+        notify(t("notice.merged", { source: ref.short, branch: label }));
+        await selectHead(path);
+      }
+      return true;
+    },
+
+    async rebaseOnto(path, ref) {
+      const label = currentBranch(path);
+      if (!label) return fail("detached_head");
+      const out = await exec(path, "operation", () => api.rebaseOnto(path, ref.name, autoStash()));
+      if (!out.ok) return fail(out.error);
+      report(out.value, label);
+      if (!out.value.conflicts) {
+        notify(t("notice.rebased", { branch: label, onto: ref.short }));
+        await selectHead(path);
+      }
+      return true;
     },
 
     async fetch(path, silent = false) {

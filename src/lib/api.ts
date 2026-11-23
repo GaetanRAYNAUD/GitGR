@@ -18,6 +18,10 @@ import {
   mockPull,
   mockPullFrom,
   mockPush,
+  mockPushBranch,
+  mockFastForward,
+  mockSetUpstream,
+  mockMergeOrRebase,
   mockRenameBranch,
   mockAutostash,
   mockStashCount,
@@ -180,6 +184,16 @@ export interface Api {
   /** Sans branche distante, la crée et la suit ; `force` : `--force-with-lease`. `remote` :
    *  destination choisie (`null` : celle de la branche suivie, sinon `origin`). */
   push(path: string, force: boolean, remote: string | null): Promise<void>;
+  /** Pousse une branche locale, courante ou non (mêmes règles que `push`). */
+  pushBranch(path: string, branch: string, force: boolean, remote: string | null): Promise<void>;
+  /** Avance rapide d'une autre branche que la courante depuis sa branche suivie (sans checkout). */
+  fastForwardBranch(path: string, branch: string): Promise<boolean>;
+  /** Branche suivie par `branch` (`upstream` : `origin/x` ; `null` : plus aucune). */
+  setUpstream(path: string, branch: string, upstream: string | null): Promise<void>;
+  /** Fusionne la branche `branch` (nom complet : `refs/heads/x`, `refs/remotes/o/x`) dans la courante. */
+  mergeBranch(path: string, branch: string, autoStash: boolean): Promise<OpResult>;
+  /** Rebase la branche courante sur la branche `branch` (nom complet). */
+  rebaseOnto(path: string, branch: string, autoStash: boolean): Promise<OpResult>;
   // Remotes
   addRemote(path: string, name: string, url: string): Promise<void>;
   renameRemote(path: string, oldName: string, newName: string): Promise<void>;
@@ -405,6 +419,11 @@ const tauriApi: Api = {
   pull: (path, strategy, autoStash) => invoke("pull", { path, strategy, autoStash }),
   pullFrom: (path, remote, branch, strategy, autoStash) => invoke("pull_from", { path, remote, branch, strategy, autoStash }),
   push: (path, force, remote) => invoke("push", { path, force, remote }),
+  pushBranch: (path, branch, force, remote) => invoke("push_branch", { path, branch, force, remote }),
+  fastForwardBranch: (path, branch) => invoke("fast_forward_branch", { path, branch }),
+  setUpstream: (path, branch, upstream) => invoke("set_upstream", { path, branch, upstream }),
+  mergeBranch: (path, branch, autoStash) => invoke("merge_branch", { path, branch, autoStash }),
+  rebaseOnto: (path, branch, autoStash) => invoke("rebase_onto", { path, branch, autoStash }),
   addRemote: (path, name, url) => invoke("add_remote", { path, name, url }),
   renameRemote: (path, oldName, newName) => invoke("rename_remote", { path, old: oldName, new: newName }),
   setRemoteUrl: (path, name, url) => invoke("set_remote_url", { path, name, url }),
@@ -871,6 +890,23 @@ const mockApi: Api = {
   async push(path, force, remote) {
     await mockDelay();
     mockPush(path, force, remote);
+  },
+  async pushBranch(path, branch, force, remote) {
+    await mockDelay();
+    mockPushBranch(path, branch, force, remote);
+  },
+  async fastForwardBranch(path, branch) {
+    await mockDelay();
+    return mockFastForward(path, branch);
+  },
+  setUpstream: async (path, branch, upstream) => mockSetUpstream(path, branch, upstream),
+  async mergeBranch(path, branch, autoStash) {
+    await mockDelay();
+    return mockMergeOrRebase(path, branch, false, autoStash);
+  },
+  async rebaseOnto(path, branch, autoStash) {
+    await mockDelay();
+    return mockMergeOrRebase(path, branch, true, autoStash);
   },
   addRemote: async (path, name, url) => mockAddRemote(path, name, url),
   renameRemote: async (path, oldName, newName) => mockRenameRemote(path, oldName, newName),

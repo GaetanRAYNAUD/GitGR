@@ -407,6 +407,36 @@ pub async fn push(path: String, force: bool, remote: Option<String>) -> Result<(
     branches::push(Path::new(&path), force, remote.as_deref())
 }
 
+/// Pousse une branche locale qui n'est pas forcément la courante.
+#[tauri::command]
+pub async fn push_branch(path: String, branch: String, force: bool, remote: Option<String>) -> Result<(), String> {
+    branches::push_branch(Path::new(&path), &branch, force, remote.as_deref())
+}
+
+/// Met à jour une autre branche que la courante depuis sa branche suivie (avance rapide).
+#[tauri::command]
+pub async fn fast_forward_branch(path: String, branch: String) -> Result<bool, String> {
+    branches::fast_forward_branch(Path::new(&path), &branch)
+}
+
+/// Branche suivie par `branch` (`upstream` : `origin/x` ; absent : plus aucune).
+#[tauri::command]
+pub async fn set_upstream(path: String, branch: String, upstream: Option<String>) -> Result<(), String> {
+    branches::set_upstream(Path::new(&path), &branch, upstream.as_deref())
+}
+
+/// Fusionne une branche (nom complet) dans la branche courante.
+#[tauri::command]
+pub async fn merge_branch(path: String, branch: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::merge_branch(Path::new(&path), &branch, auto_stash)
+}
+
+/// Rebase la branche courante sur une branche (nom complet).
+#[tauri::command]
+pub async fn rebase_onto(path: String, branch: String, auto_stash: bool) -> Result<OpResult, String> {
+    branches::rebase_onto(Path::new(&path), &branch, auto_stash)
+}
+
 // --- Remotes -------------------------------------------------------------------
 
 #[tauri::command]

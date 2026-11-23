@@ -172,3 +172,49 @@ test("badges ↑ / ↓ : ce qui part au push et ce qui arrive au pull, avec le d
     await app.close();
   }
 });
+
+test("menu d'une autre branche : pull sans checkout, push, merge et rebase", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const other = sandbox.clone("other");
+  // Le distant avance sur main ; ici, on travaille sur une autre branche.
+  sandbox.commit(other, "b.txt", "distant\n", "distant: b");
+  git(other, "push", "-q");
+  git(mine, "fetch", "-q");
+  git(mine, "switch", "-q", "-c", "travail");
+  sandbox.commit(mine, "t.txt", "t\n", "travail: t");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
+    const menu = page.getByRole("menu").first();
+
+    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Pull de main (avance rapide)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "main mise à jour." })).toBeVisible();
+    expect(git(mine, "log", "-1", "--format=%s", "main")).toBe("distant: b");
+    expect(git(mine, "branch", "--show-current")).toBe("travail");
+
+    // Rebase de la courante sur main : t.txt rejoué après « distant: b ».
+    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Rebase de travail sur main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail rebasée sur main." })).toBeVisible();
+    expect(git(mine, "log", "-1", "--format=%s", "HEAD~1")).toBe("distant: b");
+
+    // Push de travail sans y être : suivie sur origin.
+    git(mine, "switch", "-q", "main");
+    await expect(page.locator(".branch-chip-label")).toHaveText("main");
+    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Push de travail" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail poussée." })).toBeVisible();
+    expect(git(mine, "rev-parse", "--abbrev-ref", "travail@{u}")).toBe("origin/travail");
+
+    // Merge de travail dans main : avance rapide.
+    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Merge de travail dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "travail fusionnée dans main." })).toBeVisible();
+    expect(git(mine, "rev-parse", "main")).toBe(git(mine, "rev-parse", "travail"));
+  } finally {
+    await app.close();
+  }
+});

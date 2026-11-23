@@ -271,7 +271,8 @@
     "soft": "Soft",
     "mixed": "Mixed",
     "hard": "Hard (discard everything)",
-    "done": "{{branch}} is now at {{sha}}."
+    "done": "{{branch}} is now at {{sha}}.",
+    "hardBody": "The commits between the current position and this commit, and the pending changes to tracked files, are discarded (irreversible for the changes; the commits stay in the reflog). Untracked files are not touched."
   },
   "reflog": {
     "label": "Reflog",
@@ -555,7 +556,8 @@
     "rejectedBody": "The remote branch has commits you don’t have. Pull first, or overwrite it (force with lease: refused if someone pushed since your last fetch).",
     "pullFirst": "Pull",
     "force": "Force push",
-    "remoteFailed": "{{remote}}: {{error}}"
+    "remoteFailed": "{{remote}}: {{error}}",
+    "rejectedOtherBody": "The remote branch of {{branch}} contains commits you don't have. Switch to {{branch}} to pull, or overwrite it (force with lease: refused if someone pushed since your last fetch)."
   },
   "branch": {
     "newTitle": "New branch",
@@ -575,7 +577,10 @@
     "deleteRemoteBody": "The branch is deleted on the remote, for everyone. Your local branch is not touched.",
     "deleteRemote": "Delete on the server",
     "invalid": "Invalid name (no spaces, no ~ ^ : ? * [ \\ characters, no “..”).",
-    "exists": "A branch with this name already exists."
+    "exists": "A branch with this name already exists.",
+    "deleteBothTitle": "Delete {{branch}} and {{remote}}?",
+    "deleteBothBody": "The local branch is deleted, then the remote branch, on the server, for everyone. The commits stay reachable from the reflog.",
+    "deleteBoth": "Delete both"
   },
   "menu": {
     "checkout": "Checkout",
@@ -596,7 +601,39 @@
     "openDir": "Open folder",
     "revealFile": "Show in folder",
     "copyPath": "Copy path",
-    "copyAbsolutePath": "Copy full path"
+    "copyAbsolutePath": "Copy full path",
+    "pullBranch": "Pull {{branch}} (fast-forward)",
+    "pushBranch": "Push {{branch}}",
+    "pullInto": "Pull into {{branch}}",
+    "upstream": "Upstream",
+    "upstreamOf": "Upstream: {{upstream}}",
+    "upstreamOther": "Other…",
+    "upstreamNone": "None",
+    "mergeInto": "Merge {{source}} into {{branch}}",
+    "rebaseOnto": "Rebase {{branch}} onto {{onto}}",
+    "checkoutDetachedAt": "Checkout {{branch}} as detached HEAD",
+    "checkoutTracking": "Checkout {{branch}} (local tracking branch)",
+    "newBranchFrom": "New branch from {{branch}}…",
+    "cherryPickTip": "Cherry-pick the commit of {{source}} onto {{branch}}",
+    "revertTip": "Revert the commit of {{branch}}",
+    "resetSub": "Reset {{branch}} to {{target}}",
+    "resetSoft": "Soft (changes kept and staged)",
+    "resetMixed": "Mixed (changes kept, unstaged)",
+    "resetHard": "Hard (changes discarded)…",
+    "deleteLocal": "Delete {{branch}}…",
+    "deleteRemoteOf": "Delete {{branch}} on the server…",
+    "deleteBoth": "Delete {{branch}} and {{remote}}…",
+    "why": {
+      "noHead": "The repository has no commit yet.",
+      "sameCommit": "{{branch}} is already on this commit.",
+      "detached": "HEAD is detached: switch to a branch first.",
+      "operation": "An operation (merge, rebase…) is in progress.",
+      "gone": "{{upstream}} no longer exists on the server.",
+      "noUpstream": "This branch does not track a remote branch.",
+      "ffOnly": "Without checkout: only when a fast-forward is possible.",
+      "current": "This is the current branch.",
+      "deleteCurrent": "The current branch cannot be deleted."
+    }
   },
   "op": {
     "merge": "Merge in progress",
@@ -623,7 +660,13 @@
     "reverted_one": "Revert on {{branch}} done.",
     "reverted_other": "Revert of {{count}} commits on {{branch}} done.",
     "cherryPicked_one": "Cherry-pick onto {{branch}} done.",
-    "cherryPicked_other": "Cherry-pick of {{count}} commits onto {{branch}} done."
+    "cherryPicked_other": "Cherry-pick of {{count}} commits onto {{branch}} done.",
+    "fastForwarded": "{{branch}} updated.",
+    "upstreamSet": "{{branch}} now tracks {{upstream}}.",
+    "upstreamUnset": "{{branch}} no longer tracks a branch.",
+    "merged": "{{source}} merged into {{branch}}.",
+    "rebased": "{{branch}} rebased onto {{onto}}.",
+    "upToDate": "{{branch}} is already up to date."
   },
   "autostash": {
     "pending": "Changes put aside by GitGR (“{{message}}”) have not been reapplied.",
@@ -784,7 +827,10 @@
     "repo_exists": "A repository with this name already exists there.",
     "repo_create_forbidden": "Cannot create a repository here: not enough rights on the organization / group, or the token lacks the “repo” (GitHub) / “api” (GitLab) scope.",
     "invalid_repo_name": "Invalid repository name.",
-    "invalid_namespace": "Invalid owner."
+    "invalid_namespace": "Invalid owner.",
+    "ff_branch_diverged": "The branches have diverged: switch to the branch to pull with merge or rebase.",
+    "branch_checked_out": "This branch is checked out in another worktree: update it from there.",
+    "same_branch": "Pick a branch other than the current one."
   },
   "profiles": {
     "title": "Profiles",
@@ -1170,5 +1216,11 @@
       "state": "State change",
       "other": "Activity"
     }
+  },
+  "upstream": {
+    "title": "Upstream of {{branch}}",
+    "label": "Remote branch (remote/branch)",
+    "submit": "Track",
+    "unknown": "No remote branch with this name: fetch, or push the branch."
   }
 }

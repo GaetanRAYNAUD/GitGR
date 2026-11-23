@@ -451,6 +451,113 @@ fn contains(path: &Path, commit: &str) -> bool {
     run(Some(path), &["merge-base", "--is-ancestor", commit, "HEAD"]).is_ok()
 }
 
+/// Met à jour une branche locale qui n'est pas la courante depuis sa branche suivie, sans
+/// checkout : `git fetch <remote> <merge>:refs/heads/<branch>`, en avance rapide seulement
+/// (`not_fast_forward` si elles ont divergé). Remote « . » : la branche locale suivie.
+/// Renvoie faux si la branche était déjà à jour (ou en avance : rien à tirer).
+pub fn fast_forward_branch(path: &Path, branch: &str) -> Result<bool, String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
+    if current_branch(path).as_deref() == Some(branch) {
+        return Err("same_branch".into());
+    }
+    let (remote, merge) = upstream_of(path, branch).ok_or("no_upstream")?;
+    let local = format!("refs/heads/{branch}");
+    let before = run(Some(path), &["rev-parse", &local])?;
+    let refspec = format!("{merge}:{local}");
+    // Sans `-q` : git ne dirait pas pourquoi il refuse.
+    match run(Some(path), &["fetch", &remote, &refspec]) {
+        Ok(_) => Ok(run(Some(path), &["rev-parse", &local])? != before),
+        Err(e) if e.contains("[rejected]") || e.contains("non-fast-forward") => {
+            // Refusé aussi quand la branche est en avance (git la ferait reculer) : rien à tirer.
+            run(Some(path), &["fetch", "-q", &remote, &merge]).map_err(|e| classify(&e))?;
+            let ahead = run(Some(path), &["merge-base", "--is-ancestor", "FETCH_HEAD", &local]).is_ok();
+            if ahead { Ok(false) } else { Err("not_fast_forward".into()) }
+        }
+        Err(e) if e.contains("checked out") || e.contains("refusing to fetch into") => Err("branch_checked_out".into()),
+        Err(e) => Err(classify(&e)),
+    }
+}
+
+/// Branche suivie par `branch` : `upstream` = branche distante (`origin/x`) ; `None` : ne plus
+/// rien suivre.
+pub fn set_upstream(path: &Path, branch: &str, upstream: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
+    match upstream {
+        Some(u) => {
+            if u.starts_with('-') || !ref_exists(path, &format!("refs/remotes/{u}")) {
+                return Err("branch_not_found".into());
+            }
+            let arg = format!("--set-upstream-to=refs/remotes/{u}");
+            run(Some(path), &["branch", "-q", &arg, branch]).map(|_| ()).map_err(|e| classify(&e))
+        }
+        None if upstream_of(path, branch).is_none() => Ok(()),
+        None => run(Some(path), &["branch", "-q", "--unset-upstream", branch]).map(|_| ()).map_err(|e| classify(&e)),
+    }
+}
+
+/// Branche à fusionner ou sur laquelle rebaser : nom complet d'une branche locale ou distante.
+fn check_branch_ref(path: &Path, full: &str) -> Result<(), String> {
+    let kind_ok = full.starts_with("refs/heads/") || full.starts_with("refs/remotes/");
+    if !kind_ok || !ref_exists(path, full) {
+        return Err("branch_not_found".into());
+    }
+    Ok(())
+}
+
+/// Lance une commande qui peut s'arrêter sur des conflits (merge, rebase). Conflits : l'opération
+/// reste en cours. Arrêt sans conflit (signature refusée, hook…) : annulée, erreur de git rendue
+/// (comme pour le pull).
+fn run_stoppable(path: &Path, args: &[&str]) -> Result<OpResult, String> {
+    match run_env(Some(path), args, &[("GIT_EDITOR", "true")]) {
+        Ok(_) => Ok(OpResult::default()),
+        Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
+        Err(e) if operation(path).is_some() => match abort_operation(path) {
+            Ok(()) => Err(classify(&e)),
+            Err(_) => Ok(OpResult { conflicts: true, ..Default::default() }),
+        },
+        Err(e) => Err(classify(&e)),
+    }
+}
+
+/// Fusionne la branche `full` (`refs/heads/x` ou `refs/remotes/origin/x`) dans la branche
+/// courante, avec l'auto-stash ; avance rapide quand c'est possible, sinon commit de merge.
+pub fn merge_branch(path: &Path, full: &str, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    check_branch_ref(path, full)?;
+    let branch = current_branch(path).ok_or("detached_head")?;
+    if full == format!("refs/heads/{branch}") {
+        return Err("same_branch".into());
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    with_autostash(path, auto_stash, &branch, || run_stoppable(path, &["merge", "--no-edit", full]))
+}
+
+/// Rejoue les commits de la branche courante sur la branche `full`, avec l'auto-stash.
+pub fn rebase_onto(path: &Path, full: &str, auto_stash: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    check_branch_ref(path, full)?;
+    let branch = current_branch(path).ok_or("detached_head")?;
+    if full == format!("refs/heads/{branch}") {
+        return Err("same_branch".into());
+    }
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    // Déjà à jour : rien à rejouer, et git refuserait une copie sale sans raison.
+    if contains(path, full) {
+        return Ok(OpResult::default());
+    }
+    with_autostash(path, auto_stash, &branch, || run_stoppable(path, &["rebase", full]))
+}
+
 /// Pousse la branche courante. `to` : remote choisi (« Pousser vers… ») ; absent : celui de la
 /// branche distante suivie, sinon `origin` (ou le premier remote). Sur le remote de la branche
 /// suivie, elle va vers celle-ci ; ailleurs, vers la branche du même nom. Une branche qui n'en
@@ -459,6 +566,15 @@ fn contains(path: &Path, commit: &str) -> bool {
 pub fn push(path: &Path, force: bool, to: Option<&str>) -> Result<(), String> {
     check_dir(path)?;
     let branch = current_branch(path).ok_or("detached_head")?;
+    push_branch(path, &branch, force, to)
+}
+
+/// Pousse la branche locale `branch`, courante ou non, avec les mêmes règles que `push`.
+pub fn push_branch(path: &Path, branch: &str, force: bool, to: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
     let all = remotes(path);
     if to.is_some_and(|r| !all.iter().any(|x| x == r)) {
         return Err("remote_not_found".into());
@@ -470,7 +586,7 @@ pub fn push(path: &Path, force: bool, to: Option<&str>) -> Result<(), String> {
     let local = format!("refs/heads/{branch}");
     // Branche qui suit une branche locale (remote « . ») : ce n'est pas une destination de
     // push — on y écraserait l'autre branche. Elle part vers le remote, sans changer ce suivi.
-    let upstream = upstream_of(path, &branch);
+    let upstream = upstream_of(path, branch);
     let tracks_local = upstream.as_ref().is_some_and(|(r, _)| r == ".");
     let upstream = upstream.filter(|_| !tracks_local);
     let remote = match (to, &upstream) {
@@ -840,6 +956,7 @@ pub fn classify(stderr: &str) -> String {
         || has("would be overwritten by merge")
         || has("cannot pull with rebase")
         || has("cannot rebase: You have unstaged changes")
+        || has("cannot rebase: Your index contains uncommitted changes")
         || has("Please commit or stash them")
     {
         "local_changes_conflict"
@@ -1579,5 +1696,111 @@ mod tests {
         assert_eq!(current_branch(p), None);
         assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
         assert_eq!(checkout_detached(p, "--help", true).unwrap_err(), "invalid_start_point");
+    }
+
+    #[test]
+    fn fast_forward_of_another_branch_without_checkout() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        git(p, &["switch", "-q", "-c", "travail"]);
+        // Le distant avance sur `main` (second clone).
+        let b = clone_of(remote.path());
+        commit_file(b.path(), "g.txt", "g\n");
+        git(b.path(), &["push", "-q"]);
+        git(p, &["fetch", "-q"]);
+        assert!(fast_forward_branch(p, "main").unwrap());
+        assert_eq!(git(p, &["rev-parse", "main"]), git(p, &["rev-parse", "origin/main"]));
+        assert_eq!(current_branch(p).as_deref(), Some("travail"));
+        assert_eq!(fast_forward_branch(p, "travail").unwrap_err(), "same_branch");
+        assert!(!fast_forward_branch(p, "main").unwrap(), "déjà à jour");
+
+        // Divergé : refusé, rien ne bouge.
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "local.txt", "l\n");
+        let local = git(p, &["rev-parse", "main"]);
+        // En avance seulement : rien à tirer, pas une divergence.
+        git(p, &["switch", "-q", "travail"]);
+        assert!(!fast_forward_branch(p, "main").unwrap());
+        assert_eq!(git(p, &["rev-parse", "main"]), local);
+        commit_file(b.path(), "h.txt", "h\n");
+        git(b.path(), &["push", "-q"]);
+        git(p, &["fetch", "-q"]);
+        git(p, &["switch", "-q", "travail"]);
+        assert_eq!(fast_forward_branch(p, "main").unwrap_err(), "not_fast_forward");
+        assert_eq!(git(p, &["rev-parse", "main"]), local);
+    }
+
+    #[test]
+    fn push_and_upstream_of_another_branch() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        git(p, &["switch", "-q", "-c", "autre"]);
+        commit_file(p, "x.txt", "x\n");
+        git(p, &["switch", "-q", "main"]);
+        push_branch(p, "autre", false, None).unwrap();
+        assert_eq!(git(remote.path(), &["--git-dir=.", "rev-parse", "autre"]), git(p, &["rev-parse", "autre"]));
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/autre");
+        assert_eq!(current_branch(p).as_deref(), Some("main"));
+
+        set_upstream(p, "autre", None).unwrap();
+        assert!(run(Some(p), &["rev-parse", "--abbrev-ref", "autre@{u}"]).is_err());
+        set_upstream(p, "autre", None).unwrap();
+        set_upstream(p, "autre", Some("origin/main")).unwrap();
+        assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/main");
+        assert_eq!(set_upstream(p, "autre", Some("origin/nulle-part")).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn merge_a_branch_into_the_current_one() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "b.txt", "b\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "c.txt", "c\n");
+        // Modification locale sans rapport : gardée telle quelle.
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        assert_eq!(merge_branch(p, "refs/heads/feature", true).unwrap(), OpResult::default());
+        assert_eq!(git(p, &["rev-list", "--parents", "-n", "1", "HEAD"]).split_whitespace().count(), 3);
+        assert_eq!(read(p, "b.txt"), "b\n");
+        assert_eq!(read(p, "a.txt"), "local\n");
+        assert_eq!(merge_branch(p, "refs/heads/main", true).unwrap_err(), "same_branch");
+        assert_eq!(merge_branch(p, "refs/tags/x", true).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn merge_conflict_stays_in_progress() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "a.txt", "feature\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "a.txt", "main\n");
+        let r = merge_branch(p, "refs/heads/feature", true).unwrap();
+        assert!(r.conflicts);
+        assert_eq!(operation(p), Some("merge"));
+        assert_eq!(merge_branch(p, "refs/heads/feature", true).unwrap_err(), "operation_in_progress");
+    }
+
+    #[test]
+    fn rebase_the_current_branch_onto_another() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a\n");
+        git(p, &["switch", "-q", "-c", "feature"]);
+        commit_file(p, "b.txt", "b\n");
+        git(p, &["switch", "-q", "main"]);
+        commit_file(p, "c.txt", "c\n");
+        git(p, &["switch", "-q", "feature"]);
+        // Copie sale : git refuse le rebase, l'auto-stash la met de côté puis la réapplique.
+        std::fs::write(p.join("a.txt"), "local\n").unwrap();
+        let r = rebase_onto(p, "refs/heads/main", true).unwrap();
+        assert_eq!(r, OpResult { stashed: true, stash_kept: false, conflicts: false });
+        assert_eq!(git(p, &["rev-parse", "HEAD~1"]), git(p, &["rev-parse", "main"]));
+        assert_eq!(read(p, "a.txt"), "local\n");
+        // Déjà à jour : rien à faire, même avec la copie sale.
+        assert_eq!(rebase_onto(p, "refs/heads/main", false).unwrap(), OpResult::default());
     }
 }

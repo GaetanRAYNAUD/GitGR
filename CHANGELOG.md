@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Menu contextuel d'une branche bien plus complet : pull (avance rapide) et push d'une branche sans y passer, branche suivie à choisir, merge dans la branche courante et rebase de la courante dessus, reset de la courante (soft / mixed / hard), cherry-pick et revert de son commit, suppression de la locale et de la distante en une fois. Les actions impossibles sont grisées avec la raison.
+
 ## [0.1.3] — 2026-11-23
 
 - Aucun changement fonctionnel : version qui sert à vérifier la mise à jour silencieuse (téléchargement en arrière-plan, installation à la fermeture) depuis la 0.1.2.

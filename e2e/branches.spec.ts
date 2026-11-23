@@ -19,7 +19,8 @@ const locals = (page: Page) => sidebar(page).locator(".side-group").first();
 /** Bouton d'une branche locale (son nom affiché est suivi des compteurs ↑ ↓). */
 const branch = (page: Page, label: string) => locals(page).getByRole("button", { name: new RegExp(`^${label}( |$)`) });
 const graph = (page: Page) => page.getByRole("listbox", { name: "Historique des commits" });
-const menu = (page: Page) => page.getByRole("menu");
+/** Menu contextuel principal (un sous-menu ouvert est un second `menu`, imbriqué). */
+const menu = (page: Page) => page.getByRole("menu").first();
 
 test.describe("dépôt propre", () => {
   test.beforeEach(async ({ page }) => {
@@ -51,7 +52,7 @@ test.describe("dépôt propre", () => {
     await branch(page, "main").dblclick();
     await expect(current(page)).toHaveText("main");
     await branch(page, "neuve").click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Supprimer…" }).click();
+    await menu(page).getByRole("menuitem", { name: "Supprimer essai/neuve…" }).click();
     const confirm = page.getByRole("alertdialog", { name: "Supprimer essai/neuve ?" });
     await confirm.getByRole("button", { name: "Supprimer" }).click();
     await expect(branch(page, "neuve")).toHaveCount(0);
@@ -59,7 +60,10 @@ test.describe("dépôt propre", () => {
 
   test("la branche courante ne peut pas être supprimée depuis son menu", async ({ page }) => {
     await branch(page, "main").click({ button: "right" });
-    await expect(menu(page).getByRole("menuitem", { name: "Supprimer…" })).toBeDisabled();
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toBeDisabled();
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toHaveAttribute("title", "Impossible de supprimer la branche courante.");
+    // Pas de merge / rebase d'une branche sur elle-même.
+    await expect(menu(page).getByRole("menuitem", { name: /^Merge de/ })).toHaveCount(0);
     await expect(menu(page).getByRole("menuitem", { name: "Push" })).toBeEnabled();
     await page.keyboard.press("Escape");
     await expect(menu(page)).toBeHidden();
@@ -95,6 +99,34 @@ test.describe("dépôt propre", () => {
     await menu(page).getByRole("menuitemradio", { name: "Rebase" }).click();
     await page.getByRole("button", { name: "Mode du pull" }).click();
     await expect(menu(page).getByRole("menuitemradio", { name: "Rebase" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("menu d'une autre branche : pull sans checkout, merge, reset en sous-menu", async ({ page }) => {
+    // fix/ssh-agent a un commit à tirer : mise à jour sans quitter main.
+    await branch(page, "ssh-agent").click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Pull de fix/ssh-agent (avance rapide)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "fix/ssh-agent mise à jour." })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+
+    // Merge de feature/profils dans main.
+    await branch(page, "profils").click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Merge de feature/profils dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "feature/profils fusionnée dans main." })).toBeVisible();
+
+    // Reset : le mode se choisit dans le sous-menu (au clavier ici), hard demande confirmation.
+    await branch(page, "profils").click({ button: "right" });
+    const reset = menu(page).getByRole("menuitem", { name: "Reset de main sur feature/profils" });
+    await reset.focus();
+    await page.keyboard.press("ArrowRight");
+    const sub = page.locator(".context-menu.submenu");
+    await expect(sub.getByRole("menuitem", { name: /^Soft/ })).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(sub).toHaveCount(0);
+    await expect(reset).toBeFocused();
+    await reset.hover();
+    await sub.getByRole("menuitem", { name: /^Hard/ }).click();
+    await page.getByRole("alertdialog", { name: /^Reset de main sur / }).getByRole("button", { name: "Hard (tout abandonner)" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /^main est maintenant sur / })).toBeVisible();
   });
 
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {

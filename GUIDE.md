@@ -34,6 +34,7 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 
 - **Double-clic** sur une branche (barre latérale ou étiquette du graphe) pour l'extraire. Sur une branche distante, GitGR crée la branche locale qui la suit.
 - Le clic droit sur une branche, un tag ou un commit donne accès aux actions : créer, renommer, supprimer, extraire…
+- Sur une branche qui n'est pas la courante, le clic droit permet aussi de la **mettre à jour** (avance rapide) ou de la **pousser** sans y passer, de la **fusionner** dans la branche courante ou de **rebaser** la courante dessus, de choisir la branche qu'elle suit, et de supprimer à la fois la branche locale et sa distante. Une action impossible est grisée ; survolez-la pour savoir pourquoi.
 - Barre d'outils : **Pull** (mode au choix : avance rapide, merge ou rebase), **Push**, **Fetch**, **Branche**, **Stash** / **Pop**. Les compteurs ↑ ↓ indiquent ce qu'il reste à pousser ou à tirer.
 - **Mise de côté automatique** : si des modifications locales empêchent un changement de branche ou un pull, GitGR les met de côté puis les réapplique. En cas de conflit, rien n'est perdu : un bandeau propose de les réappliquer.
 - **Fetch automatique** du dépôt affiché, toutes les 10 minutes par défaut (réglable).

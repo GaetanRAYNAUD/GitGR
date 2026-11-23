@@ -271,7 +271,8 @@
     "soft": "Soft",
     "mixed": "Mixed",
     "hard": "Hard (tout abandonner)",
-    "done": "{{branch}} est maintenant sur {{sha}}."
+    "done": "{{branch}} est maintenant sur {{sha}}.",
+    "hardBody": "Les commits entre la position actuelle et ce commit, et les modifications en cours des fichiers suivis, sont abandonnés (irréversible pour les modifications ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés."
   },
   "reflog": {
     "label": "Reflog",
@@ -555,7 +556,8 @@
     "rejectedBody": "La branche distante contient des commits que vous n’avez pas. Faites d’abord un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch).",
     "pullFirst": "Pull",
     "force": "Forcer le push",
-    "remoteFailed": "{{remote}} : {{error}}"
+    "remoteFailed": "{{remote}} : {{error}}",
+    "rejectedOtherBody": "La branche distante de {{branch}} contient des commits que vous n’avez pas. Passez sur {{branch}} pour faire un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch)."
   },
   "branch": {
     "newTitle": "Nouvelle branche",
@@ -575,7 +577,10 @@
     "deleteRemoteBody": "La branche est supprimée sur le remote, pour tout le monde. Votre branche locale n’est pas touchée.",
     "deleteRemote": "Supprimer sur le serveur",
     "invalid": "Nom invalide (pas d’espace ni de caractères ~ ^ : ? * [ \\, pas de « .. »).",
-    "exists": "Une branche porte déjà ce nom."
+    "exists": "Une branche porte déjà ce nom.",
+    "deleteBothTitle": "Supprimer {{branch}} et {{remote}} ?",
+    "deleteBothBody": "La branche locale est supprimée, puis la branche distante, sur le serveur, pour tout le monde. Les commits restent accessibles depuis le reflog.",
+    "deleteBoth": "Supprimer les deux"
   },
   "menu": {
     "checkout": "Checkout",
@@ -596,7 +601,39 @@
     "openDir": "Ouvrir le dossier",
     "revealFile": "Montrer dans le dossier",
     "copyPath": "Copier le chemin",
-    "copyAbsolutePath": "Copier le chemin complet"
+    "copyAbsolutePath": "Copier le chemin complet",
+    "pullBranch": "Pull de {{branch}} (avance rapide)",
+    "pushBranch": "Push de {{branch}}",
+    "pullInto": "Pull dans {{branch}}",
+    "upstream": "Branche suivie",
+    "upstreamOf": "Branche suivie : {{upstream}}",
+    "upstreamOther": "Autre…",
+    "upstreamNone": "Aucune",
+    "mergeInto": "Merge de {{source}} dans {{branch}}",
+    "rebaseOnto": "Rebase de {{branch}} sur {{onto}}",
+    "checkoutDetachedAt": "Checkout de {{branch}} en HEAD détachée",
+    "checkoutTracking": "Checkout de {{branch}} (locale qui la suit)",
+    "newBranchFrom": "Nouvelle branche depuis {{branch}}…",
+    "cherryPickTip": "Cherry-pick du commit de {{source}} sur {{branch}}",
+    "revertTip": "Revert du commit de {{branch}}",
+    "resetSub": "Reset de {{branch}} sur {{target}}",
+    "resetSoft": "Soft (modifications gardées et indexées)",
+    "resetMixed": "Mixed (modifications gardées, non indexées)",
+    "resetHard": "Hard (modifications abandonnées)…",
+    "deleteLocal": "Supprimer {{branch}}…",
+    "deleteRemoteOf": "Supprimer {{branch}} sur le serveur…",
+    "deleteBoth": "Supprimer {{branch}} et {{remote}}…",
+    "why": {
+      "noHead": "Le dépôt n’a pas encore de commit.",
+      "sameCommit": "{{branch}} est déjà sur ce commit.",
+      "detached": "HEAD est détachée : passez sur une branche d’abord.",
+      "operation": "Une opération (merge, rebase…) est en cours.",
+      "gone": "{{upstream}} n’existe plus sur le serveur.",
+      "noUpstream": "Cette branche ne suit aucune branche distante.",
+      "ffOnly": "Sans checkout : seulement si l’avance rapide est possible.",
+      "current": "C’est la branche courante.",
+      "deleteCurrent": "Impossible de supprimer la branche courante."
+    }
   },
   "op": {
     "merge": "Merge en cours",
@@ -623,7 +660,13 @@
     "reverted_one": "Revert sur {{branch}} terminé.",
     "reverted_other": "Revert de {{count}} commits sur {{branch}} terminé.",
     "cherryPicked_one": "Cherry-pick sur {{branch}} terminé.",
-    "cherryPicked_other": "Cherry-pick de {{count}} commits sur {{branch}} terminé."
+    "cherryPicked_other": "Cherry-pick de {{count}} commits sur {{branch}} terminé.",
+    "fastForwarded": "{{branch}} mise à jour.",
+    "upstreamSet": "{{branch}} suit maintenant {{upstream}}.",
+    "upstreamUnset": "{{branch}} ne suit plus aucune branche.",
+    "merged": "{{source}} fusionnée dans {{branch}}.",
+    "rebased": "{{branch}} rebasée sur {{onto}}.",
+    "upToDate": "{{branch}} est déjà à jour."
   },
   "autostash": {
     "pending": "Des modifications mises de côté par GitGR (« {{message}} ») n’ont pas été réappliquées.",
@@ -784,7 +827,10 @@
     "repo_exists": "Un dépôt porte déjà ce nom à cet endroit.",
     "repo_create_forbidden": "Impossible de créer un dépôt ici : droits insuffisants sur l’organisation / le groupe, ou token sans le droit « repo » (GitHub) / « api » (GitLab).",
     "invalid_repo_name": "Nom de dépôt invalide.",
-    "invalid_namespace": "Propriétaire invalide."
+    "invalid_namespace": "Propriétaire invalide.",
+    "ff_branch_diverged": "Les branches ont divergé : passez sur la branche pour faire un pull avec merge ou rebase.",
+    "branch_checked_out": "Cette branche est extraite dans un autre worktree : mettez-la à jour depuis celui-ci.",
+    "same_branch": "Choisissez une autre branche que la branche courante."
   },
   "profiles": {
     "title": "Profils",
@@ -1170,5 +1216,11 @@
       "state": "Changement d’état",
       "other": "Activité"
     }
+  },
+  "upstream": {
+    "title": "Branche suivie par {{branch}}",
+    "label": "Branche distante (remote/branche)",
+    "submit": "Suivre",
+    "unknown": "Aucune branche distante de ce nom : faites un fetch, ou poussez la branche."
   }
 }
