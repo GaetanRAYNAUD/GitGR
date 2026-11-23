@@ -40,6 +40,8 @@ interface OpsStore {
    *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
+  /** Déplace la branche courante sur `sha`, mode demandé (soft / mixed / hard). */
+  resetTo(path: string, sha: string): Promise<boolean>;
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
   checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean): Promise<boolean>;
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
@@ -207,6 +209,24 @@ export const useOps = create<OpsStore>((set, get) => {
 
     checkoutPull: (path, remote, kind, number, branch, fork) =>
       switchTo(path, async (stash) => (await api.checkoutPull(path, remote, kind, number, branch, fork, stash))[0]),
+
+    async resetTo(path, sha) {
+      const branch = currentBranch(path) ?? "HEAD";
+      const mode = await useDialogs.getState().choose({
+        title: t("reset.title", { branch, sha: sha.slice(0, 7) }),
+        body: t("reset.body"),
+        choices: [
+          { id: "soft", label: t("reset.soft") },
+          { id: "mixed", label: t("reset.mixed") },
+          { id: "hard", label: t("reset.hard"), danger: true },
+        ],
+      });
+      if (mode !== "soft" && mode !== "mixed" && mode !== "hard") return false;
+      const out = await exec(path, "operation", () => api.resetTo(path, sha, mode));
+      if (!out.ok) return fail(out.error);
+      notify(t("reset.done", { branch, sha: sha.slice(0, 7) }));
+      return true;
+    },
 
     async newBranch(path, start, startLabel) {
       const existing = new Set(

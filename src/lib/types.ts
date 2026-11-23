@@ -247,6 +247,20 @@ export interface RemoteInfo {
   pushUrl: string | null;
 }
 
+/** Une position passée de HEAD ou d'une branche (reflog), la plus récente d'abord. */
+export interface ReflogEntry {
+  sha: string;
+  /** Opération : `commit`, `checkout`, `reset`, `rebase (finish)`, `pull`… */
+  action: string;
+  message: string;
+  /** Date de l'opération (secondes Unix). */
+  time: number;
+  /** Sujet du commit. */
+  subject: string;
+}
+
+export type ResetMode = "soft" | "mixed" | "hard";
+
 /** Une entrée de la pile de stash (la plus récente d'abord). */
 export interface StashEntry {
   sha: string;

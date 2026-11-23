@@ -4945,6 +4945,87 @@ p.pf-account-keys.bad,
   background: var(--hover);
 }
 
+/* Reflog (ReflogView). */
+.reflog-ref {
+  margin-left: auto;
+}
+
+.reflog-ref select {
+  max-width: 220px;
+}
+
+.reflog-hint {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reflog-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reflog-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.reflog-row:hover {
+  background: var(--hover);
+}
+
+.reflog-row.on {
+  background: var(--sel);
+}
+
+.reflog-action {
+  flex-shrink: 0;
+  min-width: 90px;
+  font-weight: 600;
+}
+
+.reflog-message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reflog-lost {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--mod);
+  border: 1px solid currentColor;
+}
+
+.reflog-time {
+  flex-shrink: 0;
+  min-width: 80px;
+  text-align: right;
+}
+
+.reflog-missing {
+  margin: 0;
+  padding: 2px 12px 6px;
+}
+
 /* Sélection de plusieurs commits (PickedPanel). */
 .multi-hint {
   margin: 4px 0 0;

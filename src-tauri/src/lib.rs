@@ -124,6 +124,8 @@ pub fn run() {
             commands::range_changes,
             commands::range_diff,
             commands::compare_files,
+            commands::reflog,
+            commands::reset_to,
             commands::cherry_pick,
             commands::work_status,
             commands::work_diff,

@@ -241,6 +241,27 @@
     "pullBadge_one": "See the commit the pull brings",
     "pullBadge_other": "See the {{count}} commits the pull brings"
   },
+  "reset": {
+    "title": "Reset {{branch}} to {{sha}}",
+    "body": "What to do with the changes between the current position and this commit? Soft: kept and staged. Mixed: kept, unstaged. Hard: discarded, along with uncommitted changes to tracked files (irreversible for those; commits stay in the reflog). Untracked files are left alone.",
+    "soft": "Soft",
+    "mixed": "Mixed",
+    "hard": "Hard (discard everything)",
+    "done": "{{branch}} is now at {{sha}}."
+  },
+  "reflog": {
+    "label": "Reflog",
+    "title": "Where {{ref}} was",
+    "ref": "Reference",
+    "head": "HEAD",
+    "empty": "No recorded position.",
+    "hint": "Click: details on the right; double-click: show in the graph; right-click: branch, checkout, reset.",
+    "notInGraph": "This commit is no longer in the branches' history: create a branch on it to keep it.",
+    "lost": "off branches",
+    "showInGraph": "Show in graph",
+    "toolbar": "Reflog",
+    "toolbarHint": "Where HEAD was: recover a lost commit (reset, rebase, deleted branch)"
+  },
   "multi": {
     "label": "Selected commits",
     "title_one": "{{count}} commit selected",
@@ -534,6 +555,7 @@
     "deleteRemote": "Delete on the server…",
     "pull": "Pull",
     "push": "Push",
+    "resetHere": "Reset {{branch}} here…",
     "copySha": "Copy SHA",
     "copyName": "Copy name",
     "openFile": "Open with default program",

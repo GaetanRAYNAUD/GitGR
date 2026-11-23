@@ -217,3 +217,27 @@ test.describe("sélection de plusieurs commits", () => {
     await expect(rows.nth(2)).toContainText(subjects[2]);
   });
 });
+
+test("reset de main sur un commit plus ancien, puis le reflog retrouve l'ancienne position", async ({ page }) => {
+  const rows = graph(page).getByRole("option");
+  const lost = await rows.first().locator(".commit-msg").innerText();
+  await rows.nth(1).click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Reset de main ici…" }).click();
+  const dialog = page.getByRole("alertdialog", { name: /^Reset de main sur/ });
+  await dialog.getByRole("button", { name: "Soft" }).click();
+  await expect(page.getByText(/main est maintenant sur/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Reflog" }).click();
+  const view = page.getByRole("region", { name: "Reflog" });
+  const entries = view.getByRole("list", { name: "Reflog" }).getByRole("listitem");
+  await expect(entries.first()).toContainText("reset");
+  // L'ancienne position de HEAD : clic, ses détails à droite.
+  await entries.nth(1).getByRole("button").click();
+  await expect(panel(page)).toContainText(lost);
+  // Clic droit : ses actions (nouvelle branche…).
+  await entries.nth(1).getByRole("button").click({ button: "right" });
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Nouvelle branche ici…" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+});

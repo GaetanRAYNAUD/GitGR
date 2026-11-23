@@ -25,8 +25,9 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { useRangeView, useStashView } from "../store/range";
+import { useRangeView, useReflogView, useStashView } from "../store/range";
 import { StashView } from "../components/graph/StashView";
+import { ReflogView } from "../components/graph/ReflogView";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
@@ -197,6 +198,19 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         title: stashes ? t("repo.popHint", { count: stashes }) : t("repo.popEmpty"),
         badge: stashes,
       })}
+      <span className="tool-sep" />
+      <button
+        className="tbtn"
+        title={t("reflog.toolbarHint")}
+        onClick={() => {
+          usePullList.getState().close(path);
+          useGraph.getState().closeDiff(path);
+          useReflogView.getState().show(path, "HEAD");
+        }}
+      >
+        <Icon name="clock" />
+        <span>{t("reflog.toolbar")}</span>
+      </button>
     </div>
   );
 }
@@ -262,6 +276,7 @@ export function RepoView({ path }: { path: string }) {
   const openPull = usePullList((s) => s.open[path]);
   const openRange = useRangeView((s) => s.open[path]);
   const openStash = useStashView((s) => s.open[path]);
+  const openReflog = useReflogView((s) => s.open[path]);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -349,6 +364,8 @@ export function RepoView({ path }: { path: string }) {
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (
             <WorkDiffView path={path} diff={workDiff} />
+          ) : openReflog ? (
+            <ReflogView key={openReflog} path={path} refname={openReflog} />
           ) : openStash ? (
             <StashView key={openStash.sha} path={path} entry={openStash} />
           ) : openRange ? (
