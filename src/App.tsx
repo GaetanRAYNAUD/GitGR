@@ -9,6 +9,7 @@ import { TitleBar } from "./components/TitleBar";
 import { resolveLanguage } from "./i18n";
 import { api } from "./lib/api";
 import { errorMessage } from "./lib/errors";
+import { useUpdates } from "./store/updates";
 import { useApp } from "./store/app";
 import { useOps } from "./store/ops";
 import { PublishDialogHost } from "./components/PublishDialog";
@@ -191,6 +192,10 @@ export default function App() {
   // Notifications des providers : lancées une fois l'état (comptes, réglages) chargé.
   useEffect(() => {
     if (ready) startNotifications();
+  }, [ready]);
+  // Mises à jour de GitGR : une vérification silencieuse au démarrage.
+  useEffect(() => {
+    if (ready) void useUpdates.getState().check(true);
   }, [ready]);
   const git = useApp((s) => s.git);
   const active = useApp((s) => s.active);

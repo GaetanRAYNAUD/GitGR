@@ -5,6 +5,20 @@ export interface GitInfo {
   version: string | null;
 }
 
+/** Paquet par lequel GitGR est installé (cf. `install_kind` côté Rust) : `nsis`, `msi`,
+ *  `appimage` et `app` (macOS) se mettent à jour seuls, `deb` / `rpm` par le gestionnaire de
+ *  paquets ; `none` : build hors paquet (développement), pas de mise à jour. */
+export type InstallKind = "nsis" | "msi" | "appimage" | "deb" | "rpm" | "app" | "none";
+
+/** Version plus récente annoncée par le manifeste de la dernière release. */
+export interface UpdateInfo {
+  version: string;
+  /** Notes de la release (Markdown), si le manifeste en donne. */
+  notes: string | null;
+  /** Date de publication (RFC 3339). */
+  date: string | null;
+}
+
 export interface RepoEntry {
   /** Racine du dépôt ; sert aussi d'identifiant. */
   path: string;

@@ -65,6 +65,21 @@
     "systemNotifications": "System notifications",
     "notificationsHint": "Paused while the window is minimized or after 15 min of inactivity. “Seen” stays in GitGR; “mark as read” also applies on GitHub / GitLab."
   },
+  "updates": {
+    "check": "Check for updates",
+    "checking": "Checking for updates…",
+    "upToDate": "GitGR is up to date.",
+    "available": "GitGR {{version}} is available.",
+    "availableManual": "GitGR {{version}} is available: update it with your package manager (apt, dnf…).",
+    "install": "Install and restart",
+    "notes": "What's new",
+    "downloading": "Downloading the update… {{percent}}%",
+    "downloadingUnknown": "Downloading the update…",
+    "restarting": "Update installed, restarting GitGR…",
+    "installFailed": "The update could not be installed: {{error}}",
+    "checkFailed": "Could not check for updates: {{error}}",
+    "unavailable": "Development build: no automatic updates."
+  },
   "welcome": {
     "title": "Repositories",
     "subtitle": "Open, clone or create a repository. It will open in a new tab.",

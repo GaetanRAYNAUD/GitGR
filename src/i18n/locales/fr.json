@@ -65,6 +65,21 @@
     "systemNotifications": "Notifications du système",
     "notificationsHint": "En pause quand la fenêtre est réduite ou après 15 min d’inactivité. « Vu » reste dans GitGR ; « marquer comme lu » s’applique aussi sur GitHub / GitLab."
   },
+  "updates": {
+    "check": "Rechercher les mises à jour",
+    "checking": "Recherche des mises à jour…",
+    "upToDate": "GitGR est à jour.",
+    "available": "GitGR {{version}} est disponible.",
+    "availableManual": "GitGR {{version}} est disponible : mettez-le à jour avec votre gestionnaire de paquets (apt, dnf…).",
+    "install": "Installer et redémarrer",
+    "notes": "Nouveautés",
+    "downloading": "Téléchargement de la mise à jour… {{percent}} %",
+    "downloadingUnknown": "Téléchargement de la mise à jour…",
+    "restarting": "Mise à jour installée, redémarrage de GitGR…",
+    "installFailed": "La mise à jour n'a pas pu être installée : {{error}}",
+    "checkFailed": "Impossible de vérifier les mises à jour : {{error}}",
+    "unavailable": "Version de développement : pas de mise à jour automatique."
+  },
   "welcome": {
     "title": "Dépôts",
     "subtitle": "Ouvrez, clonez ou créez un dépôt. Il s’ouvrira dans un nouvel onglet.",
