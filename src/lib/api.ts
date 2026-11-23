@@ -58,6 +58,7 @@ import type {
   NotificationPoll,
   GitInfo,
   GpgKey,
+  InstallKind,
   LineRef,
   NewPull,
   OpResult,
@@ -78,6 +79,7 @@ import type {
   RefsInfo,
   RepoList,
   RepoEntry,
+  UpdateInfo,
   RepoProfiles,
   RepoSummary,
   RepoUi,
@@ -254,6 +256,14 @@ export interface Api {
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
   pickFile(title: string, dir?: string | null): Promise<string | null>;
   openUrl(url: string): Promise<void>;
+  // Mises à jour de GitGR
+  /** Paquet par lequel GitGR est installé : dit si l'app peut se mettre à jour seule. */
+  installKind(): Promise<InstallKind>;
+  /** Lit le manifeste de la dernière release : la version plus récente, `null` si à jour. */
+  checkUpdate(): Promise<UpdateInfo | null>;
+  /** Télécharge et installe la version trouvée par le dernier `checkUpdate`, puis redémarre
+   *  GitGR (sous Windows, l'installateur ferme l'app lui-même). `no_update` : rien à installer. */
+  installUpdate(onProgress: (downloaded: number, total: number | null) => void): Promise<void>;
   /** Fichier `file` (relatif au dépôt) : ouvert avec le programme par défaut du système, ou
    *  montré dans l'explorateur (son dossier s'il n'existe plus). `file_missing` : rien à ouvrir. */
   openRepoFile(path: string, file: string, how: "open" | "reveal"): Promise<void>;
@@ -276,6 +286,9 @@ async function currentWindow() {
   const w = await import("@tauri-apps/api/window");
   return w.getCurrentWindow();
 }
+
+/** Mise à jour trouvée par le dernier `checkUpdate`, à installer. */
+let pendingUpdate: import("@tauri-apps/plugin-updater").Update | null = null;
 
 const tauriApi: Api = {
   gitInfo: () => invoke("git_info"),
@@ -395,6 +408,28 @@ const tauriApi: Api = {
   async openUrl(url) {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     await openUrl(url);
+  },
+  installKind: () => invoke("install_kind"),
+  async checkUpdate() {
+    const { check } = await import("@tauri-apps/plugin-updater");
+    const update = await check();
+    // L'ancienne mise à jour trouvée libère sa ressource côté Rust.
+    await pendingUpdate?.close().catch(() => {});
+    pendingUpdate = update;
+    return update ? { version: update.version, notes: update.body ?? null, date: update.date ?? null } : null;
+  },
+  async installUpdate(onProgress) {
+    const update = pendingUpdate;
+    if (!update) throw "no_update";
+    let downloaded = 0;
+    let total: number | null = null;
+    await update.downloadAndInstall((e) => {
+      if (e.event === "Started") total = e.data.contentLength ?? null;
+      else if (e.event === "Progress") downloaded += e.data.chunkLength;
+      onProgress(downloaded, total);
+    });
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+    await relaunch();
   },
   openRepoFile: (path, file, how) => invoke("open_repo_file", { path, file, how }),
   window: {
@@ -522,6 +557,16 @@ function mockAccountRepos(account: Account): ProviderRepo[] {
 
 /** Petite latence simulée, pour voir les états de chargement. */
 const mockDelay = () => new Promise((r) => setTimeout(r, 30));
+
+/** Réglages des tests sur le backend simulé, posés sur `window`. */
+function mockWindow() {
+  return window as unknown as {
+    __mockInstallKind?: InstallKind;
+    __mockUpdate?: UpdateInfo | null;
+    __mockUpdateError?: string;
+    __mockRelaunched?: boolean;
+  };
+}
 
 const mockApi: Api = {
   gitInfo: async () => ({ found: true, version: "2.45.1 (simulé)" }),
@@ -1053,6 +1098,27 @@ const mockApi: Api = {
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener");
+  },
+  // Mises à jour simulées : les tests choisissent le paquet (`__mockInstallKind`, NSIS par
+  // défaut) et la version disponible (`__mockUpdate`, aucune par défaut) ; `__mockUpdateError`
+  // fait échouer la vérification ; l'installation note le redémarrage dans `__mockRelaunched`.
+  async installKind() {
+    return mockWindow().__mockInstallKind ?? "nsis";
+  },
+  async checkUpdate() {
+    await mockDelay();
+    const w = mockWindow();
+    if (w.__mockUpdateError) throw w.__mockUpdateError;
+    return w.__mockUpdate ?? null;
+  },
+  async installUpdate(onProgress) {
+    const w = mockWindow();
+    if (!w.__mockUpdate) throw "no_update";
+    for (const done of [0, 40, 100]) {
+      await mockDelay();
+      onProgress(done, 100);
+    }
+    w.__mockRelaunched = true;
   },
   async openRepoFile(path, file, how) {
     (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];

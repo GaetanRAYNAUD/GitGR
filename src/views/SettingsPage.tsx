@@ -8,10 +8,64 @@ import { Flag } from "../components/Flag";
 import { Icon } from "../components/Icon";
 import { api } from "../lib/api";
 import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
+import { RELEASES_URL, releaseUrl, updateMode } from "../lib/updates";
 import { useApp } from "../store/app";
+import { useUpdates } from "../store/updates";
 
-/** Notes de version : les releases du dépôt de GitGR. */
-const RELEASES_URL = "https://github.com/GaetanRAYNAUD/GitGR/releases";
+/** Bas de la page : version installée, recherche et installation des mises à jour. */
+function UpdatesFooter() {
+  const { t } = useTranslation();
+  const { kind, status, update, percent, error, check, install } = useUpdates();
+  useEffect(() => {
+    // Paquet installé : dit ce qui est possible (rien en développement).
+    if (!kind) void api.installKind().then((k) => useUpdates.setState({ kind: k }), () => useUpdates.setState({ kind: "none" }));
+  }, [kind]);
+  const mode = kind ? updateMode(kind) : null;
+  const open = (url: string) => void api.openUrl(url).catch(() => {});
+
+  let line: ReactNode = null;
+  if (mode === "none") line = <span>{t("updates.unavailable")}</span>;
+  else if (status === "checking") line = <span>{t("updates.checking")}</span>;
+  else if (status === "upToDate") line = <span>{t("updates.upToDate")}</span>;
+  else if (status === "installing") line = <span>{percent === null ? t("updates.downloadingUnknown") : t("updates.downloading", { percent })}</span>;
+  else if (update && (status === "available" || status === "error"))
+    line = (
+      <>
+        <span>{mode === "auto" ? t("updates.available", { version: update.version }) : t("updates.availableManual", { version: update.version })}</span>
+        {mode === "auto" && (
+          <button type="button" className="btn primary sm" onClick={() => void install()}>
+            {t("updates.install")}
+          </button>
+        )}
+        <button type="button" className="link" onClick={() => open(releaseUrl(update.version))}>
+          {t("updates.notes")}
+        </button>
+      </>
+    );
+  const failed = status === "error" && error ? <span className="settings-update-error">{update ? t("updates.installFailed", { error }) : t("updates.checkFailed", { error })}</span> : null;
+
+  return (
+    <footer className="settings-version">
+      <div className="settings-version-row">
+        <span>{t("settings.version", { version: __APP_VERSION__ })}</span>
+        <button type="button" className="link" onClick={() => open(RELEASES_URL)}>
+          {t("settings.releaseNotes")}
+        </button>
+        {mode && mode !== "none" && (
+          <button type="button" className="btn sm" disabled={status === "checking" || status === "installing"} onClick={() => void check()}>
+            {t("updates.check")}
+          </button>
+        )}
+      </div>
+      {(line || failed) && (
+        <div className="settings-version-row" role="status">
+          {line}
+          {failed}
+        </div>
+      )}
+    </footer>
+  );
+}
 
 function Segmented<T extends string>({
   label,
@@ -155,12 +209,7 @@ export function SettingsPage() {
           <BranchColorsEditor disabled={settings.branchColorsOff} />
         </section>
 
-        <footer className="settings-version">
-          <span>{t("settings.version", { version: __APP_VERSION__ })}</span>
-          <button type="button" className="link" onClick={() => void api.openUrl(RELEASES_URL).catch(() => {})}>
-            {t("settings.releaseNotes")}
-          </button>
-        </footer>
+        <UpdatesFooter />
       </div>
     </div>
   );

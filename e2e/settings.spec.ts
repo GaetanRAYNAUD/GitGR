@@ -71,3 +71,36 @@ test("version de GitGR en bas de la page, avec les notes de version", async ({ p
   await expect(menu.getByText(`GitGR ${version}`)).toBeVisible();
   await expect(menu.getByRole("button", { name: "Notes de version" })).toBeVisible();
 });
+
+test.describe("mises à jour", () => {
+  test("rechercher depuis les Réglages : à jour", async ({ page }) => {
+    const settings = await openSettings(page);
+    await settings.getByRole("button", { name: "Rechercher les mises à jour" }).click();
+    await expect(settings.getByText("GitGR est à jour.")).toBeVisible();
+  });
+
+  test("nouvelle version annoncée au démarrage, installée puis redémarrage", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __mockUpdate: unknown }).__mockUpdate = { version: "9.9.0", notes: null, date: null };
+    });
+    await page.reload();
+    const notice = page.getByRole("status").filter({ hasText: "GitGR 9.9.0 est disponible." });
+    await expect(notice).toBeVisible();
+    await notice.getByRole("button", { name: "Installer et redémarrer" }).click();
+    await expect(page.getByText("Mise à jour installée, redémarrage de GitGR…")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __mockRelaunched?: boolean }).__mockRelaunched)).toBe(true);
+  });
+
+  test("paquet deb : les Réglages renvoient vers le gestionnaire de paquets", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __mockUpdate: unknown; __mockInstallKind: string };
+      w.__mockInstallKind = "deb";
+      w.__mockUpdate = { version: "9.9.0", notes: null, date: null };
+    });
+    await page.reload();
+    const settings = await openSettings(page);
+    await expect(settings.getByText(/GitGR 9\.9\.0 est disponible : mettez-le à jour avec votre gestionnaire de paquets/)).toBeVisible();
+    await expect(settings.getByRole("button", { name: "Installer et redémarrer" })).toHaveCount(0);
+    await expect(settings.getByRole("button", { name: "Nouveautés" })).toBeVisible();
+  });
+});
