@@ -261,9 +261,14 @@ export interface Api {
   installKind(): Promise<InstallKind>;
   /** Lit le manifeste de la dernière release : la version plus récente, `null` si à jour. */
   checkUpdate(): Promise<UpdateInfo | null>;
-  /** Télécharge et installe la version trouvée par le dernier `checkUpdate`, puis redémarre
-   *  GitGR (sous Windows, l'installateur ferme l'app lui-même). `no_update` : rien à installer. */
-  installUpdate(onProgress: (downloaded: number, total: number | null) => void): Promise<void>;
+  /** Télécharge en arrière-plan la version trouvée par le dernier `checkUpdate`, sans
+   *  l'installer. `no_update` : rien à télécharger. */
+  downloadUpdate(onProgress: (downloaded: number, total: number | null) => void): Promise<void>;
+  /** Installe la version trouvée par le dernier `checkUpdate` (téléchargée d'abord si besoin).
+   *  `restart` : GitGR redémarre ensuite (sous Windows, l'installateur ferme l'app et la
+   *  relance) ; sinon l'installation se fait sans relance, à la fermeture de l'app.
+   *  `no_update` : rien à installer. */
+  installUpdate(onProgress: (downloaded: number, total: number | null) => void, restart?: boolean): Promise<void>;
   /** Fichier `file` (relatif au dépôt) : ouvert avec le programme par défaut du système, ou
    *  montré dans l'explorateur (son dossier s'il n'existe plus). `file_missing` : rien à ouvrir. */
   openRepoFile(path: string, file: string, how: "open" | "reveal"): Promise<void>;
@@ -272,6 +277,8 @@ export interface Api {
     toggleMaximize(): Promise<void>;
     startDragging(): Promise<void>;
     close(): Promise<void>;
+    /** `cb` est attendu avant la fermeture de la fenêtre (croix de l'app, Alt+F4…). */
+    onCloseRequested(cb: () => Promise<void>): Promise<() => void>;
   };
 }
 
@@ -287,8 +294,21 @@ async function currentWindow() {
   return w.getCurrentWindow();
 }
 
-/** Mise à jour trouvée par le dernier `checkUpdate`, à installer. */
+/** Mise à jour trouvée par le dernier `checkUpdate`, à installer ; `pendingDownloaded` : déjà
+ *  téléchargée (`downloadUpdate`). */
 let pendingUpdate: import("@tauri-apps/plugin-updater").Update | null = null;
+let pendingDownloaded = false;
+
+/** Avancement d'un téléchargement du plugin, en octets reçus / taille totale. */
+function downloadProgress(onProgress: (downloaded: number, total: number | null) => void) {
+  let downloaded = 0;
+  let total: number | null = null;
+  return (e: import("@tauri-apps/plugin-updater").DownloadEvent) => {
+    if (e.event === "Started") total = e.data.contentLength ?? null;
+    else if (e.event === "Progress") downloaded += e.data.chunkLength;
+    onProgress(downloaded, total);
+  };
+}
 
 const tauriApi: Api = {
   gitInfo: () => invoke("git_info"),
@@ -416,20 +436,25 @@ const tauriApi: Api = {
     // L'ancienne mise à jour trouvée libère sa ressource côté Rust.
     await pendingUpdate?.close().catch(() => {});
     pendingUpdate = update;
+    pendingDownloaded = false;
     return update ? { version: update.version, notes: update.body ?? null, date: update.date ?? null } : null;
   },
-  async installUpdate(onProgress) {
+  async downloadUpdate(onProgress) {
     const update = pendingUpdate;
     if (!update) throw "no_update";
-    let downloaded = 0;
-    let total: number | null = null;
-    await update.downloadAndInstall((e) => {
-      if (e.event === "Started") total = e.data.contentLength ?? null;
-      else if (e.event === "Progress") downloaded += e.data.chunkLength;
-      onProgress(downloaded, total);
-    });
-    const { relaunch } = await import("@tauri-apps/plugin-process");
-    await relaunch();
+    await update.download(downloadProgress(onProgress));
+    pendingDownloaded = true;
+  },
+  async installUpdate(onProgress, restart = true) {
+    const update = pendingUpdate;
+    if (!update) throw "no_update";
+    const options = { restartAfterInstall: restart };
+    if (pendingDownloaded) await update.install(options);
+    else await update.downloadAndInstall(downloadProgress(onProgress), options);
+    if (restart) {
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+    }
   },
   openRepoFile: (path, file, how) => invoke("open_repo_file", { path, file, how }),
   window: {
@@ -437,6 +462,7 @@ const tauriApi: Api = {
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
     startDragging: async () => (await currentWindow()).startDragging(),
     close: async () => (await currentWindow()).close(),
+    onCloseRequested: async (cb) => (await currentWindow()).onCloseRequested(() => cb()),
   },
 };
 
@@ -565,6 +591,10 @@ function mockWindow() {
     __mockUpdate?: UpdateInfo | null;
     __mockUpdateError?: string;
     __mockRelaunched?: boolean;
+    __mockDownloaded?: boolean;
+    __mockDownloadError?: string;
+    __mockInstalled?: boolean;
+    __mockCloseRequested?: () => Promise<void>;
   };
 }
 
@@ -1111,20 +1141,44 @@ const mockApi: Api = {
     if (w.__mockUpdateError) throw w.__mockUpdateError;
     return w.__mockUpdate ?? null;
   },
-  async installUpdate(onProgress) {
+  async downloadUpdate(onProgress) {
     const w = mockWindow();
     if (!w.__mockUpdate) throw "no_update";
+    if (w.__mockDownloadError) throw w.__mockDownloadError;
     for (const done of [0, 40, 100]) {
       await mockDelay();
       onProgress(done, 100);
     }
-    w.__mockRelaunched = true;
+    w.__mockDownloaded = true;
+  },
+  async installUpdate(onProgress, restart = true) {
+    const w = mockWindow();
+    if (!w.__mockUpdate) throw "no_update";
+    if (!w.__mockDownloaded)
+      for (const done of [0, 40, 100]) {
+        await mockDelay();
+        onProgress(done, 100);
+      }
+    w.__mockInstalled = true;
+    if (restart) w.__mockRelaunched = true;
   },
   async openRepoFile(path, file, how) {
     (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];
     (window as unknown as { __mockOpened: unknown[] }).__mockOpened.push({ path, file, how });
   },
-  window: { minimize: async () => {}, toggleMaximize: async () => {}, startDragging: async () => {}, close: async () => {} },
+  // Fermeture simulée : les tests appellent `window.__mockCloseRequested()`.
+  window: {
+    minimize: async () => {},
+    toggleMaximize: async () => {},
+    startDragging: async () => {},
+    close: async () => {},
+    onCloseRequested: async (cb) => {
+      mockWindow().__mockCloseRequested = cb;
+      return () => {
+        mockWindow().__mockCloseRequested = undefined;
+      };
+    },
+  },
 };
 
 export const api: Api = inTauri ? tauriApi : mockApi;

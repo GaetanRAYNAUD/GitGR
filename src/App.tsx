@@ -193,9 +193,18 @@ export default function App() {
   useEffect(() => {
     if (ready) startNotifications();
   }, [ready]);
-  // Mises à jour de GitGR : une vérification silencieuse au démarrage.
+  // Mises à jour de GitGR : une vérification silencieuse au démarrage ; la version
+  // téléchargée s'installe à la fermeture de la fenêtre.
   useEffect(() => {
-    if (ready) void useUpdates.getState().check(true);
+    if (!ready) return;
+    void useUpdates.getState().check(true);
+    let unlisten: (() => void) | null = null;
+    let gone = false;
+    void api.window.onCloseRequested(() => useUpdates.getState().installOnClose()).then((u) => (gone ? u() : (unlisten = u)));
+    return () => {
+      gone = true;
+      unlisten?.();
+    };
   }, [ready]);
   const git = useApp((s) => s.git);
   const active = useApp((s) => s.active);

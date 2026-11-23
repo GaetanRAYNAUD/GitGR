@@ -73,6 +73,9 @@ pub struct Settings {
     pub system_notifications_off: bool,
     /// Fréquence de lecture : "standard" (2 min, 10 en arrière-plan) | "fast" (1 et 5).
     pub notification_speed: String,
+    /// Mises à jour seulement annoncées : pas de téléchargement en arrière-plan ni
+    /// d'installation à la fermeture.
+    pub auto_update_off: bool,
 }
 
 /// Branches dont le nom correspond à `pattern` (`*` = n'importe quoi) : couleur `color`

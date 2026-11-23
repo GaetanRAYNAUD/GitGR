@@ -60,7 +60,7 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJBRjExMkJFOTcxMjMxODEKUldTQk1SS1h2aEx4S3BySlRmQzFEUS9hREdzRVF4T28zS2JRUTVGY2h2T01zRHdYQnUyRTVRTmwK",
       "endpoints": ["https://github.com/GaetanRAYNAUD/GitGR/releases/latest/download/latest.json"],
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     }
   }

@@ -5,7 +5,15 @@ import { releaseUrl, updateMode } from "../lib/updates";
 import { useApp } from "./app";
 import { useUpdates } from "./updates";
 
-type MockWindow = { __mockInstallKind?: InstallKind; __mockUpdate?: UpdateInfo | null; __mockUpdateError?: string; __mockRelaunched?: boolean };
+type MockWindow = {
+  __mockInstallKind?: InstallKind;
+  __mockUpdate?: UpdateInfo | null;
+  __mockUpdateError?: string;
+  __mockRelaunched?: boolean;
+  __mockDownloaded?: boolean;
+  __mockDownloadError?: string;
+  __mockInstalled?: boolean;
+};
 const w = window as unknown as MockWindow;
 const UPDATE: UpdateInfo = { version: "0.2.0", notes: "Nouveautés", date: null };
 
@@ -15,8 +23,11 @@ beforeEach(() => {
   delete w.__mockUpdate;
   delete w.__mockUpdateError;
   delete w.__mockRelaunched;
+  delete w.__mockDownloaded;
+  delete w.__mockDownloadError;
+  delete w.__mockInstalled;
   useUpdates.setState({ kind: null, status: "idle", update: null, percent: null, error: null });
-  useApp.setState({ notice: null });
+  useApp.setState((s) => ({ notice: null, settings: { ...s.settings, autoUpdateOff: false } }));
 });
 
 describe("paquets", () => {
@@ -36,13 +47,34 @@ describe("paquets", () => {
 });
 
 describe("vérification", () => {
-  it("au démarrage, annonce la nouvelle version avec « Installer et redémarrer »", async () => {
+  it("au démarrage, télécharge la nouvelle version en arrière-plan, sans l'installer", async () => {
     w.__mockUpdate = UPDATE;
     await useUpdates.getState().check(true);
-    expect(useUpdates.getState()).toMatchObject({ status: "available", update: UPDATE, kind: "nsis" });
+    expect(useUpdates.getState()).toMatchObject({ status: "ready", update: UPDATE, kind: "nsis" });
+    expect(w.__mockDownloaded).toBe(true);
+    expect(w.__mockInstalled).toBeUndefined();
+    const notice = useApp.getState().notice!;
+    expect(notice).toMatchObject({ text: "GitGR 0.2.0 est prête : elle s'installera à la fermeture de GitGR.", sticky: false });
+    expect(notice.actions?.map((a) => a.label)).toEqual(["Redémarrer maintenant", "Nouveautés"]);
+  });
+
+  it("installation automatique désactivée : annonce seulement, « Installer et redémarrer »", async () => {
+    useApp.setState((s) => ({ settings: { ...s.settings, autoUpdateOff: true } }));
+    w.__mockUpdate = UPDATE;
+    await useUpdates.getState().check(true);
+    expect(useUpdates.getState().status).toBe("available");
+    expect(w.__mockDownloaded).toBeUndefined();
     const notice = useApp.getState().notice!;
     expect(notice.text).toBe("GitGR 0.2.0 est disponible.");
     expect(notice.actions?.map((a) => a.label)).toEqual(["Installer et redémarrer", "Nouveautés"]);
+  });
+
+  it("téléchargement en échec : la version reste proposée, à installer à la main", async () => {
+    w.__mockUpdate = UPDATE;
+    w.__mockDownloadError = "network down";
+    await useUpdates.getState().check(true);
+    expect(useUpdates.getState().status).toBe("available");
+    expect(useApp.getState().notice?.actions?.map((a) => a.label)).toEqual(["Installer et redémarrer", "Nouveautés"]);
   });
 
   it("à jour : aucun message au démarrage", async () => {
@@ -82,13 +114,40 @@ describe("vérification", () => {
 });
 
 describe("installation", () => {
-  it("télécharge, installe puis redémarre", async () => {
+  it("à la fermeture : installe la version téléchargée, sans relance", async () => {
+    w.__mockUpdate = UPDATE;
+    await useUpdates.getState().check(true);
+    await useUpdates.getState().installOnClose();
+    expect(w.__mockInstalled).toBe(true);
+    expect(w.__mockRelaunched).toBeUndefined();
+  });
+
+  it("à la fermeture : rien sans version téléchargée, ni si l'installation automatique est désactivée", async () => {
+    await useUpdates.getState().installOnClose();
+    expect(w.__mockInstalled).toBeUndefined();
+    w.__mockUpdate = UPDATE;
+    await useUpdates.getState().check(true);
+    useApp.setState((s) => ({ settings: { ...s.settings, autoUpdateOff: true } }));
+    await useUpdates.getState().installOnClose();
+    expect(w.__mockInstalled).toBeUndefined();
+  });
+
+  it("« Redémarrer maintenant » : installe la version téléchargée puis redémarre", async () => {
     w.__mockUpdate = UPDATE;
     await useUpdates.getState().check();
     await useUpdates.getState().install();
+    expect(w.__mockInstalled).toBe(true);
     expect(w.__mockRelaunched).toBe(true);
-    expect(useUpdates.getState().percent).toBe(100);
     expect(useApp.getState().notice?.text).toBe("Mise à jour installée, redémarrage de GitGR…");
+  });
+
+  it("sans téléchargement préalable : télécharge avec progression, installe puis redémarre", async () => {
+    useApp.setState((s) => ({ settings: { ...s.settings, autoUpdateOff: true } }));
+    w.__mockUpdate = UPDATE;
+    await useUpdates.getState().check();
+    await useUpdates.getState().install();
+    expect(useUpdates.getState().percent).toBe(100);
+    expect(w.__mockRelaunched).toBe(true);
   });
 
   it("échec : message qui reste, nouvel essai possible", async () => {
