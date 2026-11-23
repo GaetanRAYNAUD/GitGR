@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+## [0.1.0] — 2026-11-23
+
 Première version publique.
 
 - Graphe des commits de tous les dépôts ouverts en onglets, détails et diff (en ligne ou côte à côte).
