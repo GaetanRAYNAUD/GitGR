@@ -104,3 +104,24 @@ test("chercher quand un texte a été ajouté puis retiré, limité à un fichie
     await app.close();
   }
 });
+
+test("revert de deux commits sélectionnés : leurs fichiers retirés par deux nouveaux commits", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "x.txt", "x\n", "ajout de x");
+  sandbox.commit(mine, "y.txt", "y\n", "ajout de y");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option", { name: /ajout de y/ }).click();
+    await graph.getByRole("option", { name: /ajout de x/ }).click({ modifiers: ["Shift"] });
+    await graph.getByRole("option", { name: /ajout de x/ }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Revert des 2 commits" }).click();
+    await expect(page.getByText("Revert de 2 commits sur main terminé.")).toBeVisible();
+    expect(git(mine, "log", "--format=%s", "-n", "2").split("\n")).toEqual(['Revert "ajout de x"', 'Revert "ajout de y"']);
+    expect(git(mine, "ls-files").split("\n")).not.toContain("x.txt");
+  } finally {
+    await app.close();
+  }
+});

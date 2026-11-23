@@ -128,6 +128,7 @@ pub fn run() {
             commands::search_changes,
             commands::reset_to,
             commands::cherry_pick,
+            commands::revert,
             commands::work_status,
             commands::work_diff,
             commands::stage_files,

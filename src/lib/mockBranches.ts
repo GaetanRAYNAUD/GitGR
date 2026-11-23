@@ -309,6 +309,22 @@ export function mockCherryPick(path: string, shas: string[], autoStash: boolean)
   return res;
 }
 
+/** Revert simulé : un commit « Revert "…" » par commit choisi (du plus récent au plus ancien). */
+export function mockRevert(path: string, shas: string[], autoStash: boolean): OpResult {
+  const h = mockHistory(path);
+  if (shas.length === 0) throw "no_commits";
+  const picked = shas.map((s) => h.commits.find((c) => c.sha === s));
+  if (picked.some((c) => !c)) throw "invalid_start_point";
+  if (picked.some((c) => c!.parents.length > 1)) throw "revert_merge";
+  const res = stashResult(path, autoStash);
+  let head = h.refs.head!;
+  for (const c of picked) head = mockNewCommit(path, [head], `Revert "${c!.subject}"`);
+  const branch = h.refs.headBranch;
+  const refs = h.refs.refs.map((r) => (r.kind === "local" && r.short === branch ? { ...r, target: head, ahead: r.ahead + shas.length } : r));
+  setRefs(path, refs, head, branch);
+  return res;
+}
+
 /** Tire `remoteName/branch` dans la branche courante, sans toucher à la branche suivie. */
 export function mockPullFrom(path: string, remoteName: string, branch: string, strategy: PullStrategy, autoStash: boolean): OpResult {
   const { h, l } = tracked(path);

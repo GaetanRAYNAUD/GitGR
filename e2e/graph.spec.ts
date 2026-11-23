@@ -261,3 +261,13 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   await expect(view).toHaveCount(0);
   await expect(graph(page)).toBeVisible();
 });
+
+test("clic droit sur un commit : revert, un nouveau commit l'annule en haut de main", async ({ page }) => {
+  const rows = graph(page).getByRole("option");
+  const all = await rows.locator(".commit-msg").allInnerTexts();
+  const i = all.findIndex((m, k) => k >= 3 && !m.startsWith("Merge"));
+  await rows.nth(i).click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Revert de ce commit" }).click();
+  await expect(page.getByText("Revert sur main terminé.")).toBeVisible();
+  await expect(rows.first()).toContainText(`Revert "${all[i]}"`);
+});

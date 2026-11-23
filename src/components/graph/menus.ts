@@ -153,6 +153,12 @@ export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; p
       disabled: merges || !refs?.head,
       onClick: () => void useOps.getState().cherryPick(path, ordered.map((c) => c.sha).reverse()),
     },
+    {
+      label: t("multi.revert", { count: ordered.length }),
+      title: merges ? t("multi.revertMerge") : t("multi.revertHint"),
+      disabled: merges || !refs?.head,
+      onClick: () => void useOps.getState().revert(path, ordered.map((c) => c.sha)),
+    },
     "sep",
     { label: t("multi.copyShas"), onClick: () => copy(ordered.map((c) => c.sha).join("\n")) },
   ];
@@ -166,6 +172,13 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     ...here.map((r): MenuItem => ({ label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkout(path, r.short) })),
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
+    "sep",
+    {
+      label: t("menu.cherryPick", { branch: refs?.headBranch ?? "HEAD" }),
+      disabled: !refs?.head || sha === refs.head,
+      onClick: () => void ops.cherryPick(path, [sha]),
+    },
+    { label: t("menu.revert"), title: t("multi.revertHint"), disabled: !refs?.head, onClick: () => void ops.revert(path, [sha]) },
     {
       label: t("menu.resetHere", { branch: refs?.headBranch ?? "HEAD" }),
       disabled: !refs?.head || sha === refs.head,
