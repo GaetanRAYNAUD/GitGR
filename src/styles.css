@@ -1390,11 +1390,26 @@ h2 {
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
-  flex-shrink: 0;
+  /* Les autres se raccourcissent avant la première (branche courante en tête), chacune
+   * jusqu'à sa largeur minimale (`fitChips`). */
+  flex-shrink: 100;
 }
 
 .chip:first-child {
   flex-shrink: 1;
+}
+
+/* Icônes, numéro de PR / MR : jamais écrasés, seul le nom se raccourcit. */
+.chip > :not(.chip-label) {
+  flex-shrink: 0;
+}
+
+/* « +N » : étiquettes qui ne tiennent pas, listées dans l'infobulle. */
+.chip.more {
+  flex-shrink: 0;
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--muted);
 }
 
 .chip-label {

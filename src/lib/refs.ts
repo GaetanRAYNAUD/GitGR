@@ -143,3 +143,29 @@ export function splitRemoteBranch(remotes: string[], branch: string): { remote: 
   const remote = remoteOfShort(branch, remotes);
   return remote && branch.length > remote.length + 1 ? { remote, local: branch.slice(remote.length + 1) } : null;
 }
+
+/** Largeurs d'une étiquette du graphe : entière, et raccourcie au plus (quelques lettres + « … »). */
+export interface ChipSize {
+  natural: number;
+  min: number;
+}
+
+/** Combien d'étiquettes d'un commit montrer dans `available` px (la première, branche
+ *  courante en tête, toujours) ; les autres, si elles ne tiennent pas même raccourcies,
+ *  regroupées dans une pastille « +N » de largeur `more`. */
+export function fitChips(sizes: ChipSize[], available: number, more: number, gap = 4): number {
+  const n = sizes.length;
+  if (n <= 1) return n;
+  const natural = sizes.reduce((a, s) => a + s.natural, 0) + gap * (n - 1);
+  if (natural <= available) return n;
+  const minAll = sizes.reduce((a, s) => a + s.min, 0) + gap * (n - 1);
+  if (minAll <= available) return n;
+  let used = sizes[0].min;
+  let shown = 1;
+  // Les suivantes tant qu'elles tiennent raccourcies, avec la place du « +N » qui suivra.
+  while (shown < n && used + gap + sizes[shown].min + gap + more <= available) {
+    used += gap + sizes[shown].min;
+    shown++;
+  }
+  return shown;
+}
