@@ -130,7 +130,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
               <>
                 <header className="diff-head">
                   <StatusBadge status={file.status} />
-                  <span className="diff-path mono">{file.path}</span>
+                  <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>{file.path}</span>
                   {diff?.data && <DiffStats diff={diff.data} />}
                   <DiffViewToggle />
                 </header>

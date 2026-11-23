@@ -27,6 +27,8 @@ import { BackButton } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { useApp } from "../../store/app";
 import { checkoutPull } from "./PullsSection";
+import { fileMenu } from "./menus";
+import { openContextMenu } from "../ContextMenu";
 
 type Tab = "conversation" | "files" | "checks";
 
@@ -496,6 +498,7 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
             label={t("details.files", { count: files.length })}
             isActive={(f) => file?.path === f.path}
             onOpen={setFile}
+            onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
             // Fils de discussion sur le fichier : toujours visibles (cf. .pull-file-list .file-actions).
             actions={(f) =>
               comments.get(f.path) ? (
@@ -512,7 +515,7 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
           <>
             <header className="diff-head">
               <StatusBadge status={file.status} />
-              <span className="diff-path mono">{file.path}</span>
+              <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>{file.path}</span>
               {diff?.data && <DiffStats diff={diff.data} />}
               <DiffViewToggle />
             </header>

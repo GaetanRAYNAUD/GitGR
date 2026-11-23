@@ -81,6 +81,13 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await view(page).getByRole("tab", { name: "Fichiers" }).click();
   await view(page).locator(".pull-file-list .file-row").first().click();
   await expect(view(page).locator(".pull-file-diff .diff-stats")).toHaveText(/\+\d+−\d+/);
+  // Clic droit sur un fichier (liste ou en-tête du diff) : le menu des fichiers.
+  await view(page).locator(".pull-file-list .file-row").first().click({ button: "right" });
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Copier le chemin", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await view(page).locator(".pull-file-diff .diff-path").click({ button: "right" });
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Montrer dans le dossier" })).toBeVisible();
+  await page.keyboard.press("Escape");
   // Checks : 1 réussi sur 2, dans le titre de l'onglet.
   await expect(view(page).getByRole("tab", { name: /Checks/ })).toContainText("1/3");
   await view(page).getByRole("tab", { name: /Checks/ }).click();
