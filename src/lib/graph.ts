@@ -14,7 +14,13 @@
 export interface GraphCommit {
   sha: string;
   parents: string[];
+  /** Ligne annexe (stash) : colonne en pointillés et grisée (`SIDE_COLOR`), qui ne prend pas
+   *  de couleur à la palette et cède sa place au commit de départ. */
+  side?: boolean;
 }
+
+/** Couleur des lignes annexes (stash) : pas un indice de la palette. */
+export const SIDE_COLOR = -1;
 
 export interface GraphRow {
   /** Colonne du nœud. */
@@ -27,6 +33,9 @@ export interface GraphRow {
   in: number[];
   /** Paires à plat [colonne d'arrivée, couleur] : traits du nœud vers le bas de la ligne. */
   out: number[];
+  /** Colonnes dont les traits `pass` / `in` de cette ligne sont en pointillés (colonnes
+   *  ouvertes par une ligne annexe) ; ceux du bas d'une ligne annexe le sont toujours. */
+  dashed: number[];
 }
 
 export interface GraphLayout {
@@ -42,15 +51,18 @@ export const PALETTE_SIZE = 8;
 export function layoutGraph(commits: GraphCommit[], fixed?: Map<string, number>): GraphLayout {
   const lanes: (string | null)[] = [];
   const colors: number[] = [];
+  /** Colonne ouverte par une ligne annexe. */
+  const side: boolean[] = [];
   let nextColor = 0;
   let width = 0;
   const rows: GraphRow[] = new Array(commits.length);
 
-  const alloc = (sha: string): number => {
+  const alloc = (sha: string, annex = false): number => {
     let i = lanes.indexOf(null);
     if (i < 0) i = lanes.length;
     lanes[i] = sha;
-    colors[i] = nextColor++ % PALETTE_SIZE;
+    colors[i] = annex ? SIDE_COLOR : nextColor++ % PALETTE_SIZE;
+    side[i] = annex;
     return i;
   };
 
@@ -63,23 +75,34 @@ export function layoutGraph(commits: GraphCommit[], fixed?: Map<string, number>)
 
     const before = lanes.length;
     const isTip = incoming.length === 0;
-    const col = isTip ? alloc(c.sha) : incoming[0];
+    // Le nœud reste dans la colonne d'un vrai enfant plutôt que dans celle d'une ligne annexe.
+    const col = isTip ? alloc(c.sha, !!c.side) : (incoming.find((j) => !side[j]) ?? incoming[0]);
     // Traits du haut dans la couleur de leur colonne, avant une éventuelle couleur fixe
     // (qui ne s'applique qu'à partir de ce commit).
     const inPairs: number[] = [];
     for (const j of incoming) inPairs.push(j, colors[j]);
+    const dashed: number[] = [];
+    for (const j of incoming) if (side[j]) dashed.push(j);
+    // Une colonne annexe reprise par un vrai commit (sans autre enfant) redevient normale.
+    if (!isTip && side[col] && !c.side) {
+      side[col] = false;
+      colors[col] = nextColor++ % PALETTE_SIZE;
+    }
     const forced = fixed?.get(c.sha);
-    if (forced !== undefined) colors[col] = forced;
+    if (forced !== undefined && !c.side) colors[col] = forced;
     const color = colors[col];
 
-    const row: GraphRow = { col, color, pass: [], in: inPairs, out: [] };
+    const row: GraphRow = { col, color, pass: [], in: inPairs, out: [], dashed };
 
     // Les autres colonnes qui attendaient ce commit se terminent ici.
     for (const j of incoming) if (j !== col) lanes[j] = null;
 
     // Colonnes qui traversent : actives avant cette ligne et qui attendent un autre commit.
     for (let j = 0; j < before; j++) {
-      if (lanes[j] !== null && !incoming.includes(j) && !(isTip && j === col)) row.pass.push(j, colors[j]);
+      if (lanes[j] !== null && !incoming.includes(j) && !(isTip && j === col)) {
+        row.pass.push(j, colors[j]);
+        if (side[j]) dashed.push(j);
+      }
     }
 
     // Parents : le premier prolonge la colonne du nœud, les autres (fusion) rejoignent
@@ -97,9 +120,11 @@ export function layoutGraph(commits: GraphCommit[], fixed?: Map<string, number>)
       }
     }
 
+    for (let j = 0; j < lanes.length; j++) if (lanes[j] === null) side[j] = false;
     while (lanes.length && lanes[lanes.length - 1] === null) {
       lanes.pop();
       colors.pop();
+      side.pop();
     }
     width = Math.max(width, before, lanes.length, col + 1);
     rows[r] = row;

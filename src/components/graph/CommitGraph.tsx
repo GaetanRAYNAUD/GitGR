@@ -4,11 +4,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { commitDate, initials } from "../../lib/format";
-import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
+import { layoutGraph, PALETTE_SIZE, SIDE_COLOR, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { branchColorRules, chipFixedColor, customColors, fixedColorsByCommit, laneCss } from "../../lib/branchColors";
 import { chipsByCommit, fitChips, type ChipSize, type RefChip } from "../../lib/refs";
-import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
+import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo, StashEntry } from "../../lib/types";
+import { stashLabel } from "../../lib/stashes";
+import { useStashList } from "../../store/stashes";
+import { openStash, stashMenu } from "./StashesSection";
 import { useDismiss } from "../../lib/useDismiss";
 import { parseRemote, remoteProfile } from "../../lib/profiles";
 import { remoteAccount, remoteInstance, remoteProvider } from "../../lib/providers";
@@ -48,6 +51,9 @@ const scrollMemory = new Map<string, number>();
 
 const NO_COLUMNS: GraphColumn[] = [];
 
+/** Ligne du graphe : un commit, la ligne « en cours » ou un stash (`side`). */
+type GraphLine = Commit & { side?: boolean };
+
 interface Props {
   path: string;
   /** Nombre de fichiers modifiés (ligne « en cours » si > 0). */
@@ -63,6 +69,11 @@ interface NodeAvatar {
 function readPalette(): string[] {
   const css = getComputedStyle(document.documentElement);
   return Array.from({ length: PALETTE_SIZE }, (_, i) => css.getPropertyValue(`--g${i}`).trim() || "#888");
+}
+
+/** Couleur des lignes de stash (`SIDE_COLOR`). */
+function readSideColor(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#888";
 }
 
 /** Redessine quand le thème change (attribut `data-theme` de <html>). */
@@ -85,6 +96,9 @@ function drawGraph(
   head: string | null,
   shas: string[],
   palette: string[],
+  sideColor: string,
+  /** Lignes de stash : nœud carré, traits en pointillés. */
+  stashes: Set<string>,
   /** Avatars activés : avatar du nœud de la ligne `r` (WIP : `null`). */
   avatarOf: ((r: number) => NodeAvatar | null) | null,
 ) {
@@ -108,7 +122,8 @@ function drawGraph(
   ctx.lineWidth = 2;
   ctx.lineCap = "round";
   // Au-delà de la palette : couleurs libres des règles de branches (cf. lib/branchColors).
-  const color = (i: number) => palette[i] ?? palette[i % PALETTE_SIZE];
+  const color = (i: number) => (i === SIDE_COLOR ? sideColor : (palette[i] ?? palette[i % PALETTE_SIZE]));
+  const dash = (on: boolean) => ctx.setLineDash(on ? [3, 3] : []);
 
   const curve = (x1: number, y1: number, x2: number, y2: number) => {
     ctx.beginPath();
@@ -127,18 +142,22 @@ function drawGraph(
     const mid = y0 + ROW_H / 2;
     const xc = laneX(row.col);
     const wip = shas[r] === WIP;
+    const stash = stashes.has(shas[r]);
     for (let k = 0; k < row.pass.length; k += 2) {
       if (row.pass[k] >= MAX_LANES) continue;
       ctx.strokeStyle = color(row.pass[k + 1]);
+      dash(row.dashed.includes(row.pass[k]));
       curve(laneX(row.pass[k]), y0, laneX(row.pass[k]), y0 + ROW_H);
     }
+    ctx.setLineDash([]);
     if (row.col >= MAX_LANES) continue;
     for (let k = 0; k < row.in.length; k += 2) {
       if (row.in[k] >= MAX_LANES) continue;
       ctx.strokeStyle = color(row.in[k + 1]);
+      dash(row.dashed.includes(row.in[k]));
       curve(laneX(row.in[k]), y0, xc, mid);
     }
-    if (wip) ctx.setLineDash([3, 3]);
+    dash(wip || stash);
     for (let k = 0; k < row.out.length; k += 2) {
       if (row.out[k] >= MAX_LANES) continue;
       ctx.strokeStyle = color(row.out[k + 1]);
@@ -148,8 +167,14 @@ function drawGraph(
 
     const c = color(row.color);
     ctx.beginPath();
-    const avatar = avatarOf && !wip ? avatarOf(r) : null;
-    if (avatar) {
+    const avatar = avatarOf && !wip && !stash ? avatarOf(r) : null;
+    if (stash) {
+      // Stash : petit carré creux, discret.
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(xc - 3.5, mid - 3.5, 7, 7);
+      ctx.lineWidth = 2;
+    } else if (avatar) {
       // Nœud avatar : disque de la couleur de la branche, image (ou initiales) au milieu ;
       // HEAD : un anneau autour.
       ctx.arc(xc, mid, AVATAR_R, 0, Math.PI * 2);
@@ -389,13 +414,29 @@ export function CommitGraph({ path, changes }: Props) {
   const [viewH, setViewH] = useState(600);
 
   const head = graph?.refs?.head ?? null;
-  const commits: Commit[] = useMemo(() => {
-    const list = graph?.commits ?? [];
+  const { list: stashList } = useStashList(path);
+  /** Stashes par SHA : chacun sur une ligne juste au-dessus du commit d'où il part. */
+  const stashes = useMemo(() => new Map(stashList.map((s) => [s.sha, s])), [stashList]);
+  const commits: GraphLine[] = useMemo(() => {
+    let list: GraphLine[] = graph?.commits ?? [];
+    if (stashList.length) {
+      const byBase = new Map<string, StashEntry[]>();
+      for (const s of stashList) byBase.set(s.base, [...(byBase.get(s.base) ?? []), s]);
+      const out: GraphLine[] = [];
+      for (const c of list) {
+        for (const s of byBase.get(c.sha) ?? []) {
+          out.push({ sha: s.sha, parents: [s.base], author: "", email: "", time: s.time, subject: stashLabel(s.message).text, side: true });
+        }
+        out.push(c);
+      }
+      list = out;
+    }
     if (changes > 0 && head) {
       return [{ sha: WIP, parents: [head], author: "", email: "", time: 0, subject: "" }, ...list];
     }
     return list;
-  }, [graph?.commits, changes, head]);
+  }, [graph?.commits, changes, head, stashList]);
+  const stashShas = useMemo(() => new Set(stashes.keys()), [stashes]);
   const rules = branchColorRules(
     useApp((s) => s.settings.branchColors),
     useApp((s) => s.settings.branchColorsOff),
@@ -403,6 +444,8 @@ export function CommitGraph({ path, changes }: Props) {
   const fixed = useMemo(() => fixedColorsByCommit(rules, graph?.refs ?? null), [rules, graph?.refs]);
   const layout = useMemo(() => layoutGraph(commits, fixed), [commits, fixed]);
   const palette = useMemo(() => [...readPalette(), ...customColors(rules)], [themeVersion, rules]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sideColor = useMemo(() => readSideColor(), [themeVersion]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
   const avatarsOn = !useApp((s) => s.settings.graphAvatarsOff);
@@ -460,10 +503,10 @@ export function CommitGraph({ path, changes }: Props) {
     const avatarOf = avatarsOn
       ? (r: number) => ({ img: images.get(authors[commits[r].email.toLowerCase()]), initials: initials(commits[r].author || "?").slice(0, 2) })
       : null;
-    drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette, avatarOf);
+    drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette, sideColor, stashShas, avatarOf);
     // `images.get` lit les images chargées : `images.version` dit quand redessiner.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, first, last, graphW, head, shas, palette, showGraph, avatarsOn, authors, images.version, commits]);
+  }, [layout, first, last, graphW, head, shas, palette, sideColor, stashShas, showGraph, avatarsOn, authors, images.version, commits]);
 
   // Page suivante quand on approche de la fin.
   useEffect(() => {
@@ -511,7 +554,17 @@ export function CommitGraph({ path, changes }: Props) {
     if (!(e.key in moves)) return;
     e.preventDefault();
     const from = selectedIndex < 0 ? -1 : selectedIndex;
-    const to = Math.max(0, Math.min(commits.length - 1, from + moves[e.key]));
+    let to = Math.max(0, Math.min(commits.length - 1, from + moves[e.key]));
+    // Une ligne de stash ne se sélectionne pas : on passe à la suivante dans le même sens,
+    // ou dans l'autre en bout de liste (Début sur un stash tout en haut).
+    const skip = (i: number, step: number) => {
+      while (i >= 0 && i < commits.length && stashShas.has(shas[i])) i += step;
+      return i >= 0 && i < commits.length ? i : -1;
+    };
+    const step = moves[e.key] > 0 ? 1 : -1;
+    to = skip(to, step);
+    if (to < 0) to = skip(Math.max(0, Math.min(commits.length - 1, from + moves[e.key])), -step);
+    if (to < 0) return;
     select(path, shas[to]);
   };
 
@@ -577,7 +630,7 @@ export function CommitGraph({ path, changes }: Props) {
     );
   };
 
-  const cell = (col: Column, c: Commit, color: number, isWip: boolean) => {
+  const cell = (col: Column, c: Commit, color: number, isWip: boolean, isStash: boolean) => {
     switch (col) {
       case "refs":
         return (
@@ -590,13 +643,14 @@ export function CommitGraph({ path, changes }: Props) {
       case "message":
         return (
           <span key={col} className="commit-msg">
+            {isStash && <Icon name="stash" size={13} className="stash-mark" />}
             {isWip ? t("graph.wip", { count: changes }) : c.subject}
           </span>
         );
       case "author":
         return (
           <span key={col} className="commit-author" title={c.email}>
-            {avatarsOn && !isWip && <AuthorBadge name={c.author} avatar={avatarOfEmail(c.email)} className="author-avatar" />}
+            {avatarsOn && !isWip && !isStash && <AuthorBadge name={c.author} avatar={avatarOfEmail(c.email)} className="author-avatar" />}
             <span className="commit-author-name">{c.author}</span>
           </span>
         );
@@ -611,7 +665,7 @@ export function CommitGraph({ path, changes }: Props) {
       case "sha":
         return (
           <span key={col} className="commit-sha">
-            {isWip ? "" : c.sha.slice(0, 7)}
+            {isWip || isStash ? "" : c.sha.slice(0, 7)}
           </span>
         );
     }
@@ -669,7 +723,11 @@ export function CommitGraph({ path, changes }: Props) {
           const i = first + k;
           const row = layout.rows[i];
           const isWip = c.sha === WIP;
-          const cls = ["commit-row", isWip && "wip", c.sha === head && "head", c.sha === selected && "sel", row.col >= MAX_LANES && "far"]
+          const stash = stashes.get(c.sha);
+          const isStash = !!stash;
+          // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
+          const sel = !isStash && c.sha === selected;
+          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far"]
             .filter(Boolean)
             .join(" ");
           return (
@@ -677,22 +735,26 @@ export function CommitGraph({ path, changes }: Props) {
               key={c.sha}
               id={`commit-${c.sha}`}
               role="option"
-              aria-selected={c.sha === selected}
+              aria-selected={sel}
+              title={stash ? [stash.message, t("stashes.graphHint")].join("\n") : undefined}
               className={cls}
               style={{ top: i * ROW_H }}
               onMouseDown={(e) => {
                 // Garde le focus sur la liste pour la navigation au clavier.
                 e.preventDefault();
                 scrollRef.current?.focus();
-                if (e.button === 0) select(path, c.sha);
+                if (e.button !== 0) return;
+                if (stash) openStash(path, stash);
+                else select(path, c.sha);
               }}
               onContextMenu={(e) => {
                 if (isWip) return e.preventDefault();
+                if (stash) return openContextMenu(e, stashMenu(t, path, stash, () => {}));
                 select(path, c.sha);
                 openContextMenu(e, commitMenu(t, path, c.sha, graph.refs));
               }}
             >
-              {visible.map((col) => cell(col, c, row.color, isWip))}
+              {visible.map((col) => cell(col, c, row.color, isWip, isStash))}
             </div>
           );
         })}

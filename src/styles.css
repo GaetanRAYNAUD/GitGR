@@ -1028,6 +1028,46 @@ h2 {
   font-size: 13px;
 }
 
+/* Liste à cocher d'une fenêtre de saisie (fichiers d'un stash partiel). */
+.pick-list {
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pick-list legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.pick-list ul {
+  max-height: 220px;
+  overflow: auto;
+  margin: 2px 0 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.pick-list .menu-check {
+  min-height: 26px;
+}
+
+.pick-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.pick-hint {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11.5px;
+}
+
 .menu-hint {
   margin-top: 4px;
   padding-top: 8px;
@@ -1337,6 +1377,18 @@ h2 {
   color: var(--text);
   font-style: italic;
   font-weight: 600;
+}
+
+/* Stash : ligne discrète au-dessus du commit d'où il part. */
+.commit-row.stash .commit-msg,
+.commit-row.stash .commit-date {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.commit-row.stash .stash-mark {
+  vertical-align: -2px;
+  margin-right: 5px;
 }
 
 /* Commit courant (HEAD) : liseré de l'accent et message en gras. */
@@ -1977,10 +2029,22 @@ h2 {
   text-align: right;
 }
 
+.commit-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .commit-btn {
+  flex: 1;
   justify-content: center;
   min-height: 40px;
   font-weight: 600;
+}
+
+.stash-btn {
+  flex-shrink: 0;
+  min-height: 40px;
+  gap: 6px;
 }
 
 /* Diff de la copie de travail ----------------------------------------------- */

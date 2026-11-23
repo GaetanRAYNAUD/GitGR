@@ -54,3 +54,43 @@ test("stashes : toute la pile, appliquer le plus ancien sans le retirer, supprim
     await app.close();
   }
 });
+
+test("stash partiel de deux fichiers sur trois, et sa ligne dans le graphe sous le commit suivant", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "a\n", "ajout de a.txt");
+  sandbox.commit(mine, "b.txt", "b\n", "ajout de b.txt");
+  sandbox.write(mine, "a.txt", "a modifié\n");
+  sandbox.write(mine, "b.txt", "b modifié\n");
+  sandbox.write(mine, "neuf.txt", "n\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    await panel.getByRole("button", { name: "Mettre de côté des fichiers (stash)…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Mettre de côté des fichiers" });
+    await dialog.getByRole("checkbox", { name: /a\.txt/ }).check();
+    await dialog.getByRole("checkbox", { name: /neuf\.txt/ }).check();
+    await dialog.getByRole("textbox").fill("a et neuf");
+    await dialog.getByRole("button", { name: "Mettre de côté" }).click();
+    await expect(panel).not.toContainText("neuf.txt");
+    await expect(panel).toContainText("b.txt");
+    expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("a\n");
+    expect(git(mine, "stash", "show", "--include-untracked", "--name-only", "stash@{0}").split("\n").sort()).toEqual(["a.txt", "neuf.txt"]);
+
+    // Un commit de plus : la ligne du stash reste au-dessus du commit d'où il part.
+    git(mine, "commit", "-qam", "b modifié");
+    await page.getByRole("button", { name: "Actualiser" }).click();
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    const rows = graph.getByRole("option");
+    await expect(rows.nth(0)).toContainText("b modifié");
+    await expect(rows.nth(1)).toContainText("a et neuf");
+    await expect(rows.nth(1)).toHaveClass(/stash/);
+    await expect(rows.nth(2)).toContainText("ajout de b.txt");
+
+    await rows.nth(1).click();
+    await expect(page.getByRole("region", { name: "Stash « a et neuf »" }).locator(".file-row")).toHaveCount(2);
+  } finally {
+    await app.close();
+  }
+});

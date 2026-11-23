@@ -33,13 +33,24 @@ export interface InputRequest {
   second?: { label: string; initial: string; placeholder?: string; validate?: (value: string) => string | null };
   /** Case à cocher facultative sous le champ. */
   checkbox?: { label: string; checked: boolean };
+  /** Liste à cocher facultative (fichiers d'un stash partiel…) : au moins un élément. */
+  picks?: { label: string; items: PickItem[]; checked: string[] };
   /** Message d'erreur pour une valeur refusée, `null` si elle convient. */
   validate?: (value: string) => string | null;
+}
+
+export interface PickItem {
+  id: string;
+  label: string;
+  /** Précision affichée à droite (dossier, « indexé »…). */
+  hint?: string;
 }
 
 export interface InputAnswer {
   value: string;
   checked: boolean;
+  /** Éléments cochés de la liste, s'il y en a une (dans l'ordre de la liste). */
+  picked?: string[];
   /** Valeur du second champ, s'il y en a un. */
   second?: string;
 }

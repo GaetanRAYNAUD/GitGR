@@ -51,9 +51,12 @@ function InputDialog({ request }: { request: InputRequest }) {
   const [touched, setTouched] = useState(false);
   useDismiss(ref, true, () => answer(null));
   const [second, setSecond] = useState(request.second?.initial ?? "");
+  const [picked, setPicked] = useState(() => new Set(request.picks?.checked ?? []));
+  const pickItems = request.picks?.items ?? [];
+  const allPicked = pickItems.length > 0 && pickItems.every((i) => picked.has(i.id));
   const error = request.validate?.(value.trim()) ?? null;
   const secondError = request.second?.validate?.(second.trim()) ?? null;
-  const empty = value.trim() === "" || (!!request.second && second.trim() === "");
+  const empty = value.trim() === "" || (!!request.second && second.trim() === "") || (!!request.picks && picked.size === 0);
   const invalid = !!error || !!secondError;
 
   return (
@@ -67,7 +70,13 @@ function InputDialog({ request }: { request: InputRequest }) {
         onSubmit={(e) => {
           e.preventDefault();
           setTouched(true);
-          if (!invalid && !empty) answer({ value: value.trim(), checked, ...(request.second ? { second: second.trim() } : {}) });
+          if (invalid || empty) return;
+          answer({
+            value: value.trim(),
+            checked,
+            ...(request.second ? { second: second.trim() } : {}),
+            ...(request.picks ? { picked: pickItems.filter((i) => picked.has(i.id)).map((i) => i.id) } : {}),
+          });
         }}
       >
         <h2 id="dlg-title">{request.title}</h2>
@@ -114,6 +123,44 @@ function InputDialog({ request }: { request: InputRequest }) {
           <p className="input-error" role="alert">
             {secondError}
           </p>
+        )}
+        {request.picks && (
+          <fieldset className="pick-list">
+            <legend>
+              <label className="menu-check">
+                <input
+                  type="checkbox"
+                  checked={allPicked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allPicked && picked.size > 0;
+                  }}
+                  onChange={() => setPicked(new Set(allPicked ? [] : pickItems.map((i) => i.id)))}
+                />
+                {request.picks.label}
+              </label>
+            </legend>
+            <ul>
+              {pickItems.map((i) => (
+                <li key={i.id}>
+                  <label className="menu-check">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(i.id)}
+                      onChange={() =>
+                        setPicked((prev) => {
+                          const next = new Set(prev);
+                          if (!next.delete(i.id)) next.add(i.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <span className="mono pick-label">{i.label}</span>
+                    {i.hint && <span className="muted pick-hint">{i.hint}</span>}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
         )}
         {request.checkbox && (
           <label className="menu-check">

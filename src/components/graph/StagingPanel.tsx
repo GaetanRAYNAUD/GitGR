@@ -45,19 +45,35 @@ export function StagingPanel({ path }: { path: string }) {
     if (ok) w.discard(path, files);
   };
 
-  /** Stash partiel : ce fichier seulement, message demandé. */
-  const askStashFile = async (f: StatusFile) => {
+  /** Stash partiel : les fichiers cochés (ceux de départ d'office), avec un message. Les
+   *  fichiers en conflit n'y sont pas (git refuse de les stasher). */
+  const askStash = async (start: StatusFile[]) => {
+    if (!st) return;
+    const files = new Map<string, StatusFile[]>();
+    for (const f of [...st.unstaged, ...st.staged]) files.set(f.path, [...(files.get(f.path) ?? []), f]);
+    const hint = (list: StatusFile[]) => {
+      if (list.some((f) => f.status === "?")) return t("staging.stashPickUntracked");
+      const staged = list.filter((f) => st.staged.includes(f)).length;
+      return staged === 0 ? undefined : staged === list.length ? t("staging.stashPickStaged") : t("staging.stashPickPartly");
+    };
     const answer = await useDialogs.getState().input({
-      title: t("staging.stashFileTitle", { file: f.path }),
+      title: start.length === 1 ? t("staging.stashFileTitle", { file: start[0].path }) : t("staging.stashFilesTitle"),
       label: t("staging.stashFileLabel"),
       initial: t("staging.stashMessage", { branch: branch ?? "HEAD" }),
       submit: t("staging.stashFileSubmit"),
       validate: (v) => (v.trim() ? null : t("staging.stashFileEmpty")),
+      picks: {
+        label: t("staging.stashPickLabel"),
+        items: [...files].map(([p, list]) => ({ id: p, label: p, hint: hint(list) })),
+        checked: start.map((f) => f.path),
+      },
     });
+    if (!answer?.picked?.length) return;
     // Renommage : l'ancien chemin part avec, sinon sa suppression resterait indexée.
-    if (answer) await w.stashFiles(path, answer.value.trim(), f.oldPath ? [f.oldPath, f.path] : [f.path]);
+    const paths = answer.picked.flatMap((p) => (files.get(p) ?? []).flatMap((f) => (f.oldPath ? [f.oldPath, f.path] : [f.path])));
+    await w.stashFiles(path, answer.value.trim(), [...new Set(paths)]);
   };
-  const stashItem = (f: StatusFile): MenuItem => ({ label: t("staging.stashFile"), disabled: busy, onClick: () => void askStashFile(f) });
+  const stashItem = (f: StatusFile): MenuItem => ({ label: t("staging.stashFile"), disabled: busy, onClick: () => void askStash([f]) });
 
   /** Clic droit sur un fichier : ses actions dans cette liste, avant celles de tout fichier. */
   const stagingItems = (kind: ListKind, f: StatusFile): MenuItem[] => {
@@ -209,7 +225,11 @@ export function StagingPanel({ path }: { path: string }) {
         )}
       </div>
 
-      <CommitBox path={path} />
+      {/* À côté du commit : l'autre façon de garder les modifications (fichiers choisis). */}
+      <CommitBox
+        path={path}
+        onStash={!busy && st && st.unstaged.length + st.staged.length > 0 ? () => void askStash([]) : undefined}
+      />
     </aside>
   );
 }

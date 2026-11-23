@@ -1,10 +1,9 @@
 // Section « Stashes » de la barre latérale : toute la pile (la plus récente en haut). Clic :
 // le commit d'où part le stash dans le graphe ; clic droit : appliquer, pop, supprimer.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { api } from "../../lib/api";
 import { relativeTime } from "../../lib/format";
 import { sectionKey } from "../../lib/layout";
 import { stashLabel } from "../../lib/stashes";
@@ -14,6 +13,7 @@ import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { usePullList } from "../../store/pullList";
 import { useRangeView, useStashView } from "../../store/range";
+import { useStashList } from "../../store/stashes";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { ResizableBlock } from "../Splitter";
@@ -41,30 +41,21 @@ export function stashMenu(t: TFunction, path: string, s: StashEntry, onMissing: 
   ];
 }
 
+/** Ouvre le contenu du stash à la place du graphe (et des autres vues qui le remplacent). */
+export function openStash(path: string, s: StashEntry) {
+  usePullList.getState().close(path);
+  useRangeView.getState().close(path);
+  useGraph.getState().closeDiff(path);
+  useStashView.getState().show(path, s);
+}
+
 export function StashesSection({ path, query, ui }: { path: string; query: string; ui: RepoUi }) {
   const { t } = useTranslation();
   const setUi = useApp((s) => s.setRepoUi);
-  const refs = useGraph((s) => s.graphs[path]?.refs);
-  const count = refs?.stashes ?? 0;
-  const [list, setList] = useState<StashEntry[]>([]);
+  const count = useGraph((s) => s.graphs[path]?.refs?.stashes ?? 0);
+  const { list } = useStashList(path);
   /** Stash dont le commit de départ n'a pas été trouvé dans l'historique. */
   const [missing, setMissing] = useState<string | null>(null);
-
-  // Relue à chaque nouvel état des refs (stash fait, appliqué, supprimé…).
-  useEffect(() => {
-    if (!count) {
-      setList([]);
-      return;
-    }
-    let live = true;
-    api.listStashes(path).then(
-      (l) => live && setList(l),
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, [path, refs, count]);
 
   if (!count) return null;
   const q = query.toLowerCase();
@@ -101,10 +92,7 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
                     title={missing === s.sha ? t("sidebar.notFound") : [s.message, t("stashes.hint")].join("\n")}
                     onClick={() => {
                       setMissing(null);
-                      usePullList.getState().close(path);
-                      useRangeView.getState().close(path);
-                      useGraph.getState().closeDiff(path);
-                      useStashView.getState().show(path, s);
+                      openStash(path, s);
                     }}
                     onContextMenu={(e) => openContextMenu(e, stashMenu(t, path, s, () => setMissing(s.sha)))}
                   >
