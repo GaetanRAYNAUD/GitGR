@@ -39,6 +39,8 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
   const reveal = useGraph((s) => s.reveal);
   const count = refs?.stashes ?? 0;
   const [list, setList] = useState<StashEntry[]>([]);
+  /** Stash dont le commit de départ n'a pas été trouvé dans l'historique. */
+  const [missing, setMissing] = useState<string | null>(null);
 
   // Relue à chaque nouvel état des refs (stash fait, appliqué, supprimé…).
   useEffect(() => {
@@ -88,8 +90,11 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
                   <button
                     className="side-item stash-item"
                     style={{ "--depth": 0 } as React.CSSProperties}
-                    title={[s.message, t("stashes.hint")].join("\n")}
-                    onClick={() => void reveal(path, s.base)}
+                    title={missing === s.sha ? t("sidebar.notFound") : [s.message, t("stashes.hint")].join("\n")}
+                    onClick={async () => {
+                      setMissing(null);
+                      if (!(await reveal(path, s.base))) setMissing(s.sha);
+                    }}
                     onContextMenu={(e) => openContextMenu(e, stashMenu(t, path, s))}
                   >
                     <span className="side-label">{text}</span>
@@ -99,6 +104,11 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
               );
             })}
           </ul>
+          {missing && (
+            <p className="side-empty" role="status">
+              {t("sidebar.notFound")}
+            </p>
+          )}
         </ResizableBlock>
       )}
     </div>
