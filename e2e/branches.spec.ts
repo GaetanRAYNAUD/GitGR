@@ -151,6 +151,20 @@ test.describe("dépôt avec des modifications", () => {
     await expect(tool(page, "Pop")).toBeDisabled();
   });
 
+  test("créer une branche depuis un stash : extraite, le stash réappliqué et retiré", async ({ page }) => {
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
+    await tool(page, "Stash").click();
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Créer une branche depuis ce stash…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+    await dialog.getByRole("textbox").fill("reprise");
+    await dialog.getByRole("button", { name: "Créer" }).click();
+    await expect(current(page)).toHaveText("reprise");
+    await expect(panel).toContainText("render.ts");
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+  });
+
   test("« pousser après le commit » est mémorisé et pousse", async ({ page }) => {
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
     await panel.getByLabel("Pousser après le commit").check();

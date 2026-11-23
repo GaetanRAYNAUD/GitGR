@@ -166,6 +166,8 @@ export interface Api {
   /** Réapplique un stash ; `drop` : le retire aussi de la pile (sauf conflit). */
   stashApply(path: string, sha: string, drop: boolean): Promise<OpResult>;
   stashDrop(path: string, sha: string): Promise<void>;
+  /** `git stash branch` : nouvelle branche extraite sur le commit du stash, stash réappliqué. */
+  stashBranch(path: string, sha: string, name: string): Promise<void>;
   abortOperation(path: string): Promise<void>;
   continueOperation(path: string): Promise<OpResult>;
   /** Surveille ce dépôt sur disque (un seul à la fois ; `null` : aucun). */
@@ -373,6 +375,7 @@ const tauriApi: Api = {
   listStashes: (path) => invoke("list_stashes", { path }),
   stashApply: (path, sha, drop) => invoke("stash_apply", { path, sha, drop }),
   stashDrop: (path, sha) => invoke("stash_drop", { path, sha }),
+  stashBranch: (path, sha, name) => invoke("stash_branch", { path, sha, name }),
   abortOperation: (path) => invoke("abort_operation", { path }),
   continueOperation: (path) => invoke("continue_operation", { path }),
   watchRepo: (path) => invoke("watch_repo", { path }),
@@ -796,6 +799,12 @@ const mockApi: Api = {
   listStashes: async (path) => mockListStashes(path),
   stashApply: async (path, sha, drop) => mockStashApply(path, sha, drop),
   stashDrop: async (path, sha) => mockStashDrop(path, sha),
+  async stashBranch(path, sha, name) {
+    const base = mockListStashes(path).find((s) => s.sha === sha)?.base;
+    if (!base) throw "stash_missing";
+    mockCreateBranch(path, name, base, true, false);
+    mockStashApply(path, sha, true);
+  },
   async abortOperation() {
     throw "no_operation";
   },

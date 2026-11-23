@@ -24,6 +24,7 @@ export function stashMenu(t: TFunction, path: string, s: StashEntry): MenuItem[]
   return [
     { label: t("stashes.apply"), onClick: () => void ops.applyStash(path, s.sha, false) },
     { label: t("stashes.pop"), onClick: () => void ops.applyStash(path, s.sha, true) },
+    { label: t("stashes.branch"), onClick: () => void ops.stashBranch(path, s.sha, text) },
     "sep",
     { label: t("stashes.dropMenu"), danger: true, onClick: () => void ops.dropStash(path, s.sha, text) },
     "sep",

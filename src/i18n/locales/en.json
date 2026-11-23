@@ -300,6 +300,8 @@
     "section": "Stashes",
     "apply": "Apply (keep it)",
     "pop": "Apply and remove (pop)",
+    "branch": "Create branch from this stash…",
+    "branchFrom": "On the commit of stash “{{name}}”, which is reapplied there",
     "drop": "Delete",
     "dropMenu": "Delete…",
     "dropTitle": "Delete this stash?",

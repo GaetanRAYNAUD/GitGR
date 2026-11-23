@@ -396,6 +396,11 @@ pub async fn stash_apply(path: String, sha: String, drop: bool) -> Result<OpResu
 }
 
 #[tauri::command]
+pub async fn stash_branch(path: String, sha: String, name: String) -> Result<(), String> {
+    branches::stash_branch(Path::new(&path), &sha, &name).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
 pub async fn stash_drop(path: String, sha: String) -> Result<(), String> {
     branches::stash_drop(Path::new(&path), &sha).map_err(|e| branches::classify(&e))
 }

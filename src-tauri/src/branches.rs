@@ -572,6 +572,17 @@ pub fn stash_apply(path: &Path, sha: &str, drop: bool) -> Result<OpResult, Strin
     Ok(OpResult { stash_kept: true, ..Default::default() })
 }
 
+/// Nouvelle branche `name` sur le commit d'où part le stash, extraite, avec le stash réappliqué
+/// (et retiré de la pile s'il passe sans conflit) : `git stash branch`.
+pub fn stash_branch(path: &Path, sha: &str, name: &str) -> Result<(), String> {
+    check_dir(path)?;
+    if name.is_empty() || name.starts_with('-') {
+        return Err("invalid_branch_name".into());
+    }
+    let r = stash_ref(path, sha)?;
+    run(Some(path), &["stash", "branch", name, &r]).map(|_| ())
+}
+
 /// Supprime un stash de la pile.
 pub fn stash_drop(path: &Path, sha: &str) -> Result<(), String> {
     check_dir(path)?;
@@ -1167,9 +1178,16 @@ mod tests {
         stash_apply(p, &list[0].sha, true).unwrap();
         assert!(p.join("b.txt").exists());
         assert_eq!(list_stashes(p).unwrap().len(), 1);
-        stash_drop(p, &list[1].sha).unwrap();
+        // Le premier, sur une branche à lui : extraite, le stash appliqué puis retiré.
+        git(p, &["checkout", "-q", "--", "."]);
+        std::fs::remove_file(p.join("b.txt")).unwrap();
+        stash_branch(p, &list[1].sha, "reprise").unwrap();
+        assert_eq!(run(Some(p), &["branch", "--show-current"]).unwrap().trim(), "reprise");
+        assert_eq!(std::fs::read_to_string(p.join("a.txt")).unwrap(), "un
+");
         assert_eq!(stash_count(p), 0);
         assert_eq!(stash_drop(p, &list[1].sha).unwrap_err(), "stash_missing");
+        assert_eq!(stash_branch(p, &list[1].sha, "x").unwrap_err(), "stash_missing");
     }
 
     #[test]

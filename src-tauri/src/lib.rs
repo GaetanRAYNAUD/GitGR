@@ -158,6 +158,7 @@ pub fn run() {
             commands::list_stashes,
             commands::stash_apply,
             commands::stash_drop,
+            commands::stash_branch,
             commands::abort_operation,
             commands::continue_operation,
             commands::watch_repo,
