@@ -296,6 +296,29 @@
     "split": "Side by side",
     "stats": "{{added}} lines added, {{removed}} removed"
   },
+  "stashes": {
+    "rename": "Rename",
+    "renameMenu": "Rename…",
+    "renameTitle": "Rename stash",
+    "renameLabel": "Message",
+    "renameHint": "It will move to the top of the stack.",
+    "showBase": "Show base commit in graph",
+    "viewLabel": "Stash “{{name}}”",
+    "applyShort": "Apply",
+    "popShort": "Pop",
+    "untracked": "untracked",
+    "section": "Stashes",
+    "apply": "Apply (keep it)",
+    "pop": "Apply and remove (pop)",
+    "branch": "Create branch from this stash…",
+    "branchFrom": "On the commit of stash “{{name}}”, which is reapplied there",
+    "drop": "Delete",
+    "dropMenu": "Delete…",
+    "dropTitle": "Delete this stash?",
+    "dropBody": "“{{name}}” will be removed from the stack, with its changes.",
+    "copy": "Copy message",
+    "hint": "Click: its content. Right-click: apply, pop, branch, delete."
+  },
   "sidebar": {
     "label": "Branches and tags",
     "filter": "Filter",
@@ -312,10 +335,17 @@
     "dblClickPull": "Double-click to check out {{branch}}, then pull"
   },
   "staging": {
+    "stashFile": "Stash this file…",
+    "stashFileTitle": "Stash {{file}}",
+    "stashFileLabel": "Stash message",
+    "stashFileSubmit": "Stash",
+    "stashFileEmpty": "A message is required.",
     "ignore": {
       "file": "Ignore {{name}}",
       "ext": "Ignore all {{name}} files",
-      "dir": "Ignore folder {{name}}"
+      "dir": "Ignore folder {{name}}",
+      "untrack": "Stop tracking and ignore {{name}}",
+      "untrackHint": "Removed from Git but kept on disk; the removal must be committed."
     },
     "label": "Work in progress",
     "title": "Work in progress",
@@ -578,6 +608,9 @@
     "network_unreachable": "Server unreachable: check the network connection and the remote address.",
     "remote_not_found": "Remote repository not found (remote address or access rights).",
     "no_stash": "No stash to reapply.",
+    "untrack_staged": "This file has staged changes: unstage them first.",
+    "stash_message_invalid": "The stash message cannot be empty.",
+    "stash_missing": "This stash is no longer in the stack.",
     "stash_would_overwrite": "The stash would overwrite current changes: commit or stash them first.",
     "key_not_found": "Key file not found.",
     "key_exists": "A file with this name already exists: pick another one (an existing key is never overwritten).",

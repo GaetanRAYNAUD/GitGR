@@ -260,6 +260,16 @@ pub fn stash_all(path: &Path, message: &str) -> Result<(), String> {
     run(Some(path), &["stash", "push", "-q", "-u", "-m", message]).map(|_| ())
 }
 
+/// Stash partiel : seulement ces fichiers (suivis ou non), le reste ne bouge pas.
+pub fn stash_files(path: &Path, message: &str, files: &[String]) -> Result<(), String> {
+    check_dir(path)?;
+    if files.is_empty() {
+        return Err("no_files".into());
+    }
+    files.iter().try_for_each(|f| check_relative(f))?;
+    run(Some(path), &with_paths(&["stash", "push", "-q", "-u", "-m", message], files)).map(|_| ())
+}
+
 // ---------------------------------------------------------------------------
 // Blocs et lignes
 // ---------------------------------------------------------------------------
@@ -554,6 +564,19 @@ pub fn head_message(path: &Path) -> Result<String, String> {
 
 /// Ajoute une ligne au `.gitignore` à la racine du dépôt (créé s'il n'existe pas), sauf si
 /// elle y est déjà. Vrai si le fichier a changé.
+/// Ne plus suivre un fichier sans le supprimer du disque (`rm --cached`) et l'ajouter au
+/// `.gitignore`, pour qu'il ne revienne pas en fichier non suivi. Le retrait reste à commiter.
+pub fn untrack_file(path: &Path, file: &str, pattern: &str) -> Result<(), String> {
+    check_dir(path)?;
+    check_relative(file)?;
+    let files = [file.to_string()];
+    run(Some(path), &with_paths(&["rm", "-q", "--cached"], &files)).map_err(|e| {
+        // Contenu indexé différent à la fois de HEAD et du fichier : git refuse sans -f.
+        if e.contains("staged content different") { "untrack_staged".to_string() } else { e }
+    })?;
+    add_to_gitignore(path, pattern).map(|_| ())
+}
+
 pub fn add_to_gitignore(repo: &Path, pattern: &str) -> Result<bool, String> {
     let pattern = pattern.trim_end_matches(['\r', '\n']);
     if pattern.is_empty() || pattern.contains(['\r', '\n']) {
@@ -726,6 +749,44 @@ mod tests {
         let s = status(p).unwrap();
         assert_eq!(s.staged, vec![file("c.txt", None, 'A')]);
         assert_eq!(s.unstaged, vec![file("a.txt", None, 'M'), file("dir/b.txt", None, '?')]);
+    }
+
+    #[test]
+    fn stash_files_keeps_the_others() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1
+");
+        commit_file(p, "b.txt", "1
+");
+        write(p, "a.txt", "2
+");
+        write(p, "b.txt", "2
+");
+        write(p, "neuf.txt", "n
+");
+        stash_files(p, "partiel", &["a.txt".into(), "neuf.txt".into()]).unwrap();
+        let s = status(p).unwrap();
+        assert_eq!(s.unstaged, vec![file("b.txt", None, 'M')]);
+        assert!(!p.join("neuf.txt").exists());
+        assert!(stash_files(p, "x", &["../x".into()]).is_err());
+    }
+
+    #[test]
+    fn untrack_keeps_the_file_and_ignores_it() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "app.log", "1
+");
+        write(p, "app.log", "2
+");
+        untrack_file(p, "app.log", "/app.log").unwrap();
+        assert!(p.join("app.log").exists());
+        let s = status(p).unwrap();
+        // Retrait indexé, à commiter ; le fichier ne revient pas en non suivi.
+        assert_eq!(s.staged, vec![file("app.log", None, 'D')]);
+        assert_eq!(s.unstaged, vec![file(".gitignore", None, '?')]);
+        assert!(untrack_file(p, "../x", "/x").is_err());
     }
 
     #[test]

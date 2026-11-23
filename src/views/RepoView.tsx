@@ -25,7 +25,8 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { useRangeView } from "../store/range";
+import { useRangeView, useStashView } from "../store/range";
+import { StashView } from "../components/graph/StashView";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
@@ -260,6 +261,7 @@ export function RepoView({ path }: { path: string }) {
   const refsVersion = useGraph((s) => s.graphs[path]?.refs);
   const openPull = usePullList((s) => s.open[path]);
   const openRange = useRangeView((s) => s.open[path]);
+  const openStash = useStashView((s) => s.open[path]);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -310,6 +312,7 @@ export function RepoView({ path }: { path: string }) {
               if (diff) useGraph.getState().closeDiff(path);
               if (openPull) usePullList.getState().close(path);
               useRangeView.getState().close(path);
+              useStashView.getState().close(path);
               select(path, WIP);
             }}
           >
@@ -346,6 +349,8 @@ export function RepoView({ path }: { path: string }) {
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (
             <WorkDiffView path={path} diff={workDiff} />
+          ) : openStash ? (
+            <StashView key={openStash.sha} path={path} entry={openStash} />
           ) : openRange ? (
             <RangeView key={openRange} path={path} direction={openRange} />
           ) : openPull ? (

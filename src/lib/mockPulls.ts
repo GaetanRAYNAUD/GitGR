@@ -59,7 +59,7 @@ function seed(path: string, kind: ProviderKind, url: string, repo: string): Pull
       checks: "pending",
       reviewers: [MAX],
       labels: [{ name: "enhancement", color: "a2eeef" }],
-      body: "<!-- Décrivez le changement. -->\n## Contexte\n\nDessine le graphe sur un **canvas** limité à la zone visible (`drawVisible`).\n\n- [x] lanes stables\n- [ ] 8 couleurs\n\n```ts\nctx.drawImage(lane, 0, y);\n```\n\nVoir [la doc](https://example.com/canvas).",
+      body: "<!-- Décrivez le changement. -->\n## Contexte\n\nDessine le graphe sur un **canvas** limité à la zone visible (`drawVisible`).\n\n- [x] lanes stables\n- [ ] 8 couleurs\n\n```ts\nctx.drawImage(lane, 0, y);\n```\n\nVoir [la doc](https://example.com/canvas), et !13 pour le SSH.",
       reviews: [{ author: MAX, state: "pending", at: null }],
       threads: [
         { id: "t1", resolvable: false, resolved: false, replyable: false, path: null, line: null, comments: [{ id: "c1", author: ZOE, body: "Super, j'ai hâte !", at: t - 7200 }] },

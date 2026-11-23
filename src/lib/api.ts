@@ -21,6 +21,11 @@ import {
   mockRenameBranch,
   mockAutostash,
   mockStashCount,
+  mockListStashes,
+  mockStashChanges,
+  mockStashApply,
+  mockStashDrop,
+  mockStashRename,
   mockStashPop,
   mockStashPush,
 } from "./mockBranches";
@@ -87,6 +92,8 @@ import type {
   Settings,
   SshKeyInfo,
   WorkStatus,
+  StashChanges,
+  StashEntry,
 } from "./types";
 
 export interface Api {
@@ -124,7 +131,11 @@ export interface Api {
   discardAll(path: string): Promise<void>;
   /** Ajoute un motif au `.gitignore` du dépôt ; faux s'il y était déjà. */
   addToGitignore(path: string, pattern: string): Promise<boolean>;
+  /** Ne plus suivre un fichier (gardé sur le disque) et ajouter `pattern` au `.gitignore`. */
+  untrackFile(path: string, file: string, pattern: string): Promise<void>;
   stashAll(path: string, message: string): Promise<void>;
+  /** Stash partiel : seulement ces fichiers. */
+  stashFiles(path: string, message: string, files: string[]): Promise<void>;
   /** Indexe (ou retire de l'index si `unstage`) des lignes ; `fingerprint` = celle du diff affiché. */
   stageLines(path: string, file: string, oldFile: string | null, lines: LineRef[], fingerprint: string, unstage: boolean): Promise<void>;
   discardLines(path: string, file: string, lines: LineRef[], fingerprint: string): Promise<void>;
@@ -156,6 +167,16 @@ export interface Api {
   /** Supprime le remote, ses branches distantes et le suivi des branches locales. */
   removeRemote(path: string, name: string): Promise<void>;
   stashPop(path: string): Promise<OpResult>;
+  listStashes(path: string): Promise<StashEntry[]>;
+  /** Réapplique un stash ; `drop` : le retire aussi de la pile (sauf conflit). */
+  stashApply(path: string, sha: string, drop: boolean): Promise<OpResult>;
+  stashDrop(path: string, sha: string): Promise<void>;
+  /** Nouveau message ; le stash passe en haut de la pile. */
+  stashRename(path: string, sha: string, message: string): Promise<void>;
+  /** Fichiers d'un stash ; diff de chacun avec `rangeDiff` (non suivis : depuis l'arbre vide). */
+  stashChanges(path: string, sha: string): Promise<StashChanges>;
+  /** `git stash branch` : nouvelle branche extraite sur le commit du stash, stash réappliqué. */
+  stashBranch(path: string, sha: string, name: string): Promise<void>;
   abortOperation(path: string): Promise<void>;
   continueOperation(path: string): Promise<OpResult>;
   /** Surveille ce dépôt sur disque (un seul à la fois ; `null` : aucun). */
@@ -337,7 +358,9 @@ const tauriApi: Api = {
   discardFiles: (path, tracked, untracked) => invoke("discard_files", { path, tracked, untracked }),
   discardAll: (path) => invoke("discard_all", { path }),
   addToGitignore: (path, pattern) => invoke("add_to_gitignore", { path, pattern }),
+  untrackFile: (path, file, pattern) => invoke("untrack_file", { path, file, pattern }),
   stashAll: (path, message) => invoke("stash_all", { path, message }),
+  stashFiles: (path, message, files) => invoke("stash_files", { path, message, files }),
   stageLines: (path, file, oldFile, lines, fingerprint, unstage) =>
     invoke("stage_lines", { path, file, oldFile, lines, fingerprint, unstage }),
   discardLines: (path, file, lines, fingerprint) => invoke("discard_lines", { path, file, lines, fingerprint }),
@@ -359,6 +382,12 @@ const tauriApi: Api = {
   setRemoteUrl: (path, name, url) => invoke("set_remote_url", { path, name, url }),
   removeRemote: (path, name) => invoke("remove_remote", { path, name }),
   stashPop: (path) => invoke("stash_pop", { path }),
+  listStashes: (path) => invoke("list_stashes", { path }),
+  stashApply: (path, sha, drop) => invoke("stash_apply", { path, sha, drop }),
+  stashDrop: (path, sha) => invoke("stash_drop", { path, sha }),
+  stashRename: (path, sha, message) => invoke("stash_rename", { path, sha, message }),
+  stashChanges: (path, sha) => invoke("stash_changes", { path, sha }),
+  stashBranch: (path, sha, name) => invoke("stash_branch", { path, sha, name }),
   abortOperation: (path) => invoke("abort_operation", { path }),
   continueOperation: (path) => invoke("continue_operation", { path }),
   watchRepo: (path) => invoke("watch_repo", { path }),
@@ -726,8 +755,17 @@ const mockApi: Api = {
     (window as unknown as { __mockIgnored: string[] }).__mockIgnored.push(pattern);
     return true;
   },
+  async untrackFile(_path, file, pattern) {
+    (window as unknown as { __mockIgnored?: string[] }).__mockIgnored ??= [];
+    (window as unknown as { __mockIgnored: string[] }).__mockIgnored.push(pattern);
+    (window as unknown as { __mockUntracked?: string[] }).__mockUntracked ??= [];
+    (window as unknown as { __mockUntracked: string[] }).__mockUntracked.push(file);
+  },
   async stashAll(path, message) {
     mockStashPush(path, message);
+  },
+  async stashFiles(path, message, files) {
+    mockStashPush(path, message, files);
   },
   async stageLines(path, file, _oldFile, lines, _fingerprint, unstage) {
     mockStageLines(path, file, lines, unstage);
@@ -773,6 +811,17 @@ const mockApi: Api = {
   setRemoteUrl: async (path, name, url) => mockSetRemoteUrl(path, name, url),
   removeRemote: async (path, name) => mockRemoveRemote(path, name),
   stashPop: async (path) => mockStashPop(path),
+  listStashes: async (path) => mockListStashes(path),
+  stashApply: async (path, sha, drop) => mockStashApply(path, sha, drop),
+  stashDrop: async (path, sha) => mockStashDrop(path, sha),
+  stashRename: async (path, sha, message) => mockStashRename(path, sha, message),
+  stashChanges: async (path, sha) => mockStashChanges(path, sha),
+  async stashBranch(path, sha, name) {
+    const base = mockListStashes(path).find((s) => s.sha === sha)?.base;
+    if (!base) throw "stash_missing";
+    mockCreateBranch(path, name, base, true, false);
+    mockStashApply(path, sha, true);
+  },
   async abortOperation() {
     throw "no_operation";
   },

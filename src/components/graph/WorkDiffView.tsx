@@ -10,6 +10,8 @@ import { DiffBody, DiffViewToggle, lineKey, useEscape } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton } from "./DiffView";
 import { StatusBadge } from "./FileList";
+import { fileMenu } from "./menus";
+import { openContextMenu } from "../ContextMenu";
 
 /** Lignes modifiées (`+`/`-`) d'un diff, dans l'ordre d'affichage. */
 function changedLines(data: FileDiff | undefined, hunk?: number): LineRef[] {
@@ -116,7 +118,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
       <header className="diff-head">
         <BackButton onClick={close} />
         <StatusBadge status={file.status} />
-        <span className="diff-path mono">
+        <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>
           {file.oldPath && <span className="muted">{file.oldPath} → </span>}
           {file.path}
         </span>

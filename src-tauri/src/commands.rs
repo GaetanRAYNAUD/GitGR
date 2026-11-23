@@ -167,6 +167,11 @@ pub async fn range_changes(path: String, direction: String) -> Result<history::R
 }
 
 #[tauri::command]
+pub async fn stash_changes(path: String, sha: String) -> Result<history::StashChanges, String> {
+    history::stash_changes(Path::new(&path), &sha).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
     history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
 }
@@ -219,6 +224,12 @@ pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<St
     worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
 }
 
+/// Ne plus suivre un fichier (gardé sur le disque) et l'ignorer.
+#[tauri::command]
+pub async fn untrack_file(path: String, file: String, pattern: String) -> Result<(), String> {
+    worktree::untrack_file(Path::new(&path), &file, &pattern).map_err(classify)
+}
+
 /// Ajoute un motif au `.gitignore` du dépôt (rien s'il y est déjà).
 #[tauri::command]
 pub async fn add_to_gitignore(path: String, pattern: String) -> Result<bool, String> {
@@ -253,6 +264,12 @@ pub async fn discard_all(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn stash_all(path: String, message: String) -> Result<(), String> {
     worktree::stash_all(Path::new(&path), &message).map_err(classify)
+}
+
+/// Stash partiel : seulement les fichiers donnés.
+#[tauri::command]
+pub async fn stash_files(path: String, message: String, files: Vec<String>) -> Result<(), String> {
+    worktree::stash_files(Path::new(&path), &message, &files).map_err(classify)
 }
 
 /// Indexe (`unstage = false`) ou retire de l'index les lignes choisies d'un fichier.
@@ -376,6 +393,32 @@ pub async fn remove_remote(path: String, name: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn stash_pop(path: String) -> Result<OpResult, String> {
     branches::stash_pop(Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn list_stashes(path: String) -> Result<Vec<branches::StashEntry>, String> {
+    branches::list_stashes(Path::new(&path))
+}
+
+/// Réapplique un stash (`drop` : et le retire de la pile).
+#[tauri::command]
+pub async fn stash_apply(path: String, sha: String, drop: bool) -> Result<OpResult, String> {
+    branches::stash_apply(Path::new(&path), &sha, drop)
+}
+
+#[tauri::command]
+pub async fn stash_branch(path: String, sha: String, name: String) -> Result<(), String> {
+    branches::stash_branch(Path::new(&path), &sha, &name).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
+pub async fn stash_rename(path: String, sha: String, message: String) -> Result<(), String> {
+    branches::stash_rename(Path::new(&path), &sha, &message).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
+pub async fn stash_drop(path: String, sha: String) -> Result<(), String> {
+    branches::stash_drop(Path::new(&path), &sha).map_err(|e| branches::classify(&e))
 }
 
 #[tauri::command]

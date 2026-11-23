@@ -20,6 +20,7 @@ import { ProfileAvatar } from "../ProfileAvatar";
 import { RemoteMark } from "../RemoteMark";
 import { checkoutRef, refMenu, remoteMenu } from "./menus";
 import { PULLS_SECTION, PullsSection, termOf } from "./PullsSection";
+import { STASHES_SECTION, StashesSection } from "./StashesSection";
 import { pullOfRef, usePullContexts, usePullList } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
 import { ResizableBlock } from "../Splitter";
@@ -58,7 +59,9 @@ export function RefsSidebar({ path }: { path: string }) {
     s.kind === "remote" ? (refs?.remotes.find((r) => r.name === s.remote) ?? { name: s.remote!, url: null, pushUrl: null }) : null;
   const title = (s: RefSection) => (s.kind === "local" ? t("sidebar.local") : s.kind === "tags" ? t("sidebar.tags") : s.remote!);
   const shown = sections.filter((s) => !ui.hidden.includes(s.key));
-  const hiddenCount = sections.length - shown.length + (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0);
+  const hasStashes = (refs?.stashes ?? 0) > 0;
+  const hiddenCount =
+    sections.length - shown.length + (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0) + (hasStashes && ui.hidden.includes(STASHES_SECTION) ? 1 : 0);
   const q = filter.trim().toLowerCase();
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -240,6 +243,12 @@ export function RefsSidebar({ path }: { path: string }) {
                 {t(`prv.section_${termOf(contexts)}`)}
               </label>
             )}
+            {hasStashes && (
+              <label className="menu-check">
+                <input type="checkbox" checked={!ui.hidden.includes(STASHES_SECTION)} onChange={() => setUi(path, { ...ui, hidden: toggle(ui.hidden, STASHES_SECTION) })} />
+                {t("stashes.section")}
+              </label>
+            )}
             <div className="menu-hint">{t("sidebar.sectionsHint")}</div>
           </div>
         )}
@@ -256,6 +265,7 @@ export function RefsSidebar({ path }: { path: string }) {
         </div>
       )}
       {showPulls && <PullsSection path={path} contexts={contexts} query={q} ui={ui} />}
+      {!ui.hidden.includes(STASHES_SECTION) && <StashesSection path={path} query={q} ui={ui} />}
       {shown.filter((s) => s.kind === "tags").map(renderSection)}
 
       {hiddenCount > 0 && (

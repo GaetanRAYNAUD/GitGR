@@ -44,3 +44,24 @@ test("ignorer un fichier non suivi : ligne ajoutée au .gitignore, le fichier qu
     await app.close();
   }
 });
+
+test("ne plus suivre un fichier modifié : retiré de l'index, gardé sur le disque, ignoré", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "app.log", "1\n", "ajout de app.log");
+  sandbox.write(mine, "app.log", "2\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const changes = page.getByRole("complementary", { name: "Modifications en cours" });
+    const unstaged = changes.getByRole("list", { name: "Non indexés", exact: true });
+    await unstaged.getByText("app.log").click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Ne plus suivre et ignorer app.log" }).click();
+    await expect(changes.getByRole("list", { name: "Indexés", exact: true }).getByText("app.log")).toBeVisible();
+    expect(readFileSync(join(mine, "app.log"), "utf8")).toBe("2\n");
+    expect(readFileSync(join(mine, ".gitignore"), "utf8")).toBe("/app.log\n");
+    expect(git(mine, "status", "--porcelain")).toBe("D  app.log\n?? .gitignore");
+  } finally {
+    await app.close();
+  }
+});

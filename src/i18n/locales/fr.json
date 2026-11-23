@@ -296,6 +296,29 @@
     "split": "Côte à côte",
     "stats": "{{added}} lignes ajoutées, {{removed}} supprimées"
   },
+  "stashes": {
+    "rename": "Renommer",
+    "renameMenu": "Renommer…",
+    "renameTitle": "Renommer le stash",
+    "renameLabel": "Message",
+    "renameHint": "Il passera en haut de la pile.",
+    "showBase": "Voir le commit de départ dans le graphe",
+    "viewLabel": "Stash « {{name}} »",
+    "applyShort": "Appliquer",
+    "popShort": "Pop",
+    "untracked": "non suivi",
+    "section": "Stashes",
+    "apply": "Appliquer (le garder)",
+    "pop": "Appliquer et retirer (pop)",
+    "branch": "Créer une branche depuis ce stash…",
+    "branchFrom": "Sur le commit du stash « {{name}} », qui y est réappliqué",
+    "drop": "Supprimer",
+    "dropMenu": "Supprimer…",
+    "dropTitle": "Supprimer ce stash ?",
+    "dropBody": "« {{name}} » sera retiré de la pile, avec ses modifications.",
+    "copy": "Copier le message",
+    "hint": "Clic : son contenu. Clic droit : appliquer, pop, branche, supprimer."
+  },
   "sidebar": {
     "label": "Branches et tags",
     "filter": "Filtrer",
@@ -312,10 +335,17 @@
     "dblClickPull": "Double-clic : checkout de {{branch}}, puis pull"
   },
   "staging": {
+    "stashFile": "Mettre de côté (stash)…",
+    "stashFileTitle": "Mettre de côté {{file}}",
+    "stashFileLabel": "Message du stash",
+    "stashFileSubmit": "Mettre de côté",
+    "stashFileEmpty": "Un message est nécessaire.",
     "ignore": {
       "file": "Ignorer {{name}}",
       "ext": "Ignorer les fichiers {{name}}",
-      "dir": "Ignorer le dossier {{name}}"
+      "dir": "Ignorer le dossier {{name}}",
+      "untrack": "Ne plus suivre et ignorer {{name}}",
+      "untrackHint": "Retiré de Git mais gardé sur le disque ; le retrait est à commiter."
     },
     "label": "Modifications en cours",
     "title": "Modifications en cours",
@@ -578,6 +608,9 @@
     "network_unreachable": "Serveur injoignable : vérifiez la connexion réseau et l’adresse du remote.",
     "remote_not_found": "Dépôt distant introuvable (adresse du remote ou droits d’accès).",
     "no_stash": "Aucun stash à réappliquer.",
+    "untrack_staged": "Ce fichier a des modifications indexées : retirez-les de l’index d’abord.",
+    "stash_message_invalid": "Le message du stash ne peut pas être vide.",
+    "stash_missing": "Ce stash n’est plus dans la pile.",
     "stash_would_overwrite": "Le stash écraserait des modifications en cours : commitez-les ou mettez-les de côté d’abord.",
     "key_not_found": "Fichier de clé introuvable.",
     "key_exists": "Un fichier porte déjà ce nom : choisissez-en un autre (une clé existante n’est jamais écrasée).",

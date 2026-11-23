@@ -150,9 +150,16 @@ pub fn continue_operation(path: &Path) -> Result<OpResult, String> {
 /// Réapplique le dernier stash, état de l'index compris si possible. Faux si le stash a dû
 /// être gardé (conflits, fichier non suivi déjà présent…).
 fn pop_stash(path: &Path) -> bool {
+    unstash(path, "stash@{0}", true)
+}
+
+/// Réapplique un stash (`stash_ref` : `stash@{N}`), retiré de la pile si `drop` et sans
+/// conflit. D'abord avec l'index tel qu'il était, sinon sans (cf. `pop_stash`).
+fn unstash(path: &Path, stash_ref: &str, drop: bool) -> bool {
+    let verb = if drop { "pop" } else { "apply" };
     let state = || run(Some(path), &["status", "--porcelain", "--untracked-files=all"]).ok();
     let before = state();
-    if run(Some(path), &["stash", "pop", "-q", "--index"]).is_ok() {
+    if run(Some(path), &["stash", verb, "-q", "--index", stash_ref]).is_ok() {
         return true;
     }
     // `--index` échoue sans rien toucher quand l'index ne peut pas être restauré ; sans
@@ -161,7 +168,7 @@ fn pop_stash(path: &Path) -> bool {
     if before.is_none() || state() != before {
         return false;
     }
-    run(Some(path), &["stash", "pop", "-q"]).is_ok()
+    run(Some(path), &["stash", verb, "-q", stash_ref]).is_ok()
 }
 
 /// Dernier stash de la pile (son SHA).
@@ -512,6 +519,106 @@ pub fn stash_info(path: &Path) -> (u32, Option<AutoStash>) {
     });
     let count = if out.is_empty() { 0 } else { 1 + lines.count() as u32 };
     (count, autostash)
+}
+
+/// Une entrée de la pile de stash, la plus récente d'abord.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StashEntry {
+    pub sha: String,
+    /// Commit sur lequel le stash a été fait.
+    pub base: String,
+    /// `On main: message` ou `WIP on main: abc1234 sujet` (cf. `%gs`).
+    pub message: String,
+    pub time: i64,
+}
+
+pub fn list_stashes(path: &Path) -> Result<Vec<StashEntry>, String> {
+    check_dir(path)?;
+    let out = run(Some(path), &["stash", "list", "--format=%H%x1f%P%x1f%ct%x1f%gs"])?;
+    Ok(out
+        .lines()
+        .filter_map(|l| {
+            let mut it = l.splitn(4, '\x1f');
+            let sha = it.next()?.to_string();
+            let base = it.next()?.split(' ').next().unwrap_or_default().to_string();
+            let time = it.next()?.parse().unwrap_or(0);
+            Some(StashEntry { sha, base, message: it.next().unwrap_or_default().to_string(), time })
+        })
+        .collect())
+}
+
+/// `stash@{N}` du stash `sha` dans la pile actuelle (les numéros bougent : on part du SHA).
+fn stash_ref(path: &Path, sha: &str) -> Result<String, String> {
+    let out = run(Some(path), &["stash", "list", "--format=%H"])?;
+    out.lines().position(|l| l == sha).map(|i| format!("stash@{{{i}}}")).ok_or_else(|| "stash_missing".to_string())
+}
+
+/// Réapplique un stash de la pile, et le retire (`drop`) s'il n'y a pas de conflit.
+pub fn stash_apply(path: &Path, sha: &str, drop: bool) -> Result<OpResult, String> {
+    check_dir(path)?;
+    let r = stash_ref(path, sha)?;
+    if has_conflicts(path) {
+        return Err("unresolved_conflicts".into());
+    }
+    let before = is_dirty(path)?;
+    if unstash(path, &r, drop) {
+        return Ok(OpResult::default());
+    }
+    if !has_conflicts(path) && is_dirty(path)? == before {
+        return Err("stash_would_overwrite".into());
+    }
+    // Conflits : le stash reste dans la pile (toujours le cas avec `apply`).
+    Ok(OpResult { stash_kept: true, ..Default::default() })
+}
+
+/// Nouvelle branche `name` sur le commit d'où part le stash, extraite, avec le stash réappliqué
+/// (et retiré de la pile s'il passe sans conflit) : `git stash branch`.
+pub fn stash_branch(path: &Path, sha: &str, name: &str) -> Result<(), String> {
+    check_dir(path)?;
+    if name.is_empty() || name.starts_with('-') {
+        return Err("invalid_branch_name".into());
+    }
+    let r = stash_ref(path, sha)?;
+    run(Some(path), &["stash", "branch", name, &r]).map(|_| ())
+}
+
+/// Renomme un stash. Git n'a pas de commande pour ça : l'entrée est retirée puis le même
+/// commit remis dans la pile avec le nouveau message (`stash store`). Il passe donc en haut
+/// de la pile. Garde la branche d'origine dans le sujet (`On main: …`).
+pub fn stash_rename(path: &Path, sha: &str, message: &str) -> Result<(), String> {
+    check_dir(path)?;
+    let message = message.trim();
+    if message.is_empty() || message.contains('\n') {
+        return Err("stash_message_invalid".into());
+    }
+    let entry = list_stashes(path)?.into_iter().find(|s| s.sha == sha).ok_or_else(|| "stash_missing".to_string())?;
+    let branch = entry
+        .message
+        .strip_prefix("WIP on ")
+        .or_else(|| entry.message.strip_prefix("On "))
+        .and_then(|rest| rest.split_once(": "))
+        .map(|(b, _)| b.to_string());
+    let subject = match branch {
+        Some(b) => format!("On {b}: {message}"),
+        None => message.to_string(),
+    };
+    // `stash store` d'un commit déjà en haut de la pile n'ajoute rien au reflog : on retire
+    // d'abord l'entrée, puis on la remet (le commit reste, rien n'est perdu entre les deux).
+    let old = stash_ref(path, sha)?;
+    run(Some(path), &["stash", "drop", "-q", &old])?;
+    if let Err(e) = run(Some(path), &["stash", "store", "-q", "-m", &subject, sha]) {
+        let _ = run(Some(path), &["stash", "store", "-q", "-m", &entry.message, sha]);
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// Supprime un stash de la pile.
+pub fn stash_drop(path: &Path, sha: &str) -> Result<(), String> {
+    check_dir(path)?;
+    let r = stash_ref(path, sha)?;
+    run(Some(path), &["stash", "drop", "-q", &r]).map(|_| ())
 }
 
 /// Nombre d'entrées dans la pile de stash.
@@ -1075,6 +1182,47 @@ mod tests {
         commit_file(repo.path(), "a.txt", "a\n");
         assert_eq!(pull(repo.path(), "ff-only", true).unwrap_err(), "no_upstream");
         assert_eq!(push(repo.path(), false, None).unwrap_err(), "no_remote");
+    }
+
+    #[test]
+    fn stash_list_apply_and_drop() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        std::fs::write(p.join("a.txt"), "un
+").unwrap();
+        git(p, &["stash", "push", "-q", "-m", "premier"]);
+        std::fs::write(p.join("b.txt"), "b
+").unwrap();
+        git(p, &["stash", "push", "-q", "-u", "-m", "second"]);
+        let list = list_stashes(p).unwrap();
+        assert_eq!(list.iter().map(|s| s.message.as_str()).collect::<Vec<_>>(), ["On main: second", "On main: premier"]);
+        assert_eq!(list[0].base.len(), 40);
+        // Le plus ancien, gardé dans la pile.
+        stash_apply(p, &list[1].sha, false).unwrap();
+        assert_eq!(std::fs::read_to_string(p.join("a.txt")).unwrap(), "un
+");
+        assert_eq!(stash_count(p), 2);
+        git(p, &["checkout", "-q", "--", "a.txt"]);
+        // Le second, retiré : il était au-dessus, le premier devient stash@{0}.
+        stash_apply(p, &list[0].sha, true).unwrap();
+        assert!(p.join("b.txt").exists());
+        assert_eq!(list_stashes(p).unwrap().len(), 1);
+        // Renommé : même commit, nouveau message, branche gardée ; un seul exemplaire.
+        stash_rename(p, &list[1].sha, "renommé").unwrap();
+        assert_eq!(list_stashes(p).unwrap().iter().map(|s| (s.sha.as_str(), s.message.as_str())).collect::<Vec<_>>(), [(list[1].sha.as_str(), "On main: renommé")]);
+        assert_eq!(stash_rename(p, &list[1].sha, " ").unwrap_err(), "stash_message_invalid");
+        // Le premier, sur une branche à lui : extraite, le stash appliqué puis retiré.
+        git(p, &["checkout", "-q", "--", "."]);
+        std::fs::remove_file(p.join("b.txt")).unwrap();
+        stash_branch(p, &list[1].sha, "reprise").unwrap();
+        assert_eq!(run(Some(p), &["branch", "--show-current"]).unwrap().trim(), "reprise");
+        assert_eq!(std::fs::read_to_string(p.join("a.txt")).unwrap(), "un
+");
+        assert_eq!(stash_count(p), 0);
+        assert_eq!(stash_drop(p, &list[1].sha).unwrap_err(), "stash_missing");
+        assert_eq!(stash_branch(p, &list[1].sha, "x").unwrap_err(), "stash_missing");
     }
 
     #[test]

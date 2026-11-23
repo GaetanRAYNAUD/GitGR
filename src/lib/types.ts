@@ -247,6 +247,26 @@ export interface RemoteInfo {
   pushUrl: string | null;
 }
 
+/** Une entrée de la pile de stash (la plus récente d'abord). */
+export interface StashEntry {
+  sha: string;
+  /** Commit sur lequel le stash a été fait. */
+  base: string;
+  /** `On main: message` ou `WIP on main: abc1234 sujet`. */
+  message: string;
+  time: number;
+}
+
+/** Fichiers d'un stash (cf. `stash_changes`). */
+export interface StashChanges {
+  base: string;
+  tip: string;
+  /** Commit des fichiers non suivis mis de côté, s'il y en a. */
+  untracked: string | null;
+  files: FileChange[];
+  untrackedFiles: FileChange[];
+}
+
 export interface AutoStash {
   sha: string;
   /** `GitGR-autostash: main` */

@@ -130,6 +130,58 @@ test.describe("dépôt avec des modifications", () => {
     await expect(tool(page, "Pop")).toBeDisabled();
   });
 
+  test("section Stashes : toute la pile, appliquer sans retirer, supprimer après confirmation", async ({ page }) => {
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await tool(page, "Stash").click();
+    await expect(stashes.getByRole("button")).toHaveCount(1);
+    await expect(stashes).toContainText("main");
+
+    // Clic : son contenu à la place du graphe, fichiers et diff ; Échap revient au graphe.
+    await stashes.getByRole("button").first().click();
+    const view = page.getByRole("region", { name: /^Stash/ });
+    await expect(view.locator(".file-row")).toHaveCount(4);
+    await view.locator(".file-row", { hasText: "notes.txt" }).click();
+    await expect(view.locator(".pull-file-diff .diff-path")).toHaveText("notes.txt");
+    await expect(view.locator(".file-item", { hasText: "notes.txt" })).toContainText("non suivi");
+    await page.keyboard.press("Escape");
+    await expect(view).toHaveCount(0);
+
+    const menu = page.getByRole("menu");
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Appliquer (le garder)" }).click();
+    await expect(panel).toContainText("render.ts");
+    await expect(stashes.getByRole("button")).toHaveCount(1);
+
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Renommer…" }).click();
+    const rename = page.getByRole("dialog", { name: "Renommer le stash" });
+    await rename.getByRole("textbox").fill("mis de côté pour plus tard");
+    await rename.getByRole("button", { name: "Renommer" }).click();
+    await expect(stashes).toContainText("mis de côté pour plus tard");
+
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Supprimer…" }).click();
+    await page.getByRole("alertdialog", { name: "Supprimer ce stash ?" }).getByRole("button", { name: "Supprimer" }).click();
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await expect(tool(page, "Pop")).toBeDisabled();
+  });
+
+  test("créer une branche depuis un stash : extraite, le stash réappliqué et retiré", async ({ page }) => {
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
+    await tool(page, "Stash").click();
+    await stashes.getByRole("button").first().click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Créer une branche depuis ce stash…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+    await dialog.getByRole("textbox").fill("reprise");
+    await dialog.getByRole("button", { name: "Créer" }).click();
+    await expect(current(page)).toHaveText("reprise");
+    await expect(panel).toContainText("render.ts");
+    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+  });
+
   test("« pousser après le commit » est mémorisé et pousse", async ({ page }) => {
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
     await panel.getByLabel("Pousser après le commit").check();

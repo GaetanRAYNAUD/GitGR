@@ -68,6 +68,14 @@ interface OpsStore {
   removeRemote(path: string, remote: string): Promise<boolean>;
   stash(path: string): Promise<boolean>;
   pop(path: string): Promise<boolean>;
+  /** Réapplique un stash de la pile ; `drop` : le retire aussi (pop). */
+  applyStash(path: string, sha: string, drop: boolean): Promise<boolean>;
+  /** Supprime un stash, après confirmation. */
+  dropStash(path: string, sha: string, label: string): Promise<boolean>;
+  /** Renomme un stash (nouveau message demandé). */
+  renameStash(path: string, sha: string, label: string): Promise<boolean>;
+  /** Nouvelle branche depuis un stash (`git stash branch`), nom demandé. */
+  stashBranch(path: string, sha: string, label: string): Promise<boolean>;
   abortOperation(path: string): Promise<boolean>;
   continueOperation(path: string): Promise<boolean>;
 }
@@ -464,6 +472,59 @@ export const useOps = create<OpsStore>((set, get) => {
       // Les modifications réappliquées sont ce qu'on veut voir.
       useGraph.getState().select(path, WIP);
       return true;
+    },
+
+    async applyStash(path, sha, drop) {
+      const out = await exec(path, "pop", () => api.stashApply(path, sha, drop));
+      if (!out.ok) return fail(out.error);
+      if (out.value.stashKept) notify(t("notice.popConflict"), true);
+      useGraph.getState().select(path, WIP);
+      return true;
+    },
+
+    async stashBranch(path, sha, label) {
+      const existing = new Set(
+        (useGraph.getState().graphs[path]?.refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short),
+      );
+      const answer = await useDialogs.getState().input({
+        title: t("branch.newTitle"),
+        subtitle: t("stashes.branchFrom", { name: label }),
+        label: t("branch.name"),
+        initial: "",
+        submit: t("branch.create"),
+        validate: (v) => nameError(v) ?? (existing.has(v) ? t("branch.exists") : null),
+      });
+      if (!answer) return false;
+      const out = await exec(path, "branch", () => api.stashBranch(path, sha, answer.value));
+      if (!out.ok) return fail(out.error);
+      // Les modifications réappliquées sur la nouvelle branche.
+      useGraph.getState().select(path, WIP);
+      return true;
+    },
+
+    async renameStash(path, sha, label) {
+      const answer = await useDialogs.getState().input({
+        title: t("stashes.renameTitle"),
+        subtitle: t("stashes.renameHint"),
+        label: t("stashes.renameLabel"),
+        initial: label,
+        submit: t("stashes.rename"),
+        validate: (v) => (v.trim() ? null : t("staging.stashFileEmpty")),
+      });
+      if (!answer || answer.value.trim() === label) return false;
+      const out = await exec(path, "stash", () => api.stashRename(path, sha, answer.value.trim()));
+      return out.ok || fail(out.error);
+    },
+
+    async dropStash(path, sha, label) {
+      const ok = await useDialogs.getState().choose({
+        title: t("stashes.dropTitle"),
+        body: t("stashes.dropBody", { name: label }),
+        choices: [{ id: "drop", label: t("stashes.drop"), danger: true }],
+      });
+      if (ok !== "drop") return false;
+      const out = await exec(path, "stash", () => api.stashDrop(path, sha));
+      return out.ok || fail(out.error);
     },
 
     async abortOperation(path) {

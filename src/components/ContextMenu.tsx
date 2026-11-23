@@ -12,6 +12,8 @@ export type MenuItem =
       onClick: () => void;
       danger?: boolean;
       disabled?: boolean;
+      /** Infobulle. */
+      title?: string;
       /** Choix exclusif : coche devant l'élément choisi. */
       checked?: boolean;
       /** Pastille de couleur devant le libellé (couleur CSS) ; `null` = cercle vide. */
@@ -89,6 +91,7 @@ function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
             aria-checked={item.checked}
             className={item.danger ? "menu-item danger" : "menu-item"}
             disabled={item.disabled}
+            title={item.title}
             onClick={() => {
               close();
               item.onClick();

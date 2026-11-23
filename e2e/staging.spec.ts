@@ -98,4 +98,20 @@ test("clic droit sur un fichier : indexer, retirer, ignorer un fichier non suivi
   await unstaged(page).getByText("render.ts").click({ button: "right" });
   await expect(menu.getByRole("menuitem", { name: /^Ignorer/ })).toHaveCount(0);
   await expect(menu.getByRole("menuitem", { name: "Copier le chemin", exact: true })).toBeVisible();
+  // … mais « ne plus suivre et ignorer » : rm --cached, puis le fichier dans le .gitignore.
+  await menu.getByRole("menuitem", { name: /^Ne plus suivre et ignorer/ }).click();
+  expect(await page.evaluate(() => (window as unknown as { __mockUntracked: string[] }).__mockUntracked)).toEqual([expect.stringMatching(/render\.ts$/)]);
+  expect(await page.evaluate(() => (window as unknown as { __mockIgnored: string[] }).__mockIgnored)).toEqual(["*.txt", expect.stringMatching(/^\/.*render\.ts$/)]);
+});
+
+test("stash partiel : un seul fichier mis de côté, les autres restent", async ({ page }) => {
+  await unstaged(page).getByText("notes.txt").click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Mettre de côté (stash)…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Mettre de côté notes.txt" });
+  await dialog.getByRole("textbox").fill("juste les notes");
+  await dialog.getByRole("button", { name: "Mettre de côté" }).click();
+  await expect(unstaged(page)).not.toContainText("notes.txt");
+  await expect(unstaged(page)).toContainText("render.ts");
+  const stashes = page.getByRole("navigation", { name: "Branches et tags" }).getByRole("list", { name: "Stashes" });
+  await expect(stashes).toContainText("juste les notes");
 });
