@@ -202,6 +202,8 @@
     "columnsHint": "Clic droit sur l’en-tête pour y revenir."
   },
   "details": {
+    "selectCommit": "Sélectionner ce commit",
+    "openPull": "Ouvrir dans GitGR",
     "label": "Détails du commit",
     "none": "Sélectionnez un commit pour voir ses détails.",
     "loading": "Chargement…",

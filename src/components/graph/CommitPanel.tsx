@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu } from "../ContextMenu";
 import { fileMenu } from "./menus";
+import { CommitText } from "./CommitText";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, useWidthStyle } from "../../lib/layout";
 import { initials } from "../../lib/format";
@@ -58,8 +59,14 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
     <>
       <ResizableBlock layoutKey={LAYOUT.details} label={t("layout.details")} className="details-top">
         <div className="details-head">
-          <h2 className="details-subject">{d.subject}</h2>
-          {d.body && <p className="details-body">{d.body}</p>}
+          <h2 className="details-subject">
+            <CommitText path={path} text={d.subject} />
+          </h2>
+          {d.body && (
+            <p className="details-body">
+              <CommitText path={path} text={d.body} />
+            </p>
+          )}
         </div>
 
         <div className="details-meta">

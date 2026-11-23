@@ -1405,6 +1405,16 @@ h2 {
 }
 
 /* « +N » : étiquettes qui ne tiennent pas, listées dans l'infobulle. */
+/* Liens d'un message de commit (CommitText). */
+.commit-link {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.commit-link:hover {
+  text-decoration: underline;
+}
+
 .chip.more {
   flex-shrink: 0;
   background: transparent;

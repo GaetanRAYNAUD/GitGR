@@ -152,7 +152,7 @@ export function mockDetails(path: string, sha: string): CommitDetails {
     committerEmail: c.email,
     commitTime: c.time,
     subject: c.subject,
-    body: c.parents.length > 1 ? "" : "Description détaillée du changement.\n\nAvec un second paragraphe.",
+    body: c.parents.length > 1 ? "" : `Description détaillée du changement, liée à !12.\n\nAvec un second paragraphe, après ${c.parents[0]?.slice(0, 8) ?? "rien"}.`,
     files,
   };
 }

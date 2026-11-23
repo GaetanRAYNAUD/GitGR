@@ -180,3 +180,19 @@ test("section Merge requests décochée : rien n'est lu d'office, relu dès qu'e
   await expect(pulls(page).locator(".pull-item")).toHaveCount(3);
   await expect(page.locator(".chip .chip-pull", { hasText: "!12" })).toBeVisible();
 });
+
+test("liens d'un message de commit : !12 ouvre la MR dans GitGR, un SHA sélectionne le commit", async ({ page }) => {
+  await seed(page);
+  const graph = page.getByRole("listbox", { name: "Historique des commits" });
+  const details = page.getByRole("complementary", { name: "Détails du commit" });
+  await graph.getByRole("option").nth(1).click();
+  const body = details.locator(".details-body");
+  // Le parent, cité par son SHA court : sélectionné au clic.
+  const parent = body.locator(".commit-link").filter({ hasText: /^[0-9a-f]{8}$/ });
+  const short = (await parent.textContent())!;
+  await parent.click();
+  await expect(details.locator(".sha-line")).toHaveAttribute("title", new RegExp(`^${short}`));
+
+  await details.locator(".details-body .commit-link", { hasText: "!12" }).click();
+  await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");
+});
