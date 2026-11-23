@@ -6,6 +6,25 @@ export function remoteHost(url: string): string {
   return m ? m[1] : url;
 }
 
+/** Page web du dépôt d'un remote : `https://hôte/chemin` (SSH ou scp → https, port SSH
+ *  retiré ; http(s) gardé avec son port, sans identifiants ni `.git`). `null` pour un chemin
+ *  local ou une URL sans chemin. La casse du chemin est gardée. */
+export function remoteWebUrl(url: string): string | null {
+  const u = url.trim();
+  const page = (scheme: string, host: string, path: string) => {
+    const p = path.replace(/^\/+|\/+$/g, "").replace(/\.git$/i, "");
+    return p ? `${scheme}://${host}/${p}` : null;
+  };
+  let m = u.match(/^(https?):\/\/(?:[^@/]+@)?([^/]+)\/(.*)$/i);
+  if (m) return page(m[1].toLowerCase(), m[2], m[3]);
+  m = u.match(/^(?:ssh|git\+ssh|ssh\+git|git):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/(.*)$/i);
+  if (m) return page("https", m[1], m[2]);
+  // Syntaxe scp `[user@]hôte:chemin` (hôte de 2 caractères au moins : pas `C:\…`).
+  m = u.match(/^(?:[^@/\\]+@)?([^/:\\]{2,}):(?!\/)(.*)$/);
+  if (m) return page("https", m[1], m[2]);
+  return null;
+}
+
 export type RelativeTime = { key: "justNow" | "minutes" | "hours" | "days"; count: number };
 
 /** Durée écoulée depuis `ms`, à traduire avec les clés `time.*`. */
