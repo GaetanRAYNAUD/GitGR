@@ -3,7 +3,8 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { openContextMenu } from "../ContextMenu";
+import { openContextMenu, type MenuItem } from "../ContextMenu";
+import { ignoreChoices } from "../../lib/gitignore";
 import { fileMenu } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
@@ -42,6 +43,20 @@ export function StagingPanel({ path }: { path: string }) {
       choices: [{ id: "discard", label: t("staging.discard"), danger: true }],
     });
     if (ok) w.discard(path, files);
+  };
+
+  /** Clic droit sur un fichier : ses actions dans cette liste, avant celles de tout fichier. */
+  const stagingItems = (kind: ListKind, f: StatusFile): MenuItem[] => {
+    if (kind === "staged") return [{ label: t("staging.unstage"), disabled: busy, onClick: () => w.unstage(path, [f]) }];
+    if (kind === "conflicted") return [{ label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) }];
+    const items: MenuItem[] = [
+      { label: t("staging.stage"), disabled: busy, onClick: () => w.stage(path, [f]) },
+      { label: t("staging.discard"), danger: true, disabled: busy, onClick: () => void askDiscard([f]) },
+    ];
+    if (f.status === "?") {
+      items.push("sep", ...ignoreChoices(f.path).map((c): MenuItem => ({ label: t(`staging.ignore.${c.kind}`, { name: c.label }), disabled: busy, onClick: () => w.ignore(path, c.pattern) })));
+    }
+    return items;
   };
 
   const askDiscardAll = async () => {
@@ -103,7 +118,7 @@ export function StagingPanel({ path }: { path: string }) {
               isActive={(f) => diff?.file.path === f.path && diff.area === areaOf(f, kind)}
               onOpen={(f) => w.openDiff(path, f, areaOf(f, kind))}
               onDoubleClick={(f) => (kind === "staged" ? w.unstage(path, [f]) : w.stage(path, [f]))}
-              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+              onContextMenu={(e, f) => openContextMenu(e, [...stagingItems(kind, f), "sep", ...fileMenu(t, path, f.path)])}
               actions={(f) =>
                 kind === "staged" ? (
                   <button className="mini" disabled={busy} onClick={() => w.unstage(path, [f])}>

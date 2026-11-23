@@ -270,6 +270,11 @@
     "dblClickPull": "Double-click to check out {{branch}}, then pull"
   },
   "staging": {
+    "ignore": {
+      "file": "Ignore {{name}}",
+      "ext": "Ignore all {{name}} files",
+      "dir": "Ignore folder {{name}}"
+    },
     "label": "Work in progress",
     "title": "Work in progress",
     "onBranch_one": "on {{branch}} · {{count}} file",

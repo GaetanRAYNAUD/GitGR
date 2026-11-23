@@ -552,6 +552,34 @@ pub fn head_message(path: &Path) -> Result<String, String> {
     run(Some(path), &["log", "-1", "--format=%B"])
 }
 
+/// Ajoute une ligne au `.gitignore` à la racine du dépôt (créé s'il n'existe pas), sauf si
+/// elle y est déjà. Vrai si le fichier a changé.
+pub fn add_to_gitignore(repo: &Path, pattern: &str) -> Result<bool, String> {
+    let pattern = pattern.trim_end_matches(['\r', '\n']);
+    if pattern.is_empty() || pattern.contains(['\r', '\n']) {
+        return Err("invalid pattern".into());
+    }
+    let file = repo.join(".gitignore");
+    let current = match std::fs::read_to_string(&file) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e.to_string()),
+    };
+    if current.lines().any(|l| l.trim_end() == pattern) {
+        return Ok(false);
+    }
+    // Même fin de ligne que le reste du fichier.
+    let eol = if current.contains("\r\n") { "\r\n" } else { "\n" };
+    let mut text = current;
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push_str(eol);
+    }
+    text.push_str(pattern);
+    text.push_str(eol);
+    std::fs::write(&file, text).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 /// Fichier `file` (chemin relatif du dépôt, comme Git le donne) de la copie de travail,
 /// refusé s'il sort du dépôt (`..`, chemin absolu, lien) : `outside_repo`.
 pub fn repo_file(repo: &Path, file: &str) -> Result<PathBuf, String> {
@@ -583,6 +611,19 @@ pub fn existing_dir(full: &Path, root: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn add_to_gitignore_appends_once() {
+        let dir = std::env::temp_dir().join(format!("gitgr-ignore-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(add_to_gitignore(&dir, "/a.log").unwrap());
+        assert!(!add_to_gitignore(&dir, "/a.log").unwrap());
+        std::fs::write(dir.join(".gitignore"), "x\r\ny").unwrap();
+        assert!(add_to_gitignore(&dir, "*.tmp").unwrap());
+        assert_eq!(std::fs::read_to_string(dir.join(".gitignore")).unwrap(), "x\r\ny\r\n*.tmp\r\n");
+        assert!(add_to_gitignore(&dir, "a\nb").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn repo_file_stays_inside_the_repo() {
         let dir = std::env::temp_dir().join(format!("gitgr-repo-file-{}", std::process::id()));

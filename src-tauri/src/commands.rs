@@ -189,6 +189,12 @@ pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<St
     worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
 }
 
+/// Ajoute un motif au `.gitignore` du dépôt (rien s'il y est déjà).
+#[tauri::command]
+pub async fn add_to_gitignore(path: String, pattern: String) -> Result<bool, String> {
+    worktree::add_to_gitignore(Path::new(&path), &pattern)
+}
+
 /// Fichier de la copie de travail : ouvert avec le programme par défaut du système
 /// (`how = "open"`), ou montré dans l'explorateur de fichiers (`"reveal"` ; fichier
 /// disparu : son dossier, ou le plus proche qui existe).

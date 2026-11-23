@@ -79,3 +79,23 @@ test("amend : reprend le message du dernier commit", async ({ page }) => {
   await panel(page).getByRole("checkbox", { name: "Amend" }).uncheck();
   await expect(page.getByPlaceholder("Résumé")).toHaveValue("");
 });
+
+test("clic droit sur un fichier : indexer, retirer, ignorer un fichier non suivi", async ({ page }) => {
+  const menu = page.getByRole("menu");
+  await unstaged(page).getByText("render.ts").click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Indexer" }).click();
+  await expect(staged(page)).toContainText("render.ts");
+  await staged(page).getByText("render.ts").click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Retirer" }).click();
+  await expect(unstaged(page)).toContainText("render.ts");
+
+  // Non suivi : ce fichier, son extension (pas de dossier : il est à la racine).
+  await unstaged(page).getByText("notes.txt").click({ button: "right" });
+  await expect(menu.getByRole("menuitem", { name: /^Ignorer/ })).toHaveText(["Ignorer notes.txt", "Ignorer les fichiers *.txt"]);
+  await menu.getByRole("menuitem", { name: "Ignorer les fichiers *.txt" }).click();
+  expect(await page.evaluate(() => (window as unknown as { __mockIgnored: string[] }).__mockIgnored)).toEqual(["*.txt"]);
+  // Fichier suivi : pas de choix « Ignorer ».
+  await unstaged(page).getByText("render.ts").click({ button: "right" });
+  await expect(menu.getByRole("menuitem", { name: /^Ignorer/ })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem", { name: "Copier le chemin", exact: true })).toBeVisible();
+});

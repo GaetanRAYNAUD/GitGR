@@ -1,6 +1,8 @@
 // Clic droit sur un fichier d'un commit, dans la vraie app : la commande Rust vérifie le
 // chemin. Seul le cas sans effet de bord est joué ici (fichier disparu : rien n'est lancé).
 
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, git, launchApp, test } from "./app";
 
 test("ouvrir un fichier supprimé par le commit : message, aucun programme lancé", async ({ sandbox }) => {
@@ -17,6 +19,27 @@ test("ouvrir un fichier supprimé par le commit : message, aucun programme lanc�
     await file.click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Ouvrir avec le programme par défaut" }).click();
     await expect(page.getByRole("alert")).toContainText("Ce fichier n’existe pas (ou plus) dans la copie de travail.");
+  } finally {
+    await app.close();
+  }
+});
+
+test("ignorer un fichier non suivi : ligne ajoutée au .gitignore, le fichier quitte la liste", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  mkdirSync(join(mine, "build"));
+  sandbox.write(mine, "build/sortie.log", "x\n");
+  sandbox.write(mine, "notes.txt", "y\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const unstaged = page.getByRole("complementary", { name: "Modifications en cours" }).getByRole("list", { name: "Non indexés", exact: true });
+    await unstaged.getByText("sortie.log").click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Ignorer le dossier build/" }).click();
+    await expect(unstaged.getByText("sortie.log")).toHaveCount(0);
+    await expect(unstaged.getByText("notes.txt")).toBeVisible();
+    expect(readFileSync(join(mine, ".gitignore"), "utf8")).toBe("/build/\n");
+    expect(git(mine, "status", "--porcelain")).toBe("?? .gitignore\n?? notes.txt");
   } finally {
     await app.close();
   }
