@@ -124,6 +124,8 @@ export interface Api {
   discardAll(path: string): Promise<void>;
   /** Ajoute un motif au `.gitignore` du dépôt ; faux s'il y était déjà. */
   addToGitignore(path: string, pattern: string): Promise<boolean>;
+  /** Ne plus suivre un fichier (gardé sur le disque) et ajouter `pattern` au `.gitignore`. */
+  untrackFile(path: string, file: string, pattern: string): Promise<void>;
   stashAll(path: string, message: string): Promise<void>;
   /** Indexe (ou retire de l'index si `unstage`) des lignes ; `fingerprint` = celle du diff affiché. */
   stageLines(path: string, file: string, oldFile: string | null, lines: LineRef[], fingerprint: string, unstage: boolean): Promise<void>;
@@ -337,6 +339,7 @@ const tauriApi: Api = {
   discardFiles: (path, tracked, untracked) => invoke("discard_files", { path, tracked, untracked }),
   discardAll: (path) => invoke("discard_all", { path }),
   addToGitignore: (path, pattern) => invoke("add_to_gitignore", { path, pattern }),
+  untrackFile: (path, file, pattern) => invoke("untrack_file", { path, file, pattern }),
   stashAll: (path, message) => invoke("stash_all", { path, message }),
   stageLines: (path, file, oldFile, lines, fingerprint, unstage) =>
     invoke("stage_lines", { path, file, oldFile, lines, fingerprint, unstage }),
@@ -725,6 +728,12 @@ const mockApi: Api = {
     (window as unknown as { __mockIgnored?: string[] }).__mockIgnored ??= [];
     (window as unknown as { __mockIgnored: string[] }).__mockIgnored.push(pattern);
     return true;
+  },
+  async untrackFile(_path, file, pattern) {
+    (window as unknown as { __mockIgnored?: string[] }).__mockIgnored ??= [];
+    (window as unknown as { __mockIgnored: string[] }).__mockIgnored.push(pattern);
+    (window as unknown as { __mockUntracked?: string[] }).__mockUntracked ??= [];
+    (window as unknown as { __mockUntracked: string[] }).__mockUntracked.push(file);
   },
   async stashAll(path, message) {
     mockStashPush(path, message);

@@ -315,7 +315,9 @@
     "ignore": {
       "file": "Ignore {{name}}",
       "ext": "Ignore all {{name}} files",
-      "dir": "Ignore folder {{name}}"
+      "dir": "Ignore folder {{name}}",
+      "untrack": "Stop tracking and ignore {{name}}",
+      "untrackHint": "Removed from Git but kept on disk; the removal must be committed."
     },
     "label": "Work in progress",
     "title": "Work in progress",

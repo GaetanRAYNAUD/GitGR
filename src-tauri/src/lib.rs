@@ -133,6 +133,7 @@ pub fn run() {
             commands::discard_all,
             commands::open_repo_file,
             commands::add_to_gitignore,
+            commands::untrack_file,
             commands::stash_all,
             commands::stage_lines,
             commands::discard_lines,

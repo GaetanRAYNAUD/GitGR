@@ -98,4 +98,8 @@ test("clic droit sur un fichier : indexer, retirer, ignorer un fichier non suivi
   await unstaged(page).getByText("render.ts").click({ button: "right" });
   await expect(menu.getByRole("menuitem", { name: /^Ignorer/ })).toHaveCount(0);
   await expect(menu.getByRole("menuitem", { name: "Copier le chemin", exact: true })).toBeVisible();
+  // … mais « ne plus suivre et ignorer » : rm --cached, puis le fichier dans le .gitignore.
+  await menu.getByRole("menuitem", { name: /^Ne plus suivre et ignorer/ }).click();
+  expect(await page.evaluate(() => (window as unknown as { __mockUntracked: string[] }).__mockUntracked)).toEqual([expect.stringMatching(/render\.ts$/)]);
+  expect(await page.evaluate(() => (window as unknown as { __mockIgnored: string[] }).__mockIgnored)).toEqual(["*.txt", expect.stringMatching(/^\/.*render\.ts$/)]);
 });

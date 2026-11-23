@@ -219,6 +219,12 @@ pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<St
     worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
 }
 
+/// Ne plus suivre un fichier (gardé sur le disque) et l'ignorer.
+#[tauri::command]
+pub async fn untrack_file(path: String, file: String, pattern: String) -> Result<(), String> {
+    worktree::untrack_file(Path::new(&path), &file, &pattern).map_err(classify)
+}
+
 /// Ajoute un motif au `.gitignore` du dépôt (rien s'il y est déjà).
 #[tauri::command]
 pub async fn add_to_gitignore(path: String, pattern: String) -> Result<bool, String> {

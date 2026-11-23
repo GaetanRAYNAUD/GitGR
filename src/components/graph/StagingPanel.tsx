@@ -55,6 +55,9 @@ export function StagingPanel({ path }: { path: string }) {
     ];
     if (f.status === "?") {
       items.push("sep", ...ignoreChoices(f.path).map((c): MenuItem => ({ label: t(`staging.ignore.${c.kind}`, { name: c.label }), disabled: busy, onClick: () => w.ignore(path, c.pattern) })));
+    } else if (f.status !== "D") {
+      const [own] = ignoreChoices(f.path);
+      items.push("sep", { label: t("staging.ignore.untrack", { name: own.label }), title: t("staging.ignore.untrackHint"), disabled: busy, onClick: () => w.untrack(path, f.path, own.pattern) });
     }
     return items;
   };

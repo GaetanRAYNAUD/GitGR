@@ -48,6 +48,8 @@ interface WorkStore {
   discardAll(path: string): Promise<void>;
   /** Ajoute un motif au `.gitignore` (puis relit l'état : les fichiers visés disparaissent). */
   ignore(path: string, pattern: string): Promise<void>;
+  /** Ne plus suivre un fichier (`rm --cached`) et l'ignorer. */
+  untrack(path: string, file: string, pattern: string): Promise<void>;
   stashAll(path: string, message: string): Promise<void>;
   /** Lignes du diff ouvert : indexer, retirer de l'index, ou abandonner. */
   applyLines(path: string, lines: LineRef[], action: "stage" | "unstage" | "discard"): Promise<void>;
@@ -187,6 +189,7 @@ export const useWork = create<WorkStore>((set, get) => {
 
     discardAll: (path) => act(path, () => api.discardAll(path)).then(() => {}),
     ignore: (path, pattern) => act(path, () => api.addToGitignore(path, pattern)).then(() => {}),
+    untrack: (path, file, pattern) => act(path, () => api.untrackFile(path, file, pattern)).then(() => {}),
     stashAll: (path, message) => act(path, () => api.stashAll(path, message)).then(() => {}),
 
     async applyLines(path, lines, action) {

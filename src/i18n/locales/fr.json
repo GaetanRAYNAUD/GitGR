@@ -315,7 +315,9 @@
     "ignore": {
       "file": "Ignorer {{name}}",
       "ext": "Ignorer les fichiers {{name}}",
-      "dir": "Ignorer le dossier {{name}}"
+      "dir": "Ignorer le dossier {{name}}",
+      "untrack": "Ne plus suivre et ignorer {{name}}",
+      "untrackHint": "Retiré de Git mais gardé sur le disque ; le retrait est à commiter."
     },
     "label": "Modifications en cours",
     "title": "Modifications en cours",

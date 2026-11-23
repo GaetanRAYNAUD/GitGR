@@ -554,6 +554,16 @@ pub fn head_message(path: &Path) -> Result<String, String> {
 
 /// Ajoute une ligne au `.gitignore` à la racine du dépôt (créé s'il n'existe pas), sauf si
 /// elle y est déjà. Vrai si le fichier a changé.
+/// Ne plus suivre un fichier sans le supprimer du disque (`rm --cached`) et l'ajouter au
+/// `.gitignore`, pour qu'il ne revienne pas en fichier non suivi. Le retrait reste à commiter.
+pub fn untrack_file(path: &Path, file: &str, pattern: &str) -> Result<(), String> {
+    check_dir(path)?;
+    check_relative(file)?;
+    let files = [file.to_string()];
+    run(Some(path), &with_paths(&["rm", "-q", "--cached"], &files))?;
+    add_to_gitignore(path, pattern).map(|_| ())
+}
+
 pub fn add_to_gitignore(repo: &Path, pattern: &str) -> Result<bool, String> {
     let pattern = pattern.trim_end_matches(['\r', '\n']);
     if pattern.is_empty() || pattern.contains(['\r', '\n']) {
@@ -726,6 +736,23 @@ mod tests {
         let s = status(p).unwrap();
         assert_eq!(s.staged, vec![file("c.txt", None, 'A')]);
         assert_eq!(s.unstaged, vec![file("a.txt", None, 'M'), file("dir/b.txt", None, '?')]);
+    }
+
+    #[test]
+    fn untrack_keeps_the_file_and_ignores_it() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "app.log", "1
+");
+        write(p, "app.log", "2
+");
+        untrack_file(p, "app.log", "/app.log").unwrap();
+        assert!(p.join("app.log").exists());
+        let s = status(p).unwrap();
+        // Retrait indexé, à commiter ; le fichier ne revient pas en non suivi.
+        assert_eq!(s.staged, vec![file("app.log", None, 'D')]);
+        assert_eq!(s.unstaged, vec![file(".gitignore", None, '?')]);
+        assert!(untrack_file(p, "../x", "/x").is_err());
     }
 
     #[test]
