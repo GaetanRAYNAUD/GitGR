@@ -246,6 +246,9 @@ export interface Api {
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
   pickFile(title: string, dir?: string | null): Promise<string | null>;
   openUrl(url: string): Promise<void>;
+  /** Fichier `file` (relatif au dépôt) : ouvert avec le programme par défaut du système, ou
+   *  montré dans l'explorateur (son dossier s'il n'existe plus). `file_missing` : rien à ouvrir. */
+  openRepoFile(path: string, file: string, how: "open" | "reveal"): Promise<void>;
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;
@@ -382,6 +385,7 @@ const tauriApi: Api = {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     await openUrl(url);
   },
+  openRepoFile: (path, file, how) => invoke("open_repo_file", { path, file, how }),
   window: {
     minimize: async () => (await currentWindow()).minimize(),
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
@@ -1009,6 +1013,10 @@ const mockApi: Api = {
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener");
+  },
+  async openRepoFile(path, file, how) {
+    (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];
+    (window as unknown as { __mockOpened: unknown[] }).__mockOpened.push({ path, file, how });
   },
   window: { minimize: async () => {}, toggleMaximize: async () => {}, startDragging: async () => {}, close: async () => {} },
 };

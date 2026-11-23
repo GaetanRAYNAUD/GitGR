@@ -189,6 +189,25 @@ pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<St
     worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
 }
 
+/// Fichier de la copie de travail : ouvert avec le programme par défaut du système
+/// (`how = "open"`), ou montré dans l'explorateur de fichiers (`"reveal"` ; fichier
+/// disparu : son dossier, ou le plus proche qui existe).
+#[tauri::command]
+pub async fn open_repo_file(app: AppHandle, path: String, file: String, how: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let full = worktree::repo_file(Path::new(&path), &file)?;
+    match how.as_str() {
+        "open" if full.is_file() => app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string()),
+        "open" => Err("file_missing".into()),
+        "reveal" if full.exists() => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
+        "reveal" => {
+            let root = Path::new(&path).canonicalize().map_err(|_| "path_not_found".to_string())?;
+            app.opener().open_path(worktree::existing_dir(&full, &root).to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+        }
+        _ => Err(format!("unknown action: {how}")),
+    }
+}
+
 #[tauri::command]
 pub async fn discard_all(path: String) -> Result<(), String> {
     worktree::discard_all(Path::new(&path)).map_err(classify)

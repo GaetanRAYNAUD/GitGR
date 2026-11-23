@@ -425,7 +425,11 @@
     "pull": "Pull",
     "push": "Push",
     "copySha": "Copier le SHA",
-    "copyName": "Copier le nom"
+    "copyName": "Copier le nom",
+    "openFile": "Ouvrir avec le programme par défaut",
+    "revealFile": "Montrer dans le dossier",
+    "copyPath": "Copier le chemin",
+    "copyAbsolutePath": "Copier le chemin complet"
   },
   "op": {
     "merge": "Merge en cours",
@@ -490,6 +494,8 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "file_missing": "Ce fichier n’existe pas (ou plus) dans la copie de travail.",
+    "outside_repo": "Ce chemin sort du dépôt.",
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
     "path_not_found": "Ce dossier n’existe plus.",
     "git_not_found": "Git est introuvable sur cette machine.",

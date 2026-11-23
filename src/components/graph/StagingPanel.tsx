@@ -3,6 +3,8 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { openContextMenu } from "../ContextMenu";
+import { fileMenu } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
@@ -101,6 +103,7 @@ export function StagingPanel({ path }: { path: string }) {
               isActive={(f) => diff?.file.path === f.path && diff.area === areaOf(f, kind)}
               onOpen={(f) => w.openDiff(path, f, areaOf(f, kind))}
               onDoubleClick={(f) => (kind === "staged" ? w.unstage(path, [f]) : w.stage(path, [f]))}
+              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
               actions={(f) =>
                 kind === "staged" ? (
                   <button className="mini" disabled={busy} onClick={() => w.unstage(path, [f])}>

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { openContextMenu } from "../ContextMenu";
+import { fileMenu } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, useWidthStyle } from "../../lib/layout";
 import { initials } from "../../lib/format";
@@ -102,6 +104,7 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
           label={t("details.files", { count: d.files.length })}
           isActive={(f) => diff?.sha === d.sha && diff.file.path === f.path}
           onOpen={(f) => openDiff(path, d.sha, f)}
+          onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
         />
       )}
     </>

@@ -425,7 +425,11 @@
     "pull": "Pull",
     "push": "Push",
     "copySha": "Copy SHA",
-    "copyName": "Copy name"
+    "copyName": "Copy name",
+    "openFile": "Open with default program",
+    "revealFile": "Show in folder",
+    "copyPath": "Copy path",
+    "copyAbsolutePath": "Copy full path"
   },
   "op": {
     "merge": "Merge in progress",
@@ -490,6 +494,8 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "file_missing": "This file does not exist (or no longer exists) in the working copy.",
+    "outside_repo": "This path is outside the repository.",
     "not_a_repo": "This folder is not a Git repository.",
     "path_not_found": "This folder no longer exists.",
     "git_not_found": "Git was not found on this machine.",

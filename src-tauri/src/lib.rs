@@ -123,6 +123,7 @@ pub fn run() {
             commands::unstage_all,
             commands::discard_files,
             commands::discard_all,
+            commands::open_repo_file,
             commands::stash_all,
             commands::stage_lines,
             commands::discard_lines,

@@ -4,6 +4,8 @@ import type { TFunction } from "i18next";
 import { remoteProfile } from "../../lib/profiles";
 import { pullSource, pullTargetOf } from "../../lib/pulls";
 import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
+import { api, errorCode } from "../../lib/api";
+import { useApp } from "../../store/app";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
@@ -149,5 +151,24 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
     "sep",
     { label: t("menu.copySha"), onClick: () => copy(sha) },
+  ];
+}
+
+/** Chemin absolu d'un fichier du dépôt, avec le séparateur du chemin du dépôt. */
+export function absolutePath(repo: string, file: string): string {
+  const sep = repo.includes("\\") ? "\\" : "/";
+  return `${repo.replace(/[\\/]+$/, "")}${sep}${file.split("/").join(sep)}`;
+}
+
+/** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). */
+export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
+  const run = (how: "open" | "reveal") => () =>
+    void api.openRepoFile(repo, file, how).catch((e) => useApp.setState({ error: errorCode(e) }));
+  return [
+    { label: t("menu.openFile"), onClick: run("open") },
+    { label: t("menu.revealFile"), onClick: run("reveal") },
+    "sep",
+    { label: t("menu.copyPath"), onClick: () => copy(file) },
+    { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },
   ];
 }

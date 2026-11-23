@@ -44,6 +44,33 @@ test("sélectionner un commit affiche ses détails, puis le diff d'un fichier", 
   await expect(graph(page)).toBeVisible();
 });
 
+test("clic droit sur un fichier d'un commit : ouvrir, montrer dans le dossier, copier le chemin", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!;
+  const menu = page.getByRole("menu");
+
+  await file.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Montrer dans le dossier" }).click();
+  await file.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Ouvrir avec le programme par défaut" }).click();
+  const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { file: string; how: string }[] }).__mockOpened);
+  expect(opened.map((o) => [o.file, o.how])).toEqual([
+    [name, "reveal"],
+    [name, "open"],
+  ]);
+
+  await file.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Copier le chemin", exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(name);
+  await file.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Copier le chemin complet" }).click();
+  const full = await page.evaluate(() => navigator.clipboard.readText());
+  // Dépôt simulé C:/Users/demo/Projects/GitGR : séparateur « / » gardé.
+  expect(full.endsWith(`/${name}`) && full.length > name.length + 1).toBe(true);
+});
+
 test("navigation au clavier dans le graphe", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   await rows.first().click();
