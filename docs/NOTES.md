@@ -196,6 +196,7 @@ Compléments et retours d'utilisation, par thème.
 - Échap referme aussi la page Profils (écouté sur la fenêtre).
 
 **Branches et réseau**
+- **Date du dernier fetch** dans la barre d'état (« Fetch il y a 5 min », date complète en infobulle ; date de `FETCH_HEAD`, lue avec le résumé du dépôt). Les badges ↑ / ↓ par branche de la barre latérale existaient déjà.
 - **Annuler / rétablir** (Ctrl+Z / Ctrl+Y ou Ctrl+Maj+Z, boutons Annuler / Rétablir de la barre d'outils, avec l'opération en infobulle ; `lib/undo.ts`, `store/undo.ts`) : chaque opération de GitGR qui déplace des branches locales ou HEAD (commit, amend, checkout, création / renommage / suppression / déplacement de branche, pull, merge, rebase, cherry-pick, revert, squash, reset) est notée par l'état des refs juste avant et après ; annuler rejoue l'inverse (`set_branch_tip` : branche courante par `reset --soft` pour un commit, `reset --keep` sinon — modifications en cours gardées, refus si elles touchent les mêmes fichiers ; autres branches par `update-ref` avec l'ancienne valeur attendue ; checkout entre les deux si la branche courante change). Refusé si le dépôt n'est plus dans l'état attendu (`undo_stale` : piles vidées). 50 opérations par dépôt, en mémoire pour la session. Pas notées : push, fetch, stash, opérations arrêtées sur des conflits, poursuite / abandon d'une opération en cours.
   - Limites : une branche supprimée puis recréée par Annuler perd son suivi (`branch.<b>.remote / merge`) ; une branche distante supprimée ne revient pas (rien n'est poussé) ; les modifications abandonnées par un reset hard ne reviennent pas ; pas de liste des opérations (seulement la dernière en infobulle).
 - **Glisser-déposer un commit sur une branche locale** (barre latérale ou étiquette du graphe ; `graph/commitDrag.ts`, événements souris car Tauri intercepte le drag & drop HTML5 sous Windows ; Échap annule) : menu « Cherry-pick de <sha> sur <branche> » (une autre branche : checkout d'abord, avec l'auto-stash) et, sur la courante, « Reset » (soft / mixed / hard), sur une autre, « Déplacer <branche> sur <sha> » (`git branch -f`, confirmation).
@@ -234,7 +235,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Menu contextuel d'une branche** (le reste est fait, cf. « Fait ») : **Rebase interactif <courante> onto <cette branche>** (avec le rebase interactif, étape 10) ; **Créer un worktree depuis** (sous-menu ; avec les worktrees, étape 9).
 - [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord) ; sélection de plusieurs commits glissée d'un coup.
-- [ ] **Vue push / pull** : badges ↑ / ↓ de la barre latérale, date du dernier fetch.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages, historique du fichier (rejoint « Blame », étape 10).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande) ; auto-stash réglable par dépôt.
 

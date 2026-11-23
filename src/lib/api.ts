@@ -346,6 +346,9 @@ export interface Api {
   };
 }
 
+
+/** Dernier fetch simulé par dépôt (secondes). */
+const mockLastFetch = new Map<string, number>();
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -739,6 +742,7 @@ const mockApi: Api = {
       behind: cur?.behind ?? 0,
       changes: mockChangeCount(path),
       remoteUrl: refs.remotes.find((r) => r.name === "origin")?.url ?? null,
+      lastFetch: mockLastFetch.get(path) ?? null,
     };
   },
   async repoLog(path, skip, limit) {
@@ -885,8 +889,9 @@ const mockApi: Api = {
     await mockDelay();
     mockDeleteRemoteBranch(path, branch);
   },
-  async fetch() {
+  async fetch(path) {
     await mockDelay();
+    mockLastFetch.set(path, Math.floor(Date.now() / 1000));
   },
   async pull(path, strategy, autoStash) {
     await mockDelay();

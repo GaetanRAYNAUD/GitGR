@@ -199,7 +199,9 @@
     "pushAll": "Pousser vers tous les remotes",
     "pushMenu": "Pousser vers…",
     "openFolder": "Ouvrir le dossier dans l'explorateur",
-    "openRemote": "Ouvrir {{url}} dans le navigateur"
+    "openRemote": "Ouvrir {{url}} dans le navigateur",
+    "lastFetch": "Fetch {{when}}",
+    "neverFetched": "Jamais de fetch"
   },
   "graph": {
     "label": "Historique des commits",

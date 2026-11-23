@@ -12,7 +12,7 @@ import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
 import { api, errorCode } from "../lib/api";
-import { remoteHost, remoteWebUrl } from "../lib/format";
+import { relativeTime, remoteHost, remoteWebUrl } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
@@ -250,6 +250,23 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   );
 }
 
+/** Date du dernier fetch (barre d'état), remise à jour chaque minute. */
+function LastFetch({ seconds }: { seconds: number | null }) {
+  const { t, i18n } = useTranslation();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (!seconds) return <span className="status-item muted">{t("repo.neverFetched")}</span>;
+  const r = relativeTime(seconds * 1000);
+  return (
+    <span className="status-item" title={new Date(seconds * 1000).toLocaleString(i18n.language)}>
+      {t("repo.lastFetch", { when: t(`time.${r.key}`, { count: r.count }) })}
+    </span>
+  );
+}
+
 /** Vue d'un dépôt ouvert : barre d'outils, branches, graphe (ou diff) et détails du commit. */
 export function RepoView({ path }: { path: string }) {
   const { t } = useTranslation();
@@ -459,6 +476,7 @@ export function RepoView({ path }: { path: string }) {
             ↑{data.ahead} ↓{data.behind}
           </span>
         )}
+        {data && <LastFetch seconds={data.lastFetch} />}
       </footer>
     </div>
   );

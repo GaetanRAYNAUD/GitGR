@@ -77,6 +77,12 @@ test.describe("dépôt propre", () => {
     await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
   });
 
+  test("barre d'état : date du dernier fetch", async ({ page }) => {
+    // Fetch automatique à l'ouverture de l'onglet.
+    await expect(page.locator(".statusbar")).toContainText("Fetch à l’instant");
+    await expect(page.locator(".statusbar").getByText("Fetch à l’instant")).toHaveAttribute("title", /\d/);
+  });
+
   test("pull en avance rapide sur une branche en retard", async ({ page }) => {
     await branch(page, "ssh-agent").dblclick();
     await expect(current(page)).toHaveText("fix/ssh-agent");

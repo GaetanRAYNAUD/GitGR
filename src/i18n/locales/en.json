@@ -199,7 +199,9 @@
     "pushAll": "Push to all remotes",
     "pushMenu": "Push to…",
     "openFolder": "Open the folder in the file manager",
-    "openRemote": "Open {{url}} in the browser"
+    "openRemote": "Open {{url}} in the browser",
+    "lastFetch": "Fetched {{when}}",
+    "neverFetched": "Never fetched"
   },
   "graph": {
     "label": "Commit history",

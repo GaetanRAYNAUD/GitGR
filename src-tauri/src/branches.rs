@@ -73,7 +73,7 @@ fn check_start(path: &Path, start: &str) -> Result<(), String> {
 
 /// Dossier `.git` du dépôt, gardé en mémoire : il ne change pas, et `status` le consulte à
 /// chaque rafraîchissement (opération en cours). Relu s'il a disparu (dépôt déplacé…).
-fn git_dir(path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn git_dir(path: &Path) -> Result<PathBuf, String> {
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
     static CACHE: OnceLock<Mutex<HashMap<PathBuf, PathBuf>>> = OnceLock::new();
@@ -1824,6 +1824,17 @@ mod tests {
         set_upstream(p, "autre", Some("origin/main")).unwrap();
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/main");
         assert_eq!(set_upstream(p, "autre", Some("origin/nulle-part")).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn summary_gives_the_last_fetch() {
+        let (_remote, a) = with_remote();
+        let p = a.path();
+        assert_eq!(crate::git::summary(p).unwrap().last_fetch, None);
+        fetch(p).unwrap();
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let at = crate::git::summary(p).unwrap().last_fetch.unwrap();
+        assert!(at + 60 > now && at <= now + 1);
     }
 
     #[test]
