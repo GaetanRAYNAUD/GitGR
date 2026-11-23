@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "appimage", "deb", "rpm", "app", "dmg"],
+    "targets": ["nsis", "appimage", "deb", "rpm", "app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Client Git visuel, multi-profils et multi-dépôts",
     "license": "MIT",
@@ -41,12 +41,26 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
     "linux": {
       "deb": {
         "desktopTemplate": "linux/gitgr.desktop"
       },
       "rpm": {
         "desktopTemplate": "linux/gitgr.desktop"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJBRjExMkJFOTcxMjMxODEKUldTQk1SS1h2aEx4S3BySlRmQzFEUS9hREdzRVF4T28zS2JRUTVGY2h2T01zRHdYQnUyRTVRTmwK",
+      "endpoints": ["https://github.com/GaetanRAYNAUD/GitGR/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

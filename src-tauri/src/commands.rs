@@ -31,6 +31,25 @@ pub async fn git_info() -> Result<GitInfo, String> {
     Ok(git::info())
 }
 
+/// Paquet par lequel GitGR est installé, pour les mises à jour : `nsis`, `appimage` et `app`
+/// (macOS) se mettent à jour seuls ; `deb` / `rpm` passent par le gestionnaire de paquets ;
+/// `none` : build hors paquet (`cargo build`, `tauri dev`), pas de mise à jour.
+#[tauri::command]
+pub fn install_kind() -> &'static str {
+    use tauri::utils::config::BundleType;
+    match tauri::utils::platform::bundle_type() {
+        Some(BundleType::Nsis) => "nsis",
+        Some(BundleType::Msi) => "msi",
+        Some(BundleType::AppImage) => "appimage",
+        Some(BundleType::Deb) => "deb",
+        Some(BundleType::Rpm) => "rpm",
+        // macOS : `bundle_type()` répond `App` même hors paquet ; un build de debug n'a rien à
+        // mettre à jour.
+        Some(BundleType::App | BundleType::Dmg) if !cfg!(debug_assertions) => "app",
+        _ => "none",
+    }
+}
+
 #[tauri::command]
 pub fn get_state(store: StoreState<'_>) -> AppState {
     store.lock().unwrap().state.clone()

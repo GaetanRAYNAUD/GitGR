@@ -77,6 +77,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Mises à jour : manifeste `latest.json` de la dernière release GitHub, paquets signés
+        // (clé publique dans tauri.conf.json). Vérification et installation lancées par
+        // l'interface ; `process` pour redémarrer après l'installation.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // Taille, position et état agrandi (ou plein écran) de la fenêtre, gardés d'une session
         // à l'autre (`.window-state.json` à côté de state.json, sauvé à la fermeture). La
         // visibilité et les décorations restent celles de tauri.conf.json.
@@ -102,6 +107,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::git_info,
+            commands::install_kind,
             commands::get_state,
             commands::open_repo,
             commands::forget_repo,
