@@ -203,7 +203,8 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
 
     // Push de travail sans y être : suivie sur origin.
     git(mine, "switch", "-q", "main");
-    await expect(page.locator(".branch-chip-label")).toHaveText("main");
+    // Le menu lit les refs de la barre latérale : attendre qu'elle soit relue.
+    await expect(locals.getByRole("button", { name: /^main/ })).toHaveClass(/current/);
     await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Push de travail" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail poussée." })).toBeVisible();
