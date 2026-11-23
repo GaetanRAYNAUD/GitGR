@@ -143,3 +143,42 @@ test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une l
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toContainText("Appliquer et retirer (pop)");
 });
+
+test("sélection multiple : Ctrl+clic puis clic droit, les actions portent sur toute la sélection", async ({ page }) => {
+  await unstaged(page).locator(".file-row", { hasText: "render.ts" }).click();
+  await unstaged(page).locator(".file-row", { hasText: "notes.txt" }).click({ modifiers: ["Control"] });
+  await expect(unstaged(page).locator(".file-row.picked")).toHaveCount(2);
+  await unstaged(page).locator(".file-row", { hasText: "notes.txt" }).click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: "Annuler les modifications de 2 fichiers…" })).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Indexer 2 fichiers" }).click();
+  await expect(staged(page)).toContainText("render.ts");
+  await expect(staged(page)).toContainText("notes.txt");
+  await expect(unstaged(page)).toContainText("log.rs");
+});
+
+test("Maj+clic prend la plage, puis stash de la sélection avec les fichiers déjà cochés", async ({ page }) => {
+  const rows = unstaged(page).locator(".file-row");
+  await rows.first().click();
+  await rows.last().click({ modifiers: ["Shift"] });
+  await expect(unstaged(page).locator(".file-row.picked")).toHaveCount(await rows.count());
+  await rows.first().click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Mettre de côté des fichiers (stash)…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Mettre de côté des fichiers" });
+  await expect(dialog.getByRole("checkbox", { name: /notes\.txt/ })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: /render\.ts/ })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: /lanes\.ts/ })).not.toBeChecked();
+});
+
+test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async ({ page }) => {
+  await panel(page).getByRole("button", { name: "Arborescence" }).click();
+  const dir = unstaged(page).locator(".file-dir-row", { hasText: "graph" });
+  await dir.click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: "Ouvrir le dossier" })).toBeVisible();
+  // Fichiers suivis : pas d'« ignorer le dossier ».
+  await expect(menu.getByRole("menuitem", { name: /Ignorer/ })).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "Indexer le fichier" }).click();
+  await expect(staged(page)).toContainText("render.ts");
+  await expect(unstaged(page)).not.toContainText("render.ts");
+});

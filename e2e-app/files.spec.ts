@@ -65,3 +65,36 @@ test("ne plus suivre un fichier modifié : retiré de l'index, gardé sur le dis
     await app.close();
   }
 });
+
+test("arborescence et sélection multiple : ignorer un dossier, indexer deux fichiers d'un coup", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "a\n", "ajout de a.txt");
+  sandbox.commit(mine, "b.txt", "b\n", "ajout de b.txt");
+  mkdirSync(join(mine, "logs"));
+  sandbox.write(mine, "logs/un.log", "1\n");
+  sandbox.write(mine, "logs/deux.log", "2\n");
+  sandbox.write(mine, "a.txt", "a modifié\n");
+  sandbox.write(mine, "b.txt", "b modifié\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const unstaged = panel.getByRole("list", { name: "Non indexés", exact: true });
+    const menu = page.getByRole("menu");
+    await panel.getByRole("button", { name: "Arborescence" }).click();
+    await unstaged.locator(".file-dir-row", { hasText: "logs" }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Ignorer le dossier logs/" }).click();
+    await expect(unstaged).not.toContainText("un.log");
+    expect(readFileSync(join(mine, ".gitignore"), "utf8")).toContain("/logs/");
+
+    await unstaged.locator(".file-row", { hasText: "a.txt" }).click();
+    await unstaged.locator(".file-row", { hasText: "b.txt" }).click({ modifiers: ["Control"] });
+    await unstaged.locator(".file-row", { hasText: "b.txt" }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Indexer 2 fichiers" }).click();
+    await expect(panel.getByRole("list", { name: "Indexés", exact: true })).toContainText("b.txt");
+    expect(git(mine, "diff", "--cached", "--name-only").split("\n").sort()).toEqual(["a.txt", "b.txt"]);
+  } finally {
+    await app.close();
+  }
+});

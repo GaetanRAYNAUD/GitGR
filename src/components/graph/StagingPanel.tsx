@@ -4,8 +4,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
-import { ignoreChoices } from "../../lib/gitignore";
-import { fileMenu } from "./menus";
+import { dirIgnore, ignoreChoices } from "../../lib/gitignore";
+import { dirMenu, fileMenu } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
@@ -26,6 +26,8 @@ export function StagingPanel({ path }: { path: string }) {
   const branch = useApp((s) => s.summaries[path]?.data?.branch);
   const view = useApp((s) => s.settings.fileView ?? "list");
   const [closed, setClosed] = useState<Set<ListKind>>(() => new Set());
+  /** Fichiers sélectionnés (Ctrl+clic, Maj+clic), dans une seule liste à la fois. */
+  const [picked, setPicked] = useState<{ kind: ListKind; paths: Set<string> } | null>(null);
   const widthStyle = useWidthStyle(LAYOUT.panel);
 
   const st = work?.status;
@@ -93,6 +95,38 @@ export function StagingPanel({ path }: { path: string }) {
     return items;
   };
 
+  /** Actions sur plusieurs fichiers d'une liste (sélection, dossier). */
+  const bulkItems = (kind: ListKind, files: StatusFile[]): MenuItem[] => {
+    const count = files.length;
+    if (kind === "conflicted") return [{ label: t("staging.resolvedFiles", { count }), disabled: busy, onClick: () => w.stage(path, files) }];
+    const stash: MenuItem = { label: t("staging.stashFiles"), disabled: busy, onClick: () => void askStash(files) };
+    if (kind === "staged") return [{ label: t("staging.unstageFiles", { count }), disabled: busy, onClick: () => w.unstage(path, files) }, stash];
+    return [
+      { label: t("staging.stageFiles", { count }), disabled: busy, onClick: () => w.stage(path, files) },
+      { label: t("staging.discardFilesMenu", { count }), danger: true, disabled: busy, onClick: () => void askDiscard(files) },
+      stash,
+    ];
+  };
+
+  /** Clic droit sur un fichier : la sélection entière s'il en fait partie, sinon lui seul. */
+  const fileContextMenu = (e: React.MouseEvent, kind: ListKind, files: StatusFile[], f: StatusFile) => {
+    const sel = picked?.kind === kind ? files.filter((x) => picked.paths.has(x.path)) : [];
+    if (sel.length > 1 && sel.includes(f)) return openContextMenu(e, bulkItems(kind, sel));
+    setPicked({ kind, paths: new Set([f.path]) });
+    openContextMenu(e, [...stagingItems(kind, f), "sep", ...fileMenu(t, path, f.path)]);
+  };
+
+  /** Clic droit sur un dossier (arborescence) : ses fichiers de cette liste. */
+  const dirContextMenu = (e: React.MouseEvent, kind: ListKind, dir: string, files: StatusFile[]) => {
+    setPicked({ kind, paths: new Set(files.map((f) => f.path)) });
+    const items = bulkItems(kind, files);
+    if (kind === "unstaged" && files.every((f) => f.status === "?")) {
+      const c = dirIgnore(dir);
+      items.push("sep", { label: t("staging.ignore.dir", { name: c.label }), disabled: busy, onClick: () => w.ignore(path, c.pattern) });
+    }
+    openContextMenu(e, [...items, "sep", ...dirMenu(t, path, dir)]);
+  };
+
   const askDiscardAll = async () => {
     const pick = await useDialogs.getState().choose({
       title: t("staging.discardAllTitle"),
@@ -152,7 +186,10 @@ export function StagingPanel({ path }: { path: string }) {
               isActive={(f) => diff?.file.path === f.path && diff.area === areaOf(f, kind)}
               onOpen={(f) => w.openDiff(path, f, areaOf(f, kind))}
               onDoubleClick={(f) => (kind === "staged" ? w.unstage(path, [f]) : w.stage(path, [f]))}
-              onContextMenu={(e, f) => openContextMenu(e, [...stagingItems(kind, f), "sep", ...fileMenu(t, path, f.path)])}
+              onContextMenu={(e, f) => fileContextMenu(e, kind, files, f)}
+              onDirContextMenu={(e, dir, inside) => dirContextMenu(e, kind, dir, inside)}
+              selected={picked?.kind === kind ? picked.paths : undefined}
+              onSelect={(paths) => setPicked({ kind, paths })}
               actions={(f) =>
                 kind === "staged" ? (
                   <button className="mini" disabled={busy} onClick={() => w.unstage(path, [f])}>

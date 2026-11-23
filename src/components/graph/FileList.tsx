@@ -1,7 +1,7 @@
 // Liste de fichiers (commit ou copie de travail), à plat ou en arborescence,
 // avec badge de statut et actions optionnelles par fichier.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { fileTree, type FileNode } from "../../lib/fileTree";
 import type { FileViewSetting } from "../../lib/types";
@@ -89,22 +89,77 @@ interface Props<T extends ListFile> {
   onContextMenu?: (e: React.MouseEvent, f: T) => void;
   /** Boutons affichés au survol de la ligne. */
   actions?: (f: T) => ReactNode;
+  /** Clic droit sur un dossier (arborescence) : ses fichiers, dans l'ordre de la liste. */
+  onDirContextMenu?: (e: React.MouseEvent, dir: string, files: T[]) => void;
+  /** Sélection multiple (chemins) : Ctrl+clic ajoute ou retire, Maj+clic prend la plage,
+   *  Ctrl+clic sur un dossier prend ou laisse tous ses fichiers. */
+  selected?: ReadonlySet<string>;
+  onSelect?: (next: Set<string>) => void;
 }
 
-export function FileList<T extends ListFile>({ files, view, label, isActive, onOpen, onDoubleClick, onContextMenu, actions }: Props<T>) {
+/** Fichiers d'un nœud de l'arborescence, dans l'ordre d'affichage. */
+function nodeFiles<T extends ListFile>(nodes: FileNode<T>[], out: T[] = []): T[] {
+  for (const n of nodes) {
+    if (n.type === "file") out.push(n.file);
+    else nodeFiles(n.children, out);
+  }
+  return out;
+}
+
+export function FileList<T extends ListFile>({
+  files,
+  view,
+  label,
+  isActive,
+  onOpen,
+  onDoubleClick,
+  onContextMenu,
+  actions,
+  onDirContextMenu,
+  selected,
+  onSelect,
+}: Props<T>) {
   // Dossiers repliés, par chemin (conservés d'un commit à l'autre).
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const tree = useMemo(() => (view === "tree" ? fileTree(files) : []), [view, files]);
+  /** Ordre d'affichage des fichiers (plage du Maj+clic). */
+  const order = useMemo(() => (view === "tree" ? nodeFiles(tree) : files), [view, tree, files]);
+  /** Point de départ du Maj+clic : le dernier fichier cliqué. */
+  const anchor = useRef<string | null>(null);
+
+  const click = (e: React.MouseEvent, f: T) => {
+    if (onSelect && (e.ctrlKey || e.metaKey)) {
+      const next = new Set(selected);
+      if (!next.delete(f.path)) next.add(f.path);
+      anchor.current = f.path;
+      onSelect(next);
+      return;
+    }
+    if (onSelect && e.shiftKey && anchor.current) {
+      const a = order.findIndex((x) => x.path === anchor.current);
+      const b = order.findIndex((x) => x.path === f.path);
+      if (a >= 0 && b >= 0) {
+        const [from, to] = a < b ? [a, b] : [b, a];
+        onSelect(new Set(order.slice(from, to + 1).map((x) => x.path)));
+        return;
+      }
+    }
+    anchor.current = f.path;
+    onSelect?.(new Set([f.path]));
+    onOpen(f);
+  };
 
   const row = (f: T, depth?: number) => {
     const slash = f.path.lastIndexOf("/");
     const inTree = depth !== undefined;
+    const picked = !!selected?.has(f.path) && selected.size > 1;
     return (
       <li key={f.path} className="file-item">
         <button
-          className={isActive(f) ? "file-row on" : "file-row"}
+          className={["file-row", isActive(f) && "on", picked && "picked"].filter(Boolean).join(" ")}
+          aria-pressed={onSelect ? !!selected?.has(f.path) : undefined}
           style={inTree ? ({ "--depth": depth } as React.CSSProperties) : undefined}
-          onClick={() => onOpen(f)}
+          onClick={(e) => click(e, f)}
           onDoubleClick={onDoubleClick && (() => onDoubleClick(f))}
           onContextMenu={onContextMenu && ((e) => onContextMenu(e, f))}
           title={f.oldPath ? `${f.oldPath} → ${f.path}` : f.path}
@@ -129,13 +184,25 @@ export function FileList<T extends ListFile>({ files, view, label, isActive, onO
     nodes.map((n) => {
       if (n.type === "file") return row(n.file, depth);
       const open = !collapsed.has(n.path);
+      const inside = nodeFiles(n.children);
+      const all = inside.length > 0 && inside.every((f) => selected?.has(f.path));
       return (
         <li key={`dir:${n.path}`}>
           <button
-            className="file-row file-dir-row"
+            className={all && selected!.size > 1 ? "file-row file-dir-row picked" : "file-row file-dir-row"}
             style={{ "--depth": depth } as React.CSSProperties}
             aria-expanded={open}
-            onClick={() => toggle(n.path)}
+            onClick={(e) => {
+              if (onSelect && (e.ctrlKey || e.metaKey)) {
+                const next = new Set(selected);
+                for (const f of inside) {
+                  if (all) next.delete(f.path);
+                  else next.add(f.path);
+                }
+                onSelect(next);
+              } else toggle(n.path);
+            }}
+            onContextMenu={onDirContextMenu && ((e) => onDirContextMenu(e, n.path, inside))}
             title={n.path}
           >
             <Icon name="chevron" size={12} className={open ? "chev" : "chev closed"} />
