@@ -389,7 +389,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
               </button>
             </div>
             <MultiPicker label={t("pr.reviewers")} options={reviewerOptions} selected={reviewers} onChange={pick(setReviewers)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
-            <div className="pull-assignees">
+            <div className="pull-assign-field">
               <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
               {/* Seulement si le compte est dans la liste (GitLab a besoin de son identifiant). */}
               {me && people.has(me.toLowerCase()) && !assignees.includes(me.toLowerCase()) && (

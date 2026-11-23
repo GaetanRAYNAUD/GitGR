@@ -527,7 +527,8 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
   );
 }
 
-/** Ordre des groupes : ce qui demande de l'attention d'abord ; les réussis repliés d'office. */
+/** Ordre des groupes : ce qui demande de l'attention d'abord ; les réussis et les ignorés /
+ *  annulés repliés d'office. */
 const CHECK_GROUPS: PullCheck["state"][] = ["failure", "pending", "neutral", "success"];
 const CHECK_ICON: Record<PullCheck["state"], IconName> = { failure: "close", pending: "fetch", neutral: "minimize", success: "check" };
 
@@ -535,7 +536,7 @@ function Checks({ ctx, d }: { ctx: PullContext; d: PullDetail }) {
   const { t } = useTranslation();
   const act = usePullList((s) => s.act);
   const busy = usePullList((s) => detailEntry(s, ctx, d.number)?.busy ?? null);
-  const [open, setOpen] = useState<Set<string>>(() => new Set(["failure", "pending", "neutral"]));
+  const [open, setOpen] = useState<Set<string>>(() => new Set(["failure", "pending"]));
   if (d.checksList.length === 0) return <p className="muted pull-pad">{t("prv.noChecks")}</p>;
   const total = d.checksList.length;
   const count = (s: PullCheck["state"]) => d.checksList.filter((c) => c.state === s).length;

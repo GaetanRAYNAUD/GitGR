@@ -2,7 +2,7 @@
 // pastilles, un champ qui filtre la liste en dessous. Fait pour des listes de milliers
 // d'éléments : seuls les premiers résultats sont rendus.
 
-import { useId, useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface PickOption {
@@ -18,6 +18,28 @@ export interface PickOption {
 
 /** Résultats affichés au plus (la recherche affine). */
 const SHOWN = 50;
+
+/** Hauteur de la liste au plus (`.mpick-list`), et marge gardée au bord. */
+const LIST_MAX = 200;
+const EDGE = 12;
+
+/** Premier ancêtre qui coupe ce qui dépasse : la liste, en position absolue, y est coupée. */
+function clipParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if (o === "auto" || o === "scroll" || o === "hidden") return p;
+  }
+  return null;
+}
+
+/** Où ouvrir la liste : en dessous si elle y tient, sinon du côté qui a le plus de place
+ *  (zone visible = fenêtre ∩ ancêtre qui coupe), hauteur limitée à cette place. */
+export function placeList(box: { top: number; bottom: number }, area: { top: number; bottom: number }): { up: boolean; max: number } {
+  const below = area.bottom - box.bottom - EDGE;
+  const above = box.top - area.top - EDGE;
+  const up = below < LIST_MAX && above > below;
+  return { up, max: Math.max(80, Math.min(LIST_MAX, up ? above : below)) };
+}
 
 const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
@@ -62,6 +84,33 @@ export function MultiPicker({
   const byId = useMemo(() => new Map(options.map((o) => [o.id, o])), [options]);
   const matches = useMemo(() => matchOptions(options, query), [options, query]);
   const shown = matches.slice(0, SHOWN);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ up: boolean; max: number }>({ up: false, max: LIST_MAX });
+
+  // Le champ entier (libellé compris) : la liste s'ouvre sous lui ou au-dessus. Mesuré à
+  // l'ouverture, avant l'affichage (pas de liste qui saute d'un côté à l'autre), puis de
+  // nouveau si la zone défile ou si la fenêtre change de taille, liste ouverte.
+  useLayoutEffect(() => {
+    const field = fieldRef.current;
+    if (!open || !field) return;
+    const measure = () => {
+      const a = clipParent(field)?.getBoundingClientRect();
+      const area = { top: Math.max(0, a?.top ?? 0), bottom: Math.min(window.innerHeight, a?.bottom ?? window.innerHeight) };
+      const next = placeList(field.getBoundingClientRect(), area);
+      setPlace((p) => (p.up === next.up && p.max === next.max ? p : next));
+    };
+    measure();
+    // Pas le défilement de la liste elle-même.
+    const onScroll = (e: Event) => {
+      if (!(e.target instanceof Node && field.contains(e.target))) measure();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open]);
 
   /** Choisit (ou retire) puis ferme la liste : elle ne reste pas par-dessus les champs
    *  suivants. Elle se rouvre en tapant, au clic ou avec ↓. */
@@ -91,7 +140,7 @@ export function MultiPicker({
   };
 
   return (
-    <div className="input-field mpick-field">
+    <div ref={fieldRef} className="input-field mpick-field">
       <span id={`${id}-label`}>{label}</span>
       <div className={disabled ? "mpick disabled" : "mpick"}>
         {selected.map((sid) => {
@@ -131,7 +180,7 @@ export function MultiPicker({
         />
       </div>
       {open && (
-        <ul className="mpick-list" role="listbox" id={`${id}-list`} aria-labelledby={`${id}-label`} aria-multiselectable="true">
+        <ul className={place.up ? "mpick-list up" : "mpick-list"} style={{ maxHeight: place.max }} role="listbox" id={`${id}-list`} aria-labelledby={`${id}-label`} aria-multiselectable="true">
           {shown.map((o, i) => (
             <li
               key={o.id}

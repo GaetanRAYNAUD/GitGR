@@ -3848,6 +3848,17 @@ p.pf-account-keys.bad,
   border-top: 1px solid var(--border);
 }
 
+/* Version de GitGR, en bas de la page. */
+.settings-version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .settings-help {
   margin: 0;
   font-size: 12.5px;
@@ -4022,7 +4033,7 @@ p.pf-account-keys.bad,
   min-width: 0;
 }
 
-.pull-assignees {
+.pull-assign-field {
   position: relative;
 }
 
@@ -4121,6 +4132,13 @@ p.pf-account-keys.bad,
   border-radius: 8px;
   background: var(--panel);
   list-style: none;
+}
+
+/* Pas la place en dessous (bas de la fenêtre ou de la zone qui défile) : vers le haut. */
+.mpick-list.up {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
 }
 
 .mpick-option {

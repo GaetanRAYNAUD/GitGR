@@ -29,6 +29,8 @@
     "close": "Fermer"
   },
   "settings": {
+    "version": "GitGR {{version}}",
+    "releaseNotes": "Notes de version",
     "title": "Réglages",
     "theme": "Thème",
     "themeSystem": "Système",
