@@ -17,6 +17,7 @@ import { useDialogs } from "../../store/dialogs";
 import { useOps } from "../../store/ops";
 import { useGraph } from "../../store/graph";
 import { detailEntry, usePullList, type PullContext } from "../../store/pullList";
+import { Markdown } from "../Markdown";
 import { Icon, type IconName } from "../Icon";
 import { PersonAvatar } from "../PersonAvatar";
 import { PullEdit } from "./PullEdit";
@@ -135,8 +136,8 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
   );
 }
 
-function Body({ text }: { text: string }) {
-  return <div className="pull-text">{text}</div>;
+function Body({ text, empty }: { text: string; empty?: React.ReactNode }) {
+  return <Markdown text={text} className="pull-text" empty={empty} />;
 }
 
 function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullContext; d: PullDetail; people: PersonContext; term: "pr" | "mr" }) {
@@ -165,7 +166,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
               {t("prv.edit")}
             </button>
           )}
-          {d.body.trim() ? <Body text={d.body} /> : <p className="muted">{t("prv.noBody")}</p>}
+          <Body text={d.body} empty={<p className="muted">{t("prv.noBody")}</p>} />
           {d.assignees.length > 0 && (
             <p className="pull-assignees muted">
               {t("pr.assignees")} :

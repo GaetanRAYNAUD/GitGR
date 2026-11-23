@@ -55,6 +55,16 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");
   await expect(view(page).getByText("Approbations requises manquantes.")).toBeVisible();
   await expect(view(page).getByRole("button", { name: /^Merger$/ }).last()).toBeDisabled();
+  // Description en Markdown : commentaire du modèle masqué, titre, gras, code, cases, lien.
+  const desc = view(page).locator(".pull-desc .md");
+  await expect(desc).not.toContainText("Décrivez le changement");
+  await expect(desc.getByRole("heading", { name: "Contexte" })).toBeVisible();
+  await expect(desc.locator("strong")).toHaveText("canvas");
+  await expect(desc.locator("p code")).toHaveText("drawVisible");
+  await expect(desc.locator("pre code")).toHaveText("ctx.drawImage(lane, 0, y);");
+  await expect(desc.getByRole("checkbox")).toHaveCount(2);
+  await expect(desc.getByRole("checkbox").first()).toBeChecked();
+  await expect(desc.getByRole("link", { name: "la doc" })).toHaveAttribute("href", "https://example.com/canvas");
 
   // Réponse à un fil sur le code, puis résolution.
   await view(page).getByRole("button", { name: "Répondre" }).click();

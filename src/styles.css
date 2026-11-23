@@ -4483,9 +4483,138 @@ p.pf-account-keys.bad,
 }
 
 .pull-text {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.5;
+}
+
+/* Markdown d'une PR / MR (Markdown.tsx). */
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre,
+.md .md-table {
+  margin: 0 0 8px;
+}
+
+.md .md-h {
+  margin: 14px 0 6px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.md .md-h1 {
+  font-size: 17px;
+}
+
+.md .md-h2 {
+  font-size: 15.5px;
+}
+
+.md .md-h3,
+.md .md-h4,
+.md .md-h5,
+.md .md-h6 {
+  font-size: 14px;
+}
+
+.md .md-h1,
+.md .md-h2 {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.md ul,
+.md ol {
+  padding-left: 22px;
+}
+
+.md li > p,
+.md li > ul,
+.md li > ol {
+  margin: 2px 0;
+}
+
+.md li.md-task {
+  list-style: none;
+}
+
+.md li.md-task > input {
+  margin: 0 6px 0 -18px;
+  vertical-align: -2px;
+}
+
+.md li.md-task > p:first-of-type {
+  display: inline;
+}
+
+.md code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.88em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--panel2);
+}
+
+.md pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel2);
+}
+
+.md pre code {
+  padding: 0;
+  background: none;
+  white-space: pre;
+}
+
+.md blockquote {
+  padding: 0 0 0 10px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.md hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.md a {
+  color: var(--link);
+}
+
+.md a.md-image::before {
+  content: "🖼 ";
+}
+
+.md .md-table {
+  overflow-x: auto;
+}
+
+.md table {
+  border-collapse: collapse;
+}
+
+.md th,
+.md td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+}
+
+.md th {
+  background: var(--panel2);
+  font-weight: 600;
 }
 
 .pull-reviews {
