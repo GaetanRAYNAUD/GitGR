@@ -6,7 +6,12 @@ import { openNextRepo, openRepos, tab } from "./fixtures";
 // Les opérations simulées sont dans src/lib/mockBranches.ts.
 
 const tools = (page: Page) => page.locator(".tools");
-const tool = (page: Page, name: string) => tools(page).getByRole("button", { name: new RegExp(`^${name}`) });
+/** Bouton de la barre d'outils, avec son badge cliquable quand il en a un (enveloppe `.tool-badged`). */
+const tool = (page: Page, name: string) =>
+  page
+    .locator(".tools")
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .locator("xpath=(ancestor::*[contains(concat(' ', @class, ' '), ' tool-badged ')] | .)[1]");
 const current = (page: Page) => page.locator(".branch-chip-label");
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches et tags" });
 /** Section « Local » de la barre latérale (les distantes ont souvent le même nom). */

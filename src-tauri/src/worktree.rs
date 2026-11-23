@@ -11,7 +11,7 @@ use crate::git::{run, run_input, run_raw};
 use crate::history::{check_dir, fingerprint, parse_diff, parse_hunk_header, FileDiff};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Au-delà, un fichier non suivi n'est pas affiché ligne à ligne.
 const MAX_UNTRACKED_BYTES: usize = 2 * 1024 * 1024;
@@ -552,8 +552,97 @@ pub fn head_message(path: &Path) -> Result<String, String> {
     run(Some(path), &["log", "-1", "--format=%B"])
 }
 
+/// Ajoute une ligne au `.gitignore` à la racine du dépôt (créé s'il n'existe pas), sauf si
+/// elle y est déjà. Vrai si le fichier a changé.
+pub fn add_to_gitignore(repo: &Path, pattern: &str) -> Result<bool, String> {
+    let pattern = pattern.trim_end_matches(['\r', '\n']);
+    if pattern.is_empty() || pattern.contains(['\r', '\n']) {
+        return Err("invalid pattern".into());
+    }
+    let file = repo.join(".gitignore");
+    let current = match std::fs::read_to_string(&file) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e.to_string()),
+    };
+    if current.lines().any(|l| l.trim_end() == pattern) {
+        return Ok(false);
+    }
+    // Même fin de ligne que le reste du fichier.
+    let eol = if current.contains("\r\n") { "\r\n" } else { "\n" };
+    let mut text = current;
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push_str(eol);
+    }
+    text.push_str(pattern);
+    text.push_str(eol);
+    std::fs::write(&file, text).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+/// Fichier `file` (chemin relatif du dépôt, comme Git le donne) de la copie de travail,
+/// refusé s'il sort du dépôt (`..`, chemin absolu, lien) : `outside_repo`.
+pub fn repo_file(repo: &Path, file: &str) -> Result<PathBuf, String> {
+    let rel = Path::new(file);
+    if rel.is_absolute() || rel.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+        return Err("outside_repo".into());
+    }
+    let root = repo.canonicalize().map_err(|_| "path_not_found".to_string())?;
+    let full = root.join(rel);
+    // Ce qui existe déjà du chemin doit rester dans le dépôt (pas de lien vers ailleurs).
+    if let Some(existing) = full.ancestors().find(|a| a.exists()) {
+        let real = existing.canonicalize().map_err(|e| e.to_string())?;
+        if !real.starts_with(&root) {
+            return Err("outside_repo".into());
+        }
+    }
+    // Le chemin tel que le dépôt est connu, pas sa forme canonique (`\\?\H:\…` sous
+    // Windows, que l'explorateur ne comprend pas toujours).
+    Ok(repo.join(rel))
+}
+
+/// Dossier à montrer pour un fichier : le sien, ou le premier parent qui existe encore
+/// (fichier supprimé, dossier supprimé avec lui).
+pub fn existing_dir(full: &Path, root: &Path) -> PathBuf {
+    full.ancestors()
+        .skip(1)
+        .find(|a| a.is_dir())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.to_path_buf())
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn add_to_gitignore_appends_once() {
+        let dir = std::env::temp_dir().join(format!("gitgr-ignore-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(add_to_gitignore(&dir, "/a.log").unwrap());
+        assert!(!add_to_gitignore(&dir, "/a.log").unwrap());
+        std::fs::write(dir.join(".gitignore"), "x\r\ny").unwrap();
+        assert!(add_to_gitignore(&dir, "*.tmp").unwrap());
+        assert_eq!(std::fs::read_to_string(dir.join(".gitignore")).unwrap(), "x\r\ny\r\n*.tmp\r\n");
+        assert!(add_to_gitignore(&dir, "a\nb").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn repo_file_stays_inside_the_repo() {
+        let dir = std::env::temp_dir().join(format!("gitgr-repo-file-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/a.txt"), "a").unwrap();
+        assert_eq!(repo_file(&dir, "src/a.txt").unwrap(), dir.join("src/a.txt"));
+        // Supprimé : chemin rendu quand même, son dossier existant le plus proche montré.
+        let gone = repo_file(&dir, "old/b.txt").unwrap();
+        assert_eq!(existing_dir(&gone, &dir), dir);
+        assert_eq!(existing_dir(&dir.join("src/a.txt"), &dir), dir.join("src"));
+        assert_eq!(repo_file(&dir, "../x").unwrap_err(), "outside_repo");
+        assert_eq!(repo_file(&dir, "src/../../x").unwrap_err(), "outside_repo");
+        let abs = if cfg!(windows) { "C:/Windows" } else { "/etc" };
+        assert_eq!(repo_file(&dir, abs).unwrap_err(), "outside_repo");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     use super::*;
     use crate::git::tests::{commit_file, temp_repo};
 

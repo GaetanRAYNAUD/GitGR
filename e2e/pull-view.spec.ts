@@ -55,6 +55,16 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");
   await expect(view(page).getByText("Approbations requises manquantes.")).toBeVisible();
   await expect(view(page).getByRole("button", { name: /^Merger$/ }).last()).toBeDisabled();
+  // Description en Markdown : commentaire du modèle masqué, titre, gras, code, cases, lien.
+  const desc = view(page).locator(".pull-desc .md");
+  await expect(desc).not.toContainText("Décrivez le changement");
+  await expect(desc.getByRole("heading", { name: "Contexte" })).toBeVisible();
+  await expect(desc.locator("strong")).toHaveText("canvas");
+  await expect(desc.locator("p code")).toHaveText("drawVisible");
+  await expect(desc.locator("pre code")).toHaveText("ctx.drawImage(lane, 0, y);");
+  await expect(desc.getByRole("checkbox")).toHaveCount(2);
+  await expect(desc.getByRole("checkbox").first()).toBeChecked();
+  await expect(desc.getByRole("link", { name: "la doc" })).toHaveAttribute("href", "https://example.com/canvas");
 
   // Réponse à un fil sur le code, puis résolution.
   await view(page).getByRole("button", { name: "Répondre" }).click();
@@ -63,7 +73,7 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await view(page).getByRole("textbox", { name: "Répondre" }).press("Escape");
   await expect(view(page)).toBeVisible();
   await view(page).locator(".pull-reply").getByRole("button", { name: "Répondre" }).click();
-  await expect(view(page).getByText("Pour rester lisible.")).toBeVisible();
+  await expect(view(page).locator(".pull-text").getByText("Pour rester lisible.")).toBeVisible();
   await view(page).getByRole("button", { name: "Résoudre le fil" }).click();
   await expect(view(page).getByText("résolu")).toBeVisible();
 
@@ -169,4 +179,20 @@ test("section Merge requests décochée : rien n'est lu d'office, relu dès qu'e
   await page.getByRole("dialog", { name: "Sections affichées" }).getByRole("checkbox", { name: "Merge requests" }).check();
   await expect(pulls(page).locator(".pull-item")).toHaveCount(3);
   await expect(page.locator(".chip .chip-pull", { hasText: "!12" })).toBeVisible();
+});
+
+test("liens d'un message de commit : !12 ouvre la MR dans GitGR, un SHA sélectionne le commit", async ({ page }) => {
+  await seed(page);
+  const graph = page.getByRole("listbox", { name: "Historique des commits" });
+  const details = page.getByRole("complementary", { name: "Détails du commit" });
+  await graph.getByRole("option").nth(1).click();
+  const body = details.locator(".details-body");
+  // Le parent, cité par son SHA court : sélectionné au clic.
+  const parent = body.locator(".commit-link").filter({ hasText: /^[0-9a-f]{8}$/ });
+  const short = (await parent.textContent())!;
+  await parent.click();
+  await expect(details.locator(".sha-line")).toHaveAttribute("title", new RegExp(`^${short}`));
+
+  await details.locator(".details-body .commit-link", { hasText: "!12" }).click();
+  await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");
 });

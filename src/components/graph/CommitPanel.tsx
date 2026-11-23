@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { openContextMenu } from "../ContextMenu";
+import { fileMenu } from "./menus";
+import { CommitText } from "./CommitText";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, useWidthStyle } from "../../lib/layout";
 import { initials } from "../../lib/format";
@@ -56,8 +59,14 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
     <>
       <ResizableBlock layoutKey={LAYOUT.details} label={t("layout.details")} className="details-top">
         <div className="details-head">
-          <h2 className="details-subject">{d.subject}</h2>
-          {d.body && <p className="details-body">{d.body}</p>}
+          <h2 className="details-subject">
+            <CommitText path={path} text={d.subject} />
+          </h2>
+          {d.body && (
+            <p className="details-body">
+              <CommitText path={path} text={d.body} />
+            </p>
+          )}
         </div>
 
         <div className="details-meta">
@@ -102,6 +111,7 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
           label={t("details.files", { count: d.files.length })}
           isActive={(f) => diff?.sha === d.sha && diff.file.path === f.path}
           onOpen={(f) => openDiff(path, d.sha, f)}
+          onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
         />
       )}
     </>

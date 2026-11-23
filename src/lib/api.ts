@@ -70,6 +70,8 @@ import type {
   PullList,
   PullOptions,
   PullStrategy,
+  RangeChanges,
+  RangeDirection,
   NewRepo,
   Namespace,
   ProviderRepo,
@@ -104,6 +106,10 @@ export interface Api {
   commitDetails(path: string, sha: string): Promise<CommitDetails>;
   /** Diff d'un fichier d'un commit par rapport à son premier parent. */
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
+  /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
+  rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
+  /** Diff cumulé d'un fichier entre `base` et `tip`. */
+  rangeDiff(path: string, base: string, tip: string, file: string, oldFile: string | null): Promise<FileDiff>;
   // Copie de travail
   workStatus(path: string): Promise<WorkStatus>;
   workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
@@ -114,6 +120,8 @@ export interface Api {
   /** Abandonne les modifications non indexées ; les fichiers non suivis sont supprimés. */
   discardFiles(path: string, tracked: string[], untracked: string[]): Promise<void>;
   discardAll(path: string): Promise<void>;
+  /** Ajoute un motif au `.gitignore` du dépôt ; faux s'il y était déjà. */
+  addToGitignore(path: string, pattern: string): Promise<boolean>;
   stashAll(path: string, message: string): Promise<void>;
   /** Indexe (ou retire de l'index si `unstage`) des lignes ; `fingerprint` = celle du diff affiché. */
   stageLines(path: string, file: string, oldFile: string | null, lines: LineRef[], fingerprint: string, unstage: boolean): Promise<void>;
@@ -246,6 +254,9 @@ export interface Api {
   /** Ouvre un sélecteur de fichier (dans `dir` si donné) ; `null` si annulé. */
   pickFile(title: string, dir?: string | null): Promise<string | null>;
   openUrl(url: string): Promise<void>;
+  /** Fichier `file` (relatif au dépôt) : ouvert avec le programme par défaut du système, ou
+   *  montré dans l'explorateur (son dossier s'il n'existe plus). `file_missing` : rien à ouvrir. */
+  openRepoFile(path: string, file: string, how: "open" | "reveal"): Promise<void>;
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;
@@ -281,6 +292,8 @@ const tauriApi: Api = {
   repoRefs: (path) => invoke("repo_refs", { path }),
   commitDetails: (path, sha) => invoke("commit_details", { path, sha }),
   commitDiff: (path, sha, file, oldFile) => invoke("commit_diff", { path, sha, file, oldFile }),
+  rangeChanges: (path, direction) => invoke("range_changes", { path, direction }),
+  rangeDiff: (path, base, tip, file, oldFile) => invoke("range_diff", { path, base, tip, file, oldFile }),
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
@@ -289,6 +302,7 @@ const tauriApi: Api = {
   unstageAll: (path) => invoke("unstage_all", { path }),
   discardFiles: (path, tracked, untracked) => invoke("discard_files", { path, tracked, untracked }),
   discardAll: (path) => invoke("discard_all", { path }),
+  addToGitignore: (path, pattern) => invoke("add_to_gitignore", { path, pattern }),
   stashAll: (path, message) => invoke("stash_all", { path, message }),
   stageLines: (path, file, oldFile, lines, fingerprint, unstage) =>
     invoke("stage_lines", { path, file, oldFile, lines, fingerprint, unstage }),
@@ -382,6 +396,7 @@ const tauriApi: Api = {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     await openUrl(url);
   },
+  openRepoFile: (path, file, how) => invoke("open_repo_file", { path, file, how }),
   window: {
     minimize: async () => (await currentWindow()).minimize(),
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
@@ -580,6 +595,30 @@ const mockApi: Api = {
     await mockDelay();
     return mockDiff(sha, file);
   },
+  async rangeChanges(path, direction) {
+    await mockDelay();
+    const { commits, refs } = mockHistory(path);
+    const cur = refs.refs.find((x) => x.kind === "local" && x.short === refs.headBranch);
+    if (!cur?.upstream) throw "no_upstream";
+    const up = refs.refs.find((x) => x.kind === "remote" && x.short === cur.upstream);
+    // Premiers parents depuis le bout, autant que l'avance (push) ou le retard (pull).
+    let sha: string | undefined = direction === "push" ? cur.target : up?.target;
+    const tip = sha ?? cur.target;
+    const list: Commit[] = [];
+    for (let n = direction === "push" ? cur.ahead : cur.behind; n > 0 && sha; n--) {
+      const c = commits.find((x) => x.sha === sha);
+      if (!c) break;
+      list.push(c);
+      sha = c.parents[0];
+    }
+    const files = new Map<string, FileChange>();
+    for (const c of list) for (const f of mockDetails(path, c.sha).files) files.set(f.path, f);
+    return { base: sha ?? tip, tip, commits: list, files: [...files.values()] };
+  },
+  async rangeDiff(_path, _base, tip, file) {
+    await mockDelay();
+    return mockDiff(tip, file);
+  },
   async workStatus(path) {
     return mockStatus(path);
   },
@@ -604,6 +643,11 @@ const mockApi: Api = {
   },
   async discardAll(path) {
     mockDiscardAll(path);
+  },
+  async addToGitignore(_path, pattern) {
+    (window as unknown as { __mockIgnored?: string[] }).__mockIgnored ??= [];
+    (window as unknown as { __mockIgnored: string[] }).__mockIgnored.push(pattern);
+    return true;
   },
   async stashAll(path, message) {
     mockStashPush(path, message);
@@ -1009,6 +1053,10 @@ const mockApi: Api = {
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener");
+  },
+  async openRepoFile(path, file, how) {
+    (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];
+    (window as unknown as { __mockOpened: unknown[] }).__mockOpened.push({ path, file, how });
   },
   window: { minimize: async () => {}, toggleMaximize: async () => {}, startDragging: async () => {}, close: async () => {} },
 };

@@ -15,6 +15,8 @@ const isMaximized = (page: Page) =>
   );
 
 test("fenêtre agrandie : toujours agrandie après redémarrage", async ({ sandbox }) => {
+  // Deux démarrages de l'app : le double du temps d'un test.
+  test.slow();
   const repo = sandbox.clone("repo");
   let app = await launchApp(sandbox, [repo]);
   try {

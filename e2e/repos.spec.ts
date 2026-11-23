@@ -18,7 +18,7 @@ test("ouvrir un dépôt l'affiche dans un onglet avec son graphe", async ({ page
   await expect(page.getByText("C:/Users/demo/Projects/GitGR").first()).toBeVisible();
   // Barre d'outils active, avec le nombre de commits à pousser.
   await expect(page.getByRole("button", { name: /^Push/ })).toBeEnabled();
-  await expect(page.getByRole("button", { name: /^Push/ })).toContainText("1");
+  await expect(page.locator(".tool-badged", { has: page.getByRole("button", { name: /^Push/ }) })).toContainText("1");
 });
 
 test("un dossier qui n'est pas un dépôt affiche une erreur", async ({ page }) => {

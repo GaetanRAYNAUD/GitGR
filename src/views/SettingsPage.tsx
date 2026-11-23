@@ -6,8 +6,12 @@ import { useTranslation } from "react-i18next";
 import { BranchColorsEditor } from "../components/BranchColorsEditor";
 import { Flag } from "../components/Flag";
 import { Icon } from "../components/Icon";
+import { api } from "../lib/api";
 import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
 import { useApp } from "../store/app";
+
+/** Notes de version : les releases du dépôt de GitGR. */
+const RELEASES_URL = "https://github.com/GaetanRAYNAUD/GitGR/releases";
 
 function Segmented<T extends string>({
   label,
@@ -150,6 +154,13 @@ export function SettingsPage() {
           </label>
           <BranchColorsEditor disabled={settings.branchColorsOff} />
         </section>
+
+        <footer className="settings-version">
+          <span>{t("settings.version", { version: __APP_VERSION__ })}</span>
+          <button type="button" className="link" onClick={() => void api.openUrl(RELEASES_URL).catch(() => {})}>
+            {t("settings.releaseNotes")}
+          </button>
+        </footer>
       </div>
     </div>
   );

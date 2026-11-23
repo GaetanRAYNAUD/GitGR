@@ -141,6 +141,17 @@ pub async fn commit_details(path: String, sha: String) -> Result<CommitDetails, 
     history::details(Path::new(&path), &sha).map_err(classify)
 }
 
+/// Ce qui part au push (`"push"`) ou arrive au pull (`"pull"`) : commits et fichiers cumulés.
+#[tauri::command]
+pub async fn range_changes(path: String, direction: String) -> Result<history::RangeChanges, String> {
+    history::range_changes(Path::new(&path), &direction).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
+    history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn commit_diff(
     path: String,
@@ -187,6 +198,30 @@ pub async fn unstage_all(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn discard_files(path: String, tracked: Vec<String>, untracked: Vec<String>) -> Result<(), String> {
     worktree::discard_files(Path::new(&path), &tracked, &untracked).map_err(classify)
+}
+
+/// Ajoute un motif au `.gitignore` du dépôt (rien s'il y est déjà).
+#[tauri::command]
+pub async fn add_to_gitignore(path: String, pattern: String) -> Result<bool, String> {
+    worktree::add_to_gitignore(Path::new(&path), &pattern)
+}
+
+/// Fichier de la copie de travail : ouvert avec le programme par défaut du système
+/// (`how = "open"`), ou montré dans l'explorateur de fichiers (`"reveal"` ; fichier
+/// disparu : son dossier, ou le plus proche qui existe).
+#[tauri::command]
+pub async fn open_repo_file(app: AppHandle, path: String, file: String, how: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let full = worktree::repo_file(Path::new(&path), &file)?;
+    match how.as_str() {
+        "open" if full.is_file() => app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string()),
+        "open" => Err("file_missing".into()),
+        "reveal" if full.exists() => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
+        "reveal" => {
+            app.opener().open_path(worktree::existing_dir(&full, Path::new(&path)).to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+        }
+        _ => Err(format!("unknown action: {how}")),
+    }
 }
 
 #[tauri::command]

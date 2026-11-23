@@ -6,7 +6,12 @@ import { openRepos, tab } from "./fixtures";
 // Les autres dépôts simulés n'ont qu'origin.
 
 const tools = (page: Page) => page.locator(".tools");
-const tool = (page: Page, name: string) => tools(page).getByRole("button", { name: new RegExp(`^${name}`) });
+/** Bouton de la barre d'outils, avec son badge cliquable quand il en a un (enveloppe `.tool-badged`). */
+const tool = (page: Page, name: string) =>
+  page
+    .locator(".tools")
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .locator("xpath=(ancestor::*[contains(concat(' ', @class, ' '), ' tool-badged ')] | .)[1]");
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches et tags" });
 /** En-tête de la section d'un remote. */
 const remote = (page: Page, name: string) => sidebar(page).locator(".section-btn").filter({ has: page.locator(".section-name", { hasText: new RegExp(`^${name}$`) }) });

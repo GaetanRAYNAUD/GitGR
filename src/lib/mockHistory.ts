@@ -95,6 +95,8 @@ export function mockHistory(path: string): MockHistory {
   const wip = make([feature ?? main], "feat(graph): rendu canvas virtualisé");
   const originMain = main;
   main = make([main], "fix: correctif local pas encore poussé");
+  // La branche courante et un tag sur le même commit (colonne Branche / tag à l'étroit).
+  tags.push([`v0.${tags.length + 1}.0`, main]);
 
   const commits = oldestFirst.reverse();
   const ref = (kind: GitRef["kind"], short: string, target: string, extra: Partial<GitRef> = {}): GitRef => ({
@@ -150,7 +152,7 @@ export function mockDetails(path: string, sha: string): CommitDetails {
     committerEmail: c.email,
     commitTime: c.time,
     subject: c.subject,
-    body: c.parents.length > 1 ? "" : "Description détaillée du changement.\n\nAvec un second paragraphe.",
+    body: c.parents.length > 1 ? "" : `Description détaillée du changement, liée à !12.\n\nAvec un second paragraphe, après ${c.parents[0]?.slice(0, 8) ?? "rien"}.`,
     files,
   };
 }

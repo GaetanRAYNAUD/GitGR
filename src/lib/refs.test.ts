@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipsByCommit, refSections, refTree, sectionLabel } from "./refs";
+import { chipsByCommit, fitChips, refSections, refTree, sectionLabel } from "./refs";
 import type { GitRef, RefsInfo } from "./types";
 
 const ref = (kind: GitRef["kind"], short: string, target: string): GitRef => ({
@@ -121,5 +121,25 @@ describe("refTree", () => {
   it("les distantes sont rangées sans le nom du remote", () => {
     const tree = refTree([ref("remote", "origin/feature/x", "a"), ref("remote", "origin/main", "b")]);
     expect(tree.map((n) => n.name)).toEqual(["feature", "main"]);
+  });
+});
+
+describe("fitChips", () => {
+  const z = (natural: number, min: number) => ({ natural, min });
+
+  it("shows every label when they fit, whole or shortened", () => {
+    expect(fitChips([z(60, 40), z(50, 30)], 120, 34)).toBe(2);
+    expect(fitChips([z(80, 40), z(80, 30)], 80, 34)).toBe(2);
+    expect(fitChips([z(300, 40)], 50, 34)).toBe(1);
+    expect(fitChips([], 50, 34)).toBe(0);
+  });
+
+  it("groups the labels that do not fit, keeping room for +N", () => {
+    // 40 + 4 + 30 + 4 + 34 = 112 ≤ 120 ; la troisième ne tient plus.
+    expect(fitChips([z(80, 40), z(80, 30), z(80, 30), z(80, 30)], 120, 34)).toBe(2);
+  });
+
+  it("always keeps the first label (current branch)", () => {
+    expect(fitChips([z(200, 100), z(80, 30)], 120, 34)).toBe(1);
   });
 });

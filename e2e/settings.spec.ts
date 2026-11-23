@@ -63,3 +63,11 @@ test("aucun libellé des choix ne déborde, en français comme en anglais", asyn
     await page.keyboard.press("Escape");
   }
 });
+
+test("version de GitGR en bas de la page, avec les notes de version", async ({ page }) => {
+  const pkg = new URL("../package.json", import.meta.url);
+  const version = JSON.parse(await (await import("node:fs/promises")).readFile(pkg, "utf8")).version;
+  const menu = await openSettings(page);
+  await expect(menu.getByText(`GitGR ${version}`)).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Notes de version" })).toBeVisible();
+});

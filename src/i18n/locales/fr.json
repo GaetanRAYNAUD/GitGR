@@ -29,6 +29,8 @@
     "close": "Fermer"
   },
   "settings": {
+    "version": "GitGR {{version}}",
+    "releaseNotes": "Notes de version",
     "title": "Réglages",
     "theme": "Thème",
     "themeSystem": "Système",
@@ -199,7 +201,27 @@
     "columns": "Colonnes affichées",
     "columnsHint": "Clic droit sur l’en-tête pour y revenir."
   },
+  "range": {
+    "pushTitle_one": "{{count}} commit à pousser vers {{upstream}}",
+    "pushTitle_other": "{{count}} commits à pousser vers {{upstream}}",
+    "pullTitle_one": "{{count}} commit à tirer de {{upstream}}",
+    "pullTitle_other": "{{count}} commits à tirer de {{upstream}}",
+    "pushLabel": "Ce qui part au push",
+    "pullLabel": "Ce qui arrive au pull",
+    "pushEmpty": "Rien à pousser : {{upstream}} a déjà tous les commits de la branche.",
+    "pullEmpty": "Rien à tirer de {{upstream}} (d'après le dernier fetch).",
+    "fetchHint": "Relire la branche distante avant de tirer",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "showInGraph": "Montrer dans le graphe",
+    "pushBadge_one": "Voir le commit qui part au push",
+    "pushBadge_other": "Voir les {{count}} commits qui partent au push",
+    "pullBadge_one": "Voir le commit qui arrive au pull",
+    "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull"
+  },
   "details": {
+    "selectCommit": "Sélectionner ce commit",
+    "openPull": "Ouvrir dans GitGR",
     "label": "Détails du commit",
     "none": "Sélectionnez un commit pour voir ses détails.",
     "loading": "Chargement…",
@@ -268,6 +290,11 @@
     "dblClickPull": "Double-clic : checkout de {{branch}}, puis pull"
   },
   "staging": {
+    "ignore": {
+      "file": "Ignorer {{name}}",
+      "ext": "Ignorer les fichiers {{name}}",
+      "dir": "Ignorer le dossier {{name}}"
+    },
     "label": "Modifications en cours",
     "title": "Modifications en cours",
     "onBranch_one": "sur {{branch}} · {{count}} fichier",
@@ -423,7 +450,11 @@
     "pull": "Pull",
     "push": "Push",
     "copySha": "Copier le SHA",
-    "copyName": "Copier le nom"
+    "copyName": "Copier le nom",
+    "openFile": "Ouvrir avec le programme par défaut",
+    "revealFile": "Montrer dans le dossier",
+    "copyPath": "Copier le chemin",
+    "copyAbsolutePath": "Copier le chemin complet"
   },
   "op": {
     "merge": "Merge en cours",
@@ -488,6 +519,8 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "file_missing": "Ce fichier n’existe pas (ou plus) dans la copie de travail.",
+    "outside_repo": "Ce chemin sort du dépôt.",
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
     "path_not_found": "Ce dossier n’existe plus.",
     "git_not_found": "Git est introuvable sur cette machine.",

@@ -7,7 +7,7 @@ import { commitDate, initials } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, type GraphLayout } from "../../lib/graph";
 import { clamp, colKey, LIMITS, useLayoutValue } from "../../lib/layout";
 import { branchColorRules, chipFixedColor, customColors, fixedColorsByCommit, laneCss } from "../../lib/branchColors";
-import { chipsByCommit, type RefChip } from "../../lib/refs";
+import { chipsByCommit, fitChips, type ChipSize, type RefChip } from "../../lib/refs";
 import type { BranchColorRule, Commit, GitRef, GraphColumn, RefsInfo } from "../../lib/types";
 import { useDismiss } from "../../lib/useDismiss";
 import { parseRemote, remoteProfile } from "../../lib/profiles";
@@ -204,6 +204,50 @@ function drawGraph(
   }
 }
 
+/** Marges de la colonne Branche / tag (`.commit-refs`). */
+const REFS_PAD = 16;
+/** Pastille « +N » des étiquettes qui ne tiennent pas. */
+const MORE_W = 34;
+
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+const textWidths = new Map<string, number>();
+
+/** Largeur d'un texte dans la police des étiquettes (mesurée, gardée) ; à défaut de canvas
+ *  (tests), une estimation. */
+function textWidth(text: string, font: string): number {
+  const key = `${font}|${text}`;
+  const known = textWidths.get(key);
+  if (known !== undefined) return known;
+  if (measureCtx === undefined) {
+    try {
+      measureCtx = document.createElement("canvas").getContext("2d");
+    } catch {
+      measureCtx = null;
+    }
+  }
+  let w = text.length * 6.6;
+  if (measureCtx) {
+    measureCtx.font = font;
+    w = measureCtx.measureText(text).width;
+  }
+  // Gardée seulement une fois les polices chargées (sinon mesurée avec celle de secours).
+  if (!measureCtx || document.fonts?.status !== "loading") textWidths.set(key, w);
+  return w;
+}
+
+const CHIP_FONT = '600 11px "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif';
+const PULL_FONT = '500 10.5px "JetBrains Mono", ui-monospace, monospace';
+
+/** Largeurs d'une étiquette (cf. `.chip`) : entière, et raccourcie à deux lettres + « … »,
+ *  icônes et numéro de PR / MR toujours entiers. */
+function chipSize(chip: RefChip, mark: boolean, pull: string | null, checks: boolean): ChipSize {
+  const icons = [mark && chip.kind !== "tag" ? 13 : 0, chip.current ? 12 : 0, chip.kind === "tag" || chip.kind === "remote" ? 12 : 0, chip.synced ? 12 : 0, pull ? textWidth(pull, PULL_FONT) + 10 + (checks ? 9 : 0) : 0].filter((w) => w > 0);
+  const base = 16 + icons.reduce((a, w) => a + w, 0) + 4 * icons.length + 1;
+  const label = textWidth(chip.label, CHIP_FONT);
+  const short = chip.label.length > 3 ? textWidth(`${chip.label.slice(0, 2)}…`, CHIP_FONT) : label;
+  return { natural: Math.ceil(base + label), min: Math.ceil(base + Math.min(label, short)) };
+}
+
 /** Ref représentée par une étiquette (aucune pour « HEAD » détachée). */
 function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
   if (chip.kind === "head") return undefined;
@@ -228,6 +272,7 @@ function Chip({
   rules,
   mark,
   pr,
+  minWidth,
 }: {
   chip: RefChip;
   color: number;
@@ -239,6 +284,8 @@ function Chip({
   mark?: RemoteMarkInfo | null;
   /** PR / MR ouverte depuis cette branche. */
   pr?: { ctx: PullContext; pull: PullSummary } | null;
+  /** Largeur sous laquelle l'étiquette ne se raccourcit pas (cf. `fitChips`). */
+  minWidth?: number;
 }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
@@ -248,7 +295,7 @@ function Chip({
   return (
     <span
       className={cls}
-      style={{ "--chip": laneCss(color, customColors(rules)) } as React.CSSProperties}
+      style={{ "--chip": laneCss(color, customColors(rules)), minWidth } as React.CSSProperties}
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
@@ -326,6 +373,17 @@ export function CommitGraph({ path, changes }: Props) {
   // Couleurs relues uniquement quand le thème change.
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Largeur réelle de la colonne Branche / tag (celle par défaut dépend de la fenêtre,
+  // `--col-refs`), lue sur son en-tête.
+  const [refsHead, setRefsHead] = useState<HTMLElement | null>(null);
+  const [refsW, setRefsW] = useState(0);
+  useEffect(() => {
+    if (!refsHead) return;
+    const ro = new ResizeObserver(() => setRefsW(refsHead.getBoundingClientRect().width));
+    ro.observe(refsHead);
+    setRefsW(refsHead.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, [refsHead]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(() => scrollMemory.get(path) ?? 0);
   const [viewH, setViewH] = useState(600);
@@ -480,23 +538,51 @@ export function CommitGraph({ path, changes }: Props) {
     return r ? pullOfRef(pullLists, pullContexts, graph?.refs ?? null, r) : null;
   };
 
+  /** Étiquettes d'un commit : la branche courante d'abord, raccourcie en dernier ; les autres
+   *  raccourcies (« … »), puis regroupées en « +N » (liste en infobulle) si elles ne tiennent
+   *  pas ; rien ne déborde sur la colonne du graphe. */
+  // Avant la première mesure (ou sans mise en page, tests) : tout est montré, comme avant.
+  const refsAvailable = (widths.refs ?? (refsW || Infinity)) - REFS_PAD;
+  const refsCell = (list: RefChip[], color: number) => {
+    const items = list.map((chip) => {
+      const mark = avatarsOn && chip.remote ? remoteMarks.get(chip.remote) : undefined;
+      const pr = chipPull(chip);
+      const size = chipSize(chip, !!mark, pr ? pullRef(pr.ctx.kind, pr.pull.number) : null, !!pr?.pull.checks);
+      return { chip, mark, pr, size };
+    });
+    const shown = fitChips(items.map((x) => x.size), refsAvailable, MORE_W);
+    const hidden = items.slice(shown);
+    return (
+      <>
+        {items.slice(0, shown).map(({ chip, mark, pr, size }, i) => (
+          <Chip
+            key={chip.kind + chip.label}
+            chip={chip}
+            color={color}
+            path={path}
+            refs={graph?.refs ?? null}
+            rules={rules}
+            mark={mark}
+            pr={pr}
+            // La première, seule à l'étroit : pas plus large que la colonne.
+            minWidth={i === 0 ? Math.min(size.min, Math.max(0, refsAvailable)) : size.min}
+          />
+        ))}
+        {hidden.length > 0 && (
+          <span className="chip more" title={hidden.map((x) => x.chip.title).join("\n")}>
+            +{hidden.length}
+          </span>
+        )}
+      </>
+    );
+  };
+
   const cell = (col: Column, c: Commit, color: number, isWip: boolean) => {
     switch (col) {
       case "refs":
         return (
           <span key={col} className="commit-refs">
-            {(chips.get(c.sha) ?? []).map((chip) => (
-              <Chip
-                key={chip.kind + chip.label}
-                chip={chip}
-                color={color}
-                path={path}
-                refs={graph?.refs ?? null}
-                rules={rules}
-                mark={avatarsOn && chip.remote ? remoteMarks.get(chip.remote) : undefined}
-                pr={chipPull(chip)}
-              />
-            ))}
+            {refsCell(chips.get(c.sha) ?? [], color)}
           </span>
         );
       case "graph":
@@ -551,7 +637,7 @@ export function CommitGraph({ path, changes }: Props) {
         }}
       >
         {visible.map((c) => (
-          <span key={c} className={c === "refs" ? "graph-head-cell graph-head-refs" : "graph-head-cell"}>
+          <span key={c} ref={c === "refs" ? setRefsHead : undefined} className={c === "refs" ? "graph-head-cell graph-head-refs" : "graph-head-cell"}>
             <span className="graph-head-label">{t(`graph.${c}`)}</span>
             {RESIZABLE.includes(c) && (
               <Splitter

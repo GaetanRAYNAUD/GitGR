@@ -146,9 +146,27 @@ test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture d
   await expect(d.getByRole("listbox")).toHaveCount(0);
   await expect(d).toBeVisible();
 
+  // Assignés et Étiquettes aussi larges que Relecteurs.
+  const width = async (name: string) => (await d.locator(".mpick-field", { has: page.getByRole("combobox", { name }) }).boundingBox())!.width;
+  const full = await width("Relecteurs");
+  expect(await width("Assignés")).toBeCloseTo(full, 0);
+  expect(await width("Étiquettes")).toBeCloseTo(full, 0);
+
   await d.getByRole("button", { name: "M’assigner" }).click();
   await expect(d.locator(".mpick-chip", { hasText: "camille" })).toBeVisible();
   const labels = d.getByRole("combobox", { name: "Étiquettes" });
+  // En bas de la fenêtre (petite hauteur) : la liste s'ouvre au-dessus du champ, entière à
+  // l'écran, et non coupée sous le bas de la zone qui défile.
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await labels.scrollIntoViewIfNeeded();
+  await labels.click();
+  const list = d.getByRole("listbox");
+  await expect(list).toHaveClass(/(^| )up( |$)/);
+  const lb = (await list.boundingBox())!;
+  const db = (await d.boundingBox())!;
+  expect(lb.y).toBeGreaterThanOrEqual(db.y);
+  expect(lb.y + lb.height).toBeLessThanOrEqual((await labels.boundingBox())!.y);
+  await labels.press("Escape");
   await labels.fill("bu");
   await d.getByRole("option", { name: /bug/ }).click();
   await d.getByRole("button", { name: "Créer la merge request" }).click();

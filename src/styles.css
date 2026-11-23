@@ -870,6 +870,23 @@ h2 {
   align-items: center;
 }
 
+/* Bouton dont le badge (↑ / ↓) est cliquable à part. */
+.tool-badged {
+  position: relative;
+  display: flex;
+}
+
+.badge.badge-btn {
+  z-index: 1;
+  border: 0;
+  cursor: pointer;
+}
+
+.badge.badge-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 .tool-sep {
   width: 1px;
   height: 28px;
@@ -1390,11 +1407,36 @@ h2 {
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
-  flex-shrink: 0;
+  /* Les autres se raccourcissent avant la première (branche courante en tête), chacune
+   * jusqu'à sa largeur minimale (`fitChips`). */
+  flex-shrink: 100;
 }
 
 .chip:first-child {
   flex-shrink: 1;
+}
+
+/* Icônes, numéro de PR / MR : jamais écrasés, seul le nom se raccourcit. */
+.chip > :not(.chip-label) {
+  flex-shrink: 0;
+}
+
+/* « +N » : étiquettes qui ne tiennent pas, listées dans l'infobulle. */
+/* Liens d'un message de commit (CommitText). */
+.commit-link {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.commit-link:hover {
+  text-decoration: underline;
+}
+
+.chip.more {
+  flex-shrink: 0;
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--muted);
 }
 
 .chip-label {
@@ -3848,6 +3890,17 @@ p.pf-account-keys.bad,
   border-top: 1px solid var(--border);
 }
 
+/* Version de GitGR, en bas de la page. */
+.settings-version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .settings-help {
   margin: 0;
   font-size: 12.5px;
@@ -4022,7 +4075,7 @@ p.pf-account-keys.bad,
   min-width: 0;
 }
 
-.pull-assignees {
+.pull-assign-field {
   position: relative;
 }
 
@@ -4121,6 +4174,13 @@ p.pf-account-keys.bad,
   border-radius: 8px;
   background: var(--panel);
   list-style: none;
+}
+
+/* Pas la place en dessous (bas de la fenêtre ou de la zone qui défile) : vers le haut. */
+.mpick-list.up {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
 }
 
 .mpick-option {
@@ -4465,9 +4525,138 @@ p.pf-account-keys.bad,
 }
 
 .pull-text {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.5;
+}
+
+/* Markdown d'une PR / MR (Markdown.tsx). */
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre,
+.md .md-table {
+  margin: 0 0 8px;
+}
+
+.md .md-h {
+  margin: 14px 0 6px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.md .md-h1 {
+  font-size: 17px;
+}
+
+.md .md-h2 {
+  font-size: 15.5px;
+}
+
+.md .md-h3,
+.md .md-h4,
+.md .md-h5,
+.md .md-h6 {
+  font-size: 14px;
+}
+
+.md .md-h1,
+.md .md-h2 {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.md ul,
+.md ol {
+  padding-left: 22px;
+}
+
+.md li > p,
+.md li > ul,
+.md li > ol {
+  margin: 2px 0;
+}
+
+.md li.md-task {
+  list-style: none;
+}
+
+.md li.md-task > input {
+  margin: 0 6px 0 -18px;
+  vertical-align: -2px;
+}
+
+.md li.md-task > p:first-of-type {
+  display: inline;
+}
+
+.md code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.88em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--panel2);
+}
+
+.md pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel2);
+}
+
+.md pre code {
+  padding: 0;
+  background: none;
+  white-space: pre;
+}
+
+.md blockquote {
+  padding: 0 0 0 10px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.md hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.md a {
+  color: var(--link);
+}
+
+.md a.md-image::before {
+  content: "🖼 ";
+}
+
+.md .md-table {
+  overflow-x: auto;
+}
+
+.md table {
+  border-collapse: collapse;
+}
+
+.md th,
+.md td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+}
+
+.md th {
+  background: var(--panel2);
+  font-weight: 600;
 }
 
 .pull-reviews {
@@ -4630,6 +4819,41 @@ p.pf-account-keys.bad,
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Ce qui part au push / arrive au pull (RangeView). */
+.range-commits {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.range-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 4px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.range-commit:hover {
+  background: var(--hover);
+}
+
+.range-subject,
+.range-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-meta {
+  font-size: 11.5px;
 }
 
 .pull-checks {

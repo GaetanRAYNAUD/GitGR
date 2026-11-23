@@ -85,11 +85,13 @@ interface Props<T extends ListFile> {
   isActive: (f: T) => boolean;
   onOpen: (f: T) => void;
   onDoubleClick?: (f: T) => void;
+  /** Clic droit sur un fichier (menu : ouvrir, montrer dans le dossier, copier le chemin). */
+  onContextMenu?: (e: React.MouseEvent, f: T) => void;
   /** Boutons affichés au survol de la ligne. */
   actions?: (f: T) => ReactNode;
 }
 
-export function FileList<T extends ListFile>({ files, view, label, isActive, onOpen, onDoubleClick, actions }: Props<T>) {
+export function FileList<T extends ListFile>({ files, view, label, isActive, onOpen, onDoubleClick, onContextMenu, actions }: Props<T>) {
   // Dossiers repliés, par chemin (conservés d'un commit à l'autre).
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const tree = useMemo(() => (view === "tree" ? fileTree(files) : []), [view, files]);
@@ -104,6 +106,7 @@ export function FileList<T extends ListFile>({ files, view, label, isActive, onO
           style={inTree ? ({ "--depth": depth } as React.CSSProperties) : undefined}
           onClick={() => onOpen(f)}
           onDoubleClick={onDoubleClick && (() => onDoubleClick(f))}
+          onContextMenu={onContextMenu && ((e) => onContextMenu(e, f))}
           title={f.oldPath ? `${f.oldPath} → ${f.path}` : f.path}
         >
           <StatusBadge status={f.status} />

@@ -6,6 +6,7 @@
 
 import { useMemo } from "react";
 import { create } from "zustand";
+import { useRangeView } from "./range";
 import { api, errorCode } from "../lib/api";
 import { pullTargetOf } from "../lib/pulls";
 import type { GitRef, ProviderKind, PullAction, PullDetail, PullList, PullSummary, RefsInfo } from "../lib/types";
@@ -106,6 +107,8 @@ export const usePullList = create<PullListStore>((set, get) => {
       }
     },
     show(path, ctx, number) {
+      // Une seule vue à la place du graphe.
+      useRangeView.getState().close(path);
       set((s) => ({ open: { ...s.open, [path]: { ctx, number } } }));
       void get().loadDetail(ctx, number);
     },
