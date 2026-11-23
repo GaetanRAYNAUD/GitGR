@@ -70,6 +70,8 @@ import type {
   PullList,
   PullOptions,
   PullStrategy,
+  RangeChanges,
+  RangeDirection,
   NewRepo,
   Namespace,
   ProviderRepo,
@@ -104,6 +106,10 @@ export interface Api {
   commitDetails(path: string, sha: string): Promise<CommitDetails>;
   /** Diff d'un fichier d'un commit par rapport à son premier parent. */
   commitDiff(path: string, sha: string, file: string, oldFile: string | null): Promise<FileDiff>;
+  /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
+  rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
+  /** Diff cumulé d'un fichier entre `base` et `tip`. */
+  rangeDiff(path: string, base: string, tip: string, file: string, oldFile: string | null): Promise<FileDiff>;
   // Copie de travail
   workStatus(path: string): Promise<WorkStatus>;
   workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
@@ -286,6 +292,8 @@ const tauriApi: Api = {
   repoRefs: (path) => invoke("repo_refs", { path }),
   commitDetails: (path, sha) => invoke("commit_details", { path, sha }),
   commitDiff: (path, sha, file, oldFile) => invoke("commit_diff", { path, sha, file, oldFile }),
+  rangeChanges: (path, direction) => invoke("range_changes", { path, direction }),
+  rangeDiff: (path, base, tip, file, oldFile) => invoke("range_diff", { path, base, tip, file, oldFile }),
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
@@ -586,6 +594,30 @@ const mockApi: Api = {
   async commitDiff(_path, sha, file) {
     await mockDelay();
     return mockDiff(sha, file);
+  },
+  async rangeChanges(path, direction) {
+    await mockDelay();
+    const { commits, refs } = mockHistory(path);
+    const cur = refs.refs.find((x) => x.kind === "local" && x.short === refs.headBranch);
+    if (!cur?.upstream) throw "no_upstream";
+    const up = refs.refs.find((x) => x.kind === "remote" && x.short === cur.upstream);
+    // Premiers parents depuis le bout, autant que l'avance (push) ou le retard (pull).
+    let sha: string | undefined = direction === "push" ? cur.target : up?.target;
+    const tip = sha ?? cur.target;
+    const list: Commit[] = [];
+    for (let n = direction === "push" ? cur.ahead : cur.behind; n > 0 && sha; n--) {
+      const c = commits.find((x) => x.sha === sha);
+      if (!c) break;
+      list.push(c);
+      sha = c.parents[0];
+    }
+    const files = new Map<string, FileChange>();
+    for (const c of list) for (const f of mockDetails(path, c.sha).files) files.set(f.path, f);
+    return { base: sha ?? tip, tip, commits: list, files: [...files.values()] };
+  },
+  async rangeDiff(_path, _base, tip, file) {
+    await mockDelay();
+    return mockDiff(tip, file);
   },
   async workStatus(path) {
     return mockStatus(path);

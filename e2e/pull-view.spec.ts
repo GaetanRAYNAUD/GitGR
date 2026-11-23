@@ -73,7 +73,7 @@ test("section Merge requests : filtres, étiquettes des branches, vue de suivi",
   await view(page).getByRole("textbox", { name: "Répondre" }).press("Escape");
   await expect(view(page)).toBeVisible();
   await view(page).locator(".pull-reply").getByRole("button", { name: "Répondre" }).click();
-  await expect(view(page).getByText("Pour rester lisible.")).toBeVisible();
+  await expect(view(page).locator(".pull-text").getByText("Pour rester lisible.")).toBeVisible();
   await view(page).getByRole("button", { name: "Résoudre le fil" }).click();
   await expect(view(page).getByText("résolu")).toBeVisible();
 

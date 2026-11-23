@@ -201,6 +201,24 @@
     "columns": "Visible columns",
     "columnsHint": "Right-click the header to get back here."
   },
+  "range": {
+    "pushTitle_one": "{{count}} commit to push to {{upstream}}",
+    "pushTitle_other": "{{count}} commits to push to {{upstream}}",
+    "pullTitle_one": "{{count}} commit to pull from {{upstream}}",
+    "pullTitle_other": "{{count}} commits to pull from {{upstream}}",
+    "pushLabel": "What the push sends",
+    "pullLabel": "What the pull brings",
+    "pushEmpty": "Nothing to push: {{upstream}} already has every commit of the branch.",
+    "pullEmpty": "Nothing to pull from {{upstream}} (as of the last fetch).",
+    "fetchHint": "Read the remote branch again before pulling",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "showInGraph": "Show in the graph",
+    "pushBadge_one": "See the commit the push sends",
+    "pushBadge_other": "See the {{count}} commits the push sends",
+    "pullBadge_one": "See the commit the pull brings",
+    "pullBadge_other": "See the {{count}} commits the pull brings"
+  },
   "details": {
     "selectCommit": "Select this commit",
     "openPull": "Open in GitGR",

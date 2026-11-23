@@ -328,6 +328,60 @@ pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>) -> Resul
     Ok(parse_diff(&out))
 }
 
+// ---------------------------------------------------------------------------
+// Ce qui part au push / arrive au pull
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RangeChanges {
+    /// Départ du diff cumulé : base commune de HEAD et de sa branche suivie (l'arbre vide
+    /// si elles n'ont rien en commun).
+    pub base: String,
+    /// Bout de la plage : HEAD (push) ou la branche suivie, telle qu'au dernier fetch (pull).
+    pub tip: String,
+    /// Commits de la plage, du plus récent au plus ancien (au plus `RANGE_LIMIT`).
+    pub commits: Vec<Commit>,
+    pub files: Vec<FileChange>,
+}
+
+const RANGE_LIMIT: u32 = 500;
+
+/// Commits et fichiers qui partent au push (`direction = "push"` : branche suivie..HEAD) ou
+/// arrivent au pull (`"pull"` : HEAD..branche suivie).
+pub fn range_changes(path: &Path, direction: &str) -> Result<RangeChanges, String> {
+    check_dir(path)?;
+    let head = run(Some(path), &["rev-parse", "-q", "--verify", "HEAD^{commit}"])?;
+    let upstream = run(Some(path), &["rev-parse", "-q", "--verify", "@{upstream}^{commit}"]).map_err(|_| "no_upstream".to_string())?;
+    check_sha(&head)?;
+    check_sha(&upstream)?;
+    let (from, tip) = match direction {
+        "push" => (upstream, head),
+        "pull" => (head, upstream),
+        _ => return Err(format!("unknown direction: {direction}")),
+    };
+    let base = run(Some(path), &["merge-base", &from, &tip]).unwrap_or_else(|_| EMPTY_TREE.to_string());
+    check_sha(&base)?;
+    let range = format!("{from}..{tip}");
+    let limit = format!("--max-count={RANGE_LIMIT}");
+    let commits = parse_log(&run(Some(path), &["log", "--date-order", "-z", LOG_FORMAT, &limit, &range, "--"])?);
+    let raw = run_raw(Some(path), &["diff-tree", "-r", "-M", "-z", "--name-status", "--no-ext-diff", &base, &tip, "--"])?;
+    Ok(RangeChanges { base, tip, commits, files: parse_name_status(&raw) })
+}
+
+/// Diff d'un fichier entre deux commits (diff cumulé d'une plage).
+pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>) -> Result<FileDiff, String> {
+    check_dir(path)?;
+    check_sha(base)?;
+    check_sha(tip)?;
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3", base, tip, "--"];
+    if let Some(old) = old_file {
+        args.push(old);
+    }
+    args.push(file);
+    Ok(parse_diff(&run_raw(Some(path), &args)?))
+}
+
 /// Empreinte stable d'un texte (pour détecter qu'un diff a changé).
 pub(crate) fn fingerprint(text: &str) -> String {
     use std::hash::{Hash, Hasher};
@@ -409,6 +463,33 @@ mod tests {
 
     fn git(repo: &Path, args: &[&str]) -> String {
         run(Some(repo), args).unwrap()
+    }
+
+    #[test]
+    fn range_changes_lists_what_push_and_pull_move() {
+        let dir = temp_repo();
+        let p = dir.path();
+        commit_file(p, "a.txt", "1");
+        git(p, &["branch", "amont"]);
+        commit_file(p, "a.txt", "2");
+        commit_file(p, "b.txt", "x");
+        git(p, &["branch", "--set-upstream-to=amont"]);
+
+        let push = range_changes(p, "push").unwrap();
+        assert_eq!(push.commits.len(), 2);
+        assert_eq!(push.base, git(p, &["rev-parse", "amont"]));
+        assert_eq!(push.tip, git(p, &["rev-parse", "HEAD"]));
+        let files: Vec<_> = push.files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect();
+        assert_eq!(files, vec![("M", "a.txt"), ("A", "b.txt")]);
+        let d = range_diff(p, &push.base, &push.tip, "a.txt", None).unwrap();
+        assert_eq!(d.hunks.len(), 1);
+
+        let pull = range_changes(p, "pull").unwrap();
+        assert!(pull.commits.is_empty() && pull.files.is_empty());
+
+        git(p, &["branch", "--unset-upstream"]);
+        assert_eq!(range_changes(p, "push").unwrap_err(), "no_upstream");
+        assert_eq!(range_diff(p, "--x", "HEAD", "a.txt", None).unwrap_err(), "invalid_sha");
     }
 
     #[test]

@@ -166,3 +166,17 @@ test("branche courante et modifications en attente mises en avant", async ({ pag
   await expect(graph(page).getByRole("option", { selected: true })).toContainText("Modifications en cours");
   await expect(pill).toHaveClass(/\bon\b/);
 });
+
+test("badge ↑ du bouton Push : commits qui partent et leurs fichiers, avant de pousser", async ({ page }) => {
+  await page.getByRole("button", { name: "Voir le commit qui part au push" }).click();
+  const view = page.getByRole("region", { name: "Ce qui part au push" });
+  await expect(view.locator(".pull-view-title")).toHaveText("1 commit à pousser vers origin/main");
+  await expect(view.locator(".range-commit")).toHaveCount(1);
+  await expect(view.locator(".range-commit")).toContainText("fix: correctif local pas encore poussé");
+  await view.locator(".file-row").first().click();
+  await expect(view.locator(".diff-body tr.add").first()).toBeVisible();
+  // Échap revient au graphe.
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+  await expect(graph(page)).toBeVisible();
+});

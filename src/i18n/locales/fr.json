@@ -201,6 +201,24 @@
     "columns": "Colonnes affichées",
     "columnsHint": "Clic droit sur l’en-tête pour y revenir."
   },
+  "range": {
+    "pushTitle_one": "{{count}} commit à pousser vers {{upstream}}",
+    "pushTitle_other": "{{count}} commits à pousser vers {{upstream}}",
+    "pullTitle_one": "{{count}} commit à tirer de {{upstream}}",
+    "pullTitle_other": "{{count}} commits à tirer de {{upstream}}",
+    "pushLabel": "Ce qui part au push",
+    "pullLabel": "Ce qui arrive au pull",
+    "pushEmpty": "Rien à pousser : {{upstream}} a déjà tous les commits de la branche.",
+    "pullEmpty": "Rien à tirer de {{upstream}} (d'après le dernier fetch).",
+    "fetchHint": "Relire la branche distante avant de tirer",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "showInGraph": "Montrer dans le graphe",
+    "pushBadge_one": "Voir le commit qui part au push",
+    "pushBadge_other": "Voir les {{count}} commits qui partent au push",
+    "pullBadge_one": "Voir le commit qui arrive au pull",
+    "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull"
+  },
   "details": {
     "selectCommit": "Sélectionner ce commit",
     "openPull": "Ouvrir dans GitGR",

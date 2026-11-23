@@ -870,6 +870,23 @@ h2 {
   align-items: center;
 }
 
+/* Bouton dont le badge (↑ / ↓) est cliquable à part. */
+.tool-badged {
+  position: relative;
+  display: flex;
+}
+
+.badge.badge-btn {
+  z-index: 1;
+  border: 0;
+  cursor: pointer;
+}
+
+.badge.badge-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 .tool-sep {
   width: 1px;
   height: 28px;
@@ -4802,6 +4819,41 @@ p.pf-account-keys.bad,
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Ce qui part au push / arrive au pull (RangeView). */
+.range-commits {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.range-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 4px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.range-commit:hover {
+  background: var(--hover);
+}
+
+.range-subject,
+.range-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-meta {
+  font-size: 11.5px;
 }
 
 .pull-checks {

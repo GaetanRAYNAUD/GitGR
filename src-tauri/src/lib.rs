@@ -115,6 +115,8 @@ pub fn run() {
             commands::repo_refs,
             commands::commit_details,
             commands::commit_diff,
+            commands::range_changes,
+            commands::range_diff,
             commands::work_status,
             commands::work_diff,
             commands::stage_files,

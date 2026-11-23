@@ -6,7 +6,12 @@ import { openNextRepo } from "./fixtures";
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches et tags" });
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Publier sur GitHub / GitLab" });
-const tool = (page: Page, name: string) => page.locator(".tools").getByRole("button", { name: new RegExp(`^${name}`) });
+/** Bouton de la barre d'outils, avec son badge cliquable quand il en a un (enveloppe `.tool-badged`). */
+const tool = (page: Page, name: string) =>
+  page
+    .locator(".tools")
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .locator("xpath=(ancestor::*[contains(concat(' ', @class, ' '), ' tool-badged ')] | .)[1]");
 
 async function seedProfile(page: Page) {
   await page.evaluate(() => {

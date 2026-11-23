@@ -3,7 +3,12 @@
 import type { Page } from "@playwright/test";
 import { expect, git, launchApp, test } from "./app";
 
-const tool = (page: Page, name: string) => page.locator(".tools").getByRole("button", { name: new RegExp(`^${name}`) });
+/** Bouton de la barre d'outils, avec son badge cliquable quand il en a un (enveloppe `.tool-badged`). */
+const tool = (page: Page, name: string) =>
+  page
+    .locator(".tools")
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .locator("xpath=(ancestor::*[contains(concat(' ', @class, ' '), ' tool-badged ')] | .)[1]");
 const banner = (page: Page) => page.locator(".autostash-banner");
 
 test("pull avec des modifications locales qui ne gênent pas : rien n'est stashé", async ({ sandbox }) => {
@@ -134,6 +139,35 @@ test("double-clic sur une distante dont la locale existe : checkout puis pull", 
     await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
     expect(git(mine, "log", "-1", "--format=%s")).toBe("distant: feature");
     expect(git(mine, "rev-parse", "--abbrev-ref", "@{u}")).toBe("origin/feature");
+  } finally {
+    await app.close();
+  }
+});
+
+test("badges ↑ / ↓ : ce qui part au push et ce qui arrive au pull, avec le diff cumulé", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const other = sandbox.clone("other");
+  sandbox.commit(other, "b.txt", "distant\n", "distant: b");
+  git(other, "push", "-q");
+  git(mine, "fetch", "-q");
+  sandbox.commit(mine, "c.txt", "local\n", "local: c");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await page.getByRole("button", { name: "Voir le commit qui arrive au pull" }).click();
+    const pull = page.getByRole("region", { name: "Ce qui arrive au pull" });
+    await expect(pull.locator(".pull-view-title")).toHaveText("1 commit à tirer de origin/main");
+    await expect(pull.locator(".range-commit")).toContainText("distant: b");
+    await expect(pull.locator(".file-row")).toHaveText([/b\.txt/]);
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("button", { name: "Voir le commit qui part au push" }).click();
+    const push = page.getByRole("region", { name: "Ce qui part au push" });
+    await expect(push.locator(".range-commit")).toContainText("local: c");
+    await expect(push.locator(".file-row")).toHaveText([/c\.txt/]);
+    await push.locator(".file-row").click();
+    await expect(push.locator(".diff-body tr.add")).toHaveCount(1);
   } finally {
     await app.close();
   }

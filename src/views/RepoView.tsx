@@ -23,6 +23,8 @@ import { usePublishDialog } from "../store/publish";
 import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
+import { RangeView } from "../components/graph/RangeView";
+import { useRangeView } from "../store/range";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
@@ -68,6 +70,11 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
   const running = useOps((s) => s.running[path]);
   const ops = useOps.getState();
+  const showRange = (p: string, d: "push" | "pull") => {
+    usePullList.getState().close(p);
+    useGraph.getState().closeDiff(p);
+    useRangeView.getState().show(p, d);
+  };
   const chevron = useRef<HTMLButtonElement>(null);
   const pushChevron = useRef<HTMLButtonElement>(null);
   const detached = !!data && !data.branch;
@@ -80,8 +87,9 @@ function Tools({ path, changes }: { path: string; changes: number }) {
     key: OpName | "branch",
     icon: IconName,
     onClick: () => void,
-    opts: { disabled?: boolean; title?: string; badge?: number; label?: string } = {},
-  ) => (
+    opts: { disabled?: boolean; title?: string; badge?: number; label?: string; onBadge?: () => void; badgeTitle?: string } = {},
+  ) => {
+    const button = (
     <button
       className={running === key ? "tbtn running" : "tbtn"}
       disabled={!!running || opts.disabled}
@@ -91,9 +99,20 @@ function Tools({ path, changes }: { path: string; changes: number }) {
     >
       <Icon name={icon} />
       <span>{opts.label ?? t(`repo.${key}`)}</span>
-      {!!opts.badge && <span className="badge">{opts.badge}</span>}
+      {!!opts.badge && !opts.onBadge && <span className="badge">{opts.badge}</span>}
     </button>
-  );
+    );
+    if (!opts.badge || !opts.onBadge) return button;
+    // Badge cliquable à côté du bouton (pas dedans : un bouton dans un bouton).
+    return (
+      <span className="tool-badged">
+        {button}
+        <button className="badge badge-btn" title={opts.badgeTitle} aria-label={opts.badgeTitle} onClick={opts.onBadge}>
+          {opts.badge}
+        </button>
+      </span>
+    );
+  };
 
   const strategyMenu = () => {
     if (!chevron.current) return;
@@ -123,6 +142,8 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         disabled: detached || !!operation,
         title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
         badge: data?.ahead,
+        onBadge: () => showRange(path, "push"),
+        badgeTitle: t("range.pushBadge", { count: data?.ahead ?? 0 }),
       });
 
   return (
@@ -132,6 +153,8 @@ function Tools({ path, changes }: { path: string; changes: number }) {
           disabled: !data?.upstream || !!operation,
           title: data?.upstream ? t("repo.pullHint", { mode: t(`pull.${strategy}`) }) : t("errors.no_upstream"),
           badge: data?.behind,
+          onBadge: () => showRange(path, "pull"),
+          badgeTitle: t("range.pullBadge", { count: data?.behind ?? 0 }),
         })}
         <button
           ref={chevron}
@@ -233,6 +256,7 @@ export function RepoView({ path }: { path: string }) {
   const ensurePulls = usePullList((s) => s.ensure);
   const refsVersion = useGraph((s) => s.graphs[path]?.refs);
   const openPull = usePullList((s) => s.open[path]);
+  const openRange = useRangeView((s) => s.open[path]);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -282,6 +306,7 @@ export function RepoView({ path }: { path: string }) {
             onClick={() => {
               if (diff) useGraph.getState().closeDiff(path);
               if (openPull) usePullList.getState().close(path);
+              useRangeView.getState().close(path);
               select(path, WIP);
             }}
           >
@@ -318,6 +343,8 @@ export function RepoView({ path }: { path: string }) {
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (
             <WorkDiffView path={path} diff={workDiff} />
+          ) : openRange ? (
+            <RangeView key={openRange} path={path} direction={openRange} />
           ) : openPull ? (
             <PullView key={`${openPull.ctx.remote}#${openPull.number}`} path={path} ctx={openPull.ctx} number={openPull.number} />
           ) : (

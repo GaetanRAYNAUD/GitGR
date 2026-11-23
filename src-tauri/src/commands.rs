@@ -141,6 +141,17 @@ pub async fn commit_details(path: String, sha: String) -> Result<CommitDetails, 
     history::details(Path::new(&path), &sha).map_err(classify)
 }
 
+/// Ce qui part au push (`"push"`) ou arrive au pull (`"pull"`) : commits et fichiers cumulés.
+#[tauri::command]
+pub async fn range_changes(path: String, direction: String) -> Result<history::RangeChanges, String> {
+    history::range_changes(Path::new(&path), &direction).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
+    history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn commit_diff(
     path: String,

@@ -244,6 +244,18 @@ export interface FileChange {
   oldPath: string | null;
 }
 
+/** Ce qui part au push / arrive au pull (`range_changes`). */
+export interface RangeChanges {
+  /** Départ du diff cumulé (base commune de HEAD et de sa branche suivie). */
+  base: string;
+  /** Bout de la plage : HEAD (push) ou la branche suivie (pull). */
+  tip: string;
+  commits: Commit[];
+  files: FileChange[];
+}
+
+export type RangeDirection = "push" | "pull";
+
 export interface CommitDetails {
   sha: string;
   parents: string[];

@@ -14,7 +14,12 @@ import { msys, sshdAvailable, startServer, useSsh } from "./sshd";
 
 test.skip(!sshdAvailable, "sshd de Git pour Windows introuvable");
 
-const tool = (page: Page, name: string) => page.locator(".tools").getByRole("button", { name: new RegExp(`^${name}`) });
+/** Bouton de la barre d'outils, avec son badge cliquable quand il en a un (enveloppe `.tool-badged`). */
+const tool = (page: Page, name: string) =>
+  page
+    .locator(".tools")
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .locator("xpath=(ancestor::*[contains(concat(' ', @class, ' '), ' tool-badged ')] | .)[1]");
 const menu = (page: Page) => page.getByRole("menu");
 /** En-tête de la section d'un remote, dans la barre latérale. */
 const remote = (page: Page, name: string) =>
