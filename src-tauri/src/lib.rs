@@ -161,6 +161,7 @@ pub fn run() {
             commands::stash_branch,
             commands::stash_changes,
             commands::stash_files,
+            commands::stash_rename,
             commands::abort_operation,
             commands::continue_operation,
             commands::watch_repo,

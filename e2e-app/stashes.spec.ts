@@ -36,11 +36,20 @@ test("stashes : toute la pile, appliquer le plus ancien sans le retirer, supprim
     expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("ancien\n");
     expect(git(mine, "stash", "list").split("\n")).toHaveLength(2);
 
+    // Renommer le plus ancien : nouveau message, en haut de la pile, même contenu.
+    await stashes.getByRole("button", { name: /le plus ancien/ }).click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Renommer…" }).click();
+    const rename = page.getByRole("dialog", { name: "Renommer le stash" });
+    await rename.getByRole("textbox").fill("ancien renommé");
+    await rename.getByRole("button", { name: "Renommer" }).click();
+    await expect(stashes.getByRole("button")).toHaveText([/ancien renommé/, /le plus récent/]);
+    expect(git(mine, "stash", "list", "--format=%gs").split("\n")).toEqual(["On main: ancien renommé", "On main: le plus récent"]);
+
     await stashes.getByRole("button", { name: /le plus récent/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Supprimer…" }).click();
     await page.getByRole("alertdialog", { name: "Supprimer ce stash ?" }).getByRole("button", { name: "Supprimer" }).click();
-    await expect(stashes.getByRole("button")).toHaveText([/le plus ancien/]);
-    expect(git(mine, "stash", "list")).toContain("le plus ancien");
+    await expect(stashes.getByRole("button")).toHaveText([/ancien renommé/]);
+    expect(git(mine, "stash", "list")).toContain("ancien renommé");
   } finally {
     await app.close();
   }

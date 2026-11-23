@@ -155,6 +155,13 @@ test.describe("dépôt avec des modifications", () => {
     await expect(stashes.getByRole("button")).toHaveCount(1);
 
     await stashes.getByRole("button").first().click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "Renommer…" }).click();
+    const rename = page.getByRole("dialog", { name: "Renommer le stash" });
+    await rename.getByRole("textbox").fill("mis de côté pour plus tard");
+    await rename.getByRole("button", { name: "Renommer" }).click();
+    await expect(stashes).toContainText("mis de côté pour plus tard");
+
+    await stashes.getByRole("button").first().click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Supprimer…" }).click();
     await page.getByRole("alertdialog", { name: "Supprimer ce stash ?" }).getByRole("button", { name: "Supprimer" }).click();
     await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);

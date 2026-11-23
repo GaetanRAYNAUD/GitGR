@@ -79,6 +79,16 @@ export function mockStashApply(path: string, sha: string, drop: boolean): OpResu
   return OK;
 }
 
+export function mockStashRename(path: string, sha: string, message: string) {
+  const list = stashes.get(path) ?? [];
+  const i = list.findIndex((s) => s.sha === sha);
+  if (i < 0) throw "stash_missing";
+  if (!message.trim()) throw "stash_message_invalid";
+  const [s] = list.splice(i, 1);
+  list.unshift({ ...s, message: message.trim() });
+  touchRefs(path);
+}
+
 export function mockStashDrop(path: string, sha: string) {
   const list = stashes.get(path) ?? [];
   const i = list.findIndex((s) => s.sha === sha);

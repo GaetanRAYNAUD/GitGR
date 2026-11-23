@@ -297,6 +297,11 @@
     "stats": "{{added}} lines added, {{removed}} removed"
   },
   "stashes": {
+    "rename": "Rename",
+    "renameMenu": "Rename…",
+    "renameTitle": "Rename stash",
+    "renameLabel": "Message",
+    "renameHint": "It will move to the top of the stack.",
     "showBase": "Show base commit in graph",
     "viewLabel": "Stash “{{name}}”",
     "applyShort": "Apply",
@@ -604,6 +609,7 @@
     "remote_not_found": "Remote repository not found (remote address or access rights).",
     "no_stash": "No stash to reapply.",
     "untrack_staged": "This file has staged changes: unstage them first.",
+    "stash_message_invalid": "The stash message cannot be empty.",
     "stash_missing": "This stash is no longer in the stack.",
     "stash_would_overwrite": "The stash would overwrite current changes: commit or stash them first.",
     "key_not_found": "Key file not found.",

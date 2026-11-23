@@ -72,6 +72,8 @@ interface OpsStore {
   applyStash(path: string, sha: string, drop: boolean): Promise<boolean>;
   /** Supprime un stash, après confirmation. */
   dropStash(path: string, sha: string, label: string): Promise<boolean>;
+  /** Renomme un stash (nouveau message demandé). */
+  renameStash(path: string, sha: string, label: string): Promise<boolean>;
   /** Nouvelle branche depuis un stash (`git stash branch`), nom demandé. */
   stashBranch(path: string, sha: string, label: string): Promise<boolean>;
   abortOperation(path: string): Promise<boolean>;
@@ -498,6 +500,20 @@ export const useOps = create<OpsStore>((set, get) => {
       // Les modifications réappliquées sur la nouvelle branche.
       useGraph.getState().select(path, WIP);
       return true;
+    },
+
+    async renameStash(path, sha, label) {
+      const answer = await useDialogs.getState().input({
+        title: t("stashes.renameTitle"),
+        subtitle: t("stashes.renameHint"),
+        label: t("stashes.renameLabel"),
+        initial: label,
+        submit: t("stashes.rename"),
+        validate: (v) => (v.trim() ? null : t("staging.stashFileEmpty")),
+      });
+      if (!answer || answer.value.trim() === label) return false;
+      const out = await exec(path, "stash", () => api.stashRename(path, sha, answer.value.trim()));
+      return out.ok || fail(out.error);
     },
 
     async dropStash(path, sha, label) {

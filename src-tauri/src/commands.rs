@@ -412,6 +412,11 @@ pub async fn stash_branch(path: String, sha: String, name: String) -> Result<(),
 }
 
 #[tauri::command]
+pub async fn stash_rename(path: String, sha: String, message: String) -> Result<(), String> {
+    branches::stash_rename(Path::new(&path), &sha, &message).map_err(|e| branches::classify(&e))
+}
+
+#[tauri::command]
 pub async fn stash_drop(path: String, sha: String) -> Result<(), String> {
     branches::stash_drop(Path::new(&path), &sha).map_err(|e| branches::classify(&e))
 }

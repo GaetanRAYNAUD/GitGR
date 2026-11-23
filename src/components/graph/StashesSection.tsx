@@ -33,6 +33,7 @@ export function stashMenu(t: TFunction, path: string, s: StashEntry, onMissing: 
         void useGraph.getState().reveal(path, s.base).then((ok) => (ok ? useStashView.getState().close(path) : onMissing())),
     },
     { label: t("stashes.branch"), onClick: () => void ops.stashBranch(path, s.sha, text) },
+    { label: t("stashes.renameMenu"), onClick: () => void ops.renameStash(path, s.sha, text) },
     "sep",
     { label: t("stashes.dropMenu"), danger: true, onClick: () => void ops.dropStash(path, s.sha, text) },
     "sep",
@@ -54,6 +55,9 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
   useEffect(() => {
     if (opened && list.length && !list.some((s) => s.sha === opened.sha)) useStashView.getState().close(path);
     if (opened && !count) useStashView.getState().close(path);
+    // Renommé : la vue reprend le nouveau message.
+    const now = opened && list.find((s) => s.sha === opened.sha);
+    if (now && now.message !== opened.message) useStashView.getState().show(path, now);
   }, [opened, list, count, path]);
 
   // Relue à chaque nouvel état des refs (stash fait, appliqué, supprimé…).

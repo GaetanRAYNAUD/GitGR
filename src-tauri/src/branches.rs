@@ -583,6 +583,37 @@ pub fn stash_branch(path: &Path, sha: &str, name: &str) -> Result<(), String> {
     run(Some(path), &["stash", "branch", name, &r]).map(|_| ())
 }
 
+/// Renomme un stash. Git n'a pas de commande pour ça : l'entrée est retirée puis le même
+/// commit remis dans la pile avec le nouveau message (`stash store`). Il passe donc en haut
+/// de la pile. Garde la branche d'origine dans le sujet (`On main: …`).
+pub fn stash_rename(path: &Path, sha: &str, message: &str) -> Result<(), String> {
+    check_dir(path)?;
+    let message = message.trim();
+    if message.is_empty() || message.contains('\n') {
+        return Err("stash_message_invalid".into());
+    }
+    let entry = list_stashes(path)?.into_iter().find(|s| s.sha == sha).ok_or_else(|| "stash_missing".to_string())?;
+    let branch = entry
+        .message
+        .strip_prefix("WIP on ")
+        .or_else(|| entry.message.strip_prefix("On "))
+        .and_then(|rest| rest.split_once(": "))
+        .map(|(b, _)| b.to_string());
+    let subject = match branch {
+        Some(b) => format!("On {b}: {message}"),
+        None => message.to_string(),
+    };
+    // `stash store` d'un commit déjà en haut de la pile n'ajoute rien au reflog : on retire
+    // d'abord l'entrée, puis on la remet (le commit reste, rien n'est perdu entre les deux).
+    let old = stash_ref(path, sha)?;
+    run(Some(path), &["stash", "drop", "-q", &old])?;
+    if let Err(e) = run(Some(path), &["stash", "store", "-q", "-m", &subject, sha]) {
+        let _ = run(Some(path), &["stash", "store", "-q", "-m", &entry.message, sha]);
+        return Err(e);
+    }
+    Ok(())
+}
+
 /// Supprime un stash de la pile.
 pub fn stash_drop(path: &Path, sha: &str) -> Result<(), String> {
     check_dir(path)?;
@@ -1178,6 +1209,10 @@ mod tests {
         stash_apply(p, &list[0].sha, true).unwrap();
         assert!(p.join("b.txt").exists());
         assert_eq!(list_stashes(p).unwrap().len(), 1);
+        // Renommé : même commit, nouveau message, branche gardée ; un seul exemplaire.
+        stash_rename(p, &list[1].sha, "renommé").unwrap();
+        assert_eq!(list_stashes(p).unwrap().iter().map(|s| (s.sha.as_str(), s.message.as_str())).collect::<Vec<_>>(), [(list[1].sha.as_str(), "On main: renommé")]);
+        assert_eq!(stash_rename(p, &list[1].sha, " ").unwrap_err(), "stash_message_invalid");
         // Le premier, sur une branche à lui : extraite, le stash appliqué puis retiré.
         git(p, &["checkout", "-q", "--", "."]);
         std::fs::remove_file(p.join("b.txt")).unwrap();
