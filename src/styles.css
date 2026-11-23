@@ -2285,6 +2285,22 @@ h2 {
   flex: 1;
 }
 
+/* Dossier du dépôt et origin : cliquables, discrets jusqu'au survol. */
+.status-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-link:hover,
+.status-link:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 /* ------------------------------------------------------------------ */
 /* Superpositions                                                      */
 /* ------------------------------------------------------------------ */

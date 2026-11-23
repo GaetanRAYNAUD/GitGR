@@ -192,7 +192,9 @@
     "pullFrom": "Pull from {{remote}}",
     "pushTo": "Push to {{remote}}",
     "pushAll": "Push to all remotes",
-    "pushMenu": "Push to…"
+    "pushMenu": "Push to…",
+    "openFolder": "Open the folder in the file manager",
+    "openRemote": "Open {{url}} in the browser"
   },
   "graph": {
     "label": "Commit history",

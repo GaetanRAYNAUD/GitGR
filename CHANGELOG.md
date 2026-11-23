@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Barre du bas : un clic sur le dossier du dépôt l'ouvre dans l'explorateur, un clic sur origin ouvre la page du dépôt dans le navigateur.
+
 ## [0.1.1] — 2026-11-23
 
 - Aucun changement fonctionnel : version qui sert à vérifier la mise à jour automatique depuis la 0.1.0.

@@ -10,7 +10,8 @@ import { Icon, type IconName } from "../components/Icon";
 import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
 import { errorMessage } from "../lib/errors";
-import { remoteHost } from "../lib/format";
+import { api, errorCode } from "../lib/api";
+import { remoteHost, remoteWebUrl } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
@@ -211,6 +212,8 @@ export function RepoView({ path }: { path: string }) {
   const diff = useGraph((s) => s.diffs[path]);
   const loadGraph = useGraph((s) => s.refresh);
   const data = summary?.data;
+  // Page web de origin (barre du bas) ; aucune pour un remote local.
+  const webUrl = data?.remoteUrl ? remoteWebUrl(data.remoteUrl) : null;
   const work = useWork((s) => s.repos[path]);
   const loadWork = useWork((s) => s.refresh);
   const closeWorkDiff = useWork((s) => s.closeDiff);
@@ -363,13 +366,31 @@ export function RepoView({ path }: { path: string }) {
       </div>
 
       <footer className="statusbar">
-        <span className="mono">{path}</span>
-        {data?.remoteUrl && (
-          <span className="status-item" title={data.remoteUrl}>
-            <Icon name="cloud" size={14} />
-            origin · {remoteHost(data.remoteUrl)}
-          </span>
-        )}
+        <button
+          type="button"
+          className="status-link mono"
+          title={t("repo.openFolder")}
+          onClick={() => void api.openRepoFile(path, "", "open").catch((e) => useApp.setState({ error: errorCode(e) }))}
+        >
+          {path}
+        </button>
+        {data?.remoteUrl &&
+          (webUrl ? (
+            <button
+              type="button"
+              className="status-link status-item"
+              title={t("repo.openRemote", { url: webUrl })}
+              onClick={() => void api.openUrl(webUrl).catch((e) => useApp.setState({ error: errorCode(e) }))}
+            >
+              <Icon name="cloud" size={14} />
+              origin · {remoteHost(data.remoteUrl)}
+            </button>
+          ) : (
+            <span className="status-item" title={data.remoteUrl}>
+              <Icon name="cloud" size={14} />
+              origin · {remoteHost(data.remoteUrl)}
+            </span>
+          ))}
         <span className="status-spacer" />
         <ProfilePill path={path} className="status-profile" />
         {count > 0 && <span>{done ? t("graph.count", { count }) : t("graph.countMore", { count })}</span>}

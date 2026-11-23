@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commitDate, initials, relativeTime, remoteHost } from "./format";
+import { commitDate, initials, relativeTime, remoteHost, remoteWebUrl } from "./format";
 
 describe("remoteHost", () => {
   it.each([
@@ -14,6 +14,26 @@ describe("remoteHost", () => {
 
   it("renvoie l'URL telle quelle si elle est inconnue", () => {
     expect(remoteHost("/chemin/local/repo")).toBe("/chemin/local/repo");
+  });
+});
+
+describe("remoteWebUrl", () => {
+  it.each([
+    ["git@github.com:Org/Repo.git", "https://github.com/Org/Repo"],
+    ["git@gitlab.exemple.fr:groupe/sous/repo.git", "https://gitlab.exemple.fr/groupe/sous/repo"],
+    ["https://github.com/org/repo.git", "https://github.com/org/repo"],
+    ["https://user:token@gitlab.exemple.fr/org/repo.git", "https://gitlab.exemple.fr/org/repo"],
+    ["http://gitlab.local:8080/org/repo/", "http://gitlab.local:8080/org/repo"],
+    ["ssh://git@gitlab.exemple.fr:2222/org/repo.git", "https://gitlab.exemple.fr/org/repo"],
+  ])("%s → %s", (url, web) => {
+    expect(remoteWebUrl(url)).toBe(web);
+  });
+
+  it("pas de page pour un chemin local ou une URL sans chemin", () => {
+    expect(remoteWebUrl("/chemin/local/repo")).toBeNull();
+    expect(remoteWebUrl("C:\\depots\\repo")).toBeNull();
+    expect(remoteWebUrl("file:///srv/repo.git")).toBeNull();
+    expect(remoteWebUrl("https://github.com/")).toBeNull();
   });
 });
 
