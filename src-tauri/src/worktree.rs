@@ -596,7 +596,9 @@ pub fn repo_file(repo: &Path, file: &str) -> Result<PathBuf, String> {
             return Err("outside_repo".into());
         }
     }
-    Ok(full)
+    // Le chemin tel que le dépôt est connu, pas sa forme canonique (`\\?\H:\…` sous
+    // Windows, que l'explorateur ne comprend pas toujours).
+    Ok(repo.join(rel))
 }
 
 /// Dossier à montrer pour un fichier : le sien, ou le premier parent qui existe encore
@@ -629,12 +631,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("gitgr-repo-file-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(dir.join("src/a.txt"), "a").unwrap();
-        let root = dir.canonicalize().unwrap();
-        assert_eq!(repo_file(&dir, "src/a.txt").unwrap(), root.join("src/a.txt"));
+        assert_eq!(repo_file(&dir, "src/a.txt").unwrap(), dir.join("src/a.txt"));
         // Supprimé : chemin rendu quand même, son dossier existant le plus proche montré.
         let gone = repo_file(&dir, "old/b.txt").unwrap();
-        assert_eq!(existing_dir(&gone, &root), root);
-        assert_eq!(existing_dir(&root.join("src/a.txt"), &root), root.join("src"));
+        assert_eq!(existing_dir(&gone, &dir), dir);
+        assert_eq!(existing_dir(&dir.join("src/a.txt"), &dir), dir.join("src"));
         assert_eq!(repo_file(&dir, "../x").unwrap_err(), "outside_repo");
         assert_eq!(repo_file(&dir, "src/../../x").unwrap_err(), "outside_repo");
         let abs = if cfg!(windows) { "C:/Windows" } else { "/etc" };

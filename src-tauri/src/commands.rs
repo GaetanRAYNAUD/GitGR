@@ -207,8 +207,7 @@ pub async fn open_repo_file(app: AppHandle, path: String, file: String, how: Str
         "open" => Err("file_missing".into()),
         "reveal" if full.exists() => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
         "reveal" => {
-            let root = Path::new(&path).canonicalize().map_err(|_| "path_not_found".to_string())?;
-            app.opener().open_path(worktree::existing_dir(&full, &root).to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+            app.opener().open_path(worktree::existing_dir(&full, Path::new(&path)).to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
         }
         _ => Err(format!("unknown action: {how}")),
     }
