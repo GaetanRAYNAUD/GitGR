@@ -115,3 +115,31 @@ test("stash partiel : un seul fichier mis de côté, les autres restent", async 
   const stashes = page.getByRole("navigation", { name: "Branches et tags" }).getByRole("list", { name: "Stashes" });
   await expect(stashes).toContainText("juste les notes");
 });
+
+test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une ligne dans le graphe", async ({ page }) => {
+  await panel(page).getByRole("button", { name: "Mettre de côté des fichiers (stash)…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Mettre de côté des fichiers" });
+  const submit = dialog.getByRole("button", { name: "Mettre de côté" });
+  // Rien de coché au départ : rien à mettre de côté.
+  await expect(submit).toBeDisabled();
+  await expect(dialog.locator("li", { hasText: "lanes.ts" })).toContainText("indexé");
+  await expect(dialog.locator("li", { hasText: "notes.txt" })).toContainText("non suivi");
+  await dialog.getByRole("checkbox", { name: /notes\.txt/ }).check();
+  await dialog.getByRole("checkbox", { name: /render\.ts/ }).check();
+  await dialog.getByRole("textbox").fill("deux fichiers");
+  await submit.click();
+  await expect(unstaged(page)).not.toContainText("notes.txt");
+  await expect(unstaged(page)).not.toContainText("render.ts");
+  await expect(staged(page)).toContainText("lanes.ts");
+
+  // Ligne discrète du stash, juste au-dessus du commit d'où il part (HEAD) ; clic : son contenu.
+  const row = graph(page).getByRole("option", { name: /deux fichiers/ });
+  await expect(row).toHaveClass(/stash/);
+  await expect(graph(page).getByRole("option").nth(2)).toHaveClass(/head/);
+  await row.click();
+  const view = page.getByRole("region", { name: /^Stash/ });
+  await expect(view.locator(".file-row")).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await row.click({ button: "right" });
+  await expect(page.getByRole("menu")).toContainText("Appliquer et retirer (pop)");
+});

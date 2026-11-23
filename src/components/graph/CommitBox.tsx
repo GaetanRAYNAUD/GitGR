@@ -45,7 +45,8 @@ function OperationBanner({ path, op }: { path: string; op: Operation }) {
   );
 }
 
-export function CommitBox({ path }: { path: string }) {
+/** `onStash` : stash partiel (fenêtre des fichiers à mettre de côté) ; absent : bouton désactivé. */
+export function CommitBox({ path, onStash }: { path: string; onStash?: () => void }) {
   const { t } = useTranslation();
   const work = useWork((s) => s.repos[path]);
   const setDraft = useWork((s) => s.setDraft);
@@ -160,9 +161,22 @@ export function CommitBox({ path }: { path: string }) {
         {hint && <span className="commit-hint">{hint}</span>}
         <ProfilePill path={path} className="commit-profile" />
       </div>
-      <button type="submit" className="btn primary commit-btn" disabled={!canCommit} title={t("commit.shortcut")}>
-        {draft.amend ? t("commit.amendButton") : t("commit.button", { count: staged })}
-      </button>
+      <div className="commit-actions">
+        <button type="submit" className="btn primary commit-btn" disabled={!canCommit} title={t("commit.shortcut")}>
+          {draft.amend ? t("commit.amendButton") : t("commit.button", { count: staged })}
+        </button>
+        <button
+          type="button"
+          className="btn stash-btn"
+          disabled={!onStash}
+          onClick={onStash}
+          aria-label={t("staging.stashFiles")}
+          title={t("staging.stashFilesHint")}
+        >
+          <Icon name="stash" size={15} />
+          {t("staging.stashShort")}
+        </button>
+      </div>
     </form>
   );
 }

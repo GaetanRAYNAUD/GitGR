@@ -299,6 +299,7 @@
   "stashes": {
     "rename": "Renommer",
     "renameMenu": "Renommer…",
+    "graphHint": "Clic : contenu du stash ; clic droit : appliquer, pop, supprimer…",
     "renameTitle": "Renommer le stash",
     "renameLabel": "Message",
     "renameHint": "Il passera en haut de la pile.",
@@ -340,6 +341,14 @@
     "stashFileLabel": "Message du stash",
     "stashFileSubmit": "Mettre de côté",
     "stashFileEmpty": "Un message est nécessaire.",
+    "stashFiles": "Mettre de côté des fichiers (stash)…",
+    "stashShort": "Stash…",
+    "stashFilesHint": "Mettre de côté (stash) les fichiers choisis, avec un message",
+    "stashFilesTitle": "Mettre de côté des fichiers",
+    "stashPickLabel": "Fichiers à mettre de côté",
+    "stashPickStaged": "indexé",
+    "stashPickPartly": "en partie indexé",
+    "stashPickUntracked": "non suivi",
     "ignore": {
       "file": "Ignorer {{name}}",
       "ext": "Ignorer les fichiers {{name}}",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutGraph, type GraphCommit } from "./graph";
+import { layoutGraph, SIDE_COLOR, type GraphCommit } from "./graph";
 
 const c = (sha: string, ...parents: string[]): GraphCommit => ({ sha, parents });
 /** Colonnes seules d'une liste à plat [colonne, couleur…]. */
@@ -71,6 +71,46 @@ describe("layoutGraph", () => {
     const { rows, width } = layoutGraph([c("b", "a"), c("z", "y")]);
     expect(width).toBe(2);
     expect(cols(rows[1].pass)).toEqual([0]);
+  });
+
+  it("stash : colonne annexe grisée en pointillés, le commit de départ garde sa colonne", () => {
+    //  c
+    //  | s   (stash parti de b)
+    //  b'
+    //  a
+    const stash: GraphCommit = { sha: "s", parents: ["b"], side: true };
+    const plain = layoutGraph([c("c", "b"), c("b", "a"), c("a")]);
+    const { rows, width } = layoutGraph([c("c", "b"), stash, c("b", "a"), c("a")]);
+    expect(width).toBe(2);
+    const [cc, s, b] = rows;
+    expect(s.col).toBe(1);
+    expect(s.color).toBe(SIDE_COLOR);
+    expect(cols(s.pass)).toEqual([0]);
+    expect(s.dashed).toEqual([]);
+    expect(b.col).toBe(0);
+    expect(cols(b.in)).toEqual([0, 1]);
+    expect(b.dashed).toEqual([1]);
+    // Les couleurs des branches ne bougent pas.
+    expect([cc.color, b.color]).toEqual([plain.rows[0].color, plain.rows[1].color]);
+  });
+
+  it("stash sur une pointe de branche : le commit reprend la colonne, avec une vraie couleur", () => {
+    const stash: GraphCommit = { sha: "s", parents: ["b"], side: true };
+    const { rows } = layoutGraph([stash, c("b", "a"), c("a")]);
+    expect(rows[1].col).toBe(0);
+    expect(rows[1].color).not.toBe(SIDE_COLOR);
+    expect(rows[1].dashed).toEqual([0]);
+    expect(rows[2].dashed).toEqual([]);
+    expect(rows[2].color).toBe(rows[1].color);
+  });
+
+  it("deux stashes sur le même commit : la première colonne annexe traverse en pointillés", () => {
+    const s1: GraphCommit = { sha: "s1", parents: ["b"], side: true };
+    const s2: GraphCommit = { sha: "s2", parents: ["b"], side: true };
+    const { rows } = layoutGraph([c("c", "b"), s1, s2, c("b")]);
+    expect(rows[2].dashed).toEqual([1]);
+    expect(cols(rows[3].in)).toEqual([0, 1, 2]);
+    expect(rows[3].dashed).toEqual([1, 2]);
   });
 
   it("tient la charge sur un long historique", () => {
