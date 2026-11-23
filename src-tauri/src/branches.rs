@@ -344,6 +344,66 @@ pub fn move_branch(path: &Path, name: &str, sha: &str) -> Result<(), String> {
     })
 }
 
+/// Annuler / rétablir (cf. `store/undo.ts`) : remet la branche `branch` (`None` : HEAD
+/// détachée) de `expected` à `target`, seulement si elle est toujours sur `expected`
+/// (`undo_stale` sinon : le dépôt a changé depuis). `expected` absent : la branche ne doit pas
+/// exister (elle est recréée) ; `target` absent : elle est supprimée. La branche courante (ou
+/// HEAD) passe par `reset` : `mode` « soft » (annuler un commit : ses modifications restent
+/// indexées) ou « keep » (les modifications en cours sont gardées ; refusé, sans rien toucher,
+/// si elles touchent les mêmes fichiers : `undo_local_changes`).
+pub fn set_branch_tip(path: &Path, branch: Option<&str>, expected: Option<&str>, target: Option<&str>, mode: &str) -> Result<(), String> {
+    check_dir(path)?;
+    for sha in expected.iter().chain(target.iter()) {
+        check_sha(sha)?;
+    }
+    let flag = match mode {
+        "soft" => "--soft",
+        "keep" => "--keep",
+        _ => return Err(format!("unknown mode: {mode}")),
+    };
+    if operation(path).is_some() {
+        return Err("operation_in_progress".into());
+    }
+    let tip = |r: &str| run(Some(path), &["rev-parse", "-q", "--verify", &format!("{r}^{{commit}}")]).ok();
+    let current = current_branch(path);
+    let reset = |expected: Option<&str>, target: Option<&str>, at: &str| -> Result<(), String> {
+        let (Some(expected), Some(target)) = (expected, target) else { return Err("undo_stale".into()) };
+        if tip(at).as_deref() != Some(expected) {
+            return Err("undo_stale".into());
+        }
+        run(Some(path), &["reset", "-q", flag, target]).map(|_| ()).map_err(|e| {
+            if e.contains("not uptodate") || e.contains("Cannot do a keep reset") { "undo_local_changes".into() } else { classify(&e) }
+        })
+    };
+    let Some(branch) = branch else {
+        if current.is_some() {
+            return Err("undo_stale".into());
+        }
+        return reset(expected, target, "HEAD");
+    };
+    if branch.starts_with('-') {
+        return Err("branch_not_found".into());
+    }
+    if current.as_deref() == Some(branch) {
+        return reset(expected, target, "HEAD");
+    }
+    let full = format!("refs/heads/{branch}");
+    if tip(&full).as_deref() != expected {
+        return Err("undo_stale".into());
+    }
+    let msg = "GitGR: annuler / rétablir";
+    let res = match (expected, target) {
+        (_, Some(t)) => {
+            check_branch_name(path, branch)?;
+            // Ancienne valeur vide : la branche ne doit pas exister (recréée).
+            run(Some(path), &["update-ref", "-m", msg, &full, t, expected.unwrap_or("")])
+        }
+        (Some(e), None) => run(Some(path), &["update-ref", "-m", msg, "-d", &full, e]),
+        (None, None) => return Ok(()),
+    };
+    res.map(|_| ()).map_err(|e| classify(&e))
+}
+
 /// Supprime une branche locale ; sans `force`, refusé si elle n'est pas fusionnée.
 pub fn delete_branch(path: &Path, name: &str, force: bool) -> Result<(), String> {
     check_dir(path)?;
@@ -1764,6 +1824,56 @@ mod tests {
         set_upstream(p, "autre", Some("origin/main")).unwrap();
         assert_eq!(git(p, &["rev-parse", "--abbrev-ref", "autre@{u}"]), "origin/main");
         assert_eq!(set_upstream(p, "autre", Some("origin/nulle-part")).unwrap_err(), "branch_not_found");
+    }
+
+    #[test]
+    fn set_branch_tip_for_undo() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "a
+");
+        let first = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "b.txt", "b
+");
+        let second = git(p, &["rev-parse", "HEAD"]);
+
+        // Courante, soft : le commit annulé, ses modifications indexées.
+        set_branch_tip(p, Some("main"), Some(&second), Some(&first), "soft").unwrap();
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
+        assert_eq!(git(p, &["diff", "--cached", "--name-only"]), "b.txt");
+        // Plus sur `second` : refusé.
+        assert_eq!(set_branch_tip(p, Some("main"), Some(&second), Some(&first), "soft").unwrap_err(), "undo_stale");
+        set_branch_tip(p, Some("main"), Some(&first), Some(&second), "soft").unwrap();
+        assert_eq!(git(p, &["status", "--porcelain"]), "");
+
+        // Courante, keep : modification sans rapport gardée ; en conflit, refusé sans rien toucher.
+        std::fs::write(p.join("a.txt"), "local
+").unwrap();
+        set_branch_tip(p, Some("main"), Some(&second), Some(&first), "keep").unwrap();
+        assert_eq!(read(p, "a.txt"), "local
+");
+        assert!(!p.join("b.txt").exists());
+        set_branch_tip(p, Some("main"), Some(&first), Some(&second), "keep").unwrap();
+        std::fs::write(p.join("b.txt"), "local
+").unwrap();
+        assert_eq!(set_branch_tip(p, Some("main"), Some(&second), Some(&first), "keep").unwrap_err(), "undo_local_changes");
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), second);
+        git(p, &["checkout", "--", "."]);
+
+        // Autre branche : recréée, déplacée, supprimée ; jamais si elle a bougé.
+        set_branch_tip(p, Some("autre"), None, Some(&first), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), first);
+        assert_eq!(set_branch_tip(p, Some("autre"), None, Some(&first), "keep").unwrap_err(), "undo_stale");
+        set_branch_tip(p, Some("autre"), Some(&first), Some(&second), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "autre"]), second);
+        set_branch_tip(p, Some("autre"), Some(&second), None, "keep").unwrap();
+        assert!(!local_exists(p, "autre"));
+
+        // HEAD détachée.
+        git(p, &["switch", "-q", "--detach", &second]);
+        set_branch_tip(p, None, Some(&second), Some(&first), "keep").unwrap();
+        assert_eq!(git(p, &["rev-parse", "HEAD"]), first);
+        assert_eq!(current_branch(p), None);
     }
 
     #[test]

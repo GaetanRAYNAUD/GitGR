@@ -23,6 +23,7 @@ import {
   mockSetUpstream,
   mockMergeOrRebase,
   mockMoveBranch,
+  mockSetBranchTip,
   mockRenameBranch,
   mockAutostash,
   mockStashCount,
@@ -193,6 +194,9 @@ export interface Api {
   setUpstream(path: string, branch: string, upstream: string | null): Promise<void>;
   /** Fusionne la branche `branch` (nom complet : `refs/heads/x`, `refs/remotes/o/x`) dans la courante. */
   mergeBranch(path: string, branch: string, autoStash: boolean): Promise<OpResult>;
+  /** Annuler / rétablir : `branch` (`null` : HEAD détachée) de `expected` à `target` ; `expected`
+   *  `null` : la branche est recréée ; `target` `null` : supprimée. `undo_stale` si elle a bougé. */
+  setBranchTip(path: string, branch: string | null, expected: string | null, target: string | null, mode: "soft" | "keep"): Promise<void>;
   /** Déplace une branche qui n'est pas la courante sur `sha` (`git branch -f`). */
   moveBranch(path: string, branch: string, sha: string): Promise<void>;
   /** Rebase la branche courante sur la branche `branch` (nom complet). */
@@ -428,6 +432,7 @@ const tauriApi: Api = {
   mergeBranch: (path, branch, autoStash) => invoke("merge_branch", { path, branch, autoStash }),
   rebaseOnto: (path, branch, autoStash) => invoke("rebase_onto", { path, branch, autoStash }),
   moveBranch: (path, branch, sha) => invoke("move_branch", { path, branch, sha }),
+  setBranchTip: (path, branch, expected, target, mode) => invoke("set_branch_tip", { path, branch, expected, target, mode }),
   addRemote: (path, name, url) => invoke("add_remote", { path, name, url }),
   renameRemote: (path, oldName, newName) => invoke("rename_remote", { path, old: oldName, new: newName }),
   setRemoteUrl: (path, name, url) => invoke("set_remote_url", { path, name, url }),
@@ -913,6 +918,7 @@ const mockApi: Api = {
     return mockMergeOrRebase(path, branch, true, autoStash);
   },
   moveBranch: async (path, branch, sha) => mockMoveBranch(path, branch, sha),
+  setBranchTip: async (path, branch, expected, target) => mockSetBranchTip(path, branch, expected, target),
   addRemote: async (path, name, url) => mockAddRemote(path, name, url),
   renameRemote: async (path, oldName, newName) => mockRenameRemote(path, oldName, newName),
   setRemoteUrl: async (path, name, url) => mockSetRemoteUrl(path, name, url),

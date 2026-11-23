@@ -833,7 +833,9 @@
     "invalid_namespace": "Invalid owner.",
     "ff_branch_diverged": "The branches have diverged: switch to the branch to pull with merge or rebase.",
     "branch_checked_out": "This branch is checked out in another worktree: update it from there.",
-    "same_branch": "Pick a branch other than the current one."
+    "same_branch": "Pick a branch other than the current one.",
+    "undo_stale": "The repository has changed since this operation: it can no longer be undone or redone.",
+    "undo_local_changes": "Pending changes touch the same files: commit or stash them, then try again."
   },
   "profiles": {
     "title": "Profiles",
@@ -1230,5 +1232,31 @@
     "title": "Move {{branch}} to {{sha}}?",
     "body": "{{branch}} will point to this commit. Commits only it contained will no longer show in the graph (its reflog keeps them for a while). Nothing is sent to the server.",
     "confirm": "Move"
+  },
+  "undo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoHint": "Undo: {{label}} ({{keys}})",
+    "redoHint": "Redo: {{label}} ({{keys}})",
+    "undoNone": "Nothing to undo",
+    "redoNone": "Nothing to redo",
+    "undone": "Undone: {{label}}.",
+    "redone": "Redone: {{label}}.",
+    "label": {
+      "checkout": "checkout",
+      "newBranch": "branch creation",
+      "rename": "branch rename",
+      "deleteBranch": "branch deletion",
+      "pull": "pull",
+      "merge": "merge",
+      "rebase": "rebase",
+      "move": "branch move",
+      "reset": "reset",
+      "cherryPick": "cherry-pick",
+      "squash": "squash",
+      "revert": "revert",
+      "commit": "commit",
+      "amend": "amend"
+    }
   }
 }

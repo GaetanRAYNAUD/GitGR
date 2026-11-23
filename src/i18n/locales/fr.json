@@ -833,7 +833,9 @@
     "invalid_namespace": "Propriétaire invalide.",
     "ff_branch_diverged": "Les branches ont divergé : passez sur la branche pour faire un pull avec merge ou rebase.",
     "branch_checked_out": "Cette branche est extraite dans un autre worktree : mettez-la à jour depuis celui-ci.",
-    "same_branch": "Choisissez une autre branche que la branche courante."
+    "same_branch": "Choisissez une autre branche que la branche courante.",
+    "undo_stale": "Le dépôt a changé depuis cette opération : elle ne peut plus être annulée ni rétablie.",
+    "undo_local_changes": "Des modifications en cours touchent les mêmes fichiers : commitez-les ou mettez-les de côté, puis réessayez."
   },
   "profiles": {
     "title": "Profils",
@@ -1230,5 +1232,31 @@
     "title": "Déplacer {{branch}} sur {{sha}} ?",
     "body": "{{branch}} pointera sur ce commit. Les commits qu’elle seule contenait ne seront plus visibles dans le graphe (son reflog les garde quelque temps). Rien n’est envoyé au serveur.",
     "confirm": "Déplacer"
+  },
+  "undo": {
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "undoHint": "Annuler : {{label}} ({{keys}})",
+    "redoHint": "Rétablir : {{label}} ({{keys}})",
+    "undoNone": "Rien à annuler",
+    "redoNone": "Rien à rétablir",
+    "undone": "Annulé : {{label}}.",
+    "redone": "Rétabli : {{label}}.",
+    "label": {
+      "checkout": "checkout",
+      "newBranch": "création de branche",
+      "rename": "renommage de branche",
+      "deleteBranch": "suppression de branche",
+      "pull": "pull",
+      "merge": "merge",
+      "rebase": "rebase",
+      "move": "déplacement de branche",
+      "reset": "reset",
+      "cherryPick": "cherry-pick",
+      "squash": "squash",
+      "revert": "revert",
+      "commit": "commit",
+      "amend": "amend"
+    }
   }
 }

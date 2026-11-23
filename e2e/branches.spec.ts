@@ -157,6 +157,26 @@ test.describe("dépôt propre", () => {
     await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur main terminé." })).toBeVisible();
   });
 
+  test("Ctrl+Z / Ctrl+Y : annuler puis rétablir la création d'une branche extraite", async ({ page }) => {
+    await expect(tool(page, "Annuler")).toBeDisabled();
+    await tool(page, "Branche").click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+    await dialog.getByLabel("Nom de la branche").fill("essai/annuler");
+    await dialog.getByRole("button", { name: "Créer" }).click();
+    await expect(current(page)).toHaveText("essai/annuler");
+    await expect(tool(page, "Annuler")).toHaveAttribute("title", "Annuler : création de branche (Ctrl+Z)");
+
+    await page.locator("body").press("Control+z");
+    await expect(page.getByRole("status").filter({ hasText: "Annulé : création de branche." })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+    await expect(branch(page, "annuler")).toHaveCount(0);
+
+    await tool(page, "Rétablir").click();
+    await expect(current(page)).toHaveText("essai/annuler");
+    await expect(branch(page, "annuler")).toHaveCount(1);
+    await expect(tool(page, "Rétablir")).toBeDisabled();
+  });
+
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {
     const row = graph(page).getByRole("option").nth(3);
     await row.click({ button: "right" });

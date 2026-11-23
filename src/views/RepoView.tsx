@@ -1,3 +1,4 @@
+import { useUndo } from "../store/undo";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitGraph } from "../components/graph/CommitGraph";
@@ -73,6 +74,8 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   const stashes = useGraph((s) => s.graphs[path]?.refs?.stashes ?? 0);
   const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
   const running = useOps((s) => s.running[path]);
+  const undoNext = useUndo((s) => s.stacks[path]?.undo.slice(-1)[0]);
+  const redoNext = useUndo((s) => s.stacks[path]?.redo.slice(-1)[0]);
   const ops = useOps.getState();
   const showRange = (p: string, d: "push" | "pull") => {
     usePullList.getState().close(p);
@@ -150,8 +153,27 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         badgeTitle: t("range.pushBadge", { count: data?.ahead ?? 0 }),
       });
 
+  const undoTool = (dir: "undo" | "redo") => {
+    const entry = dir === "undo" ? undoNext : redoNext;
+    const keys = dir === "undo" ? "Ctrl+Z" : "Ctrl+Y";
+    return (
+      <button
+        className="tbtn"
+        disabled={!!running || !entry}
+        title={entry ? t(`undo.${dir}Hint`, { label: t(`undo.label.${entry.label}`), keys }) : t(`undo.${dir}None`)}
+        onClick={() => void ops.replay(path, dir)}
+      >
+        <Icon name={dir} />
+        <span>{t(`undo.${dir}`)}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="tools">
+      {undoTool("undo")}
+      {undoTool("redo")}
+      <span className="tool-sep" />
       <span className="tool-wrap tool-split">
         {tool("pull", "pull", () => ops.pull(path), {
           disabled: !data?.upstream || !!operation,

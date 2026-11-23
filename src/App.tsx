@@ -45,8 +45,14 @@ function useLanguage() {
   }, [language, i18n]);
 }
 
+/** Saisie de texte en cours : Ctrl+Z / Ctrl+Y y gardent leur sens (annuler la frappe). */
+function typing(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
+}
+
 /** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
- *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif. */
+ *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
+ *  pour annuler / rétablir la dernière opération git du dépôt actif. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -66,6 +72,10 @@ function useShortcuts() {
       } else if (ctrl && /^[1-9]$/.test(e.key)) {
         const path = s.tabs[Number(e.key) - 1];
         if (path) s.activate(path);
+      } else if (ctrl && !e.altKey && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+        // Pas dans un champ, ni sous une fenêtre (dialogue de saisie ou de confirmation).
+        if (!s.active || typing(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        void useOps.getState().replay(s.active, e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo");
       } else if (e.key === "F5") {
         if (s.active) s.refreshRepo(s.active);
       } else {

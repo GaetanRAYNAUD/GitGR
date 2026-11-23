@@ -425,6 +425,12 @@ pub async fn set_upstream(path: String, branch: String, upstream: Option<String>
     branches::set_upstream(Path::new(&path), &branch, upstream.as_deref())
 }
 
+/// Annuler / rétablir : remet une branche (ou HEAD détachée) d'un commit à un autre.
+#[tauri::command]
+pub async fn set_branch_tip(path: String, branch: Option<String>, expected: Option<String>, target: Option<String>, mode: String) -> Result<(), String> {
+    branches::set_branch_tip(Path::new(&path), branch.as_deref(), expected.as_deref(), target.as_deref(), &mode)
+}
+
 /// Déplace une branche qui n'est pas la courante sur un commit.
 #[tauri::command]
 pub async fn move_branch(path: String, branch: String, sha: String) -> Result<(), String> {

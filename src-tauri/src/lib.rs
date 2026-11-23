@@ -162,6 +162,7 @@ pub fn run() {
             commands::set_upstream,
             commands::merge_branch,
             commands::move_branch,
+            commands::set_branch_tip,
             commands::rebase_onto,
             commands::add_remote,
             commands::rename_remote,

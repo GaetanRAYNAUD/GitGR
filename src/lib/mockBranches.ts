@@ -417,6 +417,22 @@ export function mockMoveBranch(path: string, branch: string, sha: string) {
   setRefs(path, refs, h.refs.head, h.refs.headBranch);
 }
 
+/** Annuler / rétablir simulé : la branche (ou HEAD détachée) de `expected` à `target`. */
+export function mockSetBranchTip(path: string, branch: string | null, expected: string | null, target: string | null) {
+  const h = mockHistory(path);
+  if (branch === null || branch === h.refs.headBranch) {
+    if (h.refs.head !== expected || !target) throw "undo_stale";
+    const refs = h.refs.refs.map((r) => (r.kind === "local" && r.short === branch ? { ...r, target } : r));
+    setRefs(path, refs, target, h.refs.headBranch);
+    return;
+  }
+  const l = local(path, branch);
+  if ((l?.target ?? null) !== expected) throw "undo_stale";
+  const others = h.refs.refs.filter((r) => r !== l);
+  const refs = target ? [...others, l ? { ...l, target } : makeRef("local", branch, target)] : others;
+  setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
 export function mockSetUpstream(path: string, branch: string, upstream: string | null) {
   const h = mockHistory(path);
   const l = local(path, branch);
