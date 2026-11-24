@@ -108,6 +108,7 @@ export function TitleBar() {
   const { t } = useTranslation();
   const tabs = useApp((s) => s.tabs);
   const active = useApp((s) => s.active);
+  const summaries = useApp((s) => s.summaries);
   const repos = useApp((s) => s.repos);
   const activate = useApp((s) => s.activate);
   const closeTab = useApp((s) => s.closeTab);
@@ -156,13 +157,24 @@ export function TitleBar() {
         {tabs.map((path) => {
           const name = nameOf(path);
           const on = path === active;
+          // Travail en attente (fichiers pas encore commités, commits à pousser / tirer) :
+          // une marque sur la pastille, le détail dans l'infobulle.
+          const sum = summaries[path]?.data;
+          const pending = !!sum && sum.changes > 0;
+          const sync = !!sum && (sum.ahead > 0 || sum.behind > 0);
+          const state = [
+            pending ? t("tabs.pending", { count: sum.changes }) : null,
+            sync ? [sum.ahead ? `↑${sum.ahead}` : "", sum.behind ? `↓${sum.behind}` : ""].filter(Boolean).join(" ") : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
           const Main = editing === path ? "div" : "button";
           return (
             <div
               key={path}
               data-tab-path={path}
               className={["tab", on && "on", dragging === path && "dragged"].filter(Boolean).join(" ")}
-              title={path}
+              title={state ? `${path}\n${state}` : path}
               onAuxClick={(e) => e.button === 1 && closeTab(path)}
               onContextMenu={(e) => openContextMenu(e, tabMenu(path))}
             >
@@ -171,12 +183,16 @@ export function TitleBar() {
               <Main
                 role="tab"
                 aria-selected={on}
+                aria-description={state || undefined}
                 className="tab-main"
                 onClick={editing === path ? undefined : () => activate(path)}
                 onDoubleClick={() => setEditing(path)}
                 onPointerDown={editing === path ? undefined : (e: ReactPointerEvent) => onPointerDown(e, path)}
               >
-                <span className="dot" style={{ background: repoColor(path, repoOf(path)?.color) }} />
+                <span
+                  className={["dot", "tab-dot", pending && "pending", sync && "sync"].filter(Boolean).join(" ")}
+                  style={{ background: repoColor(path, repoOf(path)?.color) }}
+                />
                 {editing === path ? (
                   <input
                     className="tab-rename"

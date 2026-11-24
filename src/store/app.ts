@@ -111,7 +111,8 @@ export const useApp = create<AppStore>((set, get) => ({
     const active = state.session.active && tabs.includes(state.session.active) ? state.session.active : null;
     useProfiles.getState().load(state, home);
     set({ ready: true, git, repos: state.repos, tabs, active, settings: state.settings, repoUi: state.repoUi ?? {} });
-    if (active) get().refreshSummary(active);
+    // Tous les onglets : leur indicateur de travail en attente (barre d'onglets) en dépend.
+    for (const p of tabs) get().refreshSummary(p);
   },
 
   async recheckGit() {

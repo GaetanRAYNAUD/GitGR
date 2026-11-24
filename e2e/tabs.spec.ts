@@ -13,6 +13,16 @@ test("le logo ramène à l'accueil sans fermer les onglets", async ({ page }) =>
   await expect(page.getByRole("tab", { selected: true })).toHaveCount(0);
 });
 
+test("travail en attente signalé sur la pastille des onglets, détail en infobulle", async ({ page }) => {
+  // Dépôts simulés : GitGR a un commit à pousser, api-backend des modifications en cours.
+  const dot = (name: string) => tab(page, name).locator(".tab-dot");
+  await expect(dot("api-backend")).toHaveClass(/pending/);
+  await expect(dot("GitGR")).toHaveClass(/sync/);
+  await expect(dot("GitGR")).not.toHaveClass(/pending/);
+  await expect(page.locator(".tab", { has: tab(page, "api-backend") })).toHaveAttribute("title", /fichiers? pas encore commités?/);
+  await expect(page.locator(".tab", { has: tab(page, "GitGR") })).toHaveAttribute("title", /↑1/);
+});
+
 test("fermer l'onglet actif active son voisin", async ({ page }) => {
   await tab(page, "api-backend").click();
   await page.getByRole("button", { name: "Fermer l’onglet api-backend" }).click();

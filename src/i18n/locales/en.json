@@ -10,6 +10,8 @@
     "renameHint": "Double-click to rename; empty = folder name",
     "originalName": "Original name",
     "colorAuto": "Automatic",
+    "pending_one": "{{count}} uncommitted file",
+    "pending_other": "{{count}} uncommitted files",
     "closeTab": "Close tab",
     "colors": {
       "0": "Blue",

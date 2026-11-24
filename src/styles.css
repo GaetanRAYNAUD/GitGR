@@ -5592,3 +5592,35 @@ body.commit-dragging * {
 .commit-row.found .commit-msg {
   font-weight: 600;
 }
+
+/* Travail en attente sur la pastille d'un onglet (TitleBar) : fichiers pas encore commités
+   (marque en bas à droite), commits à pousser / tirer (en haut à droite). */
+.tab-dot {
+  position: relative;
+}
+
+.tab-dot.pending::after,
+.tab-dot.sync::before {
+  content: "";
+  position: absolute;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+
+.tab-dot.pending::after {
+  bottom: -3px;
+  background: var(--mod);
+}
+
+.tab-dot.sync::before {
+  top: -3px;
+  background: var(--accent);
+}
+
+.tab.on .tab-dot.pending::after,
+.tab.on .tab-dot.sync::before {
+  box-shadow: 0 0 0 1.5px var(--panel);
+}

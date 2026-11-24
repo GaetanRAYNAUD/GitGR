@@ -10,6 +10,8 @@
     "renameHint": "Double-clic pour renommer ; vide = nom du dossier",
     "originalName": "Nom d’origine",
     "colorAuto": "Automatique",
+    "pending_one": "{{count}} fichier pas encore commité",
+    "pending_other": "{{count}} fichiers pas encore commités",
     "closeTab": "Fermer l’onglet",
     "colors": {
       "0": "Bleu",

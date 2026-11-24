@@ -88,12 +88,15 @@ function useShortcuts() {
   }, [t]);
 }
 
-/** Rafraîchit le dépôt actif quand la fenêtre reprend le focus (modifs faites ailleurs). */
+/** Rafraîchit le dépôt actif quand la fenêtre reprend le focus (modifs faites ailleurs), et le
+ *  résumé des autres onglets. */
 function useRefreshOnFocus() {
   useEffect(() => {
     const onFocus = () => {
-      const { active, refreshRepo } = useApp.getState();
+      const { active, tabs, refreshRepo, refreshSummary } = useApp.getState();
       if (active) refreshRepo(active);
+      // Les autres onglets : seulement leur résumé (indicateur de travail en attente).
+      for (const p of tabs) if (p !== active) void refreshSummary(p);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
