@@ -99,6 +99,8 @@ export interface RepoUi {
   hidden: string[];
   /** Case « pousser après le commit ». */
   pushAfterCommit?: boolean;
+  /** Auto-stash propre au dépôt ; absent : celui des réglages. */
+  autoStash?: boolean | null;
 }
 
 export interface AppState {

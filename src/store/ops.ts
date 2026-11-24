@@ -123,7 +123,8 @@ const t = (key: string, opts: Record<string, unknown> = {}) => i18n.t(key, opts)
 const queues: Record<string, Promise<unknown>> = {};
 
 const settings = () => useApp.getState().settings;
-const autoStash = () => settings().autoStash ?? true;
+/** Auto-stash du dépôt : son propre choix (menu de l'onglet), sinon celui des réglages. */
+const autoStash = (path: string) => useApp.getState().repoUi[path]?.autoStash ?? settings().autoStash ?? true;
 const currentBranch = (path: string) =>
   useGraph.getState().graphs[path]?.refs?.headBranch ?? useApp.getState().summaries[path]?.data?.branch ?? null;
 
@@ -229,7 +230,7 @@ export const useOps = create<OpsStore>((set, get) => {
    *  résultat de la commande (`null` : échec, erreur affichée). */
   const switchWith = async (path: string, call: (stash: boolean) => Promise<OpResult>) => {
     const label = currentBranch(path) ?? "HEAD";
-    const out = await exec(path, ["checkout", "checkout"], () => call(autoStash()));
+    const out = await exec(path, ["checkout", "checkout"], () => call(autoStash(path)));
     if (!out.ok) return fail(out.error) && null;
     report(out.value, label);
     await selectHead(path);
@@ -308,7 +309,7 @@ export const useOps = create<OpsStore>((set, get) => {
       });
       if (!answer) return false;
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["branch", "newBranch"], () => api.createBranch(path, answer.value, start, answer.checked, autoStash()));
+      const out = await exec(path, ["branch", "newBranch"], () => api.createBranch(path, answer.value, start, answer.checked, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (answer.checked) await selectHead(path);
@@ -486,7 +487,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async mergeInto(path, ref) {
       const label = currentBranch(path);
       if (!label) return fail("detached_head");
-      const out = await exec(path, ["operation", "merge"], () => api.mergeBranch(path, ref.name, autoStash()));
+      const out = await exec(path, ["operation", "merge"], () => api.mergeBranch(path, ref.name, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -499,7 +500,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async rebaseOnto(path, ref) {
       const label = currentBranch(path);
       if (!label) return fail("detached_head");
-      const out = await exec(path, ["operation", "rebase"], () => api.rebaseOnto(path, ref.name, autoStash()));
+      const out = await exec(path, ["operation", "rebase"], () => api.rebaseOnto(path, ref.name, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -520,7 +521,7 @@ export const useOps = create<OpsStore>((set, get) => {
         let res: OpResult | null = null;
         for (const step of plan(from, to, entry.soft)) {
           if (step.kind === "checkout") {
-            res = step.branch ? await api.checkout(path, step.branch, autoStash()) : await api.checkoutDetached(path, step.sha, autoStash());
+            res = step.branch ? await api.checkout(path, step.branch, autoStash(path)) : await api.checkoutDetached(path, step.sha, autoStash(path));
           } else {
             await api.setBranchTip(path, step.branch, step.expected, step.target, step.mode);
           }
@@ -572,7 +573,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async pull(path, strategy) {
       const mode = strategy ?? settings().pullStrategy ?? "ff-only";
       const branch = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["pull", "pull"], () => api.pull(path, mode, autoStash()));
+      const out = await exec(path, ["pull", "pull"], () => api.pull(path, mode, autoStash(path)));
       if (!out.ok && out.error === "not_fast_forward") {
         const pick = await useDialogs.getState().choose({
           title: t("pull.divergedTitle"),
@@ -594,7 +595,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const current = currentBranch(path);
       const source = branch ?? current;
       if (!source) return fail("detached_head");
-      const out = await exec(path, ["pull", "pull"], () => api.pullFrom(path, remote, source, mode, autoStash()));
+      const out = await exec(path, ["pull", "pull"], () => api.pullFrom(path, remote, source, mode, autoStash(path)));
       if (!out.ok && out.error === "not_fast_forward") {
         const pick = await useDialogs.getState().choose({
           title: t("pull.divergedTitle"),
@@ -748,7 +749,7 @@ export const useOps = create<OpsStore>((set, get) => {
 
     async cherryPick(path, shas) {
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["operation", "cherryPick"], () => api.cherryPick(path, shas, autoStash()));
+      const out = await exec(path, ["operation", "cherryPick"], () => api.cherryPick(path, shas, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -773,7 +774,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const message = [answer.value.trim(), "", ...[...ordered].reverse().map((c) => `* ${c.subject}`)].join("\n");
       const shas = ordered.map((c) => c.sha);
       const label = currentBranch(path) ?? "HEAD";
-      let out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, false, autoStash()));
+      let out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, false, autoStash(path)));
       if (!out.ok && out.error === "squash_pushed") {
         const go = await useDialogs.getState().choose({
           title: t("squash.pushedTitle"),
@@ -781,7 +782,7 @@ export const useOps = create<OpsStore>((set, get) => {
           choices: [{ id: "go", label: t("squash.pushedGo"), danger: true }],
         });
         if (go !== "go") return false;
-        out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, true, autoStash()));
+        out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, true, autoStash(path)));
       }
       if (!out.ok) return fail(out.error);
       report(out.value, label);
@@ -794,7 +795,7 @@ export const useOps = create<OpsStore>((set, get) => {
 
     async revert(path, shas) {
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["operation", "revert"], () => api.revert(path, shas, autoStash()));
+      const out = await exec(path, ["operation", "revert"], () => api.revert(path, shas, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {

@@ -128,6 +128,23 @@ export function TitleBar() {
     return r ? repoName(r) : path;
   };
 
+  /** Auto-stash propre au dépôt : comme les réglages, toujours, jamais. */
+  const autoStashSub = (path: string): MenuItem => {
+    const app = useApp.getState();
+    const ui = app.repoUi[path] ?? { collapsed: [], hidden: [] };
+    const own = ui.autoStash ?? null;
+    const global = app.settings.autoStash ?? true;
+    const choose = (v: boolean | null) => app.setRepoUi(path, { ...ui, autoStash: v });
+    return {
+      label: t("tabs.autoStash"),
+      items: [
+        { label: t(global ? "tabs.autoStashDefaultOn" : "tabs.autoStashDefaultOff"), checked: own === null, onClick: () => choose(null) },
+        { label: t("tabs.autoStashOn"), checked: own === true, onClick: () => choose(true) },
+        { label: t("tabs.autoStashOff"), checked: own === false, onClick: () => choose(false) },
+      ],
+    };
+  };
+
   const tabMenu = (path: string): MenuItem[] => {
     const r = repoOf(path);
     const { rename } = useApp.getState();
@@ -135,6 +152,7 @@ export function TitleBar() {
       { label: t("tabs.rename"), onClick: () => setEditing(path) },
       { label: t("tabs.originalName"), disabled: !r?.alias, onClick: () => rename(path, null) },
       { label: t("tabs.color"), onClick: () => setColoring(path) },
+      autoStashSub(path),
       "sep",
       { label: t("tabs.closeTab"), onClick: () => closeTab(path) },
     ];

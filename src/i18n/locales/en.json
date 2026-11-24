@@ -12,6 +12,11 @@
     "colorAuto": "Automatic",
     "pending_one": "{{count}} uncommitted file",
     "pending_other": "{{count}} uncommitted files",
+    "autoStash": "Auto-stash in this repository",
+    "autoStashDefaultOn": "As in settings (on)",
+    "autoStashDefaultOff": "As in settings (off)",
+    "autoStashOn": "Always",
+    "autoStashOff": "Never",
     "closeTab": "Close tab",
     "colors": {
       "0": "Blue",

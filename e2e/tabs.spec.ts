@@ -44,6 +44,20 @@ test("Ctrl+E : sélecteur rapide, recherche floue puis Entrée revient à l'ongl
   await expect(picker).toHaveCount(0);
 });
 
+test("auto-stash propre à un dépôt, choisi au clic droit sur son onglet", async ({ page }) => {
+  const choice = (name: string) => page.getByRole("menu").last().getByRole("menuitemradio", { name });
+  const openSub = async () => {
+    await tab(page, "api-backend").click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Auto-stash dans ce dépôt" }).click();
+  };
+  await openSub();
+  await expect(choice("Comme les réglages (activé)")).toHaveAttribute("aria-checked", "true");
+  await choice("Jamais").click();
+  await openSub();
+  await expect(choice("Jamais")).toHaveAttribute("aria-checked", "true");
+  await expect(choice("Comme les réglages (activé)")).toHaveAttribute("aria-checked", "false");
+});
+
 test("fermer l'onglet actif active son voisin", async ({ page }) => {
   await tab(page, "api-backend").click();
   await page.getByRole("button", { name: "Fermer l’onglet api-backend" }).click();

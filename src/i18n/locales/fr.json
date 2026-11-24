@@ -12,6 +12,11 @@
     "colorAuto": "Automatique",
     "pending_one": "{{count}} fichier pas encore commité",
     "pending_other": "{{count}} fichiers pas encore commités",
+    "autoStash": "Auto-stash dans ce dépôt",
+    "autoStashDefaultOn": "Comme les réglages (activé)",
+    "autoStashDefaultOff": "Comme les réglages (désactivé)",
+    "autoStashOn": "Toujours",
+    "autoStashOff": "Jamais",
     "closeTab": "Fermer l’onglet",
     "colors": {
       "0": "Bleu",
