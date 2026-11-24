@@ -76,4 +76,5 @@ test("nouvelle notification : annoncée par le système ; réglages pour la coup
   await page.getByRole("checkbox", { name: "Notifications des comptes GitHub / GitLab" }).uncheck();
   await expect(bell(page)).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Notifications du système" })).toBeDisabled();
+  await expect(page.getByRole("radiogroup", { name: "Fréquence" }).getByRole("radio", { name: "Rapide" })).toBeDisabled();
 });

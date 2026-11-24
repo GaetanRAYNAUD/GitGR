@@ -454,11 +454,6 @@ h2 {
 
 /* Réglages ------------------------------------------------------------ */
 
-.settings {
-  position: relative;
-  align-self: flex-start;
-}
-
 .popover {
   position: absolute;
   top: 42px;
@@ -514,11 +509,6 @@ h2 {
   padding: 0 6px;
 }
 
-/* Réglages : trois choix par ligne (thème, pull, fetch automatique). */
-.settings .popover {
-  width: 330px;
-}
-
 /* Séparateur vertical entre deux options (centré dans l'espace de 3px). */
 .seg + .seg::before {
   content: "";
@@ -542,10 +532,18 @@ h2 {
   color: var(--text);
 }
 
+/* Option choisie : le ton de la sélection, à plat (pas d'ombre, cf. DESIGN.md). */
 .seg.on {
-  background: var(--panel);
+  background: var(--sel);
   color: var(--text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.seg:disabled {
+  opacity: 0.5;
+}
+
+.seg:disabled:hover {
+  color: var(--muted);
 }
 
 /* ------------------------------------------------------------------ */
@@ -3964,69 +3962,198 @@ p.pf-account-keys.bad,
 .settings-page {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
   background: var(--panel);
 }
 
-.settings-inner {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 28px 24px 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-
-.settings-head {
+/* Barre latérale : celle des profils (.pf-list), avec les sections. */
+.st-nav-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
 }
 
-.settings-head h1 {
-  font-size: 20px;
-  font-weight: 700;
+.st-nav-item .ico {
+  color: var(--faint);
 }
 
-.settings-sec {
+.st-nav-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.st-nav-item.on {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.st-nav-item.on .ico {
+  color: var(--text);
+}
+
+/* Contenu : aligné à gauche, comme l'éditeur des profils. */
+.st-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px 32px 32px;
+}
+
+.st-form {
+  max-width: 760px;
+}
+
+.st-sec {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-top: 18px;
+  padding: 16px 0 8px;
   border-top: 1px solid var(--border);
 }
 
-/* Version de GitGR, en bas de la page. */
-.settings-version {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  font-size: 12.5px;
+.st-sec:first-child {
+  border-top: 0;
+}
+
+/* La dernière section peut monter en haut quand on la choisit dans la barre latérale
+   (hauteur de la fenêtre moins la barre de titre et les marges du contenu). */
+.st-sec:last-child {
+  min-height: calc(100vh - 88px);
+}
+
+.st-sec h2 {
+  margin-bottom: 4px;
+}
+
+.st-sec h2:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Une ligne par réglage : libellé à gauche, contrôle à droite, aide dessous sur toute la
+   largeur. */
+.st-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 24px;
+  row-gap: 4px;
+  min-height: 40px;
+  padding: 6px 0;
+}
+
+.st-row-title {
+  font-weight: 500;
+}
+
+.st-row-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 72ch;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--muted);
 }
 
-.settings-version-row {
+.st-row-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Choix à leur largeur naturelle. */
+.st-row .segmented {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.st-row .seg {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+}
+
+.st-option-help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Case à cocher : devant son libellé (comme dans un IDE), l'aide alignée sur le libellé. */
+.st-check {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  min-height: 40px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.st-check .st-row-help {
+  grid-column: 2;
+}
+
+.st-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.st-row.off .st-row-title,
+.st-row.off .st-row-help,
+.st-check.off .st-row-title,
+.st-check.off .st-row-help {
+  color: var(--faint);
+}
+
+.st-check.off,
+.st-check.off input {
+  cursor: default;
+}
+
+.st-inline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 14px;
 }
 
-.settings-update-error {
+.st-status {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.st-error {
   color: var(--del);
 }
 
-.settings-help {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--muted);
+/* Fenêtre étroite : le contrôle passe sous son libellé. */
+@media (max-width: 960px) {
+  .st-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .st-main {
+    padding: 8px 20px 24px;
+  }
 }
 
 .bc-editor {
   margin: 0;
-  padding: 0;
+  padding: 2px 0 8px;
   border: 0;
   min-width: 0;
 }

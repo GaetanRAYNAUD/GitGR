@@ -46,9 +46,9 @@
     "language": "Langue",
     "languageSystem": "Système",
     "autoStash": "Auto-stash au changement de branche et au pull",
-    "pullStrategy": "Pull",
+    "pullStrategy": "Stratégie de pull",
     "autoFetch": "Fetch automatique",
-    "autoFetchOff": "Non",
+    "autoFetchOff": "Désactivé",
     "minutes": "{{count}} min",
     "branchColors": "Couleurs fixes par nom de branche",
     "close": "Fermer les paramètres",
@@ -70,7 +70,11 @@
       "fast": "Toutes les minutes, 5 min si la fenêtre est en arrière-plan"
     },
     "systemNotifications": "Notifications du système",
-    "notificationsHint": "En pause quand la fenêtre est réduite ou après 15 min d’inactivité. « Vu » reste dans GitGR ; « marquer comme lu » s’applique aussi sur GitHub / GitLab."
+    "notificationsHint": "En pause quand la fenêtre est réduite ou après 15 min d’inactivité. « Vu » reste dans GitGR ; « marquer comme lu » s’applique aussi sur GitHub / GitLab.",
+    "autoFetchHint": "Fetch du dépôt affiché, en arrière-plan.",
+    "autoStashHint": "Vos modifications sont mises de côté puis réappliquées ; en cas de conflit, rien n’est perdu.",
+    "sectionAbout": "À propos",
+    "sections": "Sections des réglages"
   },
   "updates": {
     "check": "Rechercher les mises à jour",
@@ -1159,7 +1163,10 @@
     "down": "Descendre",
     "remove": "Supprimer la règle",
     "add": "Ajouter une règle",
-    "reset": "Règles par défaut"
+    "reset": "Règles par défaut",
+    "resetTitle": "Revenir aux règles par défaut ?",
+    "resetBody": "Vos règles actuelles seront remplacées par celles de départ (main, master, develop, release/*, hotfix/*).",
+    "resetOk": "Remplacer mes règles"
   },
   "colors": {
     "custom": "Couleur personnalisée…"

@@ -237,7 +237,9 @@ Fenêtre plein écran sans marge : barre de titre à onglets (40px), barre d'out
 - **Espacements** : petits pas de 2, 4, 6, 8, 10, 12 et 14px ; 6px et 8px dominent les `gap`. Les dialogues ont 24px de marge intérieure.
 - **Graphe** : grille à colonnes (`--cols`) avec largeurs par variable (`--col-refs` 180px, `--col-author` 130px, `--col-date` 96px, `--col-sha` 72px), en-tête collant, lignes virtualisées en position absolue, largeur minimale 760px.
 - **Adaptation** : sous 1240px les colonnes du graphe se resserrent et le SHA disparaît ; sous 720px la mise en page des pages se simplifie. Pas de mise en page mobile : c'est une app de bureau.
-- **Pages** (accueil, réglages, profils) : colonne centrée avec cartes ; c'est le seul endroit où l'interface respire davantage.
+- **Pages de gestion** (réglages, profils) : barre latérale de 270px sur `side` (titre, fermeture, liste des sections ou des profils, élément courant sur `sel`), puis le contenu aligné à gauche, 760px au plus. Jamais de colonne centrée.
+- **Lignes de réglage** : libellé à gauche (220px), contrôle à droite à sa largeur naturelle, aide dessous en 12px `muted` ; une case à cocher se place devant son libellé, comme dans un IDE. Sous 960px, le contrôle passe sous le libellé.
+- **Accueil** : colonne avec cartes ; c'est le seul écran qui respire davantage.
 
 **The Edge-To-Edge Rule.** Les panneaux de l'app vont bord à bord, séparés par une bordure de 1px. Pas de cartes flottantes ni de marges autour des panneaux de travail.
 
@@ -280,7 +282,7 @@ Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), san
 - **Style:** 36px, fond `panel2`, bordure `border`, coins 8px, padding 0 10px. Libellé au-dessus en 12px 600 `muted`.
 - **Recherche / filtre:** même forme, icône loupe `faint` à gauche, fond `panel`.
 - **Focus:** anneau d'accent `2px solid`, comme tous les contrôles.
-- **Segmented control:** rangée de boutons dans un conteneur de 3px de padding, l'option active sur `panel`.
+- **Segmented control:** rangée de boutons dans un conteneur `panel2` de 3px de padding, l'option active sur `sel`, à plat. Un seul arrêt de tabulation par groupe ; les flèches, Début et Fin changent l'option. L'aide de l'option choisie s'affiche dessous, jamais seulement en infobulle.
 
 ### Navigation (onglets)
 - **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille.
