@@ -6,6 +6,17 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Résolution des conflits dans GitGR (bouton « Résoudre » d'un fichier en conflit) : chaque bloc avec ses deux côtés et un peu de contexte, lignes colorées (ajoutée, modifiée, supprimée), une case par ligne pour composer le résultat dans l'ordre des clics, choix rapides (A, B, A puis B, B puis A), résultat modifiable à la main (Alt+↑ / Alt+↓ pour déplacer des lignes), et le fichier résultant entier en bas. « Enregistrer » écrit le fichier et le marque résolu.
+- Historique d'un fichier (clic droit sur un fichier) : les commits qui l'ont modifié, renommages suivis, avec le diff de chacun.
+- Blame d'un fichier : le commit de chaque ligne, au commit choisi ou sur la copie de travail, couleur selon l'âge des lignes, et « Blame avant ce commit » pour remonter.
+- Tags : créer un tag (léger ou annoté) sur un commit, le pousser, le supprimer ici et / ou sur le remote.
+- Recherche dans le graphe (Ctrl+F) par message, auteur ou SHA ; les résultats de « Chercher dans les modifications » peuvent y être mis en évidence (F3 pour passer de l'un à l'autre).
+- Sélecteur rapide de dépôts (Ctrl+E), avec recherche floue.
+- Onglets : une marque sur la pastille signale des fichiers pas encore commités ou des commits à pousser / tirer.
+- Accueil : branche, commits à pousser / tirer et fichiers pas encore commités de chaque dépôt récent.
+- Glisser une branche sur une autre : merge, rebase ou PR / MR. Glisser une sélection de commits sur une branche : cherry-pick du lot.
+- Auto-stash réglable par dépôt (clic droit sur l'onglet).
+
 ## [0.2.0] — 2026-11-23
 
 - Barre du bas : date du dernier fetch.
