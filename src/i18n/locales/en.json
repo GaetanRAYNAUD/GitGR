@@ -288,6 +288,17 @@
     "renamedFrom": "renamed from {{path}}",
     "showDiff": "Show the file's diff"
   },
+  "blame": {
+    "label": "Blame",
+    "title": "Blame of {{file}}",
+    "menu": "Blame",
+    "atCommit": "Blame at this commit",
+    "workingCopy": "working copy",
+    "uncommitted": "Not committed yet",
+    "empty": "Empty file.",
+    "deleted": "The file no longer exists at this commit.",
+    "truncated": "File truncated: too long to be shown in full."
+  },
   "reflog": {
     "label": "Reflog",
     "title": "Where {{ref}} was",
@@ -751,6 +762,7 @@
     "local_changes_conflict": "Your local changes would be overwritten. Commit them, stash them, or enable auto-stash in the settings.",
     "unresolved_conflicts": "Some conflicts are not resolved: finish them first.",
     "search_empty": "Type the text to find.",
+    "blame_no_file": "This file does not exist at this commit.",
     "search_bad_regex": "Invalid regular expression.",
     "revert_merge": "A merge commit cannot be reverted here: remove it from the selection.",
     "squash_pushed": "These commits are already on the server.",

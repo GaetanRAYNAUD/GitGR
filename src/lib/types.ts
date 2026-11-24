@@ -255,6 +255,25 @@ export interface FileHistoryEntry {
   change: FileChange;
 }
 
+/** Commit d'origine d'au moins une ligne d'un blame. */
+export interface BlameCommit {
+  /** Que des zéros pour les lignes pas encore commitées. */
+  sha: string;
+  author: string;
+  email: string;
+  time: number;
+  summary: string;
+  /** Chemin du fichier dans ce commit. */
+  filename: string;
+}
+
+/** Blame d'un fichier (`git blame`) : le commit de chaque ligne. */
+export interface Blame {
+  commits: BlameCommit[];
+  lines: { sha: string; orig: number; text: string }[];
+  truncated: boolean;
+}
+
 /** Une position passée de HEAD ou d'une branche (reflog), la plus récente d'abord. */
 export interface ReflogEntry {
   sha: string;

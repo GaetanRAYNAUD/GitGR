@@ -187,6 +187,11 @@ pub async fn file_history(path: String, file: String) -> Result<Vec<history::Fil
 }
 
 #[tauri::command]
+pub async fn blame(path: String, file: String, rev: Option<String>) -> Result<history::Blame, String> {
+    history::blame(Path::new(&path), &file, rev.as_deref()).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn reflog(path: String, refname: String) -> Result<Vec<history::ReflogEntry>, String> {
     history::reflog(Path::new(&path), &refname).map_err(classify)
 }

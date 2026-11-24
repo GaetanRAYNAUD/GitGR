@@ -288,6 +288,17 @@
     "renamedFrom": "renommé depuis {{path}}",
     "showDiff": "Voir le diff du fichier"
   },
+  "blame": {
+    "label": "Blame",
+    "title": "Blame de {{file}}",
+    "menu": "Blame",
+    "atCommit": "Blame à ce commit",
+    "workingCopy": "copie de travail",
+    "uncommitted": "Pas encore commité",
+    "empty": "Fichier vide.",
+    "deleted": "Le fichier n’existe plus à ce commit.",
+    "truncated": "Fichier tronqué : il est trop long pour être affiché en entier."
+  },
   "reflog": {
     "label": "Reflog",
     "title": "Où était {{ref}}",
@@ -751,6 +762,7 @@
     "local_changes_conflict": "Vos modifications locales seraient écrasées. Commitez-les, mettez-les de côté (stash) ou activez l’auto-stash dans les réglages.",
     "unresolved_conflicts": "Des conflits ne sont pas résolus : terminez-les d’abord.",
     "search_empty": "Saisissez le texte à chercher.",
+    "blame_no_file": "Ce fichier n’existe pas à ce commit.",
     "search_bad_regex": "Expression régulière invalide.",
     "revert_merge": "Un commit de fusion ne peut pas être annulé ici : retirez-le de la sélection.",
     "squash_pushed": "Ces commits sont déjà sur le serveur.",

@@ -5459,3 +5459,81 @@ body.commit-dragging * {
 .file-history-rename {
   font-size: 11.5px;
 }
+
+/* Blame (BlameView). */
+.blame-view .diff-head .btn {
+  margin-left: 8px;
+}
+
+.blame-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.blame-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 12px/1.6 "JetBrains Mono", ui-monospace, monospace;
+}
+
+.blame-table td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+
+.blame-table tr.start td {
+  border-top: 1px solid var(--border);
+}
+
+.blame-table tr:first-child td {
+  border-top: 0;
+}
+
+.blame-commit {
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.blame-commit:hover,
+.blame-table tr.on .blame-commit {
+  background: var(--sel);
+}
+
+.blame-table tr.wip .blame-commit {
+  color: var(--mod);
+  cursor: default;
+}
+
+.blame-summary {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.blame-meta {
+  margin-left: 8px;
+}
+
+.blame-table .ln {
+  width: 1%;
+  min-width: 44px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.blame-text {
+  white-space: pre;
+}

@@ -61,6 +61,7 @@ import type {
   Account,
   ReflogEntry,
   FileHistoryEntry,
+  Blame,
   ResetMode,
   AccountKey,
   AccountKeyKind,
@@ -135,6 +136,8 @@ export interface Api {
   searchChanges(path: string, text: string, regex: boolean, file: string | null): Promise<Commit[]>;
   /** Commits de la branche courante qui modifient `file`, renommages suivis, le plus récent d'abord. */
   fileHistory(path: string, file: string): Promise<FileHistoryEntry[]>;
+  /** Commit de chaque ligne de `file` : au commit `rev`, ou dans la copie de travail (`null`). */
+  blame(path: string, file: string, rev: string | null): Promise<Blame>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -401,6 +404,7 @@ const tauriApi: Api = {
   reflog: (path, refname) => invoke("reflog", { path, refname }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
   fileHistory: (path, file) => invoke("file_history", { path, file }),
+  blame: (path, file, rev) => invoke("blame", { path, file, rev }),
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   revert: (path, shas, autoStash) => invoke("revert", { path, shas, autoStash }),
@@ -826,6 +830,28 @@ const mockApi: Api = {
       const change = mockDetails(path, commit.sha).files.find((f) => f.path === file);
       return change ? [{ commit, change }] : [];
     });
+  },
+  async blame(path, file, rev) {
+    await mockDelay();
+    // Simulé : des blocs de lignes répartis sur les commits les plus récents.
+    const { commits } = mockHistory(path);
+    const from = rev ? Math.max(0, commits.findIndex((c) => c.sha === rev)) : 0;
+    const pool = commits.slice(from, from + 6);
+    const lines = Array.from({ length: 60 }, (_, i) => {
+      const c = !rev && i >= 56 ? null : pool[Math.floor(i / 7) % pool.length];
+      return { sha: c ? c.sha : "0".repeat(40), orig: i + 1, text: `ligne ${i + 1} de ${file}` };
+    });
+    const used = [...new Set(lines.map((l) => l.sha))];
+    return {
+      commits: used.map((sha) => {
+        const c = commits.find((x) => x.sha === sha);
+        return c
+          ? { sha, author: c.author, email: c.email, time: c.time, summary: c.subject, filename: file }
+          : { sha, author: "Not Committed Yet", email: "not.committed.yet", time: 0, summary: "", filename: file };
+      }),
+      lines,
+      truncated: false,
+    };
   },
   async reflog(path, refname) {
     await mockDelay();

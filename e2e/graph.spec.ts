@@ -95,6 +95,28 @@ test("historique d'un fichier : ses commits, diff au double-clic, retour à l'hi
   await expect(graph(page)).toBeVisible();
 });
 
+test("blame d'un fichier à un commit : blocs par commit, détails au clic, puis l'historique du fichier", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!;
+  await file.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+
+  const view = page.getByRole("region", { name: "Blame" });
+  await expect(view).toContainText(`Blame de ${name}`);
+  const starts = view.locator("tr.start .blame-commit");
+  await expect(starts.first()).toContainText("feat(graph): rendu canvas virtualisé");
+  await starts.nth(1).click();
+  await expect(view.locator("tr.on").first()).toBeVisible();
+  const picked = (await starts.nth(1).locator(".blame-summary").textContent())!;
+  await expect(panel(page).getByRole("heading", { name: picked })).toBeVisible();
+
+  await view.getByRole("button", { name: "Historique du fichier" }).click();
+  await expect(page.getByRole("region", { name: "Historique du fichier" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(graph(page)).toBeVisible();
+});
+
 test("navigation au clavier dans le graphe", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   await rows.first().click();

@@ -112,7 +112,7 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
           label={t("details.files", { count: d.files.length })}
           isActive={(f) => diff?.sha === d.sha && diff.file.path === f.path}
           onOpen={(f) => openDiff(path, d.sha, f)}
-          onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+          onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { rev: d.sha, deleted: f.status === "D" }))}
         />
       )}
     </>

@@ -1,7 +1,7 @@
 // Sélection de plusieurs commits dans la vraie app : fichiers et diff cumulés d'une plage,
 // cherry-pick du lot sur la branche courante.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, git, launchApp, test } from "./app";
 
@@ -127,6 +127,31 @@ test("historique d'un fichier renommé : ses commits avant et après le renommag
     await rows.nth(1).getByRole("button").dblclick();
     const diff = page.getByRole("region", { name: /^Diff de / });
     await expect(diff.locator("tr.add")).toContainText("cinq");
+  } finally {
+    await app.close();
+  }
+});
+
+test("blame de la copie de travail : chaque ligne avec son commit, les nouvelles pas encore commitées", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "un\ndeux\n", "première version");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\n", "ajout de trois");
+  writeFileSync(join(mine, "a.txt"), "un\ndeux\ntrois\nquatre\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const staging = page.getByRole("complementary", { name: "Modifications en cours" });
+    await staging.locator(".file-row", { hasText: "a.txt" }).first().click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+    const view = page.getByRole("region", { name: "Blame" });
+    await expect(view).toContainText("copie de travail");
+    const rows = view.locator("tbody tr");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(0).locator(".blame-commit")).toContainText("première version");
+    await expect(rows.nth(2).locator(".blame-commit")).toContainText("ajout de trois");
+    await expect(rows.nth(3).locator(".blame-commit")).toContainText("Pas encore commité");
+    await expect(rows.nth(3).locator(".blame-text")).toHaveText("quatre");
   } finally {
     await app.close();
   }

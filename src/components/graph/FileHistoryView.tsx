@@ -10,7 +10,7 @@ import { errorMessage } from "../../lib/errors";
 import { relativeTime } from "../../lib/format";
 import type { FileHistoryEntry } from "../../lib/types";
 import { useGraph } from "../../store/graph";
-import { useFileHistoryView } from "../../store/range";
+import { useBlameView, useFileHistoryView } from "../../store/range";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { useEscape } from "./DiffBody";
@@ -73,6 +73,9 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
         <span className="pull-view-title mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file))}>
           {t("fileHistory.title", { file })}
         </span>
+        <button className="btn sm" onClick={() => useBlameView.getState().show(path, { file, rev: null })}>
+          {t("blame.menu")}
+        </button>
       </header>
       <p className="muted reflog-hint">
         {entries ? t("fileHistory.results", { count: entries.length }) + (entries.length >= LIMIT ? ` · ${t("fileHistory.limit")}` : "") + " · " : ""}
@@ -102,6 +105,11 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
                   openContextMenu(ev, [
                     { label: t("fileHistory.showDiff"), onClick: () => showDiff(e) },
                     { label: t("reflog.showInGraph"), onClick: () => reveal(e.commit.sha) },
+                    {
+                      label: t("blame.atCommit"),
+                      disabled: e.change.status === "D",
+                      onClick: () => useBlameView.getState().show(path, { file: e.change.path, rev: e.commit.sha }),
+                    },
                     "sep",
                     ...commitMenu(t, path, e.commit.sha, refs),
                   ]);

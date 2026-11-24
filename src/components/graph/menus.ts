@@ -9,7 +9,7 @@ import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
 import { usePullList } from "../../store/pullList";
-import { useFileHistoryView } from "../../store/range";
+import { useBlameView, useFileHistoryView } from "../../store/range";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
@@ -421,14 +421,30 @@ export function showFileHistory(repo: string, file: string) {
   useFileHistoryView.getState().show(repo, file);
 }
 
-/** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). */
-export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
+/** Ouvre le blame d'un fichier à la place du graphe (au commit `rev`, ou copie de travail). */
+export function showBlame(repo: string, file: string, rev: string | null) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useBlameView.getState().show(repo, { file, rev });
+}
+
+/** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). `at` : le
+ *  commit où le fichier est montré (blame à ce commit ; sinon sur la copie de travail),
+ *  `deleted` s'il n'y existe plus (pas de blame). */
+export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: string; deleted?: boolean }): MenuItem[] {
   const run = (how: "open" | "reveal") => () =>
     void api.openRepoFile(repo, file, how).catch((e) => useApp.setState({ error: errorCode(e) }));
   return [
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
     { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
+    {
+      label: t("blame.menu"),
+      disabled: at?.deleted,
+      title: at?.deleted ? t("blame.deleted") : undefined,
+      onClick: () => showBlame(repo, file, at?.rev ?? null),
+    },
     "sep",
     { label: t("menu.copyPath"), onClick: () => copy(file) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },
