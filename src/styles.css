@@ -5778,19 +5778,6 @@ body.commit-dragging * {
   padding: 10px 12px 24px;
 }
 
-.conflict-common {
-  margin: 0;
-  padding: 2px 8px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.conflict-skip {
-  color: var(--faint);
-  font-style: italic;
-}
 
 .conflict-block {
   margin: 6px 0;
@@ -5896,4 +5883,100 @@ body.commit-dragging * {
 .conflict-edit:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Contexte autour d'un bloc, et fichier résultant en bas (ConflictView). */
+.conflict-ctx {
+  color: var(--faint);
+}
+
+.conflict-side pre .conflict-lines {
+  display: block;
+  margin: 0 -10px;
+  padding: 0 10px;
+}
+
+.conflict-side.ours pre {
+  background: none;
+}
+
+.conflict-side.theirs pre {
+  background: none;
+}
+
+.conflict-side.ours .conflict-lines {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.conflict-side.theirs .conflict-lines {
+  background: color-mix(in srgb, var(--mod) 12%, transparent);
+}
+
+.conflict-skip {
+  margin: 4px 8px;
+  color: var(--faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.conflict-body {
+  flex: 1 1 55%;
+}
+
+.conflict-preview {
+  flex: 0 0 40%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.conflict-preview-h {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.conflict-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.conflict-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.conflict-preview td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+
+.conflict-preview .ln {
+  width: 1%;
+  min-width: 40px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+}
+
+.conflict-preview .pv-text {
+  white-space: pre;
+}
+
+.conflict-preview tr.pv-open {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+.conflict-preview tr.pv-proposed {
+  background: color-mix(in srgb, var(--mod) 14%, transparent);
+}
+
+.conflict-preview tr.pv-done {
+  background: color-mix(in srgb, var(--add) 12%, transparent);
 }

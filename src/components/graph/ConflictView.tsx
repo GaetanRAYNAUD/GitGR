@@ -19,9 +19,10 @@ import { useEscape } from "./DiffBody";
 import { BackButton } from "./DiffView";
 
 const CHOICES: ConflictChoice[] = ["ours", "theirs", "ours-theirs", "theirs-ours", "none"];
-/** Au-delà, une partie commune est résumée (premières et dernières lignes). */
-const COMMON_MAX = 8;
-const COMMON_EDGE = 3;
+/** Lignes communes montrées avant et après chaque bloc, de part et d'autre. */
+const CONTEXT = 3;
+
+type PreviewLine = { text: string; state: "common" | "open" | "proposed" | "done"; block: number | null };
 
 export function ConflictView({ path, file }: { path: string; file: string }) {
   const { t } = useTranslation();
@@ -92,6 +93,32 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
     }
   };
 
+  // Fichier résultant, ligne par ligne, avec d'où vient chaque ligne (partie commune, bloc).
+  const preview = useMemo((): PreviewLine[] => {
+    if (!parsed) return [];
+    const out: PreviewLine[] = [];
+    let b = 0;
+    for (const seg of parsed.segments) {
+      if (seg.kind === "common") {
+        for (const l of seg.lines) out.push({ text: l, state: "common", block: null });
+        continue;
+      }
+      const r = results[b];
+      const state = r === null || r === undefined ? "open" : reviewed[b] ? "done" : "proposed";
+      const lines =
+        r === null || r === undefined
+          ? ["<<<<<<< " + seg.oursLabel, ...seg.ours, "=======", ...seg.theirs, ">>>>>>> " + seg.theirsLabel]
+          : r === ""
+            ? []
+            : r.split("\n");
+      // Bloc vide (« Aucun ») : une ligne repère, pour savoir où il était.
+      if (!lines.length) out.push({ text: "", state, block: b });
+      else for (const l of lines) out.push({ text: l, state, block: b });
+      b++;
+    }
+    return out;
+  }, [parsed, results, reviewed]);
+
   let k = -1;
   return (
     <section className="pull-view conflict-view" aria-label={t("conflict.label", { file })}>
@@ -131,31 +158,40 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           {blocks.length === 0 && <p className="details-note muted">{t("conflict.noMarkers")}</p>}
           {parsed.segments.map((seg, i) => {
             if (seg.kind === "common") {
-              const long = seg.lines.length > COMMON_MAX;
-              const shown = long ? [...seg.lines.slice(0, COMMON_EDGE), null, ...seg.lines.slice(-COMMON_EDGE)] : seg.lines;
-              return (
-                <pre key={i} className="conflict-common mono">
-                  {shown.map((l, j) =>
-                    l === null ? (
-                      <span key={j} className="conflict-skip">
-                        {t("conflict.skipped", { count: seg.lines.length - 2 * COMMON_EDGE })}
-                        {"\n"}
-                      </span>
-                    ) : (
-                      `${l}\n`
-                    ),
-                  )}
-                </pre>
-              );
+              // Ce que le contexte des blocs voisins ne montre pas : résumé, à lire en bas.
+              const shown = (parsed.segments[i - 1] ? CONTEXT : 0) + (parsed.segments[i + 1] ? CONTEXT : 0);
+              const hidden = seg.lines.length - shown;
+              return hidden > 0 ? (
+                <p key={i} className="conflict-skip">
+                  {t("conflict.skipped", { count: hidden })}
+                </p>
+              ) : null;
             }
             k++;
+            const prev = parsed.segments[i - 1];
+            const next = parsed.segments[i + 1];
+            const before = prev?.kind === "common" ? prev.lines.slice(-CONTEXT) : [];
+            const after = next?.kind === "common" ? next.lines.slice(0, CONTEXT) : [];
+            const side = (lines: string[]) => (
+              <pre className="mono">
+                {before.map((l, j) => (
+                  <span key={`b${j}`} className="conflict-ctx">{`${l}\n`}</span>
+                ))}
+                <span className="conflict-lines">{lines.map((l) => `${l}\n`).join("") || "\n"}</span>
+                {after.map((l, j) => (
+                  <span key={`a${j}`} className="conflict-ctx">{`${l}\n`}</span>
+                ))}
+              </pre>
+            );
             const n = k;
             const result = results[n] ?? null;
             const rows = result === null ? 0 : Math.max(2, result.split("\n").length + 1);
             return (
               <div key={i} className={result === null ? "conflict-block open" : reviewed[n] ? "conflict-block done" : "conflict-block proposed"} role="group" aria-label={t("conflict.block", { index: n + 1, count: blocks.length })}>
                 <div className="conflict-head">
-                  <span>{t("conflict.block", { index: n + 1, count: blocks.length })}</span>
+                  <button className="link" title={t("conflict.showInFile")} onClick={() => document.getElementById(`cprev-${n}`)?.scrollIntoView({ block: "center" })}>
+                    {t("conflict.block", { index: n + 1, count: blocks.length })}
+                  </button>
                   <span className="conflict-choices">
                     {CHOICES.map((c) => (
                       <button key={c} className="mini" onClick={() => choose(n, c)}>
@@ -167,11 +203,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                 <div className="conflict-sides">
                   <div className="conflict-side ours">
                     <div className="conflict-side-h">A · {seg.oursLabel || t("conflict.ours")}</div>
-                    <pre className="mono">{seg.ours.map((l) => `${l}\n`).join("") || " "}</pre>
+                    {side(seg.ours)}
                   </div>
                   <div className="conflict-side theirs">
                     <div className="conflict-side-h">B · {seg.theirsLabel || t("conflict.theirs")}</div>
-                    <pre className="mono">{seg.theirs.map((l) => `${l}\n`).join("") || " "}</pre>
+                    {side(seg.theirs)}
                   </div>
                 </div>
                 {seg.base && (
@@ -220,6 +256,27 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
               </div>
             );
           })}
+        </div>
+      )}
+      {parsed && (
+        <div className="conflict-preview" role="region" aria-label={t("conflict.preview")}>
+          <div className="conflict-preview-h">{t("conflict.previewTitle", { count: preview.length })}</div>
+          <div className="conflict-preview-body">
+            <table className="mono">
+              <tbody>
+                {preview.map((l, i) => (
+                  <tr
+                    key={i}
+                    id={l.block !== null && preview[i - 1]?.block !== l.block ? `cprev-${l.block}` : undefined}
+                    className={l.state === "common" ? undefined : `pv-${l.state}`}
+                  >
+                    <td className="ln">{i + 1}</td>
+                    <td className="pv-text">{l.text}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

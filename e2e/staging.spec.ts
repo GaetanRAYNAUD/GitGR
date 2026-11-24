@@ -184,7 +184,7 @@ test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async
 });
 
 test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+↑, puis enregistré", async ({ page }) => {
-  const text = ["un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "=======", "y", ">>>>>>> sujet", "fin", ""].join("\n");
+  const text = ["// en-tête", "import a;", "import b;", "", "function f() {", "un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "=======", "y", ">>>>>>> sujet", "fin", "}", "", "// suite", "g();", ""].join("\n");
   await page.evaluate((t) => (window as unknown as { __mockConflict: (p: string, f: string, t: string) => void }).__mockConflict("C:/Users/demo/work/api-backend", "conflit.txt", t), text);
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
@@ -193,12 +193,18 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   await row.getByRole("button", { name: "Résoudre" }).click();
 
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
+  // Contexte autour de chaque bloc, fichier résultant entier en bas.
+  const first = view.getByRole("group", { name: "Conflit 1 / 2" });
+  await expect(first.locator(".conflict-side.ours")).toContainText("function f() {");
+  await expect(first.locator(".conflict-side.theirs")).toContainText("milieu");
+  const preview = view.getByRole("region", { name: "Fichier résultant" });
+  await expect(preview).toContainText("Fichier résultant · 16 lignes");
+  await expect(preview).toContainText("// suite");
   // Rendu tout de suite : chaque bloc proposé « A puis B », à vérifier.
   await expect(view.getByRole("status")).toHaveText("2 blocs proposés « A puis B », à vérifier");
   const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
   await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny");
 
-  const first = view.getByRole("group", { name: "Conflit 1 / 2" });
   await first.getByRole("button", { name: "B puis A" }).click();
   const edit = first.getByRole("textbox", { name: "Résultat du conflit 1" });
   await expect(edit).toHaveValue("deux là-bas\ndeux ici");
