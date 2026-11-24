@@ -198,6 +198,37 @@ test.describe("dépôt propre", () => {
   });
 });
 
+test.describe("tags", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+    await openNextRepo(page, "GitGR");
+  });
+
+  test("clic droit sur un commit : tag annoté poussé, puis supprimé depuis la barre latérale", async ({ page }) => {
+    const row = graph(page).getByRole("option").nth(3);
+    await row.click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Nouveau tag ici…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouveau tag" });
+    await expect(dialog).toContainText(/Sur [0-9a-f]{7}/);
+    await dialog.getByLabel("Nom du tag").fill("v 9");
+    await expect(dialog.getByRole("button", { name: "Créer le tag" })).toBeDisabled();
+    await dialog.getByLabel("Nom du tag").fill("v9.0.0");
+    await dialog.getByLabel(/^Message/).fill("Version 9");
+    await dialog.getByLabel("Pousser le tag sur origin").check();
+    await dialog.getByRole("button", { name: "Créer le tag" }).click();
+    await expect(row).toContainText("v9.0.0");
+    await expect(page.getByText("Tag v9.0.0 poussé sur origin.")).toBeVisible();
+
+    await sidebar(page).getByRole("button", { name: /^Tags/ }).click();
+    await sidebar(page).getByRole("button", { name: "v9.0.0" }).click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Supprimer le tag v9.0.0…" }).click();
+    const confirm = page.getByRole("alertdialog", { name: "Supprimer le tag v9.0.0 ?" });
+    await confirm.getByRole("button", { name: "Supprimer localement" }).click();
+    await expect(row).not.toContainText("v9.0.0");
+    await expect(sidebar(page).getByRole("button", { name: "v9.0.0" })).toHaveCount(0);
+  });
+});
+
 test.describe("dépôt avec des modifications", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");

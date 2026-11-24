@@ -15,6 +15,9 @@ import {
   mockCreateBranch,
   mockDeleteBranch,
   mockDeleteRemoteBranch,
+  mockCreateTag,
+  mockDeleteTag,
+  mockTagRemote,
   mockPull,
   mockPullFrom,
   mockPush,
@@ -185,6 +188,13 @@ export interface Api {
   renameBranch(path: string, oldName: string, newName: string): Promise<void>;
   deleteBranch(path: string, branch: string, force: boolean): Promise<void>;
   deleteRemoteBranch(path: string, branch: string): Promise<void>;
+  /** Tag sur `target` (HEAD si `null`) : annoté si `message` est donné, léger sinon. */
+  createTag(path: string, name: string, target: string | null, message: string | null): Promise<void>;
+  deleteTag(path: string, name: string): Promise<void>;
+  /** Pousse un tag vers `remote` (`origin` ou le premier si `null`) ; renvoie le remote. */
+  pushTag(path: string, name: string, remote: string | null): Promise<string>;
+  /** Supprime un tag sur `remote` (`origin` ou le premier si `null`) ; renvoie le remote. */
+  deleteRemoteTag(path: string, name: string, remote: string | null): Promise<string>;
   fetch(path: string): Promise<void>;
   pull(path: string, strategy: PullStrategy, autoStash: boolean): Promise<OpResult>;
   /** Tire la branche `branch` du remote `remote` dans la branche courante. */
@@ -433,6 +443,10 @@ const tauriApi: Api = {
   renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
   deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
   deleteRemoteBranch: (path, branch) => invoke("delete_remote_branch", { path, branch }),
+  createTag: (path, name, target, message) => invoke("create_tag", { path, name, target, message }),
+  deleteTag: (path, name) => invoke("delete_tag", { path, name }),
+  pushTag: (path, name, remote) => invoke("push_tag", { path, name, remote }),
+  deleteRemoteTag: (path, name, remote) => invoke("delete_remote_tag", { path, name, remote }),
   fetch: (path) => invoke("fetch", { path }),
   pull: (path, strategy, autoStash) => invoke("pull", { path, strategy, autoStash }),
   pullFrom: (path, remote, branch, strategy, autoStash) => invoke("pull_from", { path, remote, branch, strategy, autoStash }),
@@ -927,6 +941,16 @@ const mockApi: Api = {
   async deleteRemoteBranch(path, branch) {
     await mockDelay();
     mockDeleteRemoteBranch(path, branch);
+  },
+  createTag: async (path, name, target) => mockCreateTag(path, name, target),
+  deleteTag: async (path, name) => mockDeleteTag(path, name),
+  async pushTag(path, name, remote) {
+    await mockDelay();
+    return mockTagRemote(path, name, remote);
+  },
+  async deleteRemoteTag(path, name, remote) {
+    await mockDelay();
+    return mockTagRemote(path, name, remote);
   },
   async fetch(path) {
     await mockDelay();

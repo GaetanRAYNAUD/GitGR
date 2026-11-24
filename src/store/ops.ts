@@ -53,6 +53,13 @@ interface OpsStore {
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
   newBranch(path: string, start: string | null, startLabel: string): Promise<boolean>;
   renameBranch(path: string, branch: string): Promise<boolean>;
+  /** Demande un nom (et un message facultatif : tag annoté) puis crée le tag sur `target`
+   *  (HEAD si `null`) ; le pousse si la case est cochée. */
+  newTag(path: string, target: string | null, targetLabel: string): Promise<boolean>;
+  /** Pousse un tag vers `remote` (`origin` ou le premier si absent). */
+  pushTag(path: string, name: string, remote?: string): Promise<boolean>;
+  /** Supprime un tag, localement et / ou sur un remote (choix dans la confirmation). */
+  deleteTag(path: string, name: string): Promise<boolean>;
   deleteBranch(path: string, branch: string): Promise<boolean>;
   deleteRemoteBranch(path: string, branch: string): Promise<boolean>;
   /** Supprime une branche locale et sa branche distante (`remoteBranch` : `origin/x`), une seule confirmation. */
@@ -119,6 +126,16 @@ const settings = () => useApp.getState().settings;
 const autoStash = () => settings().autoStash ?? true;
 const currentBranch = (path: string) =>
   useGraph.getState().graphs[path]?.refs?.headBranch ?? useApp.getState().summaries[path]?.data?.branch ?? null;
+
+/** Remote par défaut pour un tag : `origin` s'il existe, sinon le premier (comme côté Rust). */
+export function defaultRemote(remotes: string[]): string | null {
+  return remotes.includes("origin") ? "origin" : (remotes[0] ?? null);
+}
+
+/** Nom de tag refusé par git (`check-ref-format`, règles courantes), message traduit. */
+function tagNameError(v: string): string | null {
+  return !v || v.startsWith("-") || /[\s~^:?*[\\]|\.\.|@\{|\/\/|^\/|\/$|\.$|\.lock$/.test(v) ? t("tag.invalid") : null;
+}
 
 /** Message d'information (auto-stash gardé, conflits…), affiché par l'app. */
 function notify(text: string, sticky = false) {
@@ -296,6 +313,60 @@ export const useOps = create<OpsStore>((set, get) => {
       report(out.value, label);
       if (answer.checked) await selectHead(path);
       return true;
+    },
+
+    async newTag(path, target, targetLabel) {
+      const refs = useGraph.getState().graphs[path]?.refs;
+      const existing = new Set((refs?.refs ?? []).filter((r) => r.kind === "tag").map((r) => r.short));
+      const remote = defaultRemote(refs?.remotes.map((r) => r.name) ?? []);
+      const answer = await useDialogs.getState().input({
+        title: t("tag.newTitle"),
+        subtitle: t("tag.newOn", { target: targetLabel }),
+        label: t("tag.name"),
+        initial: "",
+        submit: t("tag.create"),
+        second: { label: t("tag.message"), initial: "", placeholder: t("tag.messageHint"), optional: true },
+        ...(remote ? { checkbox: { label: t("tag.pushTo", { remote }), checked: false } } : {}),
+        validate: (v) => tagNameError(v) ?? (existing.has(v) ? t("tag.exists") : null),
+      });
+      if (!answer) return false;
+      const out = await exec(path, "branch", () => api.createTag(path, answer.value, target, answer.second || null));
+      if (!out.ok) return fail(out.error);
+      if (remote && answer.checked) return get().pushTag(path, answer.value, remote);
+      notify(t("tag.created", { tag: answer.value }));
+      return true;
+    },
+
+    async pushTag(path, name, remote) {
+      const out = await exec(path, "push", () => api.pushTag(path, name, remote ?? null));
+      if (!out.ok) return fail(out.error);
+      notify(t("tag.pushed", { tag: name, remote: out.value }));
+      return true;
+    },
+
+    async deleteTag(path, name) {
+      const remotes = useGraph.getState().graphs[path]?.refs?.remotes.map((r) => r.name) ?? [];
+      const remote = defaultRemote(remotes);
+      const choice = await useDialogs.getState().choose({
+        title: t("tag.deleteTitle", { tag: name }),
+        body: remote ? t("tag.deleteBodyRemote", { remote }) : t("tag.deleteBody"),
+        choices: [
+          ...(remote ? [{ id: "remote", label: t("tag.deleteRemote", { remote }), danger: true }] : []),
+          ...(remote ? [{ id: "both", label: t("tag.deleteBoth", { remote }), danger: true }] : []),
+          { id: "local", label: t("tag.deleteLocal"), danger: true },
+        ],
+      });
+      if (!choice) return false;
+      if (choice !== "local") {
+        const out = await exec(path, "push", () => api.deleteRemoteTag(path, name, remote));
+        if (!out.ok) return fail(out.error);
+        if (choice === "remote") {
+          notify(t("tag.deletedRemote", { tag: name, remote: out.value }));
+          return true;
+        }
+      }
+      const out = await exec(path, "branch", () => api.deleteTag(path, name));
+      return out.ok || fail(out.error);
     },
 
     async renameBranch(path, branch) {

@@ -10,7 +10,7 @@ import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
 import { usePullList } from "../../store/pullList";
 import { useBlameView, useFileHistoryView } from "../../store/range";
-import { useOps } from "../../store/ops";
+import { defaultRemote, useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
@@ -263,9 +263,21 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       copyName,
     ];
   }
+  const remotes = (refs?.remotes ?? []).map((x) => x.name);
+  const remote = defaultRemote(remotes);
   return [
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     { label: t("menu.checkoutDetached"), onClick: () => ops.checkoutDetached(path, r.target) },
+    "sep",
+    remotes.length > 1
+      ? { label: t("tag.pushToMenu"), items: remotes.map((name): MenuItem => ({ label: name, onClick: () => void ops.pushTag(path, r.short, name) })) }
+      : {
+          label: remote ? t("tag.pushTo", { remote }) : t("tag.push"),
+          disabled: !remote,
+          title: remote ? undefined : t("tag.noRemote"),
+          onClick: () => void ops.pushTag(path, r.short, remote ?? undefined),
+        },
+    { label: t("tag.delete", { tag: r.short }), danger: true, onClick: () => void ops.deleteTag(path, r.short) },
     "sep",
     copyName,
   ];
@@ -377,6 +389,7 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     ...here.map((r): MenuItem => ({ label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkout(path, r.short) })),
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
+    { label: t("tag.newHere"), onClick: () => void ops.newTag(path, sha, sha.slice(0, 7)) },
     "sep",
     {
       label: t("menu.cherryPick", { branch: refs?.headBranch ?? "HEAD" }),

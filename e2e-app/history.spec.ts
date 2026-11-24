@@ -157,6 +157,41 @@ test("blame de la copie de travail : chaque ligne avec son commit, les nouvelles
   }
 });
 
+test("tag annoté créé sur un commit et poussé, puis supprimé ici et sur le remote", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "1\n", "premier");
+  const first = git(mine, "rev-parse", "HEAD");
+  sandbox.commit(mine, "a.txt", "2\n", "second");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    const row = graph.getByRole("option").filter({ hasText: "premier" });
+    await row.click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Nouveau tag ici…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouveau tag" });
+    await dialog.getByLabel("Nom du tag").fill("v1.0.0");
+    await dialog.getByLabel(/^Message/).fill("Version 1");
+    await dialog.getByLabel("Pousser le tag sur origin").check();
+    await dialog.getByRole("button", { name: "Créer le tag" }).click();
+    await expect(row).toContainText("v1.0.0");
+    await expect(page.getByText("Tag v1.0.0 poussé sur origin.")).toBeVisible();
+    expect(git(mine, "cat-file", "-t", "v1.0.0")).toBe("tag");
+    expect(git(mine, "rev-parse", "v1.0.0^{commit}")).toBe(first);
+    expect(git(sandbox.remote, "rev-parse", "v1.0.0^{commit}")).toBe(first);
+
+    await row.locator(".chip.tag", { hasText: "v1.0.0" }).click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Supprimer le tag v1.0.0…" }).click();
+    await page.getByRole("alertdialog", { name: "Supprimer le tag v1.0.0 ?" }).getByRole("button", { name: "Ici et sur origin" }).click();
+    await expect(row).not.toContainText("v1.0.0");
+    expect(git(mine, "tag", "-l")).toBe("");
+    expect(git(sandbox.remote, "tag", "-l")).toBe("");
+  } finally {
+    await app.close();
+  }
+});
+
 test("revert de deux commits sélectionnés : leurs fichiers retirés par deux nouveaux commits", async ({ sandbox }) => {
   const mine = sandbox.clone("mine");
   sandbox.commit(mine, "x.txt", "x\n", "ajout de x");

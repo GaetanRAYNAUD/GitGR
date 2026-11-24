@@ -8,7 +8,7 @@
 //! Les erreurs connues sont renvoyées sous forme de codes (`branch_not_merged`,
 //! `push_rejected`, `auth_failed`…), traduits côté interface.
 
-use crate::git::{run, run_env};
+use crate::git::{run, run_env, run_input};
 use crate::history::{check_dir, check_sha};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -427,6 +427,82 @@ pub fn delete_remote_branch(path: &Path, remote_branch: &str) -> Result<(), Stri
     run(Some(path), &["push", "-q", remote, "--delete", &format!("refs/heads/{branch}")])
         .map(|_| ())
         .map_err(|e| classify(&e))
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+fn check_tag_name(path: &Path, name: &str) -> Result<(), String> {
+    if name.is_empty() || name.starts_with('-') || name.trim() != name {
+        return Err("invalid_tag_name".into());
+    }
+    run(Some(path), &["check-ref-format", &format!("refs/tags/{name}")]).map(|_| ()).map_err(|_| "invalid_tag_name".into())
+}
+
+fn tag_exists(path: &Path, name: &str) -> bool {
+    ref_exists(path, &format!("refs/tags/{name}"))
+}
+
+/// Remote choisi quand on n'en donne pas : `origin` s'il existe, sinon le premier.
+fn default_remote(path: &Path, to: Option<&str>) -> Result<String, String> {
+    let all = remotes(path);
+    match to {
+        Some(r) if all.iter().any(|x| x == r) => Ok(r.to_string()),
+        Some(_) => Err("remote_not_found".into()),
+        None if all.iter().any(|r| r == "origin") => Ok("origin".into()),
+        None => all.first().cloned().ok_or_else(|| "no_remote".into()),
+    }
+}
+
+/// Crée le tag `name` sur `target` (HEAD si absent) : annoté si `message` est donné (auteur :
+/// l'identité du dépôt), léger sinon.
+pub fn create_tag(path: &Path, name: &str, target: Option<&str>, message: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    check_tag_name(path, name)?;
+    if tag_exists(path, name) {
+        return Err("tag_exists".into());
+    }
+    let target = target.unwrap_or("HEAD");
+    check_start(path, target)?;
+    match message.map(str::trim).filter(|m| !m.is_empty()) {
+        // Message sur l'entrée standard : il peut contenir n'importe quoi, plusieurs lignes comprises.
+        Some(m) => run_input(Some(path), &["tag", "-a", "-F", "-", "--", name, target], m),
+        None => run(Some(path), &["tag", "--", name, target]),
+    }
+    .map(|_| ())
+    .map_err(|e| classify(&e))
+}
+
+pub fn delete_tag(path: &Path, name: &str) -> Result<(), String> {
+    check_dir(path)?;
+    if name.starts_with('-') || !tag_exists(path, name) {
+        return Err("tag_not_found".into());
+    }
+    run(Some(path), &["tag", "-d", "--", name]).map(|_| ()).map_err(|e| classify(&e))
+}
+
+/// Pousse le tag `name` vers `to` (`origin` ou le premier remote si absent) ; renvoie le remote.
+pub fn push_tag(path: &Path, name: &str, to: Option<&str>) -> Result<String, String> {
+    check_dir(path)?;
+    if name.starts_with('-') || !tag_exists(path, name) {
+        return Err("tag_not_found".into());
+    }
+    let remote = default_remote(path, to)?;
+    let spec = format!("refs/tags/{name}:refs/tags/{name}");
+    run(Some(path), &["push", "-q", &remote, &spec]).map_err(|e| classify(&e))?;
+    Ok(remote)
+}
+
+/// Supprime le tag `name` sur `to` (`origin` ou le premier remote si absent) ; renvoie le remote.
+pub fn delete_remote_tag(path: &Path, name: &str, to: Option<&str>) -> Result<String, String> {
+    check_dir(path)?;
+    check_tag_name(path, name).map_err(|_| "tag_not_found".to_string())?;
+    let remote = default_remote(path, to)?;
+    run(Some(path), &["push", "-q", &remote, "--delete", &format!("refs/tags/{name}")]).map_err(|e| {
+        if e.contains("remote ref does not exist") { "tag_not_on_remote".to_string() } else { classify(&e) }
+    })?;
+    Ok(remote)
 }
 
 // ---------------------------------------------------------------------------
@@ -1101,6 +1177,38 @@ mod tests {
         commit_file(a.path(), "f.txt", "1\n");
         git(a.path(), &["push", "-q", "-u", "origin", "main"]);
         (remote, a)
+    }
+
+    #[test]
+    fn tags_created_pushed_and_deleted() {
+        let (remote, a) = with_remote();
+        let p = a.path();
+        let first = git(p, &["rev-parse", "HEAD"]);
+        commit_file(p, "f.txt", "2\n");
+
+        create_tag(p, "v1", Some(&first), None).unwrap();
+        assert_eq!(git(p, &["rev-parse", "v1"]), first);
+        assert_eq!(git(p, &["cat-file", "-t", "v1"]), "commit");
+        create_tag(p, "v2", None, Some("Version 2\n\nDétails")).unwrap();
+        assert_eq!(git(p, &["cat-file", "-t", "v2"]), "tag");
+        assert_eq!(git(p, &["tag", "-l", "--format=%(contents:subject)", "v2"]), "Version 2");
+        assert_eq!(create_tag(p, "v1", None, None).unwrap_err(), "tag_exists");
+        assert_eq!(create_tag(p, "a b", None, None).unwrap_err(), "invalid_tag_name");
+        assert_eq!(create_tag(p, "-x", None, None).unwrap_err(), "invalid_tag_name");
+        assert_eq!(create_tag(p, "v3", Some("-x"), None).unwrap_err(), "invalid_start_point");
+
+        assert_eq!(push_tag(p, "v2", None).unwrap(), "origin");
+        let r = remote.path().to_string_lossy().to_string();
+        let on_remote = |name: &str| run(None, &["--git-dir", &r, "rev-parse", "-q", "--verify", &format!("refs/tags/{name}")]).is_ok();
+        assert!(on_remote("v2"));
+        assert!(!on_remote("v1"));
+        assert_eq!(push_tag(p, "v2", Some("autre")).unwrap_err(), "remote_not_found");
+
+        assert_eq!(delete_remote_tag(p, "v2", None).unwrap(), "origin");
+        assert!(!on_remote("v2"));
+        delete_tag(p, "v1").unwrap();
+        assert!(!tag_exists(p, "v1"));
+        assert_eq!(delete_tag(p, "v1").unwrap_err(), "tag_not_found");
     }
 
     /// Un second clone du même distant, avec une identité.

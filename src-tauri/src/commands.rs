@@ -396,6 +396,26 @@ pub async fn delete_remote_branch(path: String, branch: String) -> Result<(), St
 }
 
 #[tauri::command]
+pub async fn create_tag(path: String, name: String, target: Option<String>, message: Option<String>) -> Result<(), String> {
+    branches::create_tag(Path::new(&path), &name, target.as_deref(), message.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_tag(path: String, name: String) -> Result<(), String> {
+    branches::delete_tag(Path::new(&path), &name)
+}
+
+#[tauri::command]
+pub async fn push_tag(path: String, name: String, remote: Option<String>) -> Result<String, String> {
+    branches::push_tag(Path::new(&path), &name, remote.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_remote_tag(path: String, name: String, remote: Option<String>) -> Result<String, String> {
+    branches::delete_remote_tag(Path::new(&path), &name, remote.as_deref())
+}
+
+#[tauri::command]
 pub async fn fetch(path: String) -> Result<(), String> {
     branches::fetch(Path::new(&path))
 }
