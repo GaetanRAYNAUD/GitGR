@@ -171,6 +171,16 @@ pub struct BlameCommit {
     pub summary: String,
     /// Chemin du fichier dans ce commit (différent après un renommage).
     pub filename: String,
+    /// Commit d'avant qui avait ces lignes, et le chemin du fichier là-bas (`previous` de
+    /// `git blame --porcelain`) ; absent pour le commit qui a créé le fichier.
+    pub previous: Option<BlamePrevious>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlamePrevious {
+    pub sha: String,
+    pub filename: String,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -234,7 +244,15 @@ fn parse_blame(out: &str) -> Blame {
         if (first.len() == 40 || first.len() == 64) && first.chars().all(|c| c.is_ascii_hexdigit()) {
             let orig = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
             if !commits.iter().any(|c| c.sha == first) {
-                commits.push(BlameCommit { sha: first.into(), author: String::new(), email: String::new(), time: 0, summary: String::new(), filename: String::new() });
+                commits.push(BlameCommit {
+                    sha: first.into(),
+                    author: String::new(),
+                    email: String::new(),
+                    time: 0,
+                    summary: String::new(),
+                    filename: String::new(),
+                    previous: None,
+                });
             }
             current = Some((first.into(), orig));
             continue;
@@ -248,6 +266,9 @@ fn parse_blame(out: &str) -> Blame {
             "author-time" => c.time = value.parse().unwrap_or(0),
             "summary" => c.summary = value.into(),
             "filename" => c.filename = value.into(),
+            "previous" => {
+                c.previous = value.split_once(' ').map(|(sha, filename)| BlamePrevious { sha: sha.into(), filename: filename.into() });
+            }
             _ => {}
         }
     }
@@ -777,6 +798,9 @@ mod tests {
         assert!(shas[3].chars().all(|c| c == '0'));
         assert_eq!(work.lines[2].orig, 3);
         assert_eq!(work.commits.len(), 3);
+        let by = |sha: &str| work.commits.iter().find(|c| c.sha == sha).unwrap();
+        assert_eq!(by(&first).previous, None);
+        assert_eq!(by(&second).previous, Some(BlamePrevious { sha: first.clone(), filename: "a.txt".into() }));
 
         assert_eq!(blame(p, "absent.txt", Some(&second)).unwrap_err(), "blame_no_file");
         assert!(blame(p, "a.txt", Some("-x")).is_err());

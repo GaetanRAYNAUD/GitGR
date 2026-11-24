@@ -860,8 +860,8 @@ const mockApi: Api = {
       commits: used.map((sha) => {
         const c = commits.find((x) => x.sha === sha);
         return c
-          ? { sha, author: c.author, email: c.email, time: c.time, summary: c.subject, filename: file }
-          : { sha, author: "Not Committed Yet", email: "not.committed.yet", time: 0, summary: "", filename: file };
+          ? { sha, author: c.author, email: c.email, time: c.time, summary: c.subject, filename: file, previous: c.parents[0] ? { sha: c.parents[0], filename: file } : null }
+          : { sha, author: "Not Committed Yet", email: "not.committed.yet", time: 0, summary: "", filename: file, previous: null };
       }),
       lines,
       truncated: false,

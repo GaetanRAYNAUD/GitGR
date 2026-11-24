@@ -267,6 +267,8 @@ export interface BlameCommit {
   summary: string;
   /** Chemin du fichier dans ce commit. */
   filename: string;
+  /** Commit d'avant qui avait ces lignes (et le chemin du fichier là-bas) ; `null` : création. */
+  previous: { sha: string; filename: string } | null;
 }
 
 /** Blame d'un fichier (`git blame`) : le commit de chaque ligne. */

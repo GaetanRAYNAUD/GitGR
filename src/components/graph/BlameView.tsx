@@ -78,6 +78,12 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
         label: t("blame.atCommit"),
         onClick: () => useBlameView.getState().show(path, { file: c.filename || file, rev: c.sha, historyFile: target.historyFile ?? file }),
       },
+      {
+        label: t("blame.before"),
+        disabled: !c.previous,
+        title: c.previous ? t("blame.beforeHint", { sha: c.previous.sha.slice(0, 7) }) : t("blame.beforeNone"),
+        onClick: () => c.previous && useBlameView.getState().show(path, { file: c.previous.filename, rev: c.previous.sha, historyFile: target.historyFile ?? file }),
+      },
       "sep",
       ...commitMenu(t, path, c.sha, refs),
     ]);

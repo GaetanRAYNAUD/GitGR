@@ -152,6 +152,13 @@ test("blame de la copie de travail : chaque ligne avec son commit, les nouvelles
     await expect(rows.nth(2).locator(".blame-commit")).toContainText("ajout de trois");
     await expect(rows.nth(3).locator(".blame-commit")).toContainText("Pas encore commité");
     await expect(rows.nth(3).locator(".blame-text")).toHaveText("quatre");
+
+    // Remonter avant « ajout de trois » : le fichier à « première version », deux lignes.
+    const first = git(mine, "rev-parse", "HEAD~1");
+    await rows.nth(2).locator(".blame-commit").click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Blame avant ce commit" }).click();
+    await expect(view).toContainText(first.slice(0, 7));
+    await expect(rows).toHaveCount(2);
   } finally {
     await app.close();
   }
