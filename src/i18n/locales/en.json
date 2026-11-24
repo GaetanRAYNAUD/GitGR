@@ -111,6 +111,14 @@
     "pickTitle": "Choose a Git repository folder",
     "gitDetected": "Git {{version}} detected"
   },
+  "quickOpen": {
+    "title": "Go to repository",
+    "placeholder": "Repository name or path",
+    "none": "No repository matches.",
+    "open": "open tab",
+    "current": "current tab",
+    "hint": "↑ ↓ to choose · Enter to open · Esc to close"
+  },
   "clone": {
     "title": "Clone a repository",
     "source": "Source",

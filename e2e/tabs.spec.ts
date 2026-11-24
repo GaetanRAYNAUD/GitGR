@@ -23,6 +23,27 @@ test("travail en attente signalé sur la pastille des onglets, détail en infobu
   await expect(page.locator(".tab", { has: tab(page, "GitGR") })).toHaveAttribute("title", /↑1/);
 });
 
+test("Ctrl+E : sélecteur rapide, recherche floue puis Entrée revient à l'onglet du dépôt", async ({ page }) => {
+  await tab(page, "dotfiles").click();
+  await page.keyboard.press("Control+e");
+  const picker = page.getByRole("dialog", { name: "Aller à un dépôt" });
+  const options = picker.getByRole("option");
+  // Requête vide : les autres dépôts, sans celui de l'onglet actif.
+  await expect(options).toHaveCount(2);
+  await picker.getByRole("combobox").fill("apbk");
+  await expect(options).toHaveCount(1);
+  await expect(options.first()).toContainText("api-backend");
+  await page.keyboard.press("Enter");
+  await expect(picker).toHaveCount(0);
+  await expect(page.getByRole("tab", { selected: true })).toHaveText("api-backend");
+
+  await page.keyboard.press("Control+e");
+  await picker.getByRole("combobox").fill("zzz");
+  await expect(picker).toContainText("Aucun dépôt ne correspond.");
+  await page.keyboard.press("Escape");
+  await expect(picker).toHaveCount(0);
+});
+
 test("fermer l'onglet actif active son voisin", async ({ page }) => {
   await tab(page, "api-backend").click();
   await page.getByRole("button", { name: "Fermer l’onglet api-backend" }).click();

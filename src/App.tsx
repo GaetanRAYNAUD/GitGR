@@ -3,6 +3,7 @@ import { startNotifications } from "./store/notifications";
 import { useTranslation } from "react-i18next";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { DialogHost } from "./components/DialogHost";
+import { QuickOpenHost, useQuickOpen } from "./components/QuickOpen";
 import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
@@ -52,7 +53,8 @@ function typing(target: EventTarget | null): boolean {
 
 /** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
- *  pour annuler / rétablir la dernière opération git du dépôt actif. */
+ *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
+ *  rapide de dépôts. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -67,6 +69,11 @@ function useShortcuts() {
         if (s.active) s.closeTab(s.active);
       } else if (ctrl && e.key.toLowerCase() === "t") {
         s.activate(null);
+      } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === "e") {
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]') && !useQuickOpen.getState().open) return;
+        const q = useQuickOpen.getState();
+        if (q.open) q.hide();
+        else q.show();
       } else if (ctrl && e.key.toLowerCase() === "o") {
         s.pickAndOpen(t("welcome.pickTitle"));
       } else if (ctrl && /^[1-9]$/.test(e.key)) {
@@ -261,6 +268,7 @@ export default function App() {
       <PullDialogHost />
       <PublishDialogHost />
       <DialogHost />
+      <QuickOpenHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}
     </div>

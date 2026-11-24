@@ -5653,3 +5653,64 @@ body.commit-dragging * {
 .repo-pending {
   color: var(--mod);
 }
+
+/* Sélecteur rapide de dépôts (Ctrl+E, QuickOpen). */
+.quick-overlay {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.quick-open {
+  width: 560px;
+  padding: 10px;
+}
+
+.quick-search {
+  width: 100%;
+}
+
+.quick-list {
+  max-height: 50vh;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-item.on {
+  background: var(--sel);
+}
+
+.quick-name {
+  font-weight: 600;
+}
+
+.quick-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.quick-tag {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.quick-empty,
+.quick-hint {
+  margin: 10px 4px 2px;
+  font-size: 12px;
+}

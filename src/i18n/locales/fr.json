@@ -111,6 +111,14 @@
     "pickTitle": "Choisir le dossier d’un dépôt Git",
     "gitDetected": "Git {{version}} détecté"
   },
+  "quickOpen": {
+    "title": "Aller à un dépôt",
+    "placeholder": "Nom ou chemin d’un dépôt",
+    "none": "Aucun dépôt ne correspond.",
+    "open": "onglet ouvert",
+    "current": "onglet actif",
+    "hint": "↑ ↓ pour choisir · Entrée pour ouvrir · Échap pour fermer"
+  },
   "clone": {
     "title": "Cloner un dépôt",
     "source": "Source",
