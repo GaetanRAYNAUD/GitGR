@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import { chooseLines, composeResolution, moveLines, parseConflicts, sideDiff, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
+import { chooseLines, composeResolution, moveLines, parseConflicts, pickLines, picksOf, sideDiff, type LinePicks, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
 import { errorMessage } from "../../lib/errors";
 import { useApp } from "../../store/app";
 import { useConflictView } from "../../store/range";
@@ -35,6 +35,8 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const [results, setResults] = useState<(string | null)[]>([]);
   /** Blocs choisis ou modifiés (les autres gardent la proposition par défaut, « A puis B »). */
   const [reviewed, setReviewed] = useState<boolean[]>([]);
+  /** Lignes cochées de chaque côté, par bloc (le résultat en découle quand on en coche une). */
+  const [picks, setPicks] = useState<LinePicks[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -54,15 +56,30 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   useEffect(() => {
     setResults(blocks.map((b) => chooseLines(b, "ours-theirs").join("\n")));
     setReviewed(blocks.map(() => false));
+    setPicks(blocks.map((b) => picksOf(b, "ours-theirs")));
   }, [blocks]);
 
   const setResult = (k: number, value: string | null) => {
     setResults((r) => r.map((x, i) => (i === k ? value : x)));
     setReviewed((r) => r.map((x, i) => i === k || x));
   };
-  const choose = (k: number, choice: ConflictChoice) => setResult(k, chooseLines(blocks[k], choice).join("\n"));
+  const setPick = (k: number, p: LinePicks) => setPicks((all) => all.map((x, i) => (i === k ? p : x)));
+  const choose = (k: number, choice: ConflictChoice) => {
+    setPick(k, picksOf(blocks[k], choice));
+    setResult(k, chooseLines(blocks[k], choice).join("\n"));
+  };
+  /** Coche ou décoche une ligne d'un côté : le résultat est refait à partir des lignes cochées,
+   *  chacune à sa place logique (pas dans l'ordre des clics). */
+  const toggleLine = (k: number, side: keyof LinePicks, index: number) => {
+    const cur = picks[k] ?? { ours: [], theirs: [] };
+    const list = cur[side].includes(index) ? cur[side].filter((x) => x !== index) : [...cur[side], index];
+    const next = { ...cur, [side]: list };
+    setPick(k, next);
+    setResult(k, pickLines(blocks[k], next).join("\n"));
+  };
   const chooseAll = (choice: ConflictChoice) => {
     setResults(blocks.map((b) => chooseLines(b, choice).join("\n")));
+    setPicks(blocks.map((b) => picksOf(b, choice)));
     setReviewed(blocks.map(() => true));
   };
   const remaining = results.filter((r) => r === null).length;
@@ -173,22 +190,50 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             const before = prev?.kind === "common" ? prev.lines.slice(-CONTEXT) : [];
             const after = next?.kind === "common" ? next.lines.slice(0, CONTEXT) : [];
             // Couleurs : chaque côté comparé à la version commune (diff3), sinon à l'autre côté.
-            const side = (lines: string[], other: string[]) => (
+            const side = (which: keyof LinePicks, lines: string[], other: string[]) => {
+              let index = -1;
+              const picked = new Set(picks[n]?.[which] ?? []);
+              return (
               <pre className="mono">
                 {before.map((l, j) => (
                   <span key={`b${j}`} className="conflict-ctx">{`${l}\n`}</span>
                 ))}
                 <span className="conflict-lines">
                   {lines.length === 0 && seg.base === null && other.length === 0 ? "\n" : null}
-                  {sideDiff(seg.base ?? other, lines).map((l, j) => (
-                    <span key={j} className={`cl cl-${l.kind}`} title={l.kind === "same" ? undefined : t(`conflict.kind.${l.kind}`)}>{`${l.text}\n`}</span>
-                  ))}
+                  {sideDiff(seg.base ?? other, lines).map((l, j) => {
+                    if (l.kind === "del")
+                      return (
+                        <span key={j} className="cl cl-del" title={t("conflict.kind.del")}>
+                          {`${l.text}\n`}
+                        </span>
+                      );
+                    const at = ++index;
+                    const on = picked.has(at);
+                    return (
+                      <span
+                        key={j}
+                        role="checkbox"
+                        aria-checked={on}
+                        tabIndex={0}
+                        className={`cl cl-${l.kind} pickable${on ? " picked" : ""}`}
+                        title={[l.kind === "same" ? null : t(`conflict.kind.${l.kind}`), t("conflict.pickHint")].filter(Boolean).join(" · ")}
+                        onClick={() => toggleLine(n, which, at)}
+                        onKeyDown={(e) => {
+                          if (e.key === " " || e.key === "Enter") {
+                            e.preventDefault();
+                            toggleLine(n, which, at);
+                          }
+                        }}
+                      >{`${l.text}\n`}</span>
+                    );
+                  })}
                 </span>
                 {after.map((l, j) => (
                   <span key={`a${j}`} className="conflict-ctx">{`${l}\n`}</span>
                 ))}
               </pre>
-            );
+              );
+            };
             const n = k;
             const result = results[n] ?? null;
             const rows = result === null ? 0 : Math.max(2, result.split("\n").length + 1);
@@ -211,13 +256,13 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                     <div className="conflict-side-h" title={seg.base ? t("conflict.vsBase") : t("conflict.vsOther")}>
                       A · {seg.oursLabel || t("conflict.ours")}
                     </div>
-                    {side(seg.ours, seg.theirs)}
+                    {side("ours", seg.ours, seg.theirs)}
                   </div>
                   <div className="conflict-side theirs">
                     <div className="conflict-side-h" title={seg.base ? t("conflict.vsBase") : t("conflict.vsOther")}>
                       B · {seg.theirsLabel || t("conflict.theirs")}
                     </div>
-                    {side(seg.theirs, seg.ours)}
+                    {side("theirs", seg.theirs, seg.ours)}
                   </div>
                 </div>
                 {seg.base && (

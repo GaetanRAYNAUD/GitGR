@@ -60,3 +60,21 @@ describe("couleurs d'un côté", () => {
     expect(sideDiff([], ["x"])).toEqual([{ text: "x", kind: "add" }]);
   });
 });
+
+describe("choix ligne par ligne", () => {
+  it("garde les lignes cochées à leur place logique, une ligne commune une seule fois", async () => {
+    const { pickLines } = await import("./conflicts");
+    const seg = {
+      kind: "conflict" as const,
+      ours: ["import a;", "import b;", "import c;", "import d;", "import e;"],
+      theirs: ["import a;", "import x;", "import c;", "import y;", "import z;"],
+      base: null,
+      oursLabel: "HEAD",
+      theirsLabel: "sujet",
+    };
+    // 3 à gauche, 2 à droite, puis encore 1 à gauche : sortis dans l'ordre du fichier.
+    expect(pickLines(seg, { ours: [1, 0, 4], theirs: [3, 1] })).toEqual(["import a;", "import b;", "import x;", "import e;", "import y;"]);
+    expect(pickLines(seg, { ours: [0, 2], theirs: [0, 2] })).toEqual(["import a;", "import c;"]);
+    expect(pickLines(seg, { ours: [], theirs: [] })).toEqual([]);
+  });
+});

@@ -204,9 +204,20 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   const secondBlock = view.getByRole("group", { name: "Conflit 2 / 2" });
   await expect(secondBlock.locator(".conflict-side.ours .cl-del")).toHaveText("w");
   await expect(secondBlock.locator(".conflict-side.theirs .cl-mod")).toHaveText(["y", "z"]);
+
+  // Ligne par ligne : décocher / cocher des lignes de chaque côté, le résultat suit (à leur place).
+  const result2 = secondBlock.getByRole("textbox", { name: "Résultat du conflit 2" });
+  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
+  await expect(result2).toHaveValue("x\nz");
+  await secondBlock.locator(".conflict-side.ours").getByRole("checkbox", { name: "x" }).click();
+  await expect(result2).toHaveValue("z");
+  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
+  await expect(result2).toHaveValue("y\nz");
+  await expect(secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" })).toHaveAttribute("aria-checked", "true");
+  await secondBlock.getByRole("button", { name: "A puis B" }).click();
   await expect(preview).toContainText("// suite");
-  // Rendu tout de suite : chaque bloc proposé « A puis B », à vérifier.
-  await expect(view.getByRole("status")).toHaveText("2 blocs proposés « A puis B », à vérifier");
+  // Rendu tout de suite en « A puis B » ; le bloc 2, retouché ci-dessus, compte comme vérifié.
+  await expect(view.getByRole("status")).toHaveText("1 bloc proposé « A puis B », à vérifier");
   const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
   await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny\nz");
 

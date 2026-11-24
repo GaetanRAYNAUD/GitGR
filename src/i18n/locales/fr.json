@@ -383,6 +383,7 @@
     "kind": {"add": "Ajoutée", "mod": "Modifiée", "del": "Supprimée de ce côté"},
     "vsBase": "Couleurs : par rapport à la version commune",
     "vsOther": "Couleurs : par rapport à l’autre côté (git n’a pas écrit la version commune)",
+    "pickHint": "Clic : garder ou retirer cette ligne du résultat (à sa place dans le fichier)",
     "allResolved": "Tous les blocs sont résolus",
     "allOurs": "Tout {{side}}",
     "allTheirs": "Tout {{side}}",

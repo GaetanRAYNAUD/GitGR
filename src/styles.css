@@ -6016,3 +6016,35 @@ body.commit-dragging * {
 .conflict-preview tr.pv-done {
   background: color-mix(in srgb, var(--add) 12%, transparent);
 }
+
+/* Choix ligne par ligne : case devant chaque ligne d'un côté, cochée si elle est gardée. */
+.conflict-lines .cl.pickable {
+  padding-left: 40px;
+  cursor: pointer;
+}
+
+.conflict-lines .cl.pickable::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin-top: -6px;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+}
+
+.conflict-lines .cl.pickable.picked::after {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--panel);
+}
+
+.conflict-lines .cl.pickable:hover {
+  outline: 1px solid var(--border);
+}
+
+.conflict-lines .cl.pickable:not(.picked) {
+  opacity: 0.6;
+}
