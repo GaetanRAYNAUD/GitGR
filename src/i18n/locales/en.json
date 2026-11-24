@@ -249,6 +249,9 @@
     "none": "No commit found",
     "loaded_one": "in the only loaded commit",
     "loaded_other": "in the {{count}} loaded commits",
+    "setLabel": "Changes of “{{label}}”",
+    "outside_one": "{{count}} outside the loaded commits",
+    "outside_other": "{{count}} outside the loaded commits",
     "prev": "Previous result",
     "next": "Next result",
     "close": "Close search"
@@ -283,6 +286,7 @@
     "limit": "Only the 200 most recent.",
     "none": "No commit adds or removes this text.",
     "hint": "Commits on all branches where this text appears or disappears. Click: details; double-click: show in the graph.",
+    "highlight": "Highlight in graph",
     "toolbar": "Search",
     "toolbarHint": "Search in changes: when a text was added or removed"
   },

@@ -5714,3 +5714,16 @@ body.commit-dragging * {
   margin: 10px 4px 2px;
   font-size: 12px;
 }
+
+.graph-find-set {
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.search-highlight {
+  margin-left: 8px;
+}

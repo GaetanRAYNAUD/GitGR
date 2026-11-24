@@ -249,6 +249,9 @@
     "none": "Aucun commit trouvé",
     "loaded_one": "parmi le seul commit chargé",
     "loaded_other": "parmi les {{count}} commits chargés",
+    "setLabel": "Changements de « {{label}} »",
+    "outside_one": "{{count}} hors des commits chargés",
+    "outside_other": "{{count}} hors des commits chargés",
     "prev": "Résultat précédent",
     "next": "Résultat suivant",
     "close": "Fermer la recherche"
@@ -283,6 +286,7 @@
     "limit": "Les 200 plus récents seulement.",
     "none": "Aucun commit n’ajoute ni ne retire ce texte.",
     "hint": "Commits de toutes les branches où ce texte apparaît ou disparaît. Clic : ses détails ; double-clic : le montrer dans le graphe.",
+    "highlight": "Voir dans le graphe",
     "toolbar": "Chercher",
     "toolbarHint": "Chercher dans les modifications : quand un texte a été ajouté ou retiré"
   },

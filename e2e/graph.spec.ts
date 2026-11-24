@@ -334,6 +334,27 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   await expect(graph(page)).toBeVisible();
 });
 
+test("résultats de la recherche dans les modifications mis en évidence dans le graphe, F3 pour les parcourir", async ({ page }) => {
+  await page.getByRole("button", { name: "Chercher", exact: true }).click();
+  const view = page.getByRole("region", { name: "Recherche dans les modifications" });
+  await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
+  await view.getByRole("button", { name: "Chercher" }).click();
+  await expect(view.getByRole("list", { name: /commits?$/ }).getByRole("listitem").first()).toBeVisible();
+  await view.getByRole("button", { name: "Voir dans le graphe" }).click();
+
+  await expect(view).toHaveCount(0);
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  await expect(bar).toContainText("Changements de « perf: rendu virtualisé »");
+  await expect(graph(page).locator(".commit-row.found").first()).toBeVisible();
+  await graph(page).focus();
+  await page.keyboard.press("F3");
+  await expect(graph(page).getByRole("option", { selected: true })).toContainText("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/^1 \/ \d+/);
+  await page.keyboard.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
+});
+
 test("clic droit sur un commit : revert, un nouveau commit l'annule en haut de main", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   const all = await rows.locator(".commit-msg").allInnerTexts();

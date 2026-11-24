@@ -10,6 +10,7 @@ import { errorMessage } from "../../lib/errors";
 import { relativeTime } from "../../lib/format";
 import type { Commit } from "../../lib/types";
 import { useGraph } from "../../store/graph";
+import { useGraphFind } from "../../store/graphFind";
 import { useSearchView, type ContentQuery } from "../../store/range";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
@@ -114,6 +115,17 @@ export function SearchView({ path }: { path: string }) {
       <p className="muted reflog-hint">
         {results ? t("contentSearch.results", { count: results.length }) + (results.length >= LIMIT ? ` · ${t("contentSearch.limit")}` : "") + " · " : ""}
         {t("contentSearch.hint")}
+        {results && results.length > 0 && (
+          <button
+            className="btn sm search-highlight"
+            onClick={() => {
+              useGraphFind.getState().showSet(path, { label: last.text, shas: results.map((c) => c.sha) });
+              back();
+            }}
+          >
+            {t("contentSearch.highlight")}
+          </button>
+        )}
       </p>
       {error ? (
         <p className="details-note" role="alert">
