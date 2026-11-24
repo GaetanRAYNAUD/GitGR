@@ -5491,6 +5491,7 @@ body.commit-dragging * {
 }
 
 .blame-commit {
+  position: relative;
   width: 300px;
   min-width: 300px;
   max-width: 300px;
@@ -5726,4 +5727,18 @@ body.commit-dragging * {
 
 .search-highlight {
   margin-left: 8px;
+}
+
+/* Marque d'âge en marge du blame : plus la ligne est récente, plus elle est marquée. */
+.blame-commit::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: calc(0.12 + 0.88 * var(--age, 0));
+}
+
+.blame-table tr.wip .blame-commit::before {
+  background: var(--mod);
 }

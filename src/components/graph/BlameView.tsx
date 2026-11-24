@@ -56,6 +56,14 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
   }, [path, file, rev, refs, work]);
 
   const commits = useMemo(() => new Map((blame?.commits ?? []).map((c) => [c.sha, c])), [blame]);
+  // Âge relatif de chaque commit (0 : le plus ancien du fichier, 1 : le plus récent), pour la
+  // marque de couleur en marge ; les lignes pas encore commitées comptent comme les plus récentes.
+  const age = useMemo(() => {
+    const times = (blame?.commits ?? []).filter((c) => !uncommitted(c.sha)).map((c) => c.time);
+    const min = Math.min(...times);
+    const span = Math.max(...times) - min;
+    return (c: BlameCommit) => (uncommitted(c.sha) || span <= 0 ? 1 : (c.time - min) / span);
+  }, [blame]);
   const ago = (s: number) => {
     const r = relativeTime(s * 1000);
     return t(`time.${r.key}`, { count: r.count });
@@ -127,6 +135,7 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
                   <tr key={i} className={[start ? "start" : "", selected === l.sha ? "on" : "", mine ? "wip" : ""].join(" ").trim() || undefined}>
                     <td
                       className="blame-commit"
+                      style={c ? ({ "--age": age(c).toFixed(2) } as React.CSSProperties) : undefined}
                       title={c && !mine ? `${c.summary}\n${c.author} <${c.email}>\n${c.sha.slice(0, 7)}` : undefined}
                       onClick={() => c && pick(c)}
                       onDoubleClick={() => c && !mine && reveal(c.sha)}
