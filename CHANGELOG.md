@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Remotes en HTTPS : le token du compte GitHub / GitLab du profil du remote sert à fetch, pull, push et clone (avant, seuls les identifiants enregistrés dans Git étaient essayés, d'où « Authentification refusée »).
+
 ## [0.3.0] — 2026-11-24
 
 - Résolution des conflits dans GitGR (bouton « Résoudre » d'un fichier en conflit) : chaque bloc avec ses deux côtés et un peu de contexte, lignes colorées (ajoutée, modifiée, supprimée), une case par ligne pour composer le résultat dans l'ordre des clics, choix rapides (A, B, A puis B, B puis A), résultat modifiable à la main (Alt+↑ / Alt+↓ pour déplacer des lignes), et le fichier résultant entier en bas. « Enregistrer » écrit le fichier et le marque résolu.

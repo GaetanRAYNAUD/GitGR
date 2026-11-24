@@ -903,7 +903,7 @@
     "not_fast_forward": "The branches have diverged: a fast-forward is not possible.",
     "push_rejected": "Push rejected: the remote branch has commits you don’t have.",
     "push_stale": "Force push refused: the remote branch moved since your last fetch. Fetch and check before forcing.",
-    "auth_failed": "The server refused authentication (SSH key or credentials). Check the SSH key of this remote’s profile (right-click the remote in the sidebar) and, if it is protected, its passphrase.",
+    "auth_failed": "The server refused authentication (SSH key or credentials). SSH remote: check the SSH key of this remote’s profile (right-click the remote in the sidebar) and, if it is protected, its passphrase. HTTPS remote: check that this profile has an account on this instance, and that its token can access the repository.",
     "host_key_unknown": "Unknown SSH host key: connect to the server once from the command line (ssh) to accept it.",
     "network_unreachable": "Server unreachable: check the network connection and the remote address.",
     "remote_not_found": "Remote repository not found (remote address or access rights).",

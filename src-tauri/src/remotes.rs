@@ -10,6 +10,11 @@
 //! la bonne clé, quel que soit le remote visé. Limite : deux remotes du même dépôt sur le même
 //! hôte avec deux clés (il faudrait un alias d'hôte) — le premier l'emporte.
 //!
+//! Compte par remote (HTTPS) : pour un remote `https://`, le token du compte du profil du
+//! remote dont l'instance est celle de l'URL sert de mot de passe. La commande réseau reçoit
+//! `-c credential.<origine>.helper=` (oublie les gestionnaires d'identifiants habituels, pour
+//! cet hôte seulement) puis l'exécutable de GitGR comme gestionnaire (cf. `credential`).
+//!
 //! Les règles sont aussi interprétées par l'interface (`src/lib/profiles.ts`, pour afficher le
 //! profil de chaque remote) : les deux côtés partagent les mêmes cas de test
 //! (`src/lib/remoteRules.cases.json`).
@@ -322,6 +327,8 @@ pub struct KeyProfile {
     pub rules: Vec<String>,
     /// Clé SSH privée (`~` accepté).
     pub ssh_key: Option<String>,
+    /// Comptes providers du profil : leur token sert aux remotes HTTPS de leur instance.
+    pub accounts: Vec<crate::providers::Account>,
 }
 
 /// Profil que les règles de remote désignent pour cette URL : la règle la plus précise (la plus
@@ -351,6 +358,9 @@ pub struct Table {
     /// Profil choisi à la main pour un remote, par dépôt ([`repo_key`]) puis par nom de remote ;
     /// `None` : aucun profil (ssh garde sa configuration habituelle).
     pub choices: HashMap<String, HashMap<String, Option<String>>>,
+    /// Profil actif de chaque dépôt ([`repo_key`]) : celui des remotes qu'aucun choix ni
+    /// aucune règle ne désigne.
+    pub active: HashMap<String, String>,
 }
 
 static TABLE: LazyLock<RwLock<Table>> = LazyLock::new(Default::default);
@@ -359,24 +369,41 @@ pub fn set_table(table: Table) {
     *TABLE.write().unwrap() = table;
 }
 
-/// Clé SSH du profil d'un remote : profil choisi à la main, sinon celui que les règles
-/// désignent pour son URL, sinon le profil du dépôt (`repo_profile_key`). Un profil sans clé
-/// laisse ssh faire comme d'habitude.
-fn remote_key<'a>(table: &'a Table, repo: &str, remote: &Remote, repo_profile_key: Option<&'a str>) -> Option<&'a str> {
-    let key_of = |p: &'a KeyProfile| p.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty());
+/// Profil d'un remote.
+enum RemoteProfile<'a> {
+    /// « Aucun profil » choisi à la main.
+    None,
+    Profile(&'a KeyProfile),
+    /// Ni choix ni règle : le profil du dépôt.
+    Repo,
+}
+
+/// Profil choisi à la main pour ce remote, sinon celui que les règles désignent pour son URL,
+/// sinon le profil du dépôt.
+fn remote_profile<'a>(table: &'a Table, repo: &str, remote: &Remote) -> RemoteProfile<'a> {
     match table.choices.get(repo).and_then(|c| c.get(&remote.name)) {
-        Some(None) => return None,
+        Some(None) => return RemoteProfile::None,
         // Profil supprimé entre-temps : comme sans choix.
         Some(Some(id)) => {
             if let Some(p) = table.profiles.iter().find(|p| &p.id == id) {
-                return key_of(p);
+                return RemoteProfile::Profile(p);
             }
         }
         None => {}
     }
     match remote.url.as_deref().and_then(parse_url).and_then(|url| suggest(&table.profiles, &url)) {
-        Some(p) => key_of(p),
-        None => repo_profile_key,
+        Some(p) => RemoteProfile::Profile(p),
+        None => RemoteProfile::Repo,
+    }
+}
+
+/// Clé SSH du profil d'un remote (cf. [`remote_profile`]) ; `repo_profile_key` : celle du
+/// profil du dépôt. Un profil sans clé laisse ssh faire comme d'habitude.
+fn remote_key<'a>(table: &'a Table, repo: &str, remote: &Remote, repo_profile_key: Option<&'a str>) -> Option<&'a str> {
+    match remote_profile(table, repo, remote) {
+        RemoteProfile::None => None,
+        RemoteProfile::Profile(p) => p.ssh_key.as_deref().map(str::trim).filter(|k| !k.is_empty()),
+        RemoteProfile::Repo => repo_profile_key,
     }
 }
 
@@ -535,6 +562,84 @@ fn setup_for_hosts(hosts: &[(String, String)]) -> Option<SshSetup> {
     Some(SshSetup { command: format!("ssh -F '{path}'"), keys })
 }
 
+// ---------------------------------------------------------------------------
+// Remotes HTTPS : token du compte
+// ---------------------------------------------------------------------------
+
+/// Origine `schéma://hôte[:port]` d'une URL `http(s)://`, en minuscules, sans identifiant ni
+/// chemin (`None` pour toute autre URL). Sert à comparer un remote à l'instance d'un compte,
+/// et de portée au gestionnaire d'identifiants (`credential.<origine>.helper`).
+pub fn http_origin(url: &str) -> Option<String> {
+    let (scheme, rest) = url.trim().split_once("://")?;
+    let scheme = scheme.to_ascii_lowercase();
+    if scheme != "https" && scheme != "http" {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    if host.is_empty() || !host.chars().all(|c| c.is_ascii_alphanumeric() || ".-:[]_".contains(c)) {
+        return None;
+    }
+    Some(format!("{scheme}://{}", host.to_ascii_lowercase()))
+}
+
+/// Compte dont le token sert aux URL d'une origine HTTPS.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HttpsAccount {
+    /// `https://github.com`.
+    pub origin: String,
+    /// Identifiant du compte (son token est dans le trousseau sous cet identifiant).
+    pub account: String,
+}
+
+/// Compte du profil dont l'instance a cette origine.
+fn account_for<'a>(profile: &'a KeyProfile, origin: &str) -> Option<&'a crate::providers::Account> {
+    profile.accounts.iter().find(|a| http_origin(&a.url).as_deref() == Some(origin))
+}
+
+/// Compte de chaque origine HTTPS des remotes (URL de fetch et de push) : celui du profil du
+/// remote (cf. [`remote_profile`]) pour l'instance de l'URL. Une origine commune à deux remotes
+/// prend le compte du premier qui en a un.
+fn https_for_remotes(table: &Table, repo: &str, remotes: &[Remote]) -> Vec<HttpsAccount> {
+    let mut out: Vec<HttpsAccount> = Vec::new();
+    for remote in remotes {
+        let profile = match remote_profile(table, repo, remote) {
+            RemoteProfile::None => continue,
+            RemoteProfile::Profile(p) => Some(p),
+            RemoteProfile::Repo => table.active.get(repo).and_then(|id| table.profiles.iter().find(|p| &p.id == id)),
+        };
+        let Some(profile) = profile else { continue };
+        for origin in [&remote.url, &remote.push_url].into_iter().flatten().filter_map(|u| http_origin(u)) {
+            if out.iter().any(|a| a.origin == origin) {
+                continue;
+            }
+            if let Some(account) = account_for(profile, &origin) {
+                out.push(HttpsAccount { origin, account: account.id.clone() });
+            }
+        }
+    }
+    out
+}
+
+/// Comptes des remotes HTTPS d'un dépôt, pour une commande réseau lancée dans `cwd`.
+pub fn https_accounts(cwd: &Path) -> Vec<HttpsAccount> {
+    // Aucun compte nulle part : inutile de lire les remotes.
+    if !TABLE.read().unwrap().profiles.iter().any(|p| !p.accounts.is_empty()) {
+        return Vec::new();
+    }
+    let remotes = list(cwd);
+    https_for_remotes(&TABLE.read().unwrap(), &repo_key(cwd), &remotes)
+}
+
+/// Compte d'un clone en HTTPS : celui du profil `profile` pour l'instance de l'URL.
+pub fn https_account_for_url(url: &str, profile: Option<&str>) -> Option<HttpsAccount> {
+    let origin = http_origin(url)?;
+    let table = TABLE.read().unwrap();
+    let p = table.profiles.iter().find(|p| Some(p.id.as_str()) == profile)?;
+    let account = account_for(p, &origin)?.id.clone();
+    Some(HttpsAccount { origin, account })
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -549,7 +654,7 @@ pub(crate) mod tests {
     }
 
     fn profile(id: &str, rules: &[&str], key: Option<&str>) -> KeyProfile {
-        KeyProfile { id: id.into(), rules: rules.iter().map(|r| r.to_string()).collect(), ssh_key: key.map(str::to_string) }
+        KeyProfile { id: id.into(), rules: rules.iter().map(|r| r.to_string()).collect(), ssh_key: key.map(str::to_string), ..Default::default() }
     }
 
     fn remote(name: &str, url: &str) -> Remote {
@@ -656,7 +761,7 @@ pub(crate) mod tests {
                 .as_array()
                 .unwrap()
                 .iter()
-                .map(|p| KeyProfile { id: text(p, "id").unwrap(), rules: p["rules"].as_array().unwrap().iter().map(|r| r.as_str().unwrap().to_string()).collect(), ssh_key: None })
+                .map(|p| KeyProfile { id: text(p, "id").unwrap(), rules: p["rules"].as_array().unwrap().iter().map(|r| r.as_str().unwrap().to_string()).collect(), ..Default::default() })
                 .collect();
             let url = text(case, "url").unwrap();
             let pick = parse_url(&url).and_then(|u| suggest(&profiles, &u)).map(|p| p.id.clone());
@@ -671,6 +776,60 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn http_origins() {
+        assert_eq!(http_origin("https://github.com/o/r.git").as_deref(), Some("https://github.com"));
+        assert_eq!(http_origin("HTTPS://moi:pass@GitHub.com:8443/o/r").as_deref(), Some("https://github.com:8443"));
+        assert_eq!(http_origin("https://gitlab.exemple.fr/sous/chemin").as_deref(), Some("https://gitlab.exemple.fr"));
+        assert_eq!(http_origin("git@github.com:o/r.git"), None);
+        assert_eq!(http_origin("ssh://git@github.com/o/r.git"), None);
+        assert_eq!(http_origin("https:///o/r"), None);
+    }
+
+    #[test]
+    fn https_remotes_get_the_account_of_their_profile() {
+        let account = |kind: &str, url: &str, login: &str| crate::providers::Account {
+            id: format!("{kind}|{url}|{login}"),
+            kind: kind.into(),
+            url: url.into(),
+            login: login.into(),
+            name: None,
+        };
+        let with_accounts = |mut p: KeyProfile, accounts: Vec<crate::providers::Account>| {
+            p.accounts = accounts;
+            p
+        };
+        let table = Table {
+            profiles: vec![
+                with_accounts(profile("perso", &[], None), vec![account("github", "https://github.com", "moi")]),
+                with_accounts(profile("boulot", &["github.com/boulot", "gitlab.boulot.fr"], None), vec![
+                    account("github", "https://github.com", "pro"),
+                    account("gitlab", "https://gitlab.boulot.fr", "pro"),
+                ]),
+            ],
+            choices: HashMap::from([("/r".to_string(), HashMap::from([("aucun".to_string(), None)]))]),
+            active: HashMap::from([("/r".to_string(), "perso".to_string())]),
+        };
+        let pick = |remotes: &[Remote]| https_for_remotes(&table, "/r", remotes).into_iter().map(|a| (a.origin, a.account)).collect::<Vec<_>>();
+        let gh = |login: &str| ("https://github.com".to_string(), format!("github|https://github.com|{login}"));
+        // Ni choix ni règle : le profil du dépôt.
+        assert_eq!(pick(&[remote("origin", "https://github.com/moi/r.git")]), [gh("moi")]);
+        // Règle : le profil désigné, même hôte que le profil du dépôt.
+        assert_eq!(pick(&[remote("origin", "https://github.com/boulot/r.git")]), [gh("pro")]);
+        assert_eq!(
+            pick(&[remote("origin", "https://gitlab.boulot.fr/g/r.git")]),
+            [("https://gitlab.boulot.fr".to_string(), "gitlab|https://gitlab.boulot.fr|pro".to_string())]
+        );
+        // « Aucun profil », remote ssh, instance sans compte : rien.
+        assert!(pick(&[remote("aucun", "https://github.com/moi/r.git")]).is_empty());
+        assert!(pick(&[remote("origin", "git@github.com:moi/r.git")]).is_empty());
+        assert!(pick(&[remote("origin", "https://gitlab.com/moi/r.git")]).is_empty());
+        // Une origine commune : le premier remote qui a un compte l'emporte.
+        assert_eq!(pick(&[remote("aucun", "https://github.com/x/r.git"), remote("b", "https://github.com/boulot/r"), remote("c", "https://github.com/moi/r")]), [gh("pro")]);
+        // Dépôt sans profil actif.
+        assert!(https_for_remotes(&table, "/autre", &[remote("origin", "https://github.com/moi/r.git")]).is_empty());
+    }
+
+    #[test]
     fn each_remote_gets_the_key_of_its_profile() {
         let table = Table {
             profiles: vec![
@@ -682,6 +841,7 @@ pub(crate) mod tests {
                 "/r".to_string(),
                 HashMap::from([("force".to_string(), Some("client".to_string())), ("aucun".to_string(), None), ("disparu".to_string(), Some("supprimé".to_string()))]),
             )]),
+            ..Default::default()
         };
         let key = |name: &str, url: &str| remote_key(&table, "/r", &remote(name, url), Some("/k/depot"));
         // Règles sur l'URL du remote.
@@ -703,7 +863,7 @@ pub(crate) mod tests {
 
     #[test]
     fn hosts_of_ssh_remotes_only() {
-        let table = Table { profiles: vec![profile("client", &["gitlab.client.fr"], Some("/k/client"))], choices: HashMap::new() };
+        let table = Table { profiles: vec![profile("client", &["gitlab.client.fr"], Some("/k/client"))], choices: HashMap::new(), ..Default::default() };
         let remotes = [
             remote("a", "git@gitlab.entreprise.fr:g/r.git"),
             Remote { name: "b".into(), url: Some("https://gitlab.client.fr/g/r.git".into()), push_url: Some("ssh://git@push.client.fr:2222/g/r.git".into()) },

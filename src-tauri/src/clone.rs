@@ -143,8 +143,12 @@ pub fn clone(url: &str, parent: &str, name: &str, profile: Option<&str>, mut on_
         env.push(("GIT_SSH_COMMAND", ssh.command));
         env.extend(git::askpass_env(&ssh.keys));
     }
+    // En HTTPS : token du compte du profil pour l'instance de l'URL (cf. `credential`).
+    let credential = crate::credential::config_args(&crate::remotes::https_account_for_url(url, profile).into_iter().collect::<Vec<_>>());
     let dest_str = dest.to_string_lossy().to_string();
-    let result = git::run_streaming(&["clone", "--progress", "--", url, &dest_str], &env, &cancel, is_noise, |line| {
+    let mut args: Vec<&str> = credential.iter().map(String::as_str).collect();
+    args.extend(["clone", "--progress", "--", url, dest_str.as_str()]);
+    let result = git::run_streaming(&args, &env, &cancel, is_noise, |line| {
         if let Some(p) = parse_progress(line) {
             on_progress(p);
         }
