@@ -2,7 +2,8 @@
 // Chaque fichier a éventuellement un côté « indexé » et un côté « non indexé », chacun
 // réduit à une liste de lignes de diff ; indexer des lignes les déplace d'un côté à l'autre.
 
-import type { DiffLine, FileDiff, LineRef, StatusFile, WorkFileStatus, WorkStatus } from "./types";
+import type { ConflictVersions, DiffLine, FileDiff, LineRef, StatusFile, WorkFileStatus, WorkStatus } from "./types";
+import { parseConflicts } from "./conflicts";
 
 interface Side {
   status: WorkFileStatus;
@@ -59,19 +60,26 @@ const changed = (s?: Side) => !!s && s.lines.some((l) => l.kind !== " ");
 const prune = (path: string) => repos.set(path, files(path).filter((f) => changed(f.staged) || changed(f.unstaged)));
 const entry = (f: MockFile, s: Side): StatusFile => ({ path: f.path, oldPath: null, status: s.status });
 
-/** Fichiers en conflit simulés (texte avec les marqueurs), posés par les tests e2e
- *  (`window.__mockConflict`). */
-const conflicts = new Map<string, Map<string, string>>();
+/** Fichiers en conflit simulés (texte avec les marqueurs, et au besoin les trois versions),
+ *  posés par les tests e2e (`window.__mockConflict`). */
+const conflicts = new Map<string, Map<string, { text: string; versions?: Omit<ConflictVersions, "working"> }>>();
 
-export function mockAddConflict(path: string, file: string, text: string) {
+export function mockAddConflict(path: string, file: string, text: string, versions?: Omit<ConflictVersions, "working">) {
   if (!conflicts.has(path)) conflicts.set(path, new Map());
-  conflicts.get(path)!.set(file, text);
+  conflicts.get(path)!.set(file, { text, versions });
 }
 
-export function mockConflictText(path: string, file: string): string {
-  const text = conflicts.get(path)?.get(file);
-  if (text === undefined) throw "conflict_no_file";
-  return text;
+/** Les versions données, sinon tirées des marqueurs : parties communes, plus le côté voulu
+ *  de chaque bloc (version commune : celle du bloc en diff3, sinon aucune). */
+export function mockConflictVersions(path: string, file: string): ConflictVersions {
+  const c = conflicts.get(path)?.get(file);
+  if (c === undefined) throw "conflict_no_file";
+  if (c.versions) return { ...c.versions, working: c.text };
+  const parsed = parseConflicts(c.text);
+  const side = (k: "ours" | "theirs" | "base") =>
+    parsed.segments.flatMap((s) => (s.kind === "common" ? s.lines : (s[k] ?? []))).map((l) => `${l}\n`).join("");
+  const diff3 = parsed.segments.some((s) => s.kind === "conflict" && s.base !== null);
+  return { base: diff3 ? side("base") : null, ours: side("ours"), theirs: side("theirs"), working: c.text };
 }
 
 /** Résolution écrite : le fichier n'est plus en conflit, il est indexé avec ce contenu. */

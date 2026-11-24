@@ -621,6 +621,60 @@ pub fn conflict_text(path: &Path, file: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| "conflict_not_utf8".into())
 }
 
+/// Les trois versions d'un fichier en conflit, pour la vue en 3 panneaux : la version commune
+/// (`None` : ajouté des deux côtés), la nôtre, l'autre — telles que git les a gardées dans
+/// l'index (étapes 1, 2, 3), avec les filtres de la copie de travail (fins de ligne) — et le
+/// fichier de la copie de travail, avec ses marqueurs (noms des côtés, fins de ligne).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictVersions {
+    pub base: Option<String>,
+    pub ours: String,
+    pub theirs: String,
+    pub working: String,
+}
+
+/// Refusé comme [`conflict_text`], et `conflict_deleted` si le fichier a été supprimé d'un
+/// côté (pas de version « nôtre » ou « autre » dans l'index).
+pub fn conflict_versions(path: &Path, file: &str) -> Result<ConflictVersions, String> {
+    let working = conflict_text(path, file)?;
+    let out = run_raw(Some(path), &["ls-files", "-u", "-z", "--", file])?;
+    let mut stages: [Option<String>; 3] = [None, None, None];
+    for entry in out.split('\0').filter(|e| !e.is_empty()) {
+        // « mode sha étape\tchemin »
+        let Some((meta, name)) = entry.split_once('\t') else { continue };
+        if name != file {
+            continue;
+        }
+        let mut parts = meta.split(' ');
+        let (_, Some(sha), Some(stage)) = (parts.next(), parts.next(), parts.next()) else { continue };
+        if let Ok(n @ 1..=3) = stage.parse::<usize>() {
+            stages[n - 1] = Some(sha.to_string());
+        }
+    }
+    let blob = |sha: &Option<String>| -> Result<Option<String>, String> {
+        let Some(sha) = sha else { return Ok(None) };
+        let text = run_raw(Some(path), &["cat-file", "--filters", &format!("--path={file}"), sha])?;
+        if text.len() > CONFLICT_MAX_BYTES {
+            return Err("conflict_too_large".into());
+        }
+        if text.contains('\0') {
+            return Err("conflict_binary".into());
+        }
+        // Sortie de git décodée avec perte : un caractère de remplacement absent de la copie de
+        // travail trahit une version qui n'est pas en UTF-8 (elle serait abîmée à l'écriture).
+        if text.contains('\u{FFFD}') && !working.contains('\u{FFFD}') {
+            return Err("conflict_not_utf8".into());
+        }
+        Ok(Some(text))
+    };
+    let [base, ours, theirs] = &stages;
+    let (Some(ours), Some(theirs)) = (blob(ours)?, blob(theirs)?) else {
+        return Err("conflict_deleted".into());
+    };
+    Ok(ConflictVersions { base: blob(base)?, ours, theirs, working })
+}
+
 /// Écrit la résolution d'un conflit dans la copie de travail et la marque résolue (`git add`).
 pub fn resolve_conflict(path: &Path, file: &str, content: &str) -> Result<(), String> {
     check_dir(path)?;
@@ -752,9 +806,48 @@ mod tests {
         assert_eq!(s.staged[0].path, "c.txt");
 
         assert_eq!(conflict_text(p, "absent.txt").unwrap_err(), "conflict_no_file");
+        assert_eq!(conflict_versions(p, "absent.txt").unwrap_err(), "conflict_no_file");
         assert_eq!(conflict_text(p, "../x").unwrap_err(), "outside_repo");
         std::fs::write(p.join("b.bin"), [0u8, 1, 2]).unwrap();
         assert_eq!(conflict_text(p, "b.bin").unwrap_err(), "conflict_binary");
+    }
+
+    #[test]
+    fn conflict_versions_reads_the_three_stages() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "c.txt", "un\ndeux\n");
+        run(Some(p), &["checkout", "-q", "-b", "autre"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "un\nDEUX\n");
+        crate::git::tests::commit_file(p, "n.txt", "à eux\n");
+        run(Some(p), &["checkout", "-q", "-"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "un\ndeux ici\n");
+        crate::git::tests::commit_file(p, "n.txt", "à nous\n");
+        assert!(run(Some(p), &["merge", "-q", "autre"]).is_err());
+
+        let v = conflict_versions(p, "c.txt").unwrap();
+        assert_eq!(v.base.as_deref(), Some("un\ndeux\n"));
+        assert_eq!(v.ours, "un\ndeux ici\n");
+        assert_eq!(v.theirs, "un\nDEUX\n");
+        assert!(v.working.contains("<<<<<<<"));
+        // Ajouté des deux côtés : pas de version commune.
+        let n = conflict_versions(p, "n.txt").unwrap();
+        assert_eq!(n.base, None);
+        assert_eq!((n.ours.as_str(), n.theirs.as_str()), ("à nous\n", "à eux\n"));
+    }
+
+    #[test]
+    fn conflict_versions_refuses_a_file_deleted_on_one_side() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "c.txt", "un\n");
+        run(Some(p), &["checkout", "-q", "-b", "autre"]).unwrap();
+        run(Some(p), &["rm", "-q", "c.txt"]).unwrap();
+        run(Some(p), &["commit", "-q", "-m", "suppr"]).unwrap();
+        run(Some(p), &["checkout", "-q", "-"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "deux\n");
+        assert!(run(Some(p), &["merge", "-q", "autre"]).is_err());
+        assert_eq!(conflict_versions(p, "c.txt").unwrap_err(), "conflict_deleted");
     }
 
     #[test]

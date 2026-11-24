@@ -183,60 +183,95 @@ test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async
   await expect(unstaged(page)).not.toContainText("render.ts");
 });
 
-test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+↑, puis enregistré", async ({ page }) => {
-  const text = ["// en-tête", "import a;", "import b;", "", "function f() {", "un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "||||||| base", "x", "w", "=======", "y", "z", ">>>>>>> sujet", "fin", "}", "", "// suite", "g();", ""].join("\n");
-  await page.evaluate((t) => (window as unknown as { __mockConflict: (p: string, f: string, t: string) => void }).__mockConflict("C:/Users/demo/work/api-backend", "conflit.txt", t), text);
+type MockConflict = (p: string, f: string, t: string, v?: { base: string | null; ours: string; theirs: string }) => void;
+const REPO = "C:/Users/demo/work/api-backend";
+const lines = (...l: string[]) => l.map((x) => `${x}\n`).join("");
+const VERSIONS = {
+  base: lines("// en-tête", "import a;", "let a = 1, b = 2;", "function f() {", "deux", "}", "fin"),
+  ours: lines("// en-tête", "import a;", "import o;", "let a = 10, b = 2;", "function f() {", "deux ici", "}", "fin"),
+  theirs: lines("// en-tête", "import a;", "let a = 1, b = 20;", "function f() {", "deux là-bas", "}", "fin", "// ajout"),
+};
+const WORKING = lines("// en-tête", "import a;", "<<<<<<< HEAD", "import o;", "let a = 10, b = 2;", "=======", "let a = 1, b = 20;", ">>>>>>> sujet", "function f() {", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "}", "fin", "// ajout");
+
+async function addConflict(page: Page, file: string) {
+  await page.evaluate(
+    ([repo, f, t, v]) => (window as unknown as { __mockConflict: MockConflict }).__mockConflict(repo, f, t, v),
+    [REPO, file, WORKING, VERSIONS] as const,
+  );
+}
+
+test("résoudre un conflit en 3 panneaux : baguette, » puis «, lignes une à une, Alt+↑, enregistré", async ({ page }) => {
+  await addConflict(page, "conflit.txt");
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-  const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" });
-  await row.hover();
-  await row.getByRole("button", { name: "Résoudre" }).click();
+  // Un clic sur le fichier ouvre directement la résolution.
+  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" }).click();
 
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
-  // Contexte autour de chaque bloc, fichier résultant entier en bas.
-  const first = view.getByRole("group", { name: "Conflit 1 / 2" });
-  await expect(first.locator(".conflict-side.ours")).toContainText("function f() {");
-  await expect(first.locator(".conflict-side.theirs")).toContainText("milieu");
-  const preview = view.getByRole("region", { name: "Fichier résultant" });
-  await expect(preview).toContainText("Fichier résultant · 17 lignes");
-  // Couleurs : modifiée / ajoutée / supprimée, par rapport à la version commune quand git l'a écrite.
-  await expect(first.locator(".conflict-side.ours .cl-mod")).toHaveText("deux ici");
-  const secondBlock = view.getByRole("group", { name: "Conflit 2 / 2" });
-  await expect(secondBlock.locator(".conflict-side.ours .cl-del")).toHaveText("w");
-  await expect(secondBlock.locator(".conflict-side.theirs .cl-mod")).toHaveText(["y", "z"]);
+  const status = view.getByRole("status");
+  await expect(status).toHaveText("2 conflits à résoudre");
+  const c1 = view.getByRole("group", { name: "Conflit 1 / 3" });
+  const c2 = view.getByRole("group", { name: "Conflit 2 / 3" });
+  const theirsOnly = view.getByRole("group", { name: "Modification de l’autre côté 3 / 3" });
+  // Sans conflit : appliquée d'office. Conflit : la version commune, à résoudre.
+  await expect(theirsOnly.getByRole("textbox")).toHaveValue("// ajout");
+  await expect(c2.getByRole("textbox")).toHaveValue("deux");
+  // Mots changés surlignés par rapport à la version commune.
+  await expect(c1.locator(".mcell-ours mark")).toHaveText(["10"]);
+  await expect(c1.locator(".mcell-theirs mark")).toHaveText(["20"]);
 
-  // Ligne par ligne : décocher / cocher des lignes de chaque côté, le résultat suit l'ordre des clics.
-  const result2 = secondBlock.getByRole("textbox", { name: "Résultat du conflit 2" });
-  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
-  await expect(result2).toHaveValue("x\nz");
-  await secondBlock.locator(".conflict-side.ours").getByRole("checkbox", { name: "x" }).click();
-  await expect(result2).toHaveValue("z");
-  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
-  // Recochée en dernier : elle vient après z (ordre des clics).
-  await expect(result2).toHaveValue("z\ny");
-  await expect(secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" })).toHaveAttribute("aria-checked", "true");
-  await secondBlock.getByRole("button", { name: "A puis B" }).click();
-  await expect(preview).toContainText("// suite");
-  // Rendu tout de suite en « A puis B » ; le bloc 2, retouché ci-dessus, compte comme vérifié.
-  await expect(view.getByRole("status")).toHaveText("1 bloc proposé « A puis B », à vérifier");
-  const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
-  await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny\nz");
+  // Baguette : les deux côtés ont changé des mots différents.
+  await c1.getByRole("button", { name: /Résoudre ce conflit automatiquement/ }).click();
+  await expect(c1.getByRole("textbox")).toHaveValue("import o;\nlet a = 10, b = 20;");
+  await expect(status).toHaveText("1 conflit à résoudre");
+  await expect(c2.getByRole("button", { name: /Résoudre ce conflit automatiquement/ })).toHaveCount(0);
 
-  await first.getByRole("button", { name: "B puis A" }).click();
-  const edit = first.getByRole("textbox", { name: "Résultat du conflit 1" });
-  await expect(edit).toHaveValue("deux là-bas\ndeux ici");
-  // Alt+↑ sur la seconde ligne : elle remonte (A puis B, sans repasser par les boutons).
+  // » puis « : le second côté s'ajoute après le premier.
+  await c2.getByRole("button", { name: "Mettre HEAD dans le résultat" }).click();
+  await expect(c2.getByRole("textbox")).toHaveValue("deux ici");
+  await expect(status).toHaveText("Tout est résolu");
+  await c2.getByRole("button", { name: "Ajouter sujet à la suite dans le résultat" }).click();
+  const edit = c2.getByRole("textbox", { name: "Résultat de la modification 2" });
+  await expect(edit).toHaveValue("deux ici\ndeux là-bas");
   await edit.focus();
   await edit.press("Control+End");
   await edit.press("Alt+ArrowUp");
+  await expect(edit).toHaveValue("deux là-bas\ndeux ici");
+
+  // Retour au départ, puis lignes prises une à une, dans l'ordre des clics.
+  await c2.getByRole("button", { name: "Revenir au départ pour cette modification" }).click();
+  await expect(edit).toHaveValue("deux");
+  await c2.getByRole("checkbox", { name: "deux ici" }).click();
+  await c2.getByRole("checkbox", { name: "deux là-bas" }).click();
   await expect(edit).toHaveValue("deux ici\ndeux là-bas");
+  await c2.getByRole("checkbox", { name: "deux ici" }).click();
+  await expect(edit).toHaveValue("deux là-bas");
 
-  const second = view.getByRole("group", { name: "Conflit 2 / 2" });
-  await second.getByRole("textbox", { name: "Résultat du conflit 2" }).fill("x et y");
-  await expect(view.getByRole("status")).toHaveText("Tous les blocs sont résolus");
-  await save.click();
-
+  await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
   await expect(view).toHaveCount(0);
   await expect(page.getByText("conflit.txt résolu et indexé.")).toBeVisible();
   await expect(panel.getByRole("list", { name: "Indexés", exact: true })).toContainText("conflit.txt");
+});
+
+test("conflits sur plusieurs fichiers : Accepter, passage au fichier suivant après l'enregistrement", async ({ page }) => {
+  await addConflict(page, "a.txt");
+  await addConflict(page, "b.txt");
+  await page.keyboard.press("F5");
+  const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "a.txt" }).click();
+  const viewA = page.getByRole("region", { name: "Résolution du conflit de a.txt" });
+  await expect(viewA.getByText("Fichier 1 / 2")).toBeVisible();
+  await viewA.getByRole("button", { name: "Accepter l’autre version" }).click();
+  await expect(viewA.getByRole("status")).toHaveText("Tout est résolu");
+  await expect(viewA.getByRole("group", { name: "Conflit 1 / 3" }).getByRole("textbox")).toHaveValue("let a = 1, b = 20;");
+  await viewA.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
+  // Le fichier suivant s'ouvre tout seul.
+  const viewB = page.getByRole("region", { name: "Résolution du conflit de b.txt" });
+  await expect(viewB).toBeVisible();
+  await expect(viewB.getByRole("status")).toHaveText("2 conflits à résoudre");
+  // Quitter avec des choix faits : confirmation.
+  await viewB.getByRole("button", { name: "Accepter notre version" }).click();
+  await viewB.getByRole("button", { name: "Annuler", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Abandonner cette résolution ?" }).getByRole("button", { name: "Abandonner" }).click();
+  await expect(viewB).toHaveCount(0);
 });

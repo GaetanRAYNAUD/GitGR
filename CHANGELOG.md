@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Conflits : nouvelle vue en trois panneaux, comme dans IntelliJ — notre version à gauche, le résultat au centre, l'autre version à droite, alignés et défilant ensemble. Les modifications sans conflit sont déjà appliquées ; sur chaque conflit, » / « envoient un côté dans le résultat (le second s'ajoute après le premier), X l'écarte, la baguette le résout quand les deux côtés ont changé des mots différents. Mots modifiés surlignés, lignes prises une à une ou glissées dans le résultat, résultat modifiable à la main, F7 / Maj+F7 pour passer d'une modification à l'autre, « Accepter notre version / l'autre version ».
+- Un clic sur un fichier en conflit ouvre directement sa résolution ; après l'enregistrement, le fichier en conflit suivant s'ouvre tout seul.
+
 ## [0.3.1] — 2026-11-24
 
 - Remotes en HTTPS : le token du compte GitHub / GitLab du profil du remote sert à fetch, pull, push et clone (avant, seuls les identifiants enregistrés dans Git étaient essayés, d'où « Authentification refusée »).

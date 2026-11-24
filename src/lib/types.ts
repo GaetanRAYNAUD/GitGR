@@ -700,3 +700,12 @@ export interface NotificationPoll {
   /** Intervalle minimal demandé par le provider, en secondes. */
   minInterval: number | null;
 }
+
+/** Les trois versions d'un fichier en conflit, lues dans l'index (`null` : ajouté des deux
+ *  côtés, pas de version commune), et le fichier de la copie de travail avec ses marqueurs. */
+export interface ConflictVersions {
+  base: string | null;
+  ours: string;
+  theirs: string;
+  working: string;
+}
