@@ -3,6 +3,7 @@
 
 import { useTranslation } from "react-i18next";
 import { PALETTE_SIZE } from "../lib/graph";
+import { onRadioGroupKeyDown, radioTabIndex } from "../lib/radioKeys";
 import type { ColorValue } from "../lib/types";
 import { Icon } from "./Icon";
 
@@ -24,13 +25,17 @@ interface Props {
 export function ColorChoice({ value, onChange, auto, label }: Props) {
   const { t } = useTranslation();
   const custom = typeof value === "string";
+  const anyChecked = custom || (value === undefined ? auto !== undefined : value >= 0 && value < PALETTE_SIZE);
+  // Un seul arrêt de tabulation pour tout le groupe ; les flèches passent d'une couleur à l'autre.
+  const tab = (checked: boolean, first: boolean) => radioTabIndex(checked, first, anyChecked);
   return (
-    <div className="color-choice" role="radiogroup" aria-label={label}>
+    <div className="color-choice" role="radiogroup" aria-label={label} onKeyDown={onRadioGroupKeyDown}>
       {auto !== undefined && (
         <button
           type="button"
           role="radio"
           aria-checked={value === undefined}
+          tabIndex={tab(value === undefined, true)}
           aria-label={auto}
           title={auto}
           className="swatch swatch-auto"
@@ -45,6 +50,7 @@ export function ColorChoice({ value, onChange, auto, label }: Props) {
           type="button"
           role="radio"
           aria-checked={value === c}
+          tabIndex={tab(value === c, auto === undefined && c === 0)}
           aria-label={t(`tabs.colors.${c}`)}
           title={t(`tabs.colors.${c}`)}
           className="swatch"
@@ -63,6 +69,7 @@ export function ColorChoice({ value, onChange, auto, label }: Props) {
           type="color"
           role="radio"
           aria-checked={custom}
+          tabIndex={tab(custom, false)}
           aria-label={t("colors.custom")}
           value={custom ? value : paletteHex(typeof value === "number" ? value : 0)}
           onChange={(e) => onChange(e.target.value)}

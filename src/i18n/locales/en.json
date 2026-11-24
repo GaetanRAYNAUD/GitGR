@@ -46,7 +46,7 @@
     "language": "Language",
     "languageSystem": "System",
     "autoStash": "Auto-stash when switching branches and pulling",
-    "pullStrategy": "Pull",
+    "pullStrategy": "Pull strategy",
     "autoFetch": "Automatic fetch",
     "autoFetchOff": "Off",
     "minutes": "{{count}} min",
@@ -70,7 +70,11 @@
       "fast": "Every minute, 5 min when the window is in the background"
     },
     "systemNotifications": "System notifications",
-    "notificationsHint": "Paused while the window is minimized or after 15 min of inactivity. “Seen” stays in GitGR; “mark as read” also applies on GitHub / GitLab."
+    "notificationsHint": "Paused while the window is minimized or after 15 min of inactivity. “Seen” stays in GitGR; “mark as read” also applies on GitHub / GitLab.",
+    "autoFetchHint": "Fetches the open repository in the background.",
+    "autoStashHint": "Your changes are set aside, then reapplied; nothing is lost on conflict.",
+    "sectionAbout": "About",
+    "sections": "Settings sections"
   },
   "updates": {
     "check": "Check for updates",
@@ -1159,7 +1163,10 @@
     "down": "Move down",
     "remove": "Remove rule",
     "add": "Add rule",
-    "reset": "Default rules"
+    "reset": "Default rules",
+    "resetTitle": "Restore the default rules?",
+    "resetBody": "Your current rules will be replaced by the initial ones (main, master, develop, release/*, hotfix/*).",
+    "resetOk": "Replace my rules"
   },
   "colors": {
     "custom": "Custom color…"

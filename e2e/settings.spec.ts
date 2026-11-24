@@ -64,6 +64,58 @@ test("aucun libellé des choix ne déborde, en français comme en anglais", asyn
   }
 });
 
+test("barre latérale : un clic amène la section, qui devient la section en cours", async ({ page }) => {
+  const settings = await openSettings(page);
+  const nav = settings.getByRole("navigation");
+  await expect(nav.getByRole("button", { name: "Apparence" })).toHaveAttribute("aria-current", "true");
+  await nav.getByRole("button", { name: "Graphe" }).click();
+  await expect(settings.getByRole("heading", { name: "Graphe" })).toBeInViewport();
+  await expect(nav.getByRole("button", { name: "Graphe" })).toHaveAttribute("aria-current", "true");
+  await expect(settings.getByRole("heading", { name: "Graphe" })).toBeFocused();
+});
+
+test("les choix se parcourent aux flèches, un seul arrêt de tabulation par groupe", async ({ page }) => {
+  const settings = await openSettings(page);
+  const theme = settings.getByRole("radiogroup", { name: "Thème" });
+  await expect(theme.getByRole("radio", { name: "Système" })).toHaveAttribute("tabindex", "0");
+  await expect(theme.getByRole("radio", { name: "Clair" })).toHaveAttribute("tabindex", "-1");
+  await theme.getByRole("radio", { name: "Système" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(theme.getByRole("radio", { name: "Clair" })).toBeFocused();
+  await expect(theme.getByRole("radio", { name: "Clair" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.keyboard.press("End");
+  await expect(theme.getByRole("radio", { name: "Sombre" })).toHaveAttribute("aria-checked", "true");
+});
+
+test("l'explication de la stratégie de pull suit l'option choisie", async ({ page }) => {
+  const settings = await openSettings(page);
+  const pull = settings.getByRole("radiogroup", { name: "Stratégie de pull" });
+  await expect(settings.getByText("Ne fait rien si les branches ont divergé", { exact: false })).toBeVisible();
+  await pull.getByRole("radio", { name: "Rebase" }).click();
+  await expect(settings.getByText("Rejoue vos commits locaux par-dessus la branche distante")).toBeVisible();
+});
+
+test("« Règles par défaut » demande confirmation avant de remplacer les règles", async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.getByRole("button", { name: "Ajouter une règle" }).click();
+  await page.keyboard.type("feature/*");
+  const patterns = settings.getByRole("textbox", { name: "Motif du nom de branche" });
+  await expect(patterns).toHaveCount(6);
+
+  await settings.getByRole("button", { name: "Règles par défaut" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByText("Revenir aux règles par défaut ?")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(settings).toBeVisible();
+  await expect(patterns).toHaveCount(6);
+
+  await settings.getByRole("button", { name: "Règles par défaut" }).click();
+  await page.getByRole("button", { name: "Remplacer mes règles" }).click();
+  await expect(patterns).toHaveCount(5);
+});
+
 test("version de GitGR en bas de la page, avec les notes de version", async ({ page }) => {
   const pkg = new URL("../package.json", import.meta.url);
   const version = JSON.parse(await (await import("node:fs/promises")).readFile(pkg, "utf8")).version;
