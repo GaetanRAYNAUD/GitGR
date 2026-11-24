@@ -139,11 +139,12 @@ test.describe("dépôt propre", () => {
     const row = graph(page).getByRole("option").nth(3);
     const sha = (await row.getAttribute("id"))!.replace("commit-", "").slice(0, 7);
     const drag = async (target: ReturnType<typeof branch>) => {
-      const from = (await row.boundingBox())!;
       const to = (await target.boundingBox())!;
-      await page.mouse.move(from.x + 40, from.y + from.height / 2);
+      // Saisi par le message : depuis une étiquette de branche locale, c'est la branche qu'on glisse.
+      const msg = (await row.locator(".commit-msg").boundingBox())!;
+      await page.mouse.move(msg.x + 20, msg.y + msg.height / 2);
       await page.mouse.down();
-      await page.mouse.move(from.x + 60, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(msg.x + 40, msg.y + msg.height / 2, { steps: 3 });
       await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
       await expect(target).toHaveClass(/drop-over/);
       await page.mouse.up();
@@ -181,6 +182,33 @@ test.describe("dépôt propre", () => {
     await expect(current(page)).toHaveText("essai/annuler");
     await expect(branch(page, "annuler")).toHaveCount(1);
     await expect(tool(page, "Rétablir")).toBeDisabled();
+  });
+
+  test("glisser une branche sur une autre : merge dans la courante, rebase avec checkout d'abord", async ({ page }) => {
+    const drag = async (source: ReturnType<typeof branch>, target: ReturnType<typeof branch>) => {
+      const from = (await source.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + 20, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 40, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+      await expect(target).toHaveClass(/drop-over/);
+      await page.mouse.up();
+    };
+
+    // Sur elle-même : rien.
+    await drag(branch(page, "profils"), branch(page, "profils"));
+    await expect(menu(page)).toHaveCount(0);
+
+    await drag(branch(page, "profils"), branch(page, "main"));
+    await expect(menu(page).getByRole("menuitem", { name: "Rebase de feature/profils sur main" })).toHaveAttribute("title", /Passe d’abord sur feature\/profils/);
+    await menu(page).getByRole("menuitem", { name: "Merge de feature/profils dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /feature\/profils.*main/ })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+
+    await drag(branch(page, "ssh-agent"), branch(page, "main"));
+    await menu(page).getByRole("menuitem", { name: "Rebase de fix/ssh-agent sur main" }).click();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
   });
 
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {

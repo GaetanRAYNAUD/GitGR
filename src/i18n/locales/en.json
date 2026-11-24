@@ -706,6 +706,7 @@
     "deleteRemoteOf": "Delete {{branch}} on the server…",
     "deleteBoth": "Delete {{branch}} and {{remote}}…",
     "why": {
+      "checkoutFirst": "Checks out {{branch}} first (with auto-stash)",
       "noHead": "The repository has no commit yet.",
       "sameCommit": "{{branch}} is already on this commit.",
       "detached": "HEAD is detached: switch to a branch first.",

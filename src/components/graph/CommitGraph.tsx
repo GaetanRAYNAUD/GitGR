@@ -24,7 +24,7 @@ import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitDropMenu, commitMenu, pickedMenu, refMenu } from "./menus";
+import { checkoutRef, commitDropMenu, commitMenu, pickedMenu, refMenu, startBranchDrag } from "./menus";
 import { startCommitDrag } from "./commitDrag";
 import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
@@ -328,6 +328,7 @@ function Chip({
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
+      onMouseDown={r?.kind === "local" ? (e) => startBranchDrag(e, t, path, r) : undefined}
       data-drop-ref={r?.kind === "local" ? r.name : undefined}
     >
       {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
@@ -880,8 +881,10 @@ export function CommitGraph({ path, changes }: Props) {
                 else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
                 else {
                   select(path, c.sha);
-                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer.
-                  if (!isWip)
+                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer. Pas
+                  // depuis l'étiquette d'une branche locale : c'est elle qu'on glisse alors.
+                  const fromChip = (e.target as HTMLElement).closest?.(".chip[data-drop-ref]");
+                  if (!isWip && !fromChip)
                     startCommitDrag(e, `${c.sha.slice(0, 7)} ${c.subject}`, (drop) => {
                       const refs = useGraph.getState().graphs[path]?.refs ?? null;
                       const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");

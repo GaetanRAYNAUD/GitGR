@@ -14,7 +14,8 @@ import { defaultRemote, useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
-import type { MenuItem } from "../ContextMenu";
+import { type MenuItem, useContextMenu } from "../ContextMenu";
+import { startCommitDrag } from "./commitDrag";
 import { squashable } from "../../lib/multiSelect";
 import { remoteMarkOf } from "../RemoteMark";
 
@@ -281,6 +282,42 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
     "sep",
     copyName,
   ];
+}
+
+/** Branche locale déposée sur une autre (glisser-déposer) : merge de la première dans la
+ *  seconde, rebase de la première sur la seconde (checkout d'abord si besoin, avec
+ *  l'auto-stash) et, si la première est la courante, PR / MR vers la seconde. */
+export function branchDropMenu(t: TFunction, path: string, source: GitRef, target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const head = refs?.headBranch ?? null;
+  const busy = !!useWork.getState().repos[path]?.status?.operation;
+  const why = busy ? t("menu.why.operation") : undefined;
+  const first = (branch: string) => (branch === head ? undefined : t("menu.why.checkoutFirst", { branch }));
+  const merge = async () => {
+    if (target.short !== head && !(await ops.checkout(path, target.short))) return;
+    await ops.mergeInto(path, source);
+  };
+  const rebase = async () => {
+    if (source.short !== head && !(await ops.checkout(path, source.short))) return;
+    await ops.rebaseOnto(path, target);
+  };
+  const pulls = source.short === head ? pullItems(t, path, target, refs) : [];
+  return [
+    { label: t("menu.mergeInto", { source: source.short, branch: target.short }), disabled: !!why, title: why ?? first(target.short), onClick: () => void merge() },
+    { label: t("menu.rebaseOnto", { branch: source.short, onto: target.short }), disabled: !!why, title: why ?? first(source.short), onClick: () => void rebase() },
+    ...(pulls.length ? (["sep", ...pulls] as MenuItem[]) : []),
+  ];
+}
+
+/** Glisser une branche locale (étiquette du graphe, barre latérale) sur une autre : menu
+ *  merge / rebase / PR au dépôt (cf. `branchDropMenu`). */
+export function startBranchDrag(e: React.MouseEvent, t: TFunction, path: string, source: GitRef) {
+  startCommitDrag(e, source.short, (drop) => {
+    if (drop.ref === source.name) return;
+    const refs = useGraph.getState().graphs[path]?.refs ?? null;
+    const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+    if (target) useContextMenu.getState().open(drop.x, drop.y, branchDropMenu(t, path, source, target, refs));
+  });
 }
 
 /** Commit déposé sur une branche locale (glisser-déposer) : cherry-pick dessus, et reset de la
