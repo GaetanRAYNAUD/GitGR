@@ -105,6 +105,33 @@ test("chercher quand un texte a été ajouté puis retiré, limité à un fichie
   }
 });
 
+test("historique d'un fichier renommé : ses commits avant et après le renommage", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\nquatre\n", "création de a");
+  sandbox.commit(mine, "b.txt", "autre\n", "autre fichier");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\nquatre\ncinq\n", "a modifié");
+  git(mine, "mv", "a.txt", "c.txt");
+  git(mine, "commit", "-qm", "a renommé en c");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option").first().click();
+    const panel = page.getByRole("complementary", { name: "Détails du commit" });
+    await panel.locator(".file-row", { hasText: "c.txt" }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
+    const view = page.getByRole("region", { name: "Historique du fichier" });
+    const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+    await expect(rows).toHaveText([/a renommé en c.*renommé depuis a\.txt/, /a modifié/, /création de a/, /init/]);
+    await rows.nth(1).getByRole("button").dblclick();
+    const diff = page.getByRole("region", { name: /^Diff de / });
+    await expect(diff.locator("tr.add")).toContainText("cinq");
+  } finally {
+    await app.close();
+  }
+});
+
 test("revert de deux commits sélectionnés : leurs fichiers retirés par deux nouveaux commits", async ({ sandbox }) => {
   const mine = sandbox.clone("mine");
   sandbox.commit(mine, "x.txt", "x\n", "ajout de x");

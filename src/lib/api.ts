@@ -60,6 +60,7 @@ import { validRepoName } from "./publish";
 import type {
   Account,
   ReflogEntry,
+  FileHistoryEntry,
   ResetMode,
   AccountKey,
   AccountKeyKind,
@@ -132,6 +133,8 @@ export interface Api {
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
   /** Commits qui ajoutent ou retirent `text` (`git log -S`, ou `-G` si `regex`), toutes branches. */
   searchChanges(path: string, text: string, regex: boolean, file: string | null): Promise<Commit[]>;
+  /** Commits de la branche courante qui modifient `file`, renommages suivis, le plus récent d'abord. */
+  fileHistory(path: string, file: string): Promise<FileHistoryEntry[]>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -397,6 +400,7 @@ const tauriApi: Api = {
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
+  fileHistory: (path, file) => invoke("file_history", { path, file }),
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   revert: (path, shas, autoStash) => invoke("revert", { path, shas, autoStash }),
@@ -813,6 +817,15 @@ const mockApi: Api = {
       .filter((c) => (re ? re.test(c.subject) : c.subject.includes(text)))
       .filter((c) => !file || mockDetails(path, c.sha).files.some((f) => f.path.startsWith(file)))
       .slice(0, 200);
+  },
+  async fileHistory(path, file) {
+    await mockDelay();
+    // Simulé : les commits de l'historique dont les fichiers contiennent ce chemin.
+    const { commits } = mockHistory(path);
+    return commits.flatMap((commit) => {
+      const change = mockDetails(path, commit.sha).files.find((f) => f.path === file);
+      return change ? [{ commit, change }] : [];
+    });
   },
   async reflog(path, refname) {
     await mockDelay();

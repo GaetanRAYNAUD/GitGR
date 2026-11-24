@@ -182,6 +182,11 @@ pub async fn search_changes(path: String, text: String, regex: bool, file: Optio
 }
 
 #[tauri::command]
+pub async fn file_history(path: String, file: String) -> Result<Vec<history::FileHistoryEntry>, String> {
+    history::file_history(Path::new(&path), &file).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn reflog(path: String, refname: String) -> Result<Vec<history::ReflogEntry>, String> {
     history::reflog(Path::new(&path), &refname).map_err(classify)
 }

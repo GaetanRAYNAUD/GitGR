@@ -249,6 +249,12 @@ export interface RemoteInfo {
   pushUrl: string | null;
 }
 
+/** Un commit de l'historique d'un fichier, avec ce qu'il lui a fait (chemin à ce commit). */
+export interface FileHistoryEntry {
+  commit: Commit;
+  change: FileChange;
+}
+
 /** Une position passée de HEAD ou d'une branche (reflog), la plus récente d'abord. */
 export interface ReflogEntry {
   sha: string;

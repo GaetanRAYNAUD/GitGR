@@ -16,6 +16,7 @@ export const useRangeView = create<RangeState>((set) => ({
     useStashView.getState().close(path);
     useReflogView.getState().close(path);
     useSearchView.getState().close(path);
+    useFileHistoryView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: direction } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -33,6 +34,7 @@ export const useStashView = create<StashViewState>((set) => ({
   show: (path, entry) => {
     useReflogView.getState().close(path);
     useSearchView.getState().close(path);
+    useFileHistoryView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: entry } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -51,6 +53,7 @@ export const useReflogView = create<ReflogViewState>((set) => ({
     useRangeView.getState().close(path);
     useStashView.getState().close(path);
     useSearchView.getState().close(path);
+    useFileHistoryView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: refname } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
@@ -79,8 +82,28 @@ export const useSearchView = create<SearchViewState>((set) => ({
     useRangeView.getState().close(path);
     useStashView.getState().close(path);
     useReflogView.getState().close(path);
+    useFileHistoryView.getState().close(path);
     set((s) => ({ open: { ...s.open, [path]: true } }));
   },
   close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
   setQuery: (path, q) => set((s) => ({ queries: { ...s.queries, [path]: q } })),
+}));
+
+/** Historique d'un fichier ouvert à la place du graphe (chemin relatif au dépôt), un par dépôt. */
+interface FileHistoryViewState {
+  open: Record<string, string | undefined>;
+  show(path: string, file: string): void;
+  close(path: string): void;
+}
+
+export const useFileHistoryView = create<FileHistoryViewState>((set) => ({
+  open: {},
+  show: (path, file) => {
+    useRangeView.getState().close(path);
+    useStashView.getState().close(path);
+    useReflogView.getState().close(path);
+    useSearchView.getState().close(path);
+    set((s) => ({ open: { ...s.open, [path]: file } }));
+  },
+  close: (path) => set((s) => ({ open: { ...s.open, [path]: undefined } })),
 }));

@@ -5450,3 +5450,12 @@ body.commit-dragging * {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
+/* Historique d'un fichier (FileHistoryView). */
+.file-history-view .st {
+  align-self: center;
+}
+
+.file-history-rename {
+  font-size: 11.5px;
+}

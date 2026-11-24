@@ -26,10 +26,11 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
+import { useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
 import { StashView } from "../components/graph/StashView";
 import { ReflogView } from "../components/graph/ReflogView";
 import { SearchView } from "../components/graph/SearchView";
+import { FileHistoryView } from "../components/graph/FileHistoryView";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
@@ -330,6 +331,7 @@ export function RepoView({ path }: { path: string }) {
   const openStash = useStashView((s) => s.open[path]);
   const openReflog = useReflogView((s) => s.open[path]);
   const openSearch = useSearchView((s) => s.open[path]);
+  const openFileHistory = useFileHistoryView((s) => s.open[path]);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -417,6 +419,8 @@ export function RepoView({ path }: { path: string }) {
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (
             <WorkDiffView path={path} diff={workDiff} />
+          ) : openFileHistory ? (
+            <FileHistoryView key={openFileHistory} path={path} file={openFileHistory} />
           ) : openSearch ? (
             <SearchView path={path} />
           ) : openReflog ? (

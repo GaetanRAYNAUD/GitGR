@@ -110,6 +110,52 @@ pub fn search_changes(path: &Path, text: &str, regex: bool, file: Option<&str>) 
 }
 
 // ---------------------------------------------------------------------------
+// Historique d'un fichier
+// ---------------------------------------------------------------------------
+
+const FILE_HISTORY_LIMIT: u32 = 500;
+
+/// Un commit qui touche le fichier, avec ce qu'il lui a fait (chemin à ce commit, ancien
+/// chemin s'il a été renommé).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHistoryEntry {
+    pub commit: Commit,
+    pub change: FileChange,
+}
+
+/// Commits de la branche courante (HEAD) qui modifient `file`, du plus récent au plus ancien,
+/// en suivant ses renommages (`--follow`). Les fusions qui ne le changent pas sont omises.
+pub fn file_history(path: &Path, file: &str) -> Result<Vec<FileHistoryEntry>, String> {
+    check_dir(path)?;
+    if file.is_empty() {
+        return Err("path_not_found".into());
+    }
+    let limit = format!("--max-count={FILE_HISTORY_LIMIT}");
+    let format = format!("--format=%x1e{}", &LOG_FORMAT["--format=".len()..]);
+    let args = ["--literal-pathspecs", "log", "--follow", "-M", "-z", "--name-status", "--no-ext-diff", &format, &limit, "HEAD", "--", file];
+    match run_raw(Some(path), &args) {
+        Ok(out) => Ok(parse_file_history(&out)),
+        // Dépôt sans commit : pas encore d'historique.
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") || e.contains("unknown revision") => Ok(vec![]),
+        Err(e) => Err(e),
+    }
+}
+
+/// Sortie de `log -z --name-status` avec un `\x1e` en tête de chaque commit : l'en-tête
+/// (champs de `LOG_FORMAT`) jusqu'au premier `\0`, puis ses fichiers.
+fn parse_file_history(out: &str) -> Vec<FileHistoryEntry> {
+    out.split('\x1e')
+        .filter_map(|rec| {
+            let (head, files) = rec.split_once('\0')?;
+            let commit = parse_log(head).into_iter().next()?;
+            let change = parse_name_status(files.trim_start_matches('\n')).into_iter().next()?;
+            Some(FileHistoryEntry { commit, change })
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
 // Reflog
 // ---------------------------------------------------------------------------
 
@@ -592,6 +638,23 @@ pub(crate) fn parse_hunk_header(rest: &str) -> (u32, u32) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn file_history_follows_renames() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\ntrois\nquatre\n");
+        crate::git::tests::commit_file(p, "b.txt", "autre\n");
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\ntrois\nquatre\ncinq\n");
+        run(Some(p), &["mv", "a.txt", "c.txt"]).unwrap();
+        run(Some(p), &["commit", "-qm", "renomme"]).unwrap();
+        let list = file_history(p, "c.txt").unwrap();
+        let got: Vec<_> = list.iter().map(|e| (e.change.status.as_str(), e.change.path.as_str(), e.change.old_path.as_deref())).collect();
+        assert_eq!(got, [("R", "c.txt", Some("a.txt")), ("M", "a.txt", None), ("A", "a.txt", None)]);
+        assert_eq!(list[0].commit.subject, "renomme");
+        assert!(file_history(p, "absent.txt").unwrap().is_empty());
+        assert!(file_history(p, "").is_err());
+    }
 
     #[test]
     fn search_changes_finds_when_text_came_and_went() {

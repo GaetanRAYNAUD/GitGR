@@ -126,6 +126,7 @@ pub fn run() {
             commands::compare_files,
             commands::reflog,
             commands::search_changes,
+            commands::file_history,
             commands::reset_to,
             commands::cherry_pick,
             commands::revert,

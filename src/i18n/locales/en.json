@@ -276,6 +276,18 @@
     "done": "{{branch}} is now at {{sha}}.",
     "hardBody": "The commits between the current position and this commit, and the pending changes to tracked files, are discarded (irreversible for the changes; the commits stay in the reflog). Untracked files are not touched."
   },
+  "fileHistory": {
+    "label": "File history",
+    "title": "History of {{file}}",
+    "menu": "File history",
+    "results_one": "{{count}} commit",
+    "results_other": "{{count}} commits",
+    "limit": "Only the 500 most recent.",
+    "none": "No commit of the current branch changes this file.",
+    "hint": "Commits of the current branch that change this file, following renames. Click: details; double-click: the file's diff; right-click: its actions.",
+    "renamedFrom": "renamed from {{path}}",
+    "showDiff": "Show the file's diff"
+  },
   "reflog": {
     "label": "Reflog",
     "title": "Where {{ref}} was",

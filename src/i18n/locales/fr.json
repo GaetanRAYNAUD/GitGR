@@ -276,6 +276,18 @@
     "done": "{{branch}} est maintenant sur {{sha}}.",
     "hardBody": "Les commits entre la position actuelle et ce commit, et les modifications en cours des fichiers suivis, sont abandonnés (irréversible pour les modifications ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés."
   },
+  "fileHistory": {
+    "label": "Historique du fichier",
+    "title": "Historique de {{file}}",
+    "menu": "Historique du fichier",
+    "results_one": "{{count}} commit",
+    "results_other": "{{count}} commits",
+    "limit": "Les 500 plus récents seulement.",
+    "none": "Aucun commit de la branche courante ne modifie ce fichier.",
+    "hint": "Commits de la branche courante qui modifient ce fichier, renommages suivis. Clic : ses détails ; double-clic : le diff du fichier ; clic droit : ses actions.",
+    "renamedFrom": "renommé depuis {{path}}",
+    "showDiff": "Voir le diff du fichier"
+  },
   "reflog": {
     "label": "Reflog",
     "title": "Où était {{ref}}",

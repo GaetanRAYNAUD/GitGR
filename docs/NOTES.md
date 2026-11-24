@@ -212,6 +212,7 @@ Compléments et retours d'utilisation, par thème.
 
 **Historique**
 - **Sélection de plusieurs commits** (comme GitKraken ; plage qui traverse un merge, Maj+↑ / Maj+↓) : Ctrl+clic, Maj+clic et Maj+↑ / Maj+↓ dans le graphe (`picked` dans `store/graph.ts`, logique pure dans `lib/multiSelect.ts`) ; panneau « N commits sélectionnés » (`PickedPanel`) : commits choisis (clic : ne garder que celui-là), fichiers cumulés (commande `compare_files`) pour une chaîne de parents (depuis le parent du plus ancien, l'arbre vide pour le premier commit ; à travers une fusion par n'importe lequel de ses parents) ou pour deux commits quelconques, diff cumulé dans la vue du diff (`base..tip`). Cherry-pick du lot sur la branche courante (bouton du panneau et clic droit sur la sélection ; commande `cherry_pick`) : du plus ancien au plus récent, auto-stash, commits déjà présents sautés, merges refusés, conflit : cherry-pick en cours (Continuer / Annuler). Revert d'une sélection (clic droit : « Revert des N commits », du plus récent au plus ancien, commande `revert`) et, au clic droit sur un commit, « Cherry-pick sur <branche> » et « Revert de ce commit ». **Squash** d'une suite contiguë de commits de la branche courante (bouton du panneau, clic droit ; commande `squash`) : message demandé (le sujet du plus ancien proposé, les sujets réunis ajoutés dessous), auteur et date du plus ancien, commits suivants rejoués (`rebase --onto`, auto-stash) ; refusé pour une fusion dans la plage ou après, et confirmation si un de ces commits est déjà sur une branche distante (push forcé à prévoir).
+- **Historique d'un fichier** : « Historique du fichier » au clic droit sur un fichier (partout où le menu d'un fichier existe), vue à la place du graphe (`FileHistoryView`, commande `file_history` : `git log --follow` sur HEAD, 500 commits) : commits de la branche courante qui le modifient, avec son statut à ce commit et « renommé depuis … ». Clic : ses détails ; double-clic : le diff du fichier à ce commit (Retour revient à l'historique) ; clic droit : voir le diff, montrer dans le graphe, actions du commit. Relue quand les refs changent.
 - **Recherche dans les modifications** : bouton « Chercher » de la barre d'outils, vue à la place du graphe (`SearchView`, commande `search_changes`) : texte cherché (`git log -S`, ou `-G` avec « Expression régulière »), fichier ou dossier facultatif (chemin littéral), toutes les branches, 200 commits au plus ; dernière recherche gardée en revenant. Clic : ses détails ; double-clic : montré dans le graphe ; clic droit : ses actions.
 
 **Providers**
@@ -235,7 +236,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Menu contextuel d'une branche** (le reste est fait, cf. « Fait ») : **Rebase interactif <courante> onto <cette branche>** (avec le rebase interactif, étape 10) ; **Créer un worktree depuis** (sous-menu ; avec les worktrees, étape 9).
 - [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord) ; sélection de plusieurs commits glissée d'un coup.
-- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages, historique du fichier (rejoint « Blame », étape 10).
+- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande) ; auto-stash réglable par dépôt.
 
 ### Étape 5 — profils
@@ -295,7 +296,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Résolution de conflits : composer le résultat librement** (défaut de GitKraken à ne pas reproduire). Pour prendre des morceaux de chaque côté, GitKraken ajoute les lignes choisies une par une **à la suite**, dans l'ordre des clics, sans pouvoir ensuite en remonter ou en descendre une. Dans GitGR : chaque ligne (ou bloc) choisie arrive à sa place logique dans le résultat, que l'on peut réordonner (glisser-déposer, Alt+↑ / Alt+↓), et le panneau du résultat reste **éditable directement** (taper, corriger, supprimer). Choix rapides en plus : « tout le côté A », « tout le côté B », « A puis B », « B puis A » pour un bloc. À faire avec la vue 3 panneaux (§2.3).
 - [ ] Rebase interactif visuel (réordonner / squash / fixup par glisser-déposer).
-- [ ] Blame, historique d'un fichier.
+- [ ] Blame (l'historique d'un fichier est fait, cf. « Fait »).
 - [ ] Submodules, Git LFS.
 
 ### Étape 11 — agents

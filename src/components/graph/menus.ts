@@ -8,6 +8,8 @@ import { api, errorCode } from "../../lib/api";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
+import { usePullList } from "../../store/pullList";
+import { useFileHistoryView } from "../../store/range";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
@@ -411,6 +413,14 @@ export function dirMenu(t: TFunction, repo: string, dir: string): MenuItem[] {
   ];
 }
 
+/** Ouvre l'historique d'un fichier à la place du graphe (et ferme ce qui le cacherait). */
+export function showFileHistory(repo: string, file: string) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useFileHistoryView.getState().show(repo, file);
+}
+
 /** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). */
 export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
   const run = (how: "open" | "reveal") => () =>
@@ -418,6 +428,7 @@ export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
   return [
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
+    { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
     "sep",
     { label: t("menu.copyPath"), onClick: () => copy(file) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },

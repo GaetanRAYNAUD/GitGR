@@ -71,6 +71,30 @@ test("clic droit sur un fichier d'un commit : ouvrir, montrer dans le dossier, c
   expect(full.endsWith(`/${name}`) && full.length > name.length + 1).toBe(true);
 });
 
+test("historique d'un fichier : ses commits, diff au double-clic, retour à l'historique puis au graphe", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!;
+  await file.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
+
+  const view = page.getByRole("region", { name: "Historique du fichier" });
+  await expect(view).toContainText(`Historique de ${name}`);
+  const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+  const row = rows.filter({ hasText: "feat(graph): rendu canvas virtualisé" });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button").dblclick();
+  const diff = page.getByRole("region", { name: /^Diff de / });
+  await expect(diff).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(diff).toHaveCount(0);
+  await expect(view).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+  await expect(graph(page)).toBeVisible();
+});
+
 test("navigation au clavier dans le graphe", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   await rows.first().click();
