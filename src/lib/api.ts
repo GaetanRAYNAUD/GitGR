@@ -46,7 +46,7 @@ import {
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
-import { mockAddConflict, mockConflictText, mockResolveConflict,
+import { mockAddConflict, mockConflictVersions, mockResolveConflict,
   mockChangeCount,
   mockCommitIndex,
   mockDiscard,
@@ -112,6 +112,7 @@ import type {
   WorkStatus,
   StashChanges,
   StashEntry,
+  ConflictVersions,
 } from "./types";
 
 export interface Api {
@@ -159,8 +160,9 @@ export interface Api {
   workStatus(path: string): Promise<WorkStatus>;
   workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
   stageFiles(path: string, files: string[]): Promise<void>;
-  /** Fichier en conflit tel qu'il est sur le disque, avec les marqueurs de git. */
-  conflictText(path: string, file: string): Promise<string>;
+  /** Les trois versions d'un fichier en conflit (commune, nôtre, autre) et le fichier tel
+   *  qu'il est sur le disque, avec les marqueurs de git. */
+  conflictVersions(path: string, file: string): Promise<ConflictVersions>;
   /** Écrit la résolution d'un conflit et marque le fichier résolu (`git add`). */
   resolveConflict(path: string, file: string, content: string): Promise<void>;
   unstageFiles(path: string, files: string[]): Promise<void>;
@@ -426,7 +428,7 @@ const tauriApi: Api = {
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
-  conflictText: (path, file) => invoke("conflict_text", { path, file }),
+  conflictVersions: (path, file) => invoke("conflict_versions", { path, file }),
   resolveConflict: (path, file, content) => invoke("resolve_conflict", { path, file, content }),
   unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
   stageAll: (path) => invoke("stage_all", { path }),
@@ -892,9 +894,9 @@ const mockApi: Api = {
   async stageFiles(path, files) {
     mockStage(path, files, false);
   },
-  async conflictText(path, file) {
+  async conflictVersions(path, file) {
     await mockDelay();
-    return mockConflictText(path, file);
+    return mockConflictVersions(path, file);
   },
   async resolveConflict(path, file, content) {
     await mockDelay();

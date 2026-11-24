@@ -1,8 +1,6 @@
-// Résolution de conflits : lecture des marqueurs de git dans un fichier en conflit, et
-// reconstitution du fichier une fois chaque bloc résolu. Pur (testé dans conflicts.test.ts).
-
-/** Ce qu'on garde d'un bloc en conflit. */
-export type ConflictChoice = "ours" | "theirs" | "ours-theirs" | "theirs-ours" | "none";
+// Conflits : lecture des marqueurs de git dans un fichier en conflit (noms des côtés, version
+// simulée), couleurs d'un côté, déplacement de lignes dans le résultat. Pur (testé dans
+// conflicts.test.ts).
 
 export interface ConflictBlock {
   kind: "conflict";
@@ -23,6 +21,9 @@ export interface ParsedConflicts {
   /** Le fichier se termine par une fin de ligne. */
   finalEol: boolean;
 }
+
+import { matchLines } from "./merge3";
+import { wordDiff } from "./wordDiff";
 
 const MARK = 7;
 const marker = (line: string, ch: string) => line.length >= MARK && line.slice(0, MARK) === ch.repeat(MARK) && (line.length === MARK || line[MARK] === " ");
@@ -82,44 +83,6 @@ export function parseConflicts(text: string): ParsedConflicts {
   return { segments, eol, finalEol };
 }
 
-/** Lignes d'un bloc pour un choix. */
-export function chooseLines(seg: ConflictBlock, choice: ConflictChoice): string[] {
-  switch (choice) {
-    case "ours":
-      return seg.ours;
-    case "theirs":
-      return seg.theirs;
-    case "ours-theirs":
-      return [...seg.ours, ...seg.theirs];
-    case "theirs-ours":
-      return [...seg.theirs, ...seg.ours];
-    case "none":
-      return [];
-  }
-}
-
-/** Fichier final : parties communes, et pour chaque bloc ses lignes résolues (`null` : bloc
- *  pas encore résolu, ses marqueurs sont remis). */
-export function composeResolution(parsed: ParsedConflicts, resolved: (string[] | null)[]): string {
-  const out: string[] = [];
-  let k = 0;
-  for (const seg of parsed.segments) {
-    if (seg.kind === "common") {
-      out.push(...seg.lines);
-      continue;
-    }
-    const r = resolved[k++];
-    if (r) out.push(...r);
-    else {
-      out.push(`${"<".repeat(MARK)} ${seg.oursLabel}`.trimEnd(), ...seg.ours);
-      if (seg.base) out.push("|".repeat(MARK), ...seg.base);
-      out.push("=".repeat(MARK), ...seg.theirs, `${">".repeat(MARK)} ${seg.theirsLabel}`.trimEnd());
-    }
-  }
-  if (!out.length) return "";
-  return out.join(parsed.eol) + (parsed.finalEol ? parsed.eol : "");
-}
-
 /** Déplace d'un cran (Alt+↑ / Alt+↓) la ligne du curseur, ou les lignes sélectionnées, dans un
  *  texte. Renvoie le nouveau texte et la sélection déplacée avec, `null` si rien ne bouge. */
 export function moveLines(text: string, selStart: number, selEnd: number, dir: -1 | 1): { text: string; start: number; end: number } | null {
@@ -141,77 +104,46 @@ export function moveLines(text: string, selStart: number, selEnd: number, dir: -
 export interface SideLine {
   text: string;
   kind: "same" | "add" | "mod" | "del";
+  /** Ligne de la référence qu'une ligne modifiée remplace. */
+  ref?: string;
 }
 
 /** Compare un côté à sa référence ligne à ligne (plus longue sous-suite commune). Dans une suite
- *  de différences, les lignes retirées et ajoutées sont appariées en « modifiées », le reste
- *  est ajouté ou supprimé. */
+ *  de différences, une ligne ajoutée est « modifiée » quand elle ressemble à une ligne retirée
+ *  (appariées dans l'ordre ; de même nombre, appariées une à une) ; le reste est ajouté ou
+ *  supprimé. */
 export function sideDiff(ref: string[], side: string[]): SideLine[] {
-  const n = ref.length;
-  const m = side.length;
-  // Table des longueurs (blocs de conflit : petits).
-  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--)
-    for (let j = m - 1; j >= 0; j--) lcs[i][j] = ref[i] === side[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const match = matchLines(ref, side);
   const out: SideLine[] = [];
   let dels: string[] = [];
   let adds: string[] = [];
   const flush = () => {
-    const pairs = Math.min(dels.length, adds.length);
-    for (let k = 0; k < adds.length; k++) out.push({ text: adds[k], kind: k < pairs ? "mod" : "add" });
-    for (const d of dels.slice(pairs)) out.push({ text: d, kind: "del" });
+    const one = dels.length === adds.length;
+    let d = 0;
+    for (const add of adds) {
+      let j = d;
+      if (!one) while (j < dels.length && wordDiff(dels[j], add) === null) j++;
+      if (j < dels.length) {
+        out.push({ text: add, kind: "mod", ref: dels[j] });
+        for (const skipped of dels.slice(d, j)) out.push({ text: skipped, kind: "del" });
+        d = j + 1;
+      } else out.push({ text: add, kind: "add" });
+    }
+    for (const left of dels.slice(d)) out.push({ text: left, kind: "del" });
     dels = [];
     adds = [];
   };
-  let i = 0;
   let j = 0;
-  while (i < n || j < m) {
-    if (i < n && j < m && ref[i] === side[j]) {
-      flush();
-      out.push({ text: side[j], kind: "same" });
-      i++;
-      j++;
-    } else if (j < m && (i >= n || lcs[i][j + 1] >= lcs[i + 1][j])) adds.push(side[j++]);
-    else dels.push(ref[i++]);
-  }
+  ref.forEach((line, i) => {
+    if (match[i] < 0) {
+      dels.push(line);
+      return;
+    }
+    while (j < match[i]) adds.push(side[j++]);
+    flush();
+    out.push({ text: side[j++], kind: "same" });
+  });
+  while (j < side.length) adds.push(side[j++]);
   flush();
   return out;
-}
-
-/** Une ligne cochée : son côté et son indice dans ce côté. */
-export interface LinePick {
-  side: "ours" | "theirs";
-  index: number;
-}
-
-/** Lignes cochées d'un bloc, **dans l'ordre des clics** : c'est l'utilisateur qui sait comment
- *  le conflit se résout (ordre ajustable ensuite dans le résultat, Alt+↑ / Alt+↓). */
-export type LinePicks = LinePick[];
-
-/** Résultat d'un bloc : les lignes cochées, dans l'ordre où elles l'ont été. */
-export function pickLines(seg: ConflictBlock, picks: LinePicks): string[] {
-  return picks.map((p) => (p.side === "ours" ? seg.ours : seg.theirs)[p.index]).filter((l): l is string => l !== undefined);
-}
-
-/** Coche une ligne (ajoutée en dernier) ou la décoche. */
-export function togglePick(picks: LinePicks, side: LinePick["side"], index: number): LinePicks {
-  const has = picks.some((p) => p.side === side && p.index === index);
-  return has ? picks.filter((p) => !(p.side === side && p.index === index)) : [...picks, { side, index }];
-}
-
-/** Lignes cochées qui correspondent à un choix rapide (dans l'ordre de ce choix). */
-export function picksOf(seg: ConflictBlock, choice: ConflictChoice): LinePicks {
-  const all = (side: LinePick["side"]) => seg[side].map((_, index) => ({ side, index }));
-  switch (choice) {
-    case "ours":
-      return all("ours");
-    case "theirs":
-      return all("theirs");
-    case "ours-theirs":
-      return [...all("ours"), ...all("theirs")];
-    case "theirs-ours":
-      return [...all("theirs"), ...all("ours")];
-    case "none":
-      return [];
-  }
 }

@@ -199,13 +199,13 @@ test("tag annoté créé sur un commit et poussé, puis supprimé ici et sur le 
   }
 });
 
-test("conflit de merge résolu dans GitGR : fichier écrit avec le résultat composé et indexé", async ({ sandbox }) => {
+test("conflit de merge résolu dans GitGR (3 panneaux) : fichier écrit avec le résultat composé et indexé", async ({ sandbox }) => {
   const mine = sandbox.clone("mine");
-  sandbox.commit(mine, "c.txt", "un\n", "base");
+  sandbox.commit(mine, "c.txt", "a\nun\nb\nc\nd\n", "base");
   git(mine, "checkout", "-q", "-b", "sujet");
-  sandbox.commit(mine, "c.txt", "deux\n", "côté sujet");
+  sandbox.commit(mine, "c.txt", "a\ndeux\nb\nc\nD\n", "côté sujet");
   git(mine, "checkout", "-q", "main");
-  sandbox.commit(mine, "c.txt", "trois\n", "côté main");
+  sandbox.commit(mine, "c.txt", "a\ntrois\nb\nc\nd\n", "côté main");
   try {
     git(mine, "merge", "-q", "sujet");
   } catch {
@@ -216,15 +216,18 @@ test("conflit de merge résolu dans GitGR : fichier écrit avec le résultat com
   try {
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" });
-    // Clic droit : marche quelle que soit la largeur du panneau (écran 1024×768 en CI).
-    await row.click({ button: "right" });
-    await page.getByRole("menu").first().getByRole("menuitem", { name: "Résoudre" }).click();
+    // Un clic sur le fichier en conflit ouvre la résolution.
+    await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" }).click();
     const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
-    await view.getByRole("group", { name: "Conflit 1 / 1" }).getByRole("button", { name: "A puis B" }).click();
+    // La modification sans conflit (d → D) est déjà appliquée ; le conflit part de la version commune.
+    await expect(view.getByRole("group", { name: /Modification de l’autre côté/ }).getByRole("textbox")).toHaveValue("D");
+    const conflict = view.getByRole("group", { name: "Conflit 1 / 2" });
+    await expect(conflict.getByRole("textbox")).toHaveValue("un");
+    await conflict.getByRole("button", { name: "Mettre HEAD dans le résultat" }).click();
+    await conflict.getByRole("button", { name: "Ajouter sujet à la suite dans le résultat" }).click();
     await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
     await expect(view).toHaveCount(0);
-    expect(readFileSync(join(mine, "c.txt"), "utf8")).toBe("trois\ndeux\n");
+    expect(readFileSync(join(mine, "c.txt"), "utf8")).toBe("a\ntrois\ndeux\nb\nc\nD\n");
     expect(git(mine, "diff", "--name-only", "--diff-filter=U")).toBe("");
     expect(git(mine, "diff", "--cached", "--name-only")).toBe("c.txt");
   } finally {

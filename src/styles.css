@@ -5743,9 +5743,17 @@ body.commit-dragging * {
   background: var(--mod);
 }
 
-/* Résolution de conflits (ConflictView). */
-.conflict-view .diff-head .btn {
-  margin-left: 6px;
+/* Résolution de conflits en trois panneaux (ConflictView) : notre version, le résultat,
+   l'autre version, alignés morceau par morceau dans une seule zone qui défile. */
+.conflict-view {
+  --mcols: minmax(0, 1fr) 48px minmax(0, 1fr) 48px minmax(0, 1fr);
+  --m-ours: var(--accent);
+  --m-both: var(--add);
+  --m-conflict: var(--del);
+}
+
+.conflict-view .diff-head {
+  gap: 8px;
 }
 
 /* Le nom du fichier passe avant le statut quand la place manque. */
@@ -5767,284 +5775,290 @@ body.commit-dragging * {
   color: var(--del);
 }
 
-.conflict-block.proposed {
-  border-left-color: var(--mod);
+.conflict-files,
+.conflict-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 12px;
 }
 
-.conflict-body {
+.conflict-tools .flip {
+  transform: rotate(180deg);
+}
+
+.conflict-note {
+  margin: 6px 12px 0;
+}
+
+.mgrid-head {
+  display: grid;
+  grid-template-columns: var(--mcols);
+  flex: none;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mgrid-head > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 12px;
+}
+
+.mgrid {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 10px 12px 24px;
-}
-
-
-.conflict-block {
-  margin: 6px 0;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--del);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.conflict-block.done {
-  border-left-color: var(--add);
-}
-
-.conflict-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
   font-size: 12px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+  padding-bottom: 24px;
 }
 
-.conflict-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-left: auto;
-  font-weight: 400;
-}
-
-.conflict-sides {
+.mrow {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: var(--mcols);
 }
 
-.conflict-side {
+.mcell {
   min-width: 0;
 }
 
-.conflict-side + .conflict-side {
-  border-left: 1px solid var(--border);
-}
-
-.conflict-side-h {
+.ml {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.conflict-side pre,
-.conflict-base pre {
-  margin: 0;
-  padding: 2px 10px 6px;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.conflict-side.ours pre {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.conflict-side.theirs pre {
-  background: color-mix(in srgb, var(--mod) 10%, transparent);
-}
-
-.conflict-base {
-  padding: 2px 10px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.conflict-result {
-  border-top: 1px solid var(--border);
-  padding-bottom: 8px;
-}
-
-.conflict-pending {
-  margin: 2px 10px 4px;
-  font-size: 12px;
-}
-
-.conflict-edit {
-  display: block;
-  width: calc(100% - 20px);
-  margin: 0 10px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.6;
-  resize: vertical;
-}
-
-.conflict-edit:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-/* Contexte autour d'un bloc, et fichier résultant en bas (ConflictView). */
-.conflict-ctx {
-  color: var(--faint);
-}
-
-.conflict-side pre .conflict-lines {
-  display: block;
-  margin: 0 -10px;
-  padding: 0 10px;
-}
-
-.conflict-side.ours pre {
-  background: none;
-}
-
-.conflict-side.theirs pre {
-  background: none;
-}
-
-/* Lignes d'un côté : ajoutée (vert), modifiée (jaune), supprimée de ce côté (rouge, barrée). */
-.conflict-lines .cl {
-  display: block;
-  margin: 0 -10px;
-  padding: 0 10px 0 22px;
   position: relative;
+  padding-right: 8px;
 }
 
-.conflict-lines .cl::before {
-  position: absolute;
-  left: 8px;
-  font-weight: 700;
-}
-
-.conflict-lines .cl-add {
-  background: color-mix(in srgb, var(--add) 16%, transparent);
-}
-
-.conflict-lines .cl-add::before {
-  content: "+";
-  color: var(--add);
-}
-
-.conflict-lines .cl-mod {
-  background: color-mix(in srgb, var(--mod) 18%, transparent);
-}
-
-.conflict-lines .cl-mod::before {
-  content: "~";
-  color: var(--mod);
-}
-
-.conflict-lines .cl-del {
-  background: color-mix(in srgb, var(--del) 14%, transparent);
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.conflict-lines .cl-del::before {
-  content: "−";
-  color: var(--del);
-  text-decoration: none;
-}
-
-.conflict-skip {
-  margin: 4px 8px;
-  color: var(--faint);
-  font-size: 12px;
-  font-style: italic;
-}
-
-.conflict-body {
-  flex: 1 1 55%;
-}
-
-.conflict-preview {
-  flex: 0 0 40%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border);
-}
-
-.conflict-preview-h {
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-}
-
-.conflict-preview-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.conflict-preview table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.conflict-preview td {
-  padding: 0 8px;
-  vertical-align: top;
-}
-
-.conflict-preview .ln {
-  width: 1%;
-  min-width: 40px;
+.mgrid .ln {
+  flex: none;
+  width: 40px;
+  padding-right: 8px;
   text-align: right;
   color: var(--faint);
   user-select: none;
 }
 
-.conflict-preview .pv-text {
-  white-space: pre;
+.ml .mt {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.conflict-preview tr.pv-open {
-  background: color-mix(in srgb, var(--del) 14%, transparent);
-}
-
-.conflict-preview tr.pv-proposed {
-  background: color-mix(in srgb, var(--mod) 14%, transparent);
-}
-
-.conflict-preview tr.pv-done {
-  background: color-mix(in srgb, var(--add) 12%, transparent);
-}
-
-/* Choix ligne par ligne : case devant chaque ligne d'un côté, cochée si elle est gardée. */
-.conflict-lines .cl.pickable {
-  padding-left: 40px;
+.mskip {
+  display: block;
+  width: 100%;
+  margin: 2px 0;
+  padding: 1px 0;
+  border: 0;
+  background: color-mix(in srgb, var(--faint) 10%, transparent);
+  color: var(--faint);
+  font: inherit;
+  font-style: italic;
   cursor: pointer;
 }
 
-.conflict-lines .cl.pickable::after {
-  content: "";
-  position: absolute;
-  left: 22px;
-  top: 50%;
-  width: 11px;
-  height: 11px;
-  margin-top: -6px;
-  border: 1.5px solid var(--muted);
-  border-radius: 3px;
+.mskip:hover {
+  color: var(--text);
 }
 
-.conflict-lines .cl.pickable.picked::after {
-  border-color: var(--accent);
+/* Modifications : couleur selon d'où elles viennent, atténuée une fois réglées. */
+.mchange {
+  --m: var(--m-ours);
+  margin: 2px 0;
+}
+
+.mchange.mtype-both {
+  --m: var(--m-both);
+}
+
+.mchange.mtype-conflict {
+  --m: var(--m-conflict);
+}
+
+.mchange .mcell {
+  background: color-mix(in srgb, var(--m) 5%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--m) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--m) 45%, transparent);
+}
+
+.mchange .mcell.changed,
+.mchange .mcell-center {
+  background: color-mix(in srgb, var(--m) 15%, transparent);
+}
+
+.mchange.resolved .mcell,
+.mchange.resolved .mcell.changed {
+  background: color-mix(in srgb, var(--m) 5%, transparent);
+  border-color: color-mix(in srgb, var(--m) 22%, transparent);
+}
+
+.mchange.resolved .mcell-center {
+  background: color-mix(in srgb, var(--add) 9%, transparent);
+  border-color: color-mix(in srgb, var(--add) 40%, transparent);
+}
+
+.mchange.current .mcell-center {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.mchange .mcell.ignored {
+  opacity: 0.5;
+}
+
+.mchange .ml.mchg mark {
+  background: color-mix(in srgb, var(--m) 40%, transparent);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/* Ligne ajoutée ou réécrite entièrement : toute la ligne en évidence. */
+.mchange .ml.mwhole {
+  background: color-mix(in srgb, var(--m) 18%, transparent);
+}
+
+/* Côté qui a supprimé des lignes : un repère à l'endroit. */
+.mempty {
+  height: 4px;
+  margin: 2px 0;
+  background: color-mix(in srgb, var(--m) 45%, transparent);
+}
+
+.ml.pickable {
+  cursor: pointer;
+}
+
+.ml.pickable:hover {
+  background: var(--hover);
+}
+
+.ml.pickable:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.ml.picked {
+  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.morder {
+  flex: none;
+  align-self: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 8px;
   background: var(--accent);
-  box-shadow: inset 0 0 0 2px var(--panel);
+  color: var(--accent-text);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
 }
 
-.conflict-lines .cl.pickable:hover {
-  outline: 1px solid var(--border);
+/* Gouttières : » / « pour appliquer un côté, X pour l'écarter. */
+.mgut {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding-top: 1px;
 }
 
-.conflict-lines .cl.pickable:not(.picked) {
-  opacity: 0.6;
+.mg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mg-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mg-apply {
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mg-wand {
+  color: var(--mod);
+}
+
+/* Résultat d'une modification : éditable, numéros de ligne à gauche. */
+.mresult {
+  position: relative;
+  display: flex;
+}
+
+.mres-ln {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+
+.mres-edit {
+  flex: 1;
+  min-width: 0;
+  min-height: 19px;
+  margin: 0;
+  padding: 0 52px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: inherit;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  resize: none;
+  field-sizing: content;
+}
+
+.mres-edit:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.mres-edit::placeholder {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.mres-tools {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+}
+
+.conflict-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.conflict-foot-gap {
+  flex: 1;
 }

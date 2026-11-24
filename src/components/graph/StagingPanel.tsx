@@ -12,6 +12,7 @@ import type { StatusFile } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { areaOf, changedCount, useWork } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
+import { useConflictView } from "../../store/range";
 import { Icon } from "../Icon";
 import { ResizableBlock } from "../Splitter";
 import { CommitBox } from "./CommitBox";
@@ -34,6 +35,7 @@ export function StagingPanel({ path }: { path: string }) {
   const total = changedCount(st);
   const busy = !!work?.busy;
   const diff = work?.diff;
+  const openConflict = useConflictView((s) => s.open[path]);
 
   const askDiscard = async (files: StatusFile[]) => {
     const ok = await useDialogs.getState().choose({
@@ -83,6 +85,7 @@ export function StagingPanel({ path }: { path: string }) {
     if (kind === "conflicted")
       return [
         { label: t("conflict.open"), disabled: busy, onClick: () => showConflict(path, f.path) },
+        { label: t("conflict.showDiff"), onClick: () => w.openDiff(path, f, "conflicted") },
         { label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) },
       ];
     const items: MenuItem[] = [
@@ -187,8 +190,8 @@ export function StagingPanel({ path }: { path: string }) {
               files={files}
               view={view}
               label={t(`staging.${kind}`)}
-              isActive={(f) => diff?.file.path === f.path && diff.area === areaOf(f, kind)}
-              onOpen={(f) => w.openDiff(path, f, areaOf(f, kind))}
+              isActive={(f) => (kind === "conflicted" ? openConflict === f.path : diff?.file.path === f.path && diff.area === areaOf(f, kind))}
+              onOpen={(f) => (kind === "conflicted" ? showConflict(path, f.path) : w.openDiff(path, f, areaOf(f, kind)))}
               onDoubleClick={(f) => (kind === "staged" ? w.unstage(path, [f]) : w.stage(path, [f]))}
               onContextMenu={(e, f) => fileContextMenu(e, kind, files, f)}
               onDirContextMenu={(e, dir, inside) => dirContextMenu(e, kind, dir, inside)}
