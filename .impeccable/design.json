@@ -1,0 +1,645 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T21:35:43.191Z",
+  "title": "Design System: GitGR",
+  "extensions": {
+    "source": "src/styles.css (:root = sombre, :root[data-theme=\"light\"] = clair)",
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Bleu Établi",
+        "canonical": "#3b7bf0",
+        "cssVar": "--accent",
+        "lightTheme": "#2f6fe0",
+        "tonalRamp": [
+          "oklch(15% 0.028 261.2)",
+          "oklch(26.4% 0.077 261.2)",
+          "oklch(37.9% 0.131 261.2)",
+          "oklch(49.3% 0.185 261.2)",
+          "oklch(60.7% 0.185 261.2)",
+          "oklch(72.1% 0.131 261.2)",
+          "oklch(83.6% 0.077 261.2)",
+          "oklch(95% 0.028 261.2)"
+        ]
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Texte sur accent",
+        "canonical": "#ffffff",
+        "cssVar": "--accent-text",
+        "lightTheme": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Bleu Lien",
+        "canonical": "#7fb0ff",
+        "cssVar": "--link",
+        "lightTheme": "#2459c4",
+        "tonalRamp": [
+          "oklch(15% 0.019 259.6)",
+          "oklch(26.4% 0.052 259.6)",
+          "oklch(37.9% 0.088 259.6)",
+          "oklch(49.3% 0.124 259.6)",
+          "oklch(60.7% 0.124 259.6)",
+          "oklch(72.1% 0.088 259.6)",
+          "oklch(83.6% 0.052 259.6)",
+          "oklch(95% 0.019 259.6)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Fond d'atelier",
+        "canonical": "#121418",
+        "cssVar": "--bg",
+        "lightTheme": "#eceef2",
+        "tonalRamp": [
+          "oklch(15% 0.001 264.3)",
+          "oklch(26.4% 0.004 264.3)",
+          "oklch(37.9% 0.006 264.3)",
+          "oklch(49.3% 0.009 264.3)",
+          "oklch(60.7% 0.009 264.3)",
+          "oklch(72.1% 0.006 264.3)",
+          "oklch(83.6% 0.004 264.3)",
+          "oklch(95% 0.001 264.3)"
+        ]
+      },
+      "side": {
+        "role": "neutral",
+        "displayName": "Ombre de rangement",
+        "canonical": "#14161b",
+        "cssVar": "--side",
+        "lightTheme": "#f4f5f8",
+        "tonalRamp": [
+          "oklch(15% 0.002 268.2)",
+          "oklch(26.4% 0.004 268.2)",
+          "oklch(37.9% 0.007 268.2)",
+          "oklch(49.3% 0.01 268.2)",
+          "oklch(60.7% 0.01 268.2)",
+          "oklch(72.1% 0.007 268.2)",
+          "oklch(83.6% 0.004 268.2)",
+          "oklch(95% 0.002 268.2)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Plan de travail",
+        "canonical": "#181b21",
+        "cssVar": "--panel",
+        "lightTheme": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0.002 264.3)",
+          "oklch(26.4% 0.005 264.3)",
+          "oklch(37.9% 0.009 264.3)",
+          "oklch(49.3% 0.012 264.3)",
+          "oklch(60.7% 0.012 264.3)",
+          "oklch(72.1% 0.009 264.3)",
+          "oklch(83.6% 0.005 264.3)",
+          "oklch(95% 0.002 264.3)"
+        ]
+      },
+      "panel2": {
+        "role": "neutral",
+        "displayName": "Plan surélevé",
+        "canonical": "#1e222a",
+        "cssVar": "--panel2",
+        "lightTheme": "#f6f7f9",
+        "tonalRamp": [
+          "oklch(15% 0.002 264.2)",
+          "oklch(26.4% 0.007 264.2)",
+          "oklch(37.9% 0.011 264.2)",
+          "oklch(49.3% 0.016 264.2)",
+          "oklch(60.7% 0.016 264.2)",
+          "oklch(72.1% 0.011 264.2)",
+          "oklch(83.6% 0.007 264.2)",
+          "oklch(95% 0.002 264.2)"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Survol",
+        "canonical": "#252a33",
+        "cssVar": "--hover",
+        "lightTheme": "#eef0f4",
+        "tonalRamp": [
+          "oklch(15% 0.003 262.2)",
+          "oklch(26.4% 0.007 262.2)",
+          "oklch(37.9% 0.013 262.2)",
+          "oklch(49.3% 0.018 262.2)",
+          "oklch(60.7% 0.018 262.2)",
+          "oklch(72.1% 0.013 262.2)",
+          "oklch(83.6% 0.007 262.2)",
+          "oklch(95% 0.003 262.2)"
+        ]
+      },
+      "sel": {
+        "role": "neutral",
+        "displayName": "Sélection",
+        "canonical": "#22314b",
+        "cssVar": "--sel",
+        "lightTheme": "#dce7ff",
+        "tonalRamp": [
+          "oklch(15% 0.008 261)",
+          "oklch(26.4% 0.021 261)",
+          "oklch(37.9% 0.036 261)",
+          "oklch(49.3% 0.05 261)",
+          "oklch(60.7% 0.05 261)",
+          "oklch(72.1% 0.036 261)",
+          "oklch(83.6% 0.021 261)",
+          "oklch(95% 0.008 261)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Bordure",
+        "canonical": "#2a2f39",
+        "cssVar": "--border",
+        "lightTheme": "#dcdfe5",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.2)",
+          "oklch(26.4% 0.008 264.2)",
+          "oklch(37.9% 0.014 264.2)",
+          "oklch(49.3% 0.019 264.2)",
+          "oklch(60.7% 0.019 264.2)",
+          "oklch(72.1% 0.014 264.2)",
+          "oklch(83.6% 0.008 264.2)",
+          "oklch(95% 0.003 264.2)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Bordure marquée",
+        "canonical": "#363c49",
+        "cssVar": "--border-strong",
+        "lightTheme": "#c9cdd5",
+        "tonalRamp": [
+          "oklch(15% 0.004 265.6)",
+          "oklch(26.4% 0.01 265.6)",
+          "oklch(37.9% 0.017 265.6)",
+          "oklch(49.3% 0.024 265.6)",
+          "oklch(60.7% 0.024 265.6)",
+          "oklch(72.1% 0.017 265.6)",
+          "oklch(83.6% 0.01 265.6)",
+          "oklch(95% 0.004 265.6)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Texte",
+        "canonical": "#e7e9ee",
+        "cssVar": "--text",
+        "lightTheme": "#191c22",
+        "tonalRamp": [
+          "oklch(15% 0.001 268.5)",
+          "oklch(26.4% 0.003 268.5)",
+          "oklch(37.9% 0.005 268.5)",
+          "oklch(49.3% 0.007 268.5)",
+          "oklch(60.7% 0.007 268.5)",
+          "oklch(72.1% 0.005 268.5)",
+          "oklch(83.6% 0.003 268.5)",
+          "oklch(95% 0.001 268.5)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Texte secondaire",
+        "canonical": "#a3a9b5",
+        "cssVar": "--muted",
+        "lightTheme": "#4c5361",
+        "tonalRamp": [
+          "oklch(15% 0.003 264.5)",
+          "oklch(26.4% 0.008 264.5)",
+          "oklch(37.9% 0.013 264.5)",
+          "oklch(49.3% 0.018 264.5)",
+          "oklch(60.7% 0.018 264.5)",
+          "oklch(72.1% 0.013 264.5)",
+          "oklch(83.6% 0.008 264.5)",
+          "oklch(95% 0.003 264.5)"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Texte effacé",
+        "canonical": "#878e9b",
+        "cssVar": "--faint",
+        "lightTheme": "#5f6674",
+        "tonalRamp": [
+          "oklch(15% 0.003 263)",
+          "oklch(26.4% 0.009 263)",
+          "oklch(37.9% 0.015 263)",
+          "oklch(49.3% 0.021 263)",
+          "oklch(60.7% 0.021 263)",
+          "oklch(72.1% 0.015 263)",
+          "oklch(83.6% 0.009 263)",
+          "oklch(95% 0.003 263)"
+        ]
+      },
+      "add": {
+        "role": "semantic",
+        "displayName": "Ajout",
+        "canonical": "#4cc38a",
+        "cssVar": "--add",
+        "lightTheme": "#16794a",
+        "tonalRamp": [
+          "oklch(15% 0.02 159.3)",
+          "oklch(26.4% 0.056 159.3)",
+          "oklch(37.9% 0.095 159.3)",
+          "oklch(49.3% 0.134 159.3)",
+          "oklch(60.7% 0.134 159.3)",
+          "oklch(72.1% 0.095 159.3)",
+          "oklch(83.6% 0.056 159.3)",
+          "oklch(95% 0.02 159.3)"
+        ]
+      },
+      "mod": {
+        "role": "semantic",
+        "displayName": "Modification",
+        "canonical": "#e8b84a",
+        "cssVar": "--mod",
+        "lightTheme": "#946200",
+        "tonalRamp": [
+          "oklch(15% 0.02 84.9)",
+          "oklch(26.4% 0.056 84.9)",
+          "oklch(37.9% 0.095 84.9)",
+          "oklch(49.3% 0.134 84.9)",
+          "oklch(60.7% 0.134 84.9)",
+          "oklch(72.1% 0.095 84.9)",
+          "oklch(83.6% 0.056 84.9)",
+          "oklch(95% 0.02 84.9)"
+        ]
+      },
+      "del": {
+        "role": "semantic",
+        "displayName": "Suppression",
+        "canonical": "#f06a6a",
+        "cssVar": "--del",
+        "lightTheme": "#c62f2f",
+        "tonalRamp": [
+          "oklch(15% 0.025 22.4)",
+          "oklch(26.4% 0.068 22.4)",
+          "oklch(37.9% 0.116 22.4)",
+          "oklch(49.3% 0.163 22.4)",
+          "oklch(60.7% 0.163 22.4)",
+          "oklch(72.1% 0.116 22.4)",
+          "oklch(83.6% 0.068 22.4)",
+          "oklch(95% 0.025 22.4)"
+        ]
+      },
+      "lane-0": {
+        "role": "tertiary",
+        "displayName": "Voie Bleu",
+        "canonical": "#5b95ff",
+        "cssVar": "--g0",
+        "lightTheme": "#2d6be0",
+        "tonalRamp": [
+          "oklch(15% 0.025 261.4)",
+          "oklch(26.4% 0.069 261.4)",
+          "oklch(37.9% 0.117 261.4)",
+          "oklch(49.3% 0.165 261.4)",
+          "oklch(60.7% 0.165 261.4)",
+          "oklch(72.1% 0.117 261.4)",
+          "oklch(83.6% 0.069 261.4)",
+          "oklch(95% 0.025 261.4)"
+        ]
+      },
+      "lane-1": {
+        "role": "tertiary",
+        "displayName": "Voie Orange",
+        "canonical": "#f0913f",
+        "cssVar": "--g1",
+        "lightTheme": "#c25e0c",
+        "tonalRamp": [
+          "oklch(15% 0.022 57.9)",
+          "oklch(26.4% 0.061 57.9)",
+          "oklch(37.9% 0.103 57.9)",
+          "oklch(49.3% 0.146 57.9)",
+          "oklch(60.7% 0.146 57.9)",
+          "oklch(72.1% 0.103 57.9)",
+          "oklch(83.6% 0.061 57.9)",
+          "oklch(95% 0.022 57.9)"
+        ]
+      },
+      "lane-2": {
+        "role": "tertiary",
+        "displayName": "Voie Sarcelle",
+        "canonical": "#2bbcae",
+        "cssVar": "--g2",
+        "lightTheme": "#0b8a7f",
+        "tonalRamp": [
+          "oklch(15% 0.018 185)",
+          "oklch(26.4% 0.048 185)",
+          "oklch(37.9% 0.082 185)",
+          "oklch(49.3% 0.116 185)",
+          "oklch(60.7% 0.116 185)",
+          "oklch(72.1% 0.082 185)",
+          "oklch(83.6% 0.048 185)",
+          "oklch(95% 0.018 185)"
+        ]
+      },
+      "lane-3": {
+        "role": "tertiary",
+        "displayName": "Voie Violet",
+        "canonical": "#b588f2",
+        "cssVar": "--g3",
+        "lightTheme": "#7d4fd0",
+        "tonalRamp": [
+          "oklch(15% 0.023 302.2)",
+          "oklch(26.4% 0.064 302.2)",
+          "oklch(37.9% 0.108 302.2)",
+          "oklch(49.3% 0.153 302.2)",
+          "oklch(60.7% 0.153 302.2)",
+          "oklch(72.1% 0.108 302.2)",
+          "oklch(83.6% 0.064 302.2)",
+          "oklch(95% 0.023 302.2)"
+        ]
+      },
+      "lane-4": {
+        "role": "tertiary",
+        "displayName": "Voie Rose",
+        "canonical": "#e8618c",
+        "cssVar": "--g4",
+        "lightTheme": "#c43a6a",
+        "tonalRamp": [
+          "oklch(15% 0.026 3)",
+          "oklch(26.4% 0.07 3)",
+          "oklch(37.9% 0.119 3)",
+          "oklch(49.3% 0.168 3)",
+          "oklch(60.7% 0.168 3)",
+          "oklch(72.1% 0.119 3)",
+          "oklch(83.6% 0.07 3)",
+          "oklch(95% 0.026 3)"
+        ]
+      },
+      "lane-5": {
+        "role": "tertiary",
+        "displayName": "Voie Vert",
+        "canonical": "#9ccc4a",
+        "cssVar": "--g5",
+        "lightTheme": "#5a8a12",
+        "tonalRamp": [
+          "oklch(15% 0.025 127.2)",
+          "oklch(26.4% 0.068 127.2)",
+          "oklch(37.9% 0.116 127.2)",
+          "oklch(49.3% 0.163 127.2)",
+          "oklch(60.7% 0.163 127.2)",
+          "oklch(72.1% 0.116 127.2)",
+          "oklch(83.6% 0.068 127.2)",
+          "oklch(95% 0.025 127.2)"
+        ]
+      },
+      "lane-6": {
+        "role": "tertiary",
+        "displayName": "Voie Jaune",
+        "canonical": "#e8c547",
+        "cssVar": "--g6",
+        "lightTheme": "#a07800",
+        "tonalRamp": [
+          "oklch(15% 0.022 93.2)",
+          "oklch(26.4% 0.06 93.2)",
+          "oklch(37.9% 0.101 93.2)",
+          "oklch(49.3% 0.143 93.2)",
+          "oklch(60.7% 0.143 93.2)",
+          "oklch(72.1% 0.101 93.2)",
+          "oklch(83.6% 0.06 93.2)",
+          "oklch(95% 0.022 93.2)"
+        ]
+      },
+      "lane-7": {
+        "role": "tertiary",
+        "displayName": "Voie Cyan",
+        "canonical": "#4fc3e8",
+        "cssVar": "--g7",
+        "lightTheme": "#1a87b0",
+        "tonalRamp": [
+          "oklch(15% 0.017 222.6)",
+          "oklch(26.4% 0.047 222.6)",
+          "oklch(37.9% 0.08 222.6)",
+          "oklch(49.3% 0.113 222.6)",
+          "oklch(60.7% 0.113 222.6)",
+          "oklch(72.1% 0.08 222.6)",
+          "oklch(83.6% 0.047 222.6)",
+          "oklch(95% 0.017 222.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Titre de l'écran d'accueil."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "En-têtes des pages Réglages et Profils."
+      },
+      "dialog-title": {
+        "displayName": "Dialog title",
+        "purpose": "Titre des dialogues."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texte par défaut, lignes du graphe, listes, menus."
+      },
+      "body-small": {
+        "displayName": "Body small",
+        "purpose": "Descriptions, aides, onglets."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Libellés de champs, en-têtes de section."
+      },
+      "eyebrow": {
+        "displayName": "Eyebrow",
+        "purpose": "En-têtes de colonnes et de groupes, en capitales, couleur faint."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "SHA, chemins, refs brutes, diff."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating-dark",
+        "value": "0 12px 32px rgba(0, 0, 0, 0.35)",
+        "purpose": "--shadow en thème sombre : menus, dialogues, toasts, popovers."
+      },
+      {
+        "name": "floating-light",
+        "value": "0 12px 32px rgba(20, 24, 32, 0.14)",
+        "purpose": "--shadow en thème clair."
+      },
+      {
+        "name": "active-edge",
+        "value": "inset 3px 0 0 var(--accent)",
+        "purpose": "Liseré de l'élément actif d'une liste."
+      },
+      {
+        "name": "focus-inset",
+        "value": "inset 0 0 0 2px var(--accent)",
+        "purpose": "Zone défilante focalisée au clavier (graphe)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "quick",
+        "value": "0.12s",
+        "purpose": "Opacité et petites transformations."
+      },
+      {
+        "name": "standard",
+        "value": "0.15s",
+        "purpose": "Transformations (chevrons, glissements)."
+      },
+      {
+        "name": "reduced",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "Coupe les animations (rotation des outils en cours…)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-graph",
+        "value": "1240px",
+        "purpose": "Colonnes du graphe resserrées, SHA masqué."
+      },
+      {
+        "name": "narrow",
+        "value": "720px",
+        "purpose": "Pages simplifiées."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Bouton par défaut : gris, discret.",
+      "html": "<button class=\"ds-btn\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Nouvelle branche</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--text); font: 400 13px/1.45 \"Inter Variable\", Inter, \"Segoe UI\", system-ui, sans-serif; font-weight: 500; cursor: pointer; } .ds-btn:hover { background: var(--hover); } .ds-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Bouton principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale, une par zone.",
+      "html": "<button class=\"ds-btn-primary\">Commiter</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: var(--accent-text, #fff); font: 400 13px/1.45 \"Inter Variable\", Inter, \"Segoe UI\", system-ui, sans-serif; font-weight: 500; cursor: pointer; } .ds-btn-primary:hover { filter: brightness(1.08); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Bouton icône",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "Action secondaire en icône seule (barre de titre, en-têtes).",
+      "html": "<button class=\"ds-icon-btn\" aria-label=\"Réglages\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/></svg></button>",
+      "css": ".ds-icon-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 7px; background: transparent; color: var(--faint); cursor: pointer; } .ds-icon-btn:hover { background: var(--hover); color: var(--text); } .ds-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Champ de saisie",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Champ avec libellé au-dessus.",
+      "html": "<label class=\"ds-field\"><span>Nom de la branche</span><input value=\"feature/graphe\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font: 600 12px \"Inter Variable\", Inter, system-ui, sans-serif; color: var(--muted); width: 280px; } .ds-field input { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--text); font: 400 14px \"Inter Variable\", Inter, system-ui, sans-serif; } .ds-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Puce de ref",
+      "kind": "chip",
+      "refersTo": "ref-chip",
+      "description": "Branche ou tag sur une ligne du graphe, teinté de la couleur de voie.",
+      "html": "<span class=\"ds-chip\" style=\"--chip: var(--g0)\">✓ main</span> <span class=\"ds-chip\" style=\"--chip: var(--g1)\">feature/graph</span> <span class=\"ds-chip\" style=\"--chip: var(--g3)\">v0.8.0</span>",
+      "css": ".ds-chip { --chip: var(--g0); display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border: 1px solid color-mix(in srgb, var(--chip) 55%, transparent); border-radius: 5px; background: color-mix(in srgb, var(--chip) 20%, transparent); color: var(--text); font: 600 11px \"Inter Variable\", Inter, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Onglets de dépôt",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Barre d'onglets : l'onglet actif se fond dans le panneau.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab on\">GitGR</button><button class=\"ds-tab\">wikiforge-back</button></div>",
+      "css": ".ds-tabs { display: flex; align-items: flex-end; height: 40px; padding-left: 7px; background: var(--bg); gap: 2px; } .ds-tab { height: 32px; padding: 0 14px; border: 0; border-radius: 8px 8px 0 0; background: transparent; color: var(--muted); font: 500 12.5px \"Inter Variable\", Inter, system-ui, sans-serif; cursor: pointer; } .ds-tab:hover { background: var(--hover); } .ds-tab.on { background: var(--panel); color: var(--text); } .ds-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Ligne de commit",
+      "kind": "custom",
+      "refersTo": "commit-row",
+      "description": "Ligne de 28px du graphe : nœud de voie, message, auteur, SHA en mono.",
+      "html": "<div class=\"ds-rows\"><div class=\"ds-row sel\"><i style=\"--c: var(--g0)\"></i><span>fix: correctif local pas encore poussé</span><span class=\"m\">Sam Leroy</span><code>8a3c45c</code></div><div class=\"ds-row\"><i style=\"--c: var(--g2)\"></i><span>feat(graph): rendu canvas virtualisé</span><span class=\"m\">Camille Dupont</span><code>238d75b</code></div></div>",
+      "css": ".ds-rows { width: 560px; background: var(--panel); } .ds-row { display: grid; grid-template-columns: 24px 1fr 120px 72px; align-items: center; height: 28px; padding: 0 8px; color: var(--text); font: 400 13px/1.45 \"Inter Variable\", Inter, \"Segoe UI\", system-ui, sans-serif; } .ds-row:hover { background: var(--hover); } .ds-row.sel { background: var(--sel); } .ds-row i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); } .ds-row .m { color: var(--muted); } .ds-row code { font: 400 12px \"JetBrains Mono\", ui-monospace, monospace; color: var(--muted); }"
+    },
+    {
+      "name": "Menu contextuel",
+      "kind": "custom",
+      "refersTo": "context-menu",
+      "description": "Seul type de surface avec ombre, avec dialogues et toasts.",
+      "html": "<div class=\"ds-menu\"><button>Extraire</button><button>Fusionner dans main</button><hr /><button disabled title=\"Branche courante\">Supprimer</button></div>",
+      "css": ".ds-menu { width: 220px; padding: 4px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); } .ds-menu button { display: flex; align-items: center; min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: 400 13px \"Inter Variable\", Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-menu button:hover:not(:disabled), .ds-menu button:focus-visible { background: var(--hover); outline: none; } .ds-menu button:disabled { opacity: 0.5; cursor: default; } .ds-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "L'Établi",
+    "overview": "**Creative North Star: \"L'Établi\"**\n\nGitGR est un atelier rangé. Chaque outil est à portée de main, à sa place, et rien n'est là pour décorer. L'écran est dense comme un IDE (IntelliJ, VS Code) : lignes de 28px, texte de 13px, panneaux redimensionnables bord à bord, pas d'aération façon site web. Le bois de l'établi, ce sont des gris bleutés à plat ; les seules couleurs vives sont celles du travail lui-même — les voies du graphe, les puces de branches, les ajouts, modifications et suppressions.\n\nLes contrôles sont précis et discrets : gris par défaut, l'accent bleu réservé à l'action principale, à la sélection et au focus. Les panneaux sont à plat, séparés par des tons et des bordures de 1px ; seul ce qui flotte au-dessus (menu contextuel, dialogue, toast, popover) porte une ombre. Le mouvement est rare et bref, et disparaît avec `prefers-reduced-motion`.\n\nDeux thèmes complets, sombre (par défaut) et clair, plus « suivre le système ». Toutes les couleurs passent par les variables CSS de `src/styles.css` ; le thème clair les redéfinit sous `:root[data-theme=\"light\"]`.",
+    "keyCharacteristics": [
+      "Densité d'IDE : lignes de 28px, corps de 13px, libellés de 11 à 12px.",
+      "Gris bleutés à plat, profondeur par le ton et la bordure, pas par l'ombre.",
+      "La couleur vive appartient au contenu (voies, branches, diff), pas au chrome.",
+      "Accent bleu unique pour l'action principale, la sélection et le focus.",
+      "Clair et sombre à parité ; FR et EN à parité."
+    ],
+    "rules": [
+      {
+        "name": "The Variable-Only Rule",
+        "body": "Aucune couleur en dur dans un composant : toujours `var(--jeton)` ou un `color-mix()` d'un jeton. Une couleur en dur casse le thème clair.",
+        "section": "colors"
+      },
+      {
+        "name": "The Content-Owns-Color Rule",
+        "body": "Le chrome (barres, panneaux, boutons) reste neutre. Les couleurs vives sont réservées à ce qui vient du dépôt : voies, branches, diff, état des checks. L'accent bleu est la seule exception, et il marque une action ou une sélection.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Not-Size Rule",
+        "body": "Dans l'app, on hiérarchise par la graisse (400 / 500 / 600 / 700) et la couleur d'encre (text / muted / faint), pas en grossissant le texte. Rien au-dessus de 13px hors titres d'écran et de dialogue.",
+        "section": "typography"
+      },
+      {
+        "name": "The Git-Is-Mono Rule",
+        "body": "Tout identifiant Git (SHA, chemin, ref brute, diff) s'affiche en JetBrains Mono ; la prose et les libellés jamais.",
+        "section": "typography"
+      },
+      {
+        "name": "The Edge-To-Edge Rule",
+        "body": "Les panneaux de l'app vont bord à bord, séparés par une bordure de 1px. Pas de cartes flottantes ni de marges autour des panneaux de travail.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Un panneau, une carte, une ligne ou un bouton n'a jamais d'ombre portée. Si ça ne flotte pas au-dessus du reste, c'est à plat.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** passer chaque couleur par `var(--jeton)` ou `color-mix()` d'un jeton, et vérifier l'écran en thème clair et sombre.",
+      "**Do** garder les lignes de liste à 28px et le corps à 13px ; hiérarchiser par graisse et par encre (`text` / `muted` / `faint`).",
+      "**Do** afficher SHA, chemins, refs et diff en JetBrains Mono.",
+      "**Do** réserver l'accent bleu à l'action principale, à la sélection et au focus.",
+      "**Do** griser une action impossible et dire pourquoi en infobulle, plutôt que la cacher.",
+      "**Do** donner à toute animation une durée courte (≤ 150ms) et une variante `prefers-reduced-motion`.",
+      "**Do** prévoir la longueur des libellés français (souvent plus longs que l'anglais)."
+    ],
+    "donts": [
+      "**Don't** mettre d'ombre portée sur un panneau, une carte ou une ligne : l'ombre est réservée à ce qui flotte.",
+      "**Don't** introduire une couleur vive dans le chrome (barres, panneaux, boutons) ; la couleur appartient au contenu du dépôt.",
+      "**Don't** aérer les écrans de travail façon site web, ni entourer les panneaux de marges ou de cartes flottantes.",
+      "**Don't** écrire une couleur en hexadécimal dans un composant.",
+      "**Don't** ajouter une modale là où une action directe, un menu ou un bandeau suffit."
+    ]
+  }
+}

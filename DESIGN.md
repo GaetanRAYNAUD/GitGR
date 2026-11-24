@@ -1,0 +1,321 @@
+---
+name: GitGR
+description: Client Git de bureau rapide et léger — graphe des commits, plusieurs identités par dépôt, GitHub et GitLab intégrés.
+colors:
+  accent: "#3b7bf0"
+  accent-text: "#ffffff"
+  link: "#7fb0ff"
+  bg: "#121418"
+  side: "#14161b"
+  panel: "#181b21"
+  panel2: "#1e222a"
+  hover: "#252a33"
+  sel: "#22314b"
+  border: "#2a2f39"
+  border-strong: "#363c49"
+  text: "#e7e9ee"
+  muted: "#a3a9b5"
+  faint: "#878e9b"
+  add: "#4cc38a"
+  mod: "#e8b84a"
+  del: "#f06a6a"
+  lane-0: "#5b95ff"
+  lane-1: "#f0913f"
+  lane-2: "#2bbcae"
+  lane-3: "#b588f2"
+  lane-4: "#e8618c"
+  lane-5: "#9ccc4a"
+  lane-6: "#e8c547"
+  lane-7: "#4fc3e8"
+typography:
+  headline:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "26px"
+    fontWeight: 700
+    letterSpacing: "-0.01em"
+  title:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "20px"
+    fontWeight: 700
+  dialog-title:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 700
+  body:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.45
+  body-small:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "12.5px"
+    fontWeight: 400
+  label:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 600
+  eyebrow:
+    fontFamily: "Inter Variable, Inter, Segoe UI, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 600
+    letterSpacing: "0.06em"
+  mono:
+    fontFamily: "JetBrains Mono, ui-monospace, monospace"
+    fontSize: "12px"
+    fontWeight: 400
+rounded:
+  xs: "4px"
+  chip: "5px"
+  sm: "6px"
+  md: "8px"
+  lg: "10px"
+  card: "12px"
+  dialog: "14px"
+  full: "999px"
+spacing:
+  "2xs": "2px"
+  xs: "4px"
+  sm: "6px"
+  md: "8px"
+  lg: "10px"
+  xl: "12px"
+  "2xl": "14px"
+  dialog: "24px"
+components:
+  button:
+    backgroundColor: "{colors.panel2}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+    padding: "0 14px"
+    height: "36px"
+  button-hover:
+    backgroundColor: "{colors.hover}"
+  button-primary:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-text}"
+    rounded: "{rounded.md}"
+    padding: "0 14px"
+    height: "36px"
+  icon-button:
+    backgroundColor: "transparent"
+    textColor: "{colors.faint}"
+    rounded: "7px"
+    size: "32px"
+  icon-button-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.text}"
+  input:
+    backgroundColor: "{colors.panel2}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+    padding: "0 10px"
+    height: "36px"
+  ref-chip:
+    textColor: "{colors.text}"
+    typography: "{typography.eyebrow}"
+    rounded: "{rounded.chip}"
+    padding: "0 7px"
+    height: "20px"
+  tab:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    rounded: "8px 8px 0 0"
+    height: "32px"
+  tab-active:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.text}"
+  commit-row:
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    height: "28px"
+  commit-row-hover:
+    backgroundColor: "{colors.hover}"
+  commit-row-selected:
+    backgroundColor: "{colors.sel}"
+  sidebar-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.text}"
+    rounded: "{rounded.sm}"
+    padding: "0 10px"
+    height: "28px"
+  menu-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.text}"
+    rounded: "{rounded.sm}"
+    padding: "0 10px"
+    height: "28px"
+  context-menu:
+    backgroundColor: "{colors.panel}"
+    rounded: "{rounded.lg}"
+    padding: "4px"
+  dialog:
+    backgroundColor: "{colors.panel}"
+    rounded: "{rounded.dialog}"
+    padding: "{spacing.dialog}"
+    width: "480px"
+  statusbar:
+    backgroundColor: "{colors.bg}"
+    textColor: "{colors.muted}"
+    height: "26px"
+---
+
+# Design System: GitGR
+
+## Overview
+
+**Creative North Star: "L'Établi"**
+
+GitGR est un atelier rangé. Chaque outil est à portée de main, à sa place, et rien n'est là pour décorer. L'écran est dense comme un IDE (IntelliJ, VS Code) : lignes de 28px, texte de 13px, panneaux redimensionnables bord à bord, pas d'aération façon site web. Le bois de l'établi, ce sont des gris bleutés à plat ; les seules couleurs vives sont celles du travail lui-même — les voies du graphe, les puces de branches, les ajouts, modifications et suppressions.
+
+Les contrôles sont précis et discrets : gris par défaut, l'accent bleu réservé à l'action principale, à la sélection et au focus. Les panneaux sont à plat, séparés par des tons et des bordures de 1px ; seul ce qui flotte au-dessus (menu contextuel, dialogue, toast, popover) porte une ombre. Le mouvement est rare et bref, et disparaît avec `prefers-reduced-motion`.
+
+Deux thèmes complets, sombre (par défaut) et clair, plus « suivre le système ». Toutes les couleurs passent par les variables CSS de `src/styles.css` ; le thème clair les redéfinit sous `:root[data-theme="light"]`.
+
+**Key Characteristics:**
+- Densité d'IDE : lignes de 28px, corps de 13px, libellés de 11 à 12px.
+- Gris bleutés à plat, profondeur par le ton et la bordure, pas par l'ombre.
+- La couleur vive appartient au contenu (voies, branches, diff), pas au chrome.
+- Accent bleu unique pour l'action principale, la sélection et le focus.
+- Clair et sombre à parité ; FR et EN à parité.
+
+## Colors
+
+Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois couleurs sémantiques de diff et huit couleurs de voies pour le graphe. Les valeurs du frontmatter sont celles du thème sombre (`:root`) ; le thème clair redéfinit chaque jeton avec un contraste renforcé (accent `#2f6fe0`, texte `#191c22`, voies et sémantiques assombries pour rester lisibles sur blanc).
+
+### Primary
+- **Bleu Établi** (accent) : bouton principal, sélection active, anneau de focus (`outline: 2px solid`), liseré gauche de l'élément actif (`inset 3px 0`), compteur de notifications. Le texte posé dessus est `accent-text`.
+- **Bleu Lien** (link) : liens et boutons de type lien, en graisse 600.
+
+### Neutral
+- **Fond d'atelier** (bg) : fond de la fenêtre, barre de titre, barre d'état.
+- **Ombre de rangement** (side) : barre latérale des refs, un cran sous le fond.
+- **Plan de travail** (panel) : panneaux, onglet actif, menus, dialogues, en-tête du graphe.
+- **Plan surélevé** (panel2) : boutons au repos, champs de saisie, contrôles segmentés.
+- **Survol** (hover) : survol des lignes, des éléments de liste, des boutons.
+- **Sélection** (sel) : commit ou fichier sélectionné, bleu très sourd.
+- **Bordure** (border) et **Bordure marquée** (border-strong) : séparations de 1px entre panneaux et contour des contrôles.
+- **Texte** (text), **Texte secondaire** (muted), **Texte effacé** (faint) : trois niveaux d'encre ; `faint` sert aux libellés en capitales, aux icônes au repos et aux métadonnées.
+
+### Sémantiques
+- **Ajout** (add), **Modification** (mod), **Suppression** (del) : diff, statut des fichiers, état des checks (succès, en attente, échec), toasts d'erreur. Les fonds teintés se font par `color-mix(in srgb, var(--add) N%, transparent)`, jamais par une nouvelle couleur.
+
+### Voies du graphe
+- **lane-0 à lane-7** (`--g0` à `--g7`) : bleu, orange, sarcelle, violet, rose, vert, jaune, cyan. Colorent les voies et nœuds du graphe, les puces de branches (`--chip`), les avatars. Les branches principales (`main`, `develop`, `release/*`…) ont des couleurs fixes, modifiables dans les réglages. La résolution de conflits réutilise accent, add et del (`--m-ours`, `--m-both`, `--m-conflict`).
+
+### Named Rules
+**The Variable-Only Rule.** Aucune couleur en dur dans un composant : toujours `var(--jeton)` ou un `color-mix()` d'un jeton. Une couleur en dur casse le thème clair.
+
+**The Content-Owns-Color Rule.** Le chrome (barres, panneaux, boutons) reste neutre. Les couleurs vives sont réservées à ce qui vient du dépôt : voies, branches, diff, état des checks. L'accent bleu est la seule exception, et il marque une action ou une sélection.
+
+## Typography
+
+**Body Font:** Inter Variable (avec Inter, Segoe UI, system-ui)
+**Mono Font:** JetBrains Mono 400 / 500 (avec ui-monospace)
+
+**Character:** Une sans-serif d'interface neutre et lisible à petite taille, doublée d'une mono pour tout ce qui vient de Git (SHA, chemins, diff, noms de branches dans la barre d'état). La hiérarchie se fait par la graisse (600 domine) plus que par la taille.
+
+### Hierarchy
+- **Headline** (700, 26px, -0.01em) : titre de l'écran d'accueil.
+- **Title** (700, 20px) : en-têtes des pages Réglages et Profils.
+- **Dialog title** (700, 18px) : titre des dialogues.
+- **Body** (400, 13px, 1.45) : texte par défaut, lignes du graphe, éléments de liste, menus.
+- **Body small** (12.5px) : descriptions, textes d'aide, onglets.
+- **Label** (600, 12px) : libellés de champs, en-têtes de section.
+- **Eyebrow** (600, 11px, 0.05–0.06em, capitales) : en-têtes de colonnes du graphe, titres de groupes dans la barre latérale ; couleur `faint`.
+- **Mono** (400, 12px ; 11px dans la barre d'état) : SHA, chemins, diff, code. Sélectionnable (`user-select: text`), alors que le reste de l'interface ne l'est pas.
+
+### Named Rules
+**The Weight-Not-Size Rule.** Dans l'app, on hiérarchise par la graisse (400 / 500 / 600 / 700) et la couleur d'encre (text / muted / faint), pas en grossissant le texte. Rien au-dessus de 13px hors titres d'écran et de dialogue.
+
+**The Git-Is-Mono Rule.** Tout identifiant Git (SHA, chemin, ref brute, diff) s'affiche en JetBrains Mono ; la prose et les libellés jamais.
+
+## Layout
+
+Fenêtre plein écran sans marge : barre de titre à onglets (40px), barre d'outils (rangée d'actions avec libellé sous l'icône), puis trois colonnes redimensionnables par poignées — barre latérale des refs à gauche, graphe au centre, panneau de détails ou des modifications à droite — et une barre d'état de 26px en bas.
+
+- **Rythme vertical** : lignes de 28px (graphe, barre latérale, menus), contrôles de 32 à 36px, puces de 20px.
+- **Espacements** : petits pas de 2, 4, 6, 8, 10, 12 et 14px ; 6px et 8px dominent les `gap`. Les dialogues ont 24px de marge intérieure.
+- **Graphe** : grille à colonnes (`--cols`) avec largeurs par variable (`--col-refs` 180px, `--col-author` 130px, `--col-date` 96px, `--col-sha` 72px), en-tête collant, lignes virtualisées en position absolue, largeur minimale 760px.
+- **Adaptation** : sous 1240px les colonnes du graphe se resserrent et le SHA disparaît ; sous 720px la mise en page des pages se simplifie. Pas de mise en page mobile : c'est une app de bureau.
+- **Pages** (accueil, réglages, profils) : colonne centrée avec cartes ; c'est le seul endroit où l'interface respire davantage.
+
+**The Edge-To-Edge Rule.** Les panneaux de l'app vont bord à bord, séparés par une bordure de 1px. Pas de cartes flottantes ni de marges autour des panneaux de travail.
+
+## Elevation & Depth
+
+Système à plat. La profondeur vient de cinq paliers de ton (`side` < `bg` < `panel` < `panel2` < `hover`) et des bordures de 1px. Les ombres sont réservées aux éléments qui flottent au-dessus de l'app.
+
+### Shadow Vocabulary
+- **Flottant** (`--shadow` : `0 12px 32px rgba(0,0,0,0.35)` en sombre, `rgba(20,24,32,0.14)` en clair) : menus contextuels, dialogues, toasts, popovers.
+- **Liseré actif** (`box-shadow: inset 3px 0 0 var(--accent)`) : marque l'élément actif d'une liste ; en `var(--mod)` sur un fond teinté à 9 %, il signale la ligne « Modifications en cours » du graphe.
+- **Anneau de focus interne** (`inset 0 0 0 2px var(--accent)`) : zones défilantes focalisées au clavier, comme le graphe.
+
+**The Flat-By-Default Rule.** Un panneau, une carte, une ligne ou un bouton n'a jamais d'ombre portée. Si ça ne flotte pas au-dessus du reste, c'est à plat.
+
+## Shapes
+
+Coins doucement arrondis, de plus en plus ronds à mesure que l'élément grandit : 4–5px pour les petites marques et puces, 6px pour les éléments de liste et de menu, 7–8px pour les boutons, champs et onglets, 10px pour les menus et toasts, 12px pour les cartes, 14px pour les dialogues. Les onglets ne sont arrondis qu'en haut (8px 8px 0 0) pour se fondre dans le panneau. Avatars, nœuds du graphe et points d'état sont des cercles parfaits ; les pastilles de compteur sont en pilule (999px).
+
+Icônes au trait, 1.7 d'épaisseur, bouts et jointures arrondis, couleur héritée (`currentColor`).
+
+## Components
+
+### Buttons
+Précis et discrets.
+- **Shape:** coins doucement arrondis (8px), hauteur 36px, icône et texte espacés de 8px, graisse 500.
+- **Default:** fond `panel2`, bordure `border`, texte `text`. Survol : fond `hover`.
+- **Primary:** fond et bordure `accent`, texte `accent-text`. Un seul par zone.
+- **Disabled:** opacité 0.5, curseur par défaut ; une action impossible est grisée, et son infobulle dit pourquoi.
+- **Icon button:** 32×32px, sans fond ni bordure, icône `faint` ; survol `hover` + icône `text`.
+- **Focus:** anneau `2px solid accent`, décalé de 1px, sur tous les contrôles (`:focus-visible`).
+
+### Tool buttons (barre d'outils)
+Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), sans fond au repos. Compteurs ↑ ↓ et pastilles accolés à l'icône.
+
+### Chips (puces de refs)
+- **Style:** 20px de haut, coins de 5px, 11px en graisse 600. Fond `color-mix(--chip 20%)`, bordure `color-mix(--chip 55%)`, où `--chip` est la couleur de voie de la branche.
+- **Variantes:** branche locale, distante (icône nuage), tag, HEAD (coche) ; la branche courante est marquée par une coche.
+
+### Inputs / Fields
+- **Style:** 36px, fond `panel2`, bordure `border`, coins 8px, padding 0 10px. Libellé au-dessus en 12px 600 `muted`.
+- **Recherche / filtre:** même forme, icône loupe `faint` à gauche, fond `panel`.
+- **Focus:** anneau d'accent `2px solid`, comme tous les contrôles.
+- **Segmented control:** rangée de boutons dans un conteneur de 3px de padding, l'option active sur `panel`.
+
+### Navigation (onglets)
+- **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille.
+- **Logo = onglet Accueil:** même forme, sans bouton de fermeture.
+- **Barre latérale des refs:** éléments de 28px, coins 6px, indentation de 14px par niveau ; sections repliables avec en-tête en capitales `faint` et compteur.
+
+### Commit row (signature)
+La ligne du graphe : 28px, grille à colonnes (refs, graphe, message, auteur, date, SHA). Survol `hover`, sélection `sel`. Message en 13px ; auteur avec avatar rond ; date et SHA en `muted`, SHA en mono. Le nœud du graphe prend la couleur de sa voie, avec l'initiale ou l'avatar de l'auteur.
+
+### Context menu
+Fond `panel`, bordure `border`, coins 10px, padding 4px, ombre flottante. Éléments de 28px, coins 6px, 13px ; survol et focus clavier `hover`. Séparateurs de 1px ; actions impossibles grisées avec raison en infobulle.
+
+### Dialog
+480px de large, padding 24px, fond `panel`, bordure, coins 14px, ombre flottante. Titre 18px 700 ; actions alignées à droite, bouton principal en dernier.
+
+### Toast
+Centré en bas (40px du bord), fond `panel`, bordure, coins 10px, padding 10px 14px ; icône `del` pour une erreur. Discret, jamais modal.
+
+### Status bar
+26px, fond `bg`, bordure haute, texte 11.5px `muted`, éléments espacés de 18px : chemin, remote, profil actif (cliquable), nombre de commits, ↑ ↓, dernier fetch.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** passer chaque couleur par `var(--jeton)` ou `color-mix()` d'un jeton, et vérifier l'écran en thème clair et sombre.
+- **Do** garder les lignes de liste à 28px et le corps à 13px ; hiérarchiser par graisse et par encre (`text` / `muted` / `faint`).
+- **Do** afficher SHA, chemins, refs et diff en JetBrains Mono.
+- **Do** réserver l'accent bleu à l'action principale, à la sélection et au focus.
+- **Do** griser une action impossible et dire pourquoi en infobulle, plutôt que la cacher.
+- **Do** donner à toute animation une durée courte (≤ 150ms) et une variante `prefers-reduced-motion`.
+- **Do** prévoir la longueur des libellés français (souvent plus longs que l'anglais).
+
+### Don't:
+- **Don't** mettre d'ombre portée sur un panneau, une carte ou une ligne : l'ombre est réservée à ce qui flotte.
+- **Don't** introduire une couleur vive dans le chrome (barres, panneaux, boutons) ; la couleur appartient au contenu du dépôt.
+- **Don't** aérer les écrans de travail façon site web, ni entourer les panneaux de marges ou de cartes flottantes.
+- **Don't** écrire une couleur en hexadécimal dans un composant.
+- **Don't** ajouter une modale là où une action directe, un menu ou un bandeau suffit.
