@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CloneDialog } from "../components/CloneDialog";
 import { Icon, type IconName } from "../components/Icon";
+import { api } from "../lib/api";
 import { relativeTime } from "../lib/format";
+import type { RepoEntry, RepoSummary } from "../lib/types";
 import { repoColor, repoName, useApp } from "../store/app";
 
 function useRelativeTime() {
@@ -42,6 +44,60 @@ function Action({
   );
 }
 
+/** Dépôts récents dont l'état est lu à l'accueil (les plus récents d'abord). */
+const STATE_LIMIT = 40;
+/** Lectures en parallèle. */
+const STATE_WORKERS = 4;
+
+/** État de chaque dépôt récent (branche, avance / retard d'après le dernier fetch, fichiers
+ *  pas encore commités), lu en arrière-plan sans retarder l'affichage de la liste ;
+ *  `"error"` : illisible (dossier déplacé ou supprimé…). */
+function useRepoStates(repos: RepoEntry[]): Record<string, RepoSummary | "error"> {
+  const [states, setStates] = useState<Record<string, RepoSummary | "error">>({});
+  const key = repos
+    .slice(0, STATE_LIMIT)
+    .map((r) => r.path)
+    .join("\n");
+  useEffect(() => {
+    let live = true;
+    const queue = key ? key.split("\n") : [];
+    const worker = async () => {
+      for (let p = queue.shift(); p !== undefined; p = queue.shift()) {
+        const path = p;
+        const state = await api.repoSummary(path).catch((): "error" => "error");
+        if (live) setStates((s) => ({ ...s, [path]: state }));
+      }
+    };
+    for (let i = 0; i < STATE_WORKERS; i++) void worker();
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return states;
+}
+
+/** Branche, avance / retard et travail en attente d'un dépôt récent. */
+function RepoState({ state }: { state: RepoSummary | "error" | undefined }) {
+  const { t } = useTranslation();
+  if (!state) return null;
+  if (state === "error") return <span className="repo-state muted">{t("welcome.unreadable")}</span>;
+  const sync = [state.ahead ? `↑${state.ahead}` : "", state.behind ? `↓${state.behind}` : ""].filter(Boolean).join(" ");
+  return (
+    <span className="repo-state">
+      <span className="repo-branch" title={state.upstream ? t("welcome.tracking", { upstream: state.upstream }) : undefined}>
+        <Icon name={state.branch ? "branch" : "commit"} size={12} />
+        {state.branch ?? t("repo.detached")}
+      </span>
+      {sync && (
+        <span className="mono repo-sync" title={t("welcome.syncHint")}>
+          {sync}
+        </span>
+      )}
+      {state.changes > 0 && <span className="repo-pending">{t("welcome.pending", { count: state.changes })}</span>}
+    </span>
+  );
+}
+
 /** Écran d'accueil : actions d'ouverture et dépôts récents. */
 export function Welcome() {
   const { t } = useTranslation();
@@ -53,6 +109,7 @@ export function Welcome() {
   const [q, setQ] = useState("");
   const [cloning, setCloning] = useState(false);
   const ago = useRelativeTime();
+  const states = useRepoStates(repos);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -105,6 +162,7 @@ export function Welcome() {
                   <span className="repo-text">
                     <span className="repo-name">{repoName(r)}</span>
                     <span className="repo-path mono">{r.path}</span>
+                    <RepoState state={states[r.path]} />
                   </span>
                   <span className="repo-when">{t("welcome.openedAt", { when: ago(r.lastOpened) })}</span>
                 </button>

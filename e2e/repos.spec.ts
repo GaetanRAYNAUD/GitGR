@@ -45,6 +45,15 @@ test("les dépôts ouverts apparaissent dans les récents, filtrables", async ({
   await expect(list.locator(".repo-name")).toHaveText(["api-backend"]);
 });
 
+test("état des dépôts récents à l'accueil : branche, commits à pousser, fichiers pas encore commités", async ({ page }) => {
+  await openRepos(page, 2);
+  await homeButton(page).click();
+  const row = (name: string) => page.locator(".repo-row", { hasText: name });
+  await expect(row("GitGR").locator(".repo-branch")).toHaveText("main");
+  await expect(row("GitGR").locator(".repo-sync")).toHaveText("↑1");
+  await expect(row("api-backend").locator(".repo-pending")).toContainText(/fichiers? pas encore commités?/);
+});
+
 test("retirer un dépôt des récents ferme aussi son onglet", async ({ page }) => {
   await openRepos(page, 2);
   await homeButton(page).click();

@@ -102,6 +102,11 @@
     "empty": "No repositories yet. Open a folder to get started.",
     "noMatch": "No repository matches “{{q}}”.",
     "forget": "Remove {{name}} from the list",
+    "unreadable": "Unreadable (folder moved or deleted?)",
+    "tracking": "Tracks {{upstream}}",
+    "syncHint": "Commits to push (↑) and to pull (↓), as of the last fetch",
+    "pending_one": "{{count}} uncommitted file",
+    "pending_other": "{{count}} uncommitted files",
     "openedAt": "Opened {{when}}",
     "pickTitle": "Choose a Git repository folder",
     "gitDetected": "Git {{version}} detected"

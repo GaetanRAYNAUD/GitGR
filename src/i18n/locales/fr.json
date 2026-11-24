@@ -102,6 +102,11 @@
     "empty": "Aucun dépôt pour l’instant. Ouvrez un dossier pour commencer.",
     "noMatch": "Aucun dépôt ne correspond à « {{q}} ».",
     "forget": "Retirer {{name}} de la liste",
+    "unreadable": "État illisible (dossier déplacé ou supprimé ?)",
+    "tracking": "Suit {{upstream}}",
+    "syncHint": "Commits à pousser (↑) et à tirer (↓), d’après le dernier fetch",
+    "pending_one": "{{count}} fichier pas encore commité",
+    "pending_other": "{{count}} fichiers pas encore commités",
     "openedAt": "Ouvert {{when}}",
     "pickTitle": "Choisir le dossier d’un dépôt Git",
     "gitDetected": "Git {{version}} détecté"
