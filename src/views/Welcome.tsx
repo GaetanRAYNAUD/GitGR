@@ -62,7 +62,8 @@ function useRepoStates(repos: RepoEntry[]): Record<string, RepoSummary | "error"
     let live = true;
     const queue = key ? key.split("\n") : [];
     const worker = async () => {
-      for (let p = queue.shift(); p !== undefined; p = queue.shift()) {
+      // Accueil quitté : on s'arrête (le dépôt ouvert a besoin de git).
+      for (let p = queue.shift(); p !== undefined && live; p = queue.shift()) {
         const path = p;
         const state = await api.repoSummary(path).catch((): "error" => "error");
         if (live) setStates((s) => ({ ...s, [path]: state }));

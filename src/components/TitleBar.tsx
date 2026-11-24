@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { DEFAULT_REPO_UI } from "./graph/RefsSidebar";
 import { useTranslation } from "react-i18next";
 import { api, inTauri } from "../lib/api";
 import { repoColor, repoName, useApp } from "../store/app";
@@ -131,7 +132,7 @@ export function TitleBar() {
   /** Auto-stash propre au dépôt : comme les réglages, toujours, jamais. */
   const autoStashSub = (path: string): MenuItem => {
     const app = useApp.getState();
-    const ui = app.repoUi[path] ?? { collapsed: [], hidden: [] };
+    const ui = app.repoUi[path] ?? DEFAULT_REPO_UI;
     const own = ui.autoStash ?? null;
     const global = app.settings.autoStash ?? true;
     const choose = (v: boolean | null) => app.setRepoUi(path, { ...ui, autoStash: v });

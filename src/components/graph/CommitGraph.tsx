@@ -592,8 +592,8 @@ export function CommitGraph({ path, changes }: Props) {
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (commits.length === 0) return;
-    // Recherche en cours : F3 / Maj+F3 passent d'un résultat à l'autre, Échap la ferme.
-    if (finding && (e.key === "F3" || e.key === "Escape")) {
+    // Recherche en cours : F3 / Maj+F3 passent d'un résultat à l'autre ; Échap ferme la barre.
+    if ((finding && e.key === "F3") || ((findText !== undefined || findSet) && e.key === "Escape")) {
       e.preventDefault();
       if (e.key === "F3") jump(e.shiftKey ? -1 : 1);
       else closeFind();

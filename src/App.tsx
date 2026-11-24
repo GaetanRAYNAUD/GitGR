@@ -61,6 +61,8 @@ function useShortcuts() {
     const onKey = (e: KeyboardEvent) => {
       const s = useApp.getState();
       const ctrl = e.ctrlKey || e.metaKey;
+      // Changer d'onglet ferme le sélecteur rapide (ses repères « onglet actif » seraient faux).
+      if (ctrl && (e.key === "Tab" || e.key === "PageUp" || e.key === "PageDown" || /^[1-9wWtT]$/.test(e.key))) useQuickOpen.getState().hide();
       if (ctrl && e.shiftKey && (e.key === "PageUp" || e.key === "PageDown")) {
         if (s.active) s.moveTab(s.active, s.tabs.indexOf(s.active) + (e.key === "PageUp" ? -1 : 1));
       } else if (ctrl && e.key === "Tab") {
