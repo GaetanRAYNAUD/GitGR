@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+## [0.3.1] — 2026-11-24
+
 - Remotes en HTTPS : le token du compte GitHub / GitLab du profil du remote sert à fetch, pull, push et clone (avant, seuls les identifiants enregistrés dans Git étaient essayés, d'où « Authentification refusée »).
 
 ## [0.3.0] — 2026-11-24
