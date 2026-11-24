@@ -178,50 +178,40 @@ export function sideDiff(ref: string[], side: string[]): SideLine[] {
   return out;
 }
 
-/** Lignes choisies une à une dans un bloc (indices dans `ours` et `theirs`). */
-export interface LinePicks {
-  ours: number[];
-  theirs: number[];
+/** Une ligne cochée : son côté et son indice dans ce côté. */
+export interface LinePick {
+  side: "ours" | "theirs";
+  index: number;
 }
 
-/** Résultat d'un bloc à partir des lignes cochées de chaque côté, **à leur place logique** et
- *  non dans l'ordre des clics : les deux côtés sont alignés (plus longue sous-suite commune),
- *  chaque ligne cochée sort à sa position dans cet alignement, une ligne présente des deux
- *  côtés une seule fois. */
+/** Lignes cochées d'un bloc, **dans l'ordre des clics** : c'est l'utilisateur qui sait comment
+ *  le conflit se résout (ordre ajustable ensuite dans le résultat, Alt+↑ / Alt+↓). */
+export type LinePicks = LinePick[];
+
+/** Résultat d'un bloc : les lignes cochées, dans l'ordre où elles l'ont été. */
 export function pickLines(seg: ConflictBlock, picks: LinePicks): string[] {
-  const a = seg.ours;
-  const b = seg.theirs;
-  const pa = new Set(picks.ours);
-  const pb = new Set(picks.theirs);
-  const n = a.length;
-  const m = b.length;
-  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--)
-    for (let j = m - 1; j >= 0; j--) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
-  const out: string[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < n || j < m) {
-    if (i < n && j < m && a[i] === b[j]) {
-      if (pa.has(i) || pb.has(j)) out.push(a[i]);
-      i++;
-      j++;
-    } else if (i < n && (j >= m || lcs[i + 1][j] >= lcs[i][j + 1])) {
-      if (pa.has(i)) out.push(a[i]);
-      i++;
-    } else {
-      if (pb.has(j)) out.push(b[j]);
-      j++;
-    }
-  }
-  return out;
+  return picks.map((p) => (p.side === "ours" ? seg.ours : seg.theirs)[p.index]).filter((l): l is string => l !== undefined);
 }
 
-/** Lignes cochées qui correspondent à un choix rapide. */
+/** Coche une ligne (ajoutée en dernier) ou la décoche. */
+export function togglePick(picks: LinePicks, side: LinePick["side"], index: number): LinePicks {
+  const has = picks.some((p) => p.side === side && p.index === index);
+  return has ? picks.filter((p) => !(p.side === side && p.index === index)) : [...picks, { side, index }];
+}
+
+/** Lignes cochées qui correspondent à un choix rapide (dans l'ordre de ce choix). */
 export function picksOf(seg: ConflictBlock, choice: ConflictChoice): LinePicks {
-  const all = (l: string[]) => l.map((_, i) => i);
-  return {
-    ours: choice === "ours" || choice === "ours-theirs" || choice === "theirs-ours" ? all(seg.ours) : [],
-    theirs: choice === "theirs" || choice === "ours-theirs" || choice === "theirs-ours" ? all(seg.theirs) : [],
-  };
+  const all = (side: LinePick["side"]) => seg[side].map((_, index) => ({ side, index }));
+  switch (choice) {
+    case "ours":
+      return all("ours");
+    case "theirs":
+      return all("theirs");
+    case "ours-theirs":
+      return [...all("ours"), ...all("theirs")];
+    case "theirs-ours":
+      return [...all("theirs"), ...all("ours")];
+    case "none":
+      return [];
+  }
 }

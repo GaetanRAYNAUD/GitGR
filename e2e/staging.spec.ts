@@ -205,14 +205,15 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   await expect(secondBlock.locator(".conflict-side.ours .cl-del")).toHaveText("w");
   await expect(secondBlock.locator(".conflict-side.theirs .cl-mod")).toHaveText(["y", "z"]);
 
-  // Ligne par ligne : décocher / cocher des lignes de chaque côté, le résultat suit (à leur place).
+  // Ligne par ligne : décocher / cocher des lignes de chaque côté, le résultat suit l'ordre des clics.
   const result2 = secondBlock.getByRole("textbox", { name: "Résultat du conflit 2" });
   await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
   await expect(result2).toHaveValue("x\nz");
   await secondBlock.locator(".conflict-side.ours").getByRole("checkbox", { name: "x" }).click();
   await expect(result2).toHaveValue("z");
   await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
-  await expect(result2).toHaveValue("y\nz");
+  // Recochée en dernier : elle vient après z (ordre des clics).
+  await expect(result2).toHaveValue("z\ny");
   await expect(secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" })).toHaveAttribute("aria-checked", "true");
   await secondBlock.getByRole("button", { name: "A puis B" }).click();
   await expect(preview).toContainText("// suite");

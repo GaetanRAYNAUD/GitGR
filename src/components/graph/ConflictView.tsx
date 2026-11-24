@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import { chooseLines, composeResolution, moveLines, parseConflicts, pickLines, picksOf, sideDiff, type LinePicks, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
+import { chooseLines, composeResolution, moveLines, parseConflicts, pickLines, picksOf, sideDiff, togglePick, type LinePick, type LinePicks, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
 import { errorMessage } from "../../lib/errors";
 import { useApp } from "../../store/app";
 import { useConflictView } from "../../store/range";
@@ -68,15 +68,14 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
     setPick(k, picksOf(blocks[k], choice));
     setResult(k, chooseLines(blocks[k], choice).join("\n"));
   };
-  /** Coche ou décoche une ligne d'un côté : le résultat est refait à partir des lignes cochées,
-   *  chacune à sa place logique (pas dans l'ordre des clics). */
-  const toggleLine = (k: number, side: keyof LinePicks, index: number) => {
-    const cur = picks[k] ?? { ours: [], theirs: [] };
-    const list = cur[side].includes(index) ? cur[side].filter((x) => x !== index) : [...cur[side], index];
-    const next = { ...cur, [side]: list };
+  /** Coche ou décoche une ligne d'un côté : le résultat est refait avec les lignes cochées,
+   *  dans l'ordre des clics. */
+  const toggleLine = (k: number, side: LinePick["side"], index: number) => {
+    const next = togglePick(picks[k] ?? [], side, index);
     setPick(k, next);
     setResult(k, pickLines(blocks[k], next).join("\n"));
   };
+
   const chooseAll = (choice: ConflictChoice) => {
     setResults(blocks.map((b) => chooseLines(b, choice).join("\n")));
     setPicks(blocks.map((b) => picksOf(b, choice)));
@@ -190,9 +189,9 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             const before = prev?.kind === "common" ? prev.lines.slice(-CONTEXT) : [];
             const after = next?.kind === "common" ? next.lines.slice(0, CONTEXT) : [];
             // Couleurs : chaque côté comparé à la version commune (diff3), sinon à l'autre côté.
-            const side = (which: keyof LinePicks, lines: string[], other: string[]) => {
+            const side = (which: LinePick["side"], lines: string[], other: string[]) => {
               let index = -1;
-              const picked = new Set(picks[n]?.[which] ?? []);
+              const picked = new Set((picks[n] ?? []).filter((p) => p.side === which).map((p) => p.index));
               return (
               <pre className="mono">
                 {before.map((l, j) => (

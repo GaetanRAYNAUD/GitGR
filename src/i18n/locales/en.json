@@ -383,7 +383,7 @@
     "kind": {"add": "Added", "mod": "Modified", "del": "Deleted on this side"},
     "vsBase": "Colors: compared with the common version",
     "vsOther": "Colors: compared with the other side (git did not write the common version)",
-    "pickHint": "Click: keep or drop this line in the result (at its place in the file)",
+    "pickHint": "Click: add this line at the end of the result, or remove it (click order)",
     "allResolved": "All blocks are resolved",
     "allOurs": "All {{side}}",
     "allTheirs": "All {{side}}",

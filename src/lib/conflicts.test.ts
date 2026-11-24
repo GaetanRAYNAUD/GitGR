@@ -62,19 +62,24 @@ describe("couleurs d'un côté", () => {
 });
 
 describe("choix ligne par ligne", () => {
-  it("garde les lignes cochées à leur place logique, une ligne commune une seule fois", async () => {
-    const { pickLines } = await import("./conflicts");
+  it("garde les lignes cochées dans l'ordre des clics", async () => {
+    const { pickLines, picksOf, togglePick, chooseLines } = await import("./conflicts");
     const seg = {
       kind: "conflict" as const,
-      ours: ["import a;", "import b;", "import c;", "import d;", "import e;"],
-      theirs: ["import a;", "import x;", "import c;", "import y;", "import z;"],
+      ours: ["import a;", "import b;", "import c;", "import d;"],
+      theirs: ["import x;", "import y;", "import z;"],
       base: null,
       oursLabel: "HEAD",
       theirsLabel: "sujet",
     };
-    // 3 à gauche, 2 à droite, puis encore 1 à gauche : sortis dans l'ordre du fichier.
-    expect(pickLines(seg, { ours: [1, 0, 4], theirs: [3, 1] })).toEqual(["import a;", "import b;", "import x;", "import e;", "import y;"]);
-    expect(pickLines(seg, { ours: [0, 2], theirs: [0, 2] })).toEqual(["import a;", "import c;"]);
-    expect(pickLines(seg, { ours: [], theirs: [] })).toEqual([]);
+    // 2 à gauche, 1 à droite, puis encore 1 à gauche : dans cet ordre.
+    let p = togglePick([], "ours", 2);
+    p = togglePick(p, "ours", 0);
+    p = togglePick(p, "theirs", 1);
+    p = togglePick(p, "ours", 3);
+    expect(pickLines(seg, p)).toEqual(["import c;", "import a;", "import y;", "import d;"]);
+    p = togglePick(p, "ours", 0);
+    expect(pickLines(seg, p)).toEqual(["import c;", "import y;", "import d;"]);
+    for (const c of ["ours", "theirs", "ours-theirs", "theirs-ours", "none"] as const) expect(pickLines(seg, picksOf(seg, c))).toEqual(chooseLines(seg, c));
   });
 });
