@@ -232,9 +232,9 @@ test("glisser un commit sur une autre branche : checkout puis cherry-pick", asyn
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     const target = locals.getByRole("button", { name: /^cible/ });
     const row = page.locator(`#commit-${sha}`);
-    const from = (await row.boundingBox())!;
+    const from = (await row.locator(".commit-msg").boundingBox())!;
     const to = (await target.boundingBox())!;
-    await page.mouse.move(from.x + 40, from.y + from.height / 2);
+    await page.mouse.move(from.x + 20, from.y + from.height / 2);
     await page.mouse.down();
     await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
     await page.mouse.up();

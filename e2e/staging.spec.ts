@@ -182,3 +182,61 @@ test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async
   await expect(staged(page)).toContainText("render.ts");
   await expect(unstaged(page)).not.toContainText("render.ts");
 });
+
+test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+↑, puis enregistré", async ({ page }) => {
+  const text = ["// en-tête", "import a;", "import b;", "", "function f() {", "un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "||||||| base", "x", "w", "=======", "y", "z", ">>>>>>> sujet", "fin", "}", "", "// suite", "g();", ""].join("\n");
+  await page.evaluate((t) => (window as unknown as { __mockConflict: (p: string, f: string, t: string) => void }).__mockConflict("C:/Users/demo/work/api-backend", "conflit.txt", t), text);
+  await page.keyboard.press("F5");
+  const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+  const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" });
+  await row.hover();
+  await row.getByRole("button", { name: "Résoudre" }).click();
+
+  const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
+  // Contexte autour de chaque bloc, fichier résultant entier en bas.
+  const first = view.getByRole("group", { name: "Conflit 1 / 2" });
+  await expect(first.locator(".conflict-side.ours")).toContainText("function f() {");
+  await expect(first.locator(".conflict-side.theirs")).toContainText("milieu");
+  const preview = view.getByRole("region", { name: "Fichier résultant" });
+  await expect(preview).toContainText("Fichier résultant · 17 lignes");
+  // Couleurs : modifiée / ajoutée / supprimée, par rapport à la version commune quand git l'a écrite.
+  await expect(first.locator(".conflict-side.ours .cl-mod")).toHaveText("deux ici");
+  const secondBlock = view.getByRole("group", { name: "Conflit 2 / 2" });
+  await expect(secondBlock.locator(".conflict-side.ours .cl-del")).toHaveText("w");
+  await expect(secondBlock.locator(".conflict-side.theirs .cl-mod")).toHaveText(["y", "z"]);
+
+  // Ligne par ligne : décocher / cocher des lignes de chaque côté, le résultat suit l'ordre des clics.
+  const result2 = secondBlock.getByRole("textbox", { name: "Résultat du conflit 2" });
+  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
+  await expect(result2).toHaveValue("x\nz");
+  await secondBlock.locator(".conflict-side.ours").getByRole("checkbox", { name: "x" }).click();
+  await expect(result2).toHaveValue("z");
+  await secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" }).click();
+  // Recochée en dernier : elle vient après z (ordre des clics).
+  await expect(result2).toHaveValue("z\ny");
+  await expect(secondBlock.locator(".conflict-side.theirs").getByRole("checkbox", { name: "y" })).toHaveAttribute("aria-checked", "true");
+  await secondBlock.getByRole("button", { name: "A puis B" }).click();
+  await expect(preview).toContainText("// suite");
+  // Rendu tout de suite en « A puis B » ; le bloc 2, retouché ci-dessus, compte comme vérifié.
+  await expect(view.getByRole("status")).toHaveText("1 bloc proposé « A puis B », à vérifier");
+  const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
+  await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny\nz");
+
+  await first.getByRole("button", { name: "B puis A" }).click();
+  const edit = first.getByRole("textbox", { name: "Résultat du conflit 1" });
+  await expect(edit).toHaveValue("deux là-bas\ndeux ici");
+  // Alt+↑ sur la seconde ligne : elle remonte (A puis B, sans repasser par les boutons).
+  await edit.focus();
+  await edit.press("Control+End");
+  await edit.press("Alt+ArrowUp");
+  await expect(edit).toHaveValue("deux ici\ndeux là-bas");
+
+  const second = view.getByRole("group", { name: "Conflit 2 / 2" });
+  await second.getByRole("textbox", { name: "Résultat du conflit 2" }).fill("x et y");
+  await expect(view.getByRole("status")).toHaveText("Tous les blocs sont résolus");
+  await save.click();
+
+  await expect(view).toHaveCount(0);
+  await expect(page.getByText("conflit.txt résolu et indexé.")).toBeVisible();
+  await expect(panel.getByRole("list", { name: "Indexés", exact: true })).toContainText("conflit.txt");
+});

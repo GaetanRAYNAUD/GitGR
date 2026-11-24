@@ -53,6 +53,13 @@ interface OpsStore {
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
   newBranch(path: string, start: string | null, startLabel: string): Promise<boolean>;
   renameBranch(path: string, branch: string): Promise<boolean>;
+  /** Demande un nom (et un message facultatif : tag annoté) puis crée le tag sur `target`
+   *  (HEAD si `null`) ; le pousse si la case est cochée. */
+  newTag(path: string, target: string | null, targetLabel: string): Promise<boolean>;
+  /** Pousse un tag vers `remote` (`origin` ou le premier si absent). */
+  pushTag(path: string, name: string, remote?: string): Promise<boolean>;
+  /** Supprime un tag, localement et / ou sur un remote (choix dans la confirmation). */
+  deleteTag(path: string, name: string): Promise<boolean>;
   deleteBranch(path: string, branch: string): Promise<boolean>;
   deleteRemoteBranch(path: string, branch: string): Promise<boolean>;
   /** Supprime une branche locale et sa branche distante (`remoteBranch` : `origin/x`), une seule confirmation. */
@@ -71,8 +78,9 @@ interface OpsStore {
   rebaseOnto(path: string, ref: GitRef): Promise<boolean>;
   /** Déplace une branche qui n'est pas la courante sur un commit (confirmation). */
   moveBranch(path: string, branch: string, sha: string): Promise<boolean>;
-  /** Cherry-pick d'un commit sur une autre branche : checkout de celle-ci (auto-stash), puis cherry-pick. */
-  cherryPickOnto(path: string, branch: string, sha: string): Promise<boolean>;
+  /** Cherry-pick de commits (du plus ancien au plus récent) sur une branche : checkout de
+   *  celle-ci d'abord si ce n'est pas la courante (auto-stash). */
+  cherryPickOnto(path: string, branch: string, shas: string[]): Promise<boolean>;
   /** Annule la dernière opération notée (Ctrl+Z) ou rétablit la dernière annulée (Ctrl+Y). */
   replay(path: string, dir: "undo" | "redo"): Promise<boolean>;
   /** `silent` (fetch automatique) : ni erreur ni message, et rien si une commande tourne déjà. */
@@ -116,9 +124,20 @@ const t = (key: string, opts: Record<string, unknown> = {}) => i18n.t(key, opts)
 const queues: Record<string, Promise<unknown>> = {};
 
 const settings = () => useApp.getState().settings;
-const autoStash = () => settings().autoStash ?? true;
+/** Auto-stash du dépôt : son propre choix (menu de l'onglet), sinon celui des réglages. */
+const autoStash = (path: string) => useApp.getState().repoUi[path]?.autoStash ?? settings().autoStash ?? true;
 const currentBranch = (path: string) =>
   useGraph.getState().graphs[path]?.refs?.headBranch ?? useApp.getState().summaries[path]?.data?.branch ?? null;
+
+/** Remote par défaut pour un tag : `origin` s'il existe, sinon le premier (comme côté Rust). */
+export function defaultRemote(remotes: string[]): string | null {
+  return remotes.includes("origin") ? "origin" : (remotes[0] ?? null);
+}
+
+/** Nom de tag refusé par git (`check-ref-format`, règles courantes), message traduit. */
+function tagNameError(v: string): string | null {
+  return !v || v.startsWith("-") || /[\s~^:?*[\\]|\.\.|@\{|\/\/|^\/|\/$|\.$|\.lock$/.test(v) ? t("tag.invalid") : null;
+}
 
 /** Message d'information (auto-stash gardé, conflits…), affiché par l'app. */
 function notify(text: string, sticky = false) {
@@ -212,7 +231,7 @@ export const useOps = create<OpsStore>((set, get) => {
    *  résultat de la commande (`null` : échec, erreur affichée). */
   const switchWith = async (path: string, call: (stash: boolean) => Promise<OpResult>) => {
     const label = currentBranch(path) ?? "HEAD";
-    const out = await exec(path, ["checkout", "checkout"], () => call(autoStash()));
+    const out = await exec(path, ["checkout", "checkout"], () => call(autoStash(path)));
     if (!out.ok) return fail(out.error) && null;
     report(out.value, label);
     await selectHead(path);
@@ -291,11 +310,65 @@ export const useOps = create<OpsStore>((set, get) => {
       });
       if (!answer) return false;
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["branch", "newBranch"], () => api.createBranch(path, answer.value, start, answer.checked, autoStash()));
+      const out = await exec(path, ["branch", "newBranch"], () => api.createBranch(path, answer.value, start, answer.checked, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (answer.checked) await selectHead(path);
       return true;
+    },
+
+    async newTag(path, target, targetLabel) {
+      const refs = useGraph.getState().graphs[path]?.refs;
+      const existing = new Set((refs?.refs ?? []).filter((r) => r.kind === "tag").map((r) => r.short));
+      const remote = defaultRemote(refs?.remotes.map((r) => r.name) ?? []);
+      const answer = await useDialogs.getState().input({
+        title: t("tag.newTitle"),
+        subtitle: t("tag.newOn", { target: targetLabel }),
+        label: t("tag.name"),
+        initial: "",
+        submit: t("tag.create"),
+        second: { label: t("tag.message"), initial: "", placeholder: t("tag.messageHint"), optional: true },
+        ...(remote ? { checkbox: { label: t("tag.pushTo", { remote }), checked: false } } : {}),
+        validate: (v) => tagNameError(v) ?? (existing.has(v) ? t("tag.exists") : null),
+      });
+      if (!answer) return false;
+      const out = await exec(path, "branch", () => api.createTag(path, answer.value, target, answer.second || null));
+      if (!out.ok) return fail(out.error);
+      if (remote && answer.checked) return get().pushTag(path, answer.value, remote);
+      notify(t("tag.created", { tag: answer.value }));
+      return true;
+    },
+
+    async pushTag(path, name, remote) {
+      const out = await exec(path, "push", () => api.pushTag(path, name, remote ?? null));
+      if (!out.ok) return fail(out.error);
+      notify(t("tag.pushed", { tag: name, remote: out.value }));
+      return true;
+    },
+
+    async deleteTag(path, name) {
+      const remotes = useGraph.getState().graphs[path]?.refs?.remotes.map((r) => r.name) ?? [];
+      const remote = defaultRemote(remotes);
+      const choice = await useDialogs.getState().choose({
+        title: t("tag.deleteTitle", { tag: name }),
+        body: remote ? t("tag.deleteBodyRemote", { remote }) : t("tag.deleteBody"),
+        choices: [
+          ...(remote ? [{ id: "remote", label: t("tag.deleteRemote", { remote }), danger: true }] : []),
+          ...(remote ? [{ id: "both", label: t("tag.deleteBoth", { remote }), danger: true }] : []),
+          { id: "local", label: t("tag.deleteLocal"), danger: true },
+        ],
+      });
+      if (!choice) return false;
+      if (choice !== "local") {
+        const out = await exec(path, "push", () => api.deleteRemoteTag(path, name, remote));
+        if (!out.ok) return fail(out.error);
+        if (choice === "remote") {
+          notify(t("tag.deletedRemote", { tag: name, remote: out.value }));
+          return true;
+        }
+      }
+      const out = await exec(path, "branch", () => api.deleteTag(path, name));
+      return out.ok || fail(out.error);
     },
 
     async renameBranch(path, branch) {
@@ -415,7 +488,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async mergeInto(path, ref) {
       const label = currentBranch(path);
       if (!label) return fail("detached_head");
-      const out = await exec(path, ["operation", "merge"], () => api.mergeBranch(path, ref.name, autoStash()));
+      const out = await exec(path, ["operation", "merge"], () => api.mergeBranch(path, ref.name, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -428,7 +501,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async rebaseOnto(path, ref) {
       const label = currentBranch(path);
       if (!label) return fail("detached_head");
-      const out = await exec(path, ["operation", "rebase"], () => api.rebaseOnto(path, ref.name, autoStash()));
+      const out = await exec(path, ["operation", "rebase"], () => api.rebaseOnto(path, ref.name, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -449,7 +522,7 @@ export const useOps = create<OpsStore>((set, get) => {
         let res: OpResult | null = null;
         for (const step of plan(from, to, entry.soft)) {
           if (step.kind === "checkout") {
-            res = step.branch ? await api.checkout(path, step.branch, autoStash()) : await api.checkoutDetached(path, step.sha, autoStash());
+            res = step.branch ? await api.checkout(path, step.branch, autoStash(path)) : await api.checkoutDetached(path, step.sha, autoStash(path));
           } else {
             await api.setBranchTip(path, step.branch, step.expected, step.target, step.mode);
           }
@@ -482,11 +555,11 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
-    async cherryPickOnto(path, branch, sha) {
+    async cherryPickOnto(path, branch, shas) {
       if (branch !== currentBranch(path) && !(await get().checkout(path, branch))) return false;
       // Checkout arrêté (stash gardé en conflit) : la branche n'est peut-être pas celle visée.
       if (currentBranch(path) !== branch) return false;
-      return get().cherryPick(path, [sha]);
+      return get().cherryPick(path, shas);
     },
 
     async fetch(path, silent = false) {
@@ -501,7 +574,7 @@ export const useOps = create<OpsStore>((set, get) => {
     async pull(path, strategy) {
       const mode = strategy ?? settings().pullStrategy ?? "ff-only";
       const branch = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["pull", "pull"], () => api.pull(path, mode, autoStash()));
+      const out = await exec(path, ["pull", "pull"], () => api.pull(path, mode, autoStash(path)));
       if (!out.ok && out.error === "not_fast_forward") {
         const pick = await useDialogs.getState().choose({
           title: t("pull.divergedTitle"),
@@ -523,7 +596,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const current = currentBranch(path);
       const source = branch ?? current;
       if (!source) return fail("detached_head");
-      const out = await exec(path, ["pull", "pull"], () => api.pullFrom(path, remote, source, mode, autoStash()));
+      const out = await exec(path, ["pull", "pull"], () => api.pullFrom(path, remote, source, mode, autoStash(path)));
       if (!out.ok && out.error === "not_fast_forward") {
         const pick = await useDialogs.getState().choose({
           title: t("pull.divergedTitle"),
@@ -677,7 +750,7 @@ export const useOps = create<OpsStore>((set, get) => {
 
     async cherryPick(path, shas) {
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["operation", "cherryPick"], () => api.cherryPick(path, shas, autoStash()));
+      const out = await exec(path, ["operation", "cherryPick"], () => api.cherryPick(path, shas, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
@@ -702,7 +775,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const message = [answer.value.trim(), "", ...[...ordered].reverse().map((c) => `* ${c.subject}`)].join("\n");
       const shas = ordered.map((c) => c.sha);
       const label = currentBranch(path) ?? "HEAD";
-      let out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, false, autoStash()));
+      let out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, false, autoStash(path)));
       if (!out.ok && out.error === "squash_pushed") {
         const go = await useDialogs.getState().choose({
           title: t("squash.pushedTitle"),
@@ -710,7 +783,7 @@ export const useOps = create<OpsStore>((set, get) => {
           choices: [{ id: "go", label: t("squash.pushedGo"), danger: true }],
         });
         if (go !== "go") return false;
-        out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, true, autoStash()));
+        out = await exec(path, ["operation", "squash"], () => api.squash(path, shas, message, true, autoStash(path)));
       }
       if (!out.ok) return fail(out.error);
       report(out.value, label);
@@ -723,7 +796,7 @@ export const useOps = create<OpsStore>((set, get) => {
 
     async revert(path, shas) {
       const label = currentBranch(path) ?? "HEAD";
-      const out = await exec(path, ["operation", "revert"], () => api.revert(path, shas, autoStash()));
+      const out = await exec(path, ["operation", "revert"], () => api.revert(path, shas, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {

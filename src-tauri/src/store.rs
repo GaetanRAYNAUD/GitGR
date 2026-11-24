@@ -134,6 +134,9 @@ pub struct RepoUi {
     pub hidden: Vec<String>,
     /// Case « pousser après le commit ».
     pub push_after_commit: bool,
+    /// Auto-stash propre au dépôt ; absent : celui des réglages.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_stash: Option<bool>,
 }
 
 /// Un profil : une identité Git complète, choisie par dépôt.
@@ -330,7 +333,7 @@ mod tests {
         store.state.repos.push(RepoEntry { path: "/r".into(), name: "r".into(), last_opened: 42, alias: None, color: None });
         store.state.session = Session { open_tabs: vec!["/r".into()], active: Some("/r".into()) };
         store.state.settings.theme = "dark".into();
-        store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true });
+        store.state.repo_ui.insert("/r".into(), RepoUi { collapsed: vec!["tags".into()], hidden: vec![], push_after_commit: true, auto_stash: Some(false) });
         store.save().unwrap();
 
         let again = Store::load(dir.path().join("cfg"));
@@ -340,6 +343,7 @@ mod tests {
         assert_eq!(again.state.settings.theme, "dark");
         assert_eq!(again.state.repo_ui["/r"].collapsed, vec!["tags".to_string()]);
         assert!(again.state.repo_ui["/r"].push_after_commit);
+        assert_eq!(again.state.repo_ui["/r"].auto_stash, Some(false));
         // Le fichier temporaire ne doit pas traîner.
         assert!(!dir.path().join("cfg").join("state.json.tmp").exists());
     }

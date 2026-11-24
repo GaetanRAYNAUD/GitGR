@@ -8,11 +8,14 @@ import { api, errorCode } from "../../lib/api";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
-import { useOps } from "../../store/ops";
+import { usePullList } from "../../store/pullList";
+import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
+import { defaultRemote, useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
-import type { MenuItem } from "../ContextMenu";
+import { type MenuItem, useContextMenu } from "../ContextMenu";
+import { startCommitDrag } from "./commitDrag";
 import { squashable } from "../../lib/multiSelect";
 import { remoteMarkOf } from "../RemoteMark";
 
@@ -261,12 +264,60 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       copyName,
     ];
   }
+  const remotes = (refs?.remotes ?? []).map((x) => x.name);
+  const remote = defaultRemote(remotes);
   return [
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     { label: t("menu.checkoutDetached"), onClick: () => ops.checkoutDetached(path, r.target) },
     "sep",
+    remotes.length > 1
+      ? { label: t("tag.pushToMenu"), items: remotes.map((name): MenuItem => ({ label: name, onClick: () => void ops.pushTag(path, r.short, name) })) }
+      : {
+          label: remote ? t("tag.pushTo", { remote }) : t("tag.push"),
+          disabled: !remote,
+          title: remote ? undefined : t("tag.noRemote"),
+          onClick: () => void ops.pushTag(path, r.short, remote ?? undefined),
+        },
+    { label: t("tag.delete", { tag: r.short }), danger: true, onClick: () => void ops.deleteTag(path, r.short) },
+    "sep",
     copyName,
   ];
+}
+
+/** Branche locale déposée sur une autre (glisser-déposer) : merge de la première dans la
+ *  seconde, rebase de la première sur la seconde (checkout d'abord si besoin, avec
+ *  l'auto-stash) et, si la première est la courante, PR / MR vers la seconde. */
+export function branchDropMenu(t: TFunction, path: string, source: GitRef, target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const ops = useOps.getState();
+  const head = refs?.headBranch ?? null;
+  const busy = !!useWork.getState().repos[path]?.status?.operation;
+  const why = busy ? t("menu.why.operation") : undefined;
+  const first = (branch: string) => (branch === head ? undefined : t("menu.why.checkoutFirst", { branch }));
+  const merge = async () => {
+    if (target.short !== head && !(await ops.checkout(path, target.short))) return;
+    await ops.mergeInto(path, source);
+  };
+  const rebase = async () => {
+    if (source.short !== head && !(await ops.checkout(path, source.short))) return;
+    await ops.rebaseOnto(path, target);
+  };
+  const pulls = source.short === head ? pullItems(t, path, target, refs) : [];
+  return [
+    { label: t("menu.mergeInto", { source: source.short, branch: target.short }), disabled: !!why, title: why ?? first(target.short), onClick: () => void merge() },
+    { label: t("menu.rebaseOnto", { branch: source.short, onto: target.short }), disabled: !!why, title: why ?? first(source.short), onClick: () => void rebase() },
+    ...(pulls.length ? (["sep", ...pulls] as MenuItem[]) : []),
+  ];
+}
+
+/** Glisser une branche locale (étiquette du graphe, barre latérale) sur une autre : menu
+ *  merge / rebase / PR au dépôt (cf. `branchDropMenu`). */
+export function startBranchDrag(e: React.MouseEvent, t: TFunction, path: string, source: GitRef) {
+  startCommitDrag(e, source.short, (drop) => {
+    if (drop.ref === source.name) return;
+    const refs = useGraph.getState().graphs[path]?.refs ?? null;
+    const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+    if (target) useContextMenu.getState().open(drop.x, drop.y, branchDropMenu(t, path, source, target, refs));
+  });
 }
 
 /** Commit déposé sur une branche locale (glisser-déposer) : cherry-pick dessus, et reset de la
@@ -283,7 +334,7 @@ export function commitDropMenu(t: TFunction, path: string, sha: string, target: 
       label: current ? t("menu.cherryPickOnto", { sha: short, branch: target.short }) : t("menu.cherryPickOntoOther", { sha: short, branch: target.short }),
       disabled: merge || there || !refs?.head,
       title: pickWhy,
-      onClick: () => void ops.cherryPickOnto(path, target.short, sha),
+      onClick: () => void ops.cherryPickOnto(path, target.short, [sha]),
     },
     current
       ? resetSub(t, path, sha, refs, short)
@@ -294,6 +345,21 @@ export function commitDropMenu(t: TFunction, path: string, sha: string, target: 
           title: there ? t("menu.why.sameCommit", { branch: target.short }) : undefined,
           onClick: () => void ops.moveBranch(path, target.short, sha),
         },
+  ];
+}
+
+/** Sélection de plusieurs commits déposée sur une branche locale : cherry-pick du lot dessus
+ *  (`ordered` : du plus récent au plus ancien, comme le graphe). */
+export function pickedDropMenu(t: TFunction, path: string, ordered: { sha: string; parents: string[] }[], target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const merges = ordered.some((c) => c.parents.length > 1);
+  const current = target.short === refs?.headBranch;
+  return [
+    {
+      label: t(current ? "multi.cherryPick" : "multi.cherryPickOther", { count: ordered.length, branch: target.short }),
+      title: merges ? t("multi.cherryPickMerge") : t("multi.cherryPickHint", { branch: target.short }),
+      disabled: merges || !refs?.head,
+      onClick: () => void useOps.getState().cherryPickOnto(path, target.short, ordered.map((c) => c.sha).reverse()),
+    },
   ];
 }
 
@@ -375,6 +441,7 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     ...here.map((r): MenuItem => ({ label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkout(path, r.short) })),
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
+    { label: t("tag.newHere"), onClick: () => void ops.newTag(path, sha, sha.slice(0, 7)) },
     "sep",
     {
       label: t("menu.cherryPick", { branch: refs?.headBranch ?? "HEAD" }),
@@ -411,13 +478,46 @@ export function dirMenu(t: TFunction, repo: string, dir: string): MenuItem[] {
   ];
 }
 
-/** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). */
-export function fileMenu(t: TFunction, repo: string, file: string): MenuItem[] {
+/** Ouvre l'historique d'un fichier à la place du graphe (et ferme ce qui le cacherait). */
+export function showFileHistory(repo: string, file: string) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useFileHistoryView.getState().show(repo, file);
+}
+
+/** Ouvre la résolution d'un fichier en conflit à la place du graphe. */
+export function showConflict(repo: string, file: string) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useConflictView.getState().show(repo, file);
+}
+
+/** Ouvre le blame d'un fichier à la place du graphe (au commit `rev`, ou copie de travail). */
+export function showBlame(repo: string, file: string, rev: string | null) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useBlameView.getState().show(repo, { file, rev });
+}
+
+/** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). `at` : le
+ *  commit où le fichier est montré (blame à ce commit ; sinon sur la copie de travail),
+ *  `deleted` s'il n'y existe plus (pas de blame). */
+export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: string; deleted?: boolean }): MenuItem[] {
   const run = (how: "open" | "reveal") => () =>
     void api.openRepoFile(repo, file, how).catch((e) => useApp.setState({ error: errorCode(e) }));
   return [
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
+    { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
+    {
+      label: t("blame.menu"),
+      disabled: at?.deleted,
+      title: at?.deleted ? t("blame.deleted") : undefined,
+      onClick: () => showBlame(repo, file, at?.rev ?? null),
+    },
     "sep",
     { label: t("menu.copyPath"), onClick: () => copy(file) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },

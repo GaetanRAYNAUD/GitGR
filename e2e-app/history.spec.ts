@@ -1,7 +1,7 @@
 // Sélection de plusieurs commits dans la vraie app : fichiers et diff cumulés d'une plage,
 // cherry-pick du lot sur la branche courante.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, git, launchApp, test } from "./app";
 
@@ -100,6 +100,133 @@ test("chercher quand un texte a été ajouté puis retiré, limité à un fichie
     await results.nth(1).getByRole("button").dblclick();
     await expect(view).toHaveCount(0);
     await expect(page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { selected: true })).toContainText("aiguille dans b");
+  } finally {
+    await app.close();
+  }
+});
+
+test("historique d'un fichier renommé : ses commits avant et après le renommage", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\nquatre\n", "création de a");
+  sandbox.commit(mine, "b.txt", "autre\n", "autre fichier");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\nquatre\ncinq\n", "a modifié");
+  git(mine, "mv", "a.txt", "c.txt");
+  git(mine, "commit", "-qm", "a renommé en c");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option").first().click();
+    const panel = page.getByRole("complementary", { name: "Détails du commit" });
+    await panel.locator(".file-row", { hasText: "c.txt" }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
+    const view = page.getByRole("region", { name: "Historique du fichier" });
+    const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+    await expect(rows).toHaveText([/a renommé en c.*renommé depuis a\.txt/, /a modifié/, /création de a/, /init/]);
+    await rows.nth(1).getByRole("button").dblclick();
+    const diff = page.getByRole("region", { name: /^Diff de / });
+    await expect(diff.locator("tr.add")).toContainText("cinq");
+  } finally {
+    await app.close();
+  }
+});
+
+test("blame de la copie de travail : chaque ligne avec son commit, les nouvelles pas encore commitées", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "un\ndeux\n", "première version");
+  sandbox.commit(mine, "a.txt", "un\ndeux\ntrois\n", "ajout de trois");
+  writeFileSync(join(mine, "a.txt"), "un\ndeux\ntrois\nquatre\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const staging = page.getByRole("complementary", { name: "Modifications en cours" });
+    await staging.locator(".file-row", { hasText: "a.txt" }).first().click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+    const view = page.getByRole("region", { name: "Blame" });
+    await expect(view).toContainText("copie de travail");
+    const rows = view.locator("tbody tr");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(0).locator(".blame-commit")).toContainText("première version");
+    await expect(rows.nth(2).locator(".blame-commit")).toContainText("ajout de trois");
+    await expect(rows.nth(3).locator(".blame-commit")).toContainText("Pas encore commité");
+    await expect(rows.nth(3).locator(".blame-text")).toHaveText("quatre");
+
+    // Remonter avant « ajout de trois » : le fichier à « première version », deux lignes.
+    const first = git(mine, "rev-parse", "HEAD~1");
+    await rows.nth(2).locator(".blame-commit").click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Blame avant ce commit" }).click();
+    await expect(view).toContainText(first.slice(0, 7));
+    await expect(rows).toHaveCount(2);
+  } finally {
+    await app.close();
+  }
+});
+
+test("tag annoté créé sur un commit et poussé, puis supprimé ici et sur le remote", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "1\n", "premier");
+  const first = git(mine, "rev-parse", "HEAD");
+  sandbox.commit(mine, "a.txt", "2\n", "second");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    const row = graph.getByRole("option").filter({ hasText: "premier" });
+    await row.click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Nouveau tag ici…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouveau tag" });
+    await dialog.getByLabel("Nom du tag").fill("v1.0.0");
+    await dialog.getByLabel(/^Message/).fill("Version 1");
+    await dialog.getByLabel("Pousser le tag sur origin").check();
+    await dialog.getByRole("button", { name: "Créer le tag" }).click();
+    await expect(row).toContainText("v1.0.0");
+    await expect(page.getByText("Tag v1.0.0 poussé sur origin.")).toBeVisible();
+    expect(git(mine, "cat-file", "-t", "v1.0.0")).toBe("tag");
+    expect(git(mine, "rev-parse", "v1.0.0^{commit}")).toBe(first);
+    expect(git(sandbox.remote, "rev-parse", "v1.0.0^{commit}")).toBe(first);
+
+    await row.locator(".chip.tag", { hasText: "v1.0.0" }).click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Supprimer le tag v1.0.0…" }).click();
+    await page.getByRole("alertdialog", { name: "Supprimer le tag v1.0.0 ?" }).getByRole("button", { name: "Ici et sur origin" }).click();
+    await expect(row).not.toContainText("v1.0.0");
+    expect(git(mine, "tag", "-l")).toBe("");
+    expect(git(sandbox.remote, "tag", "-l")).toBe("");
+  } finally {
+    await app.close();
+  }
+});
+
+test("conflit de merge résolu dans GitGR : fichier écrit avec le résultat composé et indexé", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "c.txt", "un\n", "base");
+  git(mine, "checkout", "-q", "-b", "sujet");
+  sandbox.commit(mine, "c.txt", "deux\n", "côté sujet");
+  git(mine, "checkout", "-q", "main");
+  sandbox.commit(mine, "c.txt", "trois\n", "côté main");
+  try {
+    git(mine, "merge", "-q", "sujet");
+  } catch {
+    // conflit attendu
+  }
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" });
+    // Clic droit : marche quelle que soit la largeur du panneau (écran 1024×768 en CI).
+    await row.click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Résoudre" }).click();
+    const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
+    await view.getByRole("group", { name: "Conflit 1 / 1" }).getByRole("button", { name: "A puis B" }).click();
+    await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
+    await expect(view).toHaveCount(0);
+    expect(readFileSync(join(mine, "c.txt"), "utf8")).toBe("trois\ndeux\n");
+    expect(git(mine, "diff", "--name-only", "--diff-filter=U")).toBe("");
+    expect(git(mine, "diff", "--cached", "--name-only")).toBe("c.txt");
   } finally {
     await app.close();
   }

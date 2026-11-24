@@ -99,6 +99,8 @@ export interface RepoUi {
   hidden: string[];
   /** Case « pousser après le commit ». */
   pushAfterCommit?: boolean;
+  /** Auto-stash propre au dépôt ; absent : celui des réglages. */
+  autoStash?: boolean | null;
 }
 
 export interface AppState {
@@ -247,6 +249,33 @@ export interface RemoteInfo {
   url: string | null;
   /** URL de push, quand elle diffère. */
   pushUrl: string | null;
+}
+
+/** Un commit de l'historique d'un fichier, avec ce qu'il lui a fait (chemin à ce commit). */
+export interface FileHistoryEntry {
+  commit: Commit;
+  change: FileChange;
+}
+
+/** Commit d'origine d'au moins une ligne d'un blame. */
+export interface BlameCommit {
+  /** Que des zéros pour les lignes pas encore commitées. */
+  sha: string;
+  author: string;
+  email: string;
+  time: number;
+  summary: string;
+  /** Chemin du fichier dans ce commit. */
+  filename: string;
+  /** Commit d'avant qui avait ces lignes (et le chemin du fichier là-bas) ; `null` : création. */
+  previous: { sha: string; filename: string } | null;
+}
+
+/** Blame d'un fichier (`git blame`) : le commit de chaque ligne. */
+export interface Blame {
+  commits: BlameCommit[];
+  lines: { sha: string; orig: number; text: string }[];
+  truncated: boolean;
 }
 
 /** Une position passée de HEAD ou d'une branche (reflog), la plus récente d'abord. */

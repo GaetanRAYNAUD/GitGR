@@ -71,6 +71,78 @@ test("clic droit sur un fichier d'un commit : ouvrir, montrer dans le dossier, c
   expect(full.endsWith(`/${name}`) && full.length > name.length + 1).toBe(true);
 });
 
+test("historique d'un fichier : ses commits, diff au double-clic, retour à l'historique puis au graphe", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!;
+  await file.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
+
+  const view = page.getByRole("region", { name: "Historique du fichier" });
+  await expect(view).toContainText(`Historique de ${name}`);
+  const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+  const row = rows.filter({ hasText: "feat(graph): rendu canvas virtualisé" });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button").dblclick();
+  const diff = page.getByRole("region", { name: /^Diff de / });
+  await expect(diff).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(diff).toHaveCount(0);
+  await expect(view).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(view).toHaveCount(0);
+  await expect(graph(page)).toBeVisible();
+});
+
+test("blame d'un fichier à un commit : blocs par commit, détails au clic, puis l'historique du fichier", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!;
+  await file.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+
+  const view = page.getByRole("region", { name: "Blame" });
+  await expect(view).toContainText(`Blame de ${name}`);
+  const starts = view.locator("tr.start .blame-commit");
+  await expect(starts.first()).toContainText("feat(graph): rendu canvas virtualisé");
+  await starts.nth(1).click();
+  await expect(view.locator("tr.on").first()).toBeVisible();
+  const picked = (await starts.nth(1).locator(".blame-summary").textContent())!;
+  await expect(panel(page).getByRole("heading", { name: picked })).toBeVisible();
+
+  await view.getByRole("button", { name: "Historique du fichier" }).click();
+  await expect(page.getByRole("region", { name: "Historique du fichier" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(graph(page)).toBeVisible();
+});
+
+test("Ctrl+F : commits trouvés mis en avant, Entrée pour passer de l'un à l'autre, Échap ferme", async ({ page }) => {
+  await graph(page).getByRole("option").first().click();
+  await page.keyboard.press("Control+f");
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  const input = bar.getByRole("textbox");
+  await expect(input).toBeFocused();
+  await input.fill("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/commits? trouvés? · parmi les 1000 commits chargés/);
+  await expect(graph(page).locator(".commit-row.found").first()).toBeVisible();
+  await expect(graph(page).locator(".commit-row.dim").first()).toBeVisible();
+
+  await input.press("Enter");
+  const selected = graph(page).getByRole("option", { selected: true });
+  await expect(selected).toContainText("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/^1 \/ \d+/);
+  await input.press("Shift+Enter");
+  await expect(selected).toContainText("perf: rendu virtualisé");
+
+  await input.fill("introuvable-xyz");
+  await expect(bar.getByRole("status")).toContainText("Aucun commit trouvé");
+  await input.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
+  await expect(graph(page)).toBeFocused();
+});
+
 test("navigation au clavier dans le graphe", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   await rows.first().click();
@@ -260,6 +332,27 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   await page.keyboard.press("Escape");
   await expect(view).toHaveCount(0);
   await expect(graph(page)).toBeVisible();
+});
+
+test("résultats de la recherche dans les modifications mis en évidence dans le graphe, F3 pour les parcourir", async ({ page }) => {
+  await page.getByRole("button", { name: "Chercher", exact: true }).click();
+  const view = page.getByRole("region", { name: "Recherche dans les modifications" });
+  await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
+  await view.getByRole("button", { name: "Chercher" }).click();
+  await expect(view.getByRole("list", { name: /commits?$/ }).getByRole("listitem").first()).toBeVisible();
+  await view.getByRole("button", { name: "Voir dans le graphe" }).click();
+
+  await expect(view).toHaveCount(0);
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  await expect(bar).toContainText("Changements de « perf: rendu virtualisé »");
+  await expect(graph(page).locator(".commit-row.found").first()).toBeVisible();
+  await graph(page).focus();
+  await page.keyboard.press("F3");
+  await expect(graph(page).getByRole("option", { selected: true })).toContainText("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/^1 \/ \d+/);
+  await page.keyboard.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
 });
 
 test("clic droit sur un commit : revert, un nouveau commit l'annule en haut de main", async ({ page }) => {

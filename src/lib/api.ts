@@ -15,6 +15,9 @@ import {
   mockCreateBranch,
   mockDeleteBranch,
   mockDeleteRemoteBranch,
+  mockCreateTag,
+  mockDeleteTag,
+  mockTagRemote,
   mockPull,
   mockPullFrom,
   mockPush,
@@ -43,7 +46,7 @@ import {
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
-import {
+import { mockAddConflict, mockConflictText, mockResolveConflict,
   mockChangeCount,
   mockCommitIndex,
   mockDiscard,
@@ -60,6 +63,8 @@ import { validRepoName } from "./publish";
 import type {
   Account,
   ReflogEntry,
+  FileHistoryEntry,
+  Blame,
   ResetMode,
   AccountKey,
   AccountKeyKind,
@@ -132,6 +137,10 @@ export interface Api {
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
   /** Commits qui ajoutent ou retirent `text` (`git log -S`, ou `-G` si `regex`), toutes branches. */
   searchChanges(path: string, text: string, regex: boolean, file: string | null): Promise<Commit[]>;
+  /** Commits de la branche courante qui modifient `file`, renommages suivis, le plus récent d'abord. */
+  fileHistory(path: string, file: string): Promise<FileHistoryEntry[]>;
+  /** Commit de chaque ligne de `file` : au commit `rev`, ou dans la copie de travail (`null`). */
+  blame(path: string, file: string, rev: string | null): Promise<Blame>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -150,6 +159,10 @@ export interface Api {
   workStatus(path: string): Promise<WorkStatus>;
   workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
   stageFiles(path: string, files: string[]): Promise<void>;
+  /** Fichier en conflit tel qu'il est sur le disque, avec les marqueurs de git. */
+  conflictText(path: string, file: string): Promise<string>;
+  /** Écrit la résolution d'un conflit et marque le fichier résolu (`git add`). */
+  resolveConflict(path: string, file: string, content: string): Promise<void>;
   unstageFiles(path: string, files: string[]): Promise<void>;
   stageAll(path: string): Promise<void>;
   unstageAll(path: string): Promise<void>;
@@ -179,6 +192,13 @@ export interface Api {
   renameBranch(path: string, oldName: string, newName: string): Promise<void>;
   deleteBranch(path: string, branch: string, force: boolean): Promise<void>;
   deleteRemoteBranch(path: string, branch: string): Promise<void>;
+  /** Tag sur `target` (HEAD si `null`) : annoté si `message` est donné, léger sinon. */
+  createTag(path: string, name: string, target: string | null, message: string | null): Promise<void>;
+  deleteTag(path: string, name: string): Promise<void>;
+  /** Pousse un tag vers `remote` (`origin` ou le premier si `null`) ; renvoie le remote. */
+  pushTag(path: string, name: string, remote: string | null): Promise<string>;
+  /** Supprime un tag sur `remote` (`origin` ou le premier si `null`) ; renvoie le remote. */
+  deleteRemoteTag(path: string, name: string, remote: string | null): Promise<string>;
   fetch(path: string): Promise<void>;
   pull(path: string, strategy: PullStrategy, autoStash: boolean): Promise<OpResult>;
   /** Tire la branche `branch` du remote `remote` dans la branche courante. */
@@ -397,6 +417,8 @@ const tauriApi: Api = {
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
+  fileHistory: (path, file) => invoke("file_history", { path, file }),
+  blame: (path, file, rev) => invoke("blame", { path, file, rev }),
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
   cherryPick: (path, shas, autoStash) => invoke("cherry_pick", { path, shas, autoStash }),
   revert: (path, shas, autoStash) => invoke("revert", { path, shas, autoStash }),
@@ -404,6 +426,8 @@ const tauriApi: Api = {
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
+  conflictText: (path, file) => invoke("conflict_text", { path, file }),
+  resolveConflict: (path, file, content) => invoke("resolve_conflict", { path, file, content }),
   unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
   stageAll: (path) => invoke("stage_all", { path }),
   unstageAll: (path) => invoke("unstage_all", { path }),
@@ -425,6 +449,10 @@ const tauriApi: Api = {
   renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
   deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
   deleteRemoteBranch: (path, branch) => invoke("delete_remote_branch", { path, branch }),
+  createTag: (path, name, target, message) => invoke("create_tag", { path, name, target, message }),
+  deleteTag: (path, name) => invoke("delete_tag", { path, name }),
+  pushTag: (path, name, remote) => invoke("push_tag", { path, name, remote }),
+  deleteRemoteTag: (path, name, remote) => invoke("delete_remote_tag", { path, name, remote }),
   fetch: (path) => invoke("fetch", { path }),
   pull: (path, strategy, autoStash) => invoke("pull", { path, strategy, autoStash }),
   pullFrom: (path, remote, branch, strategy, autoStash) => invoke("pull_from", { path, remote, branch, strategy, autoStash }),
@@ -638,7 +666,7 @@ const mockOptionsCache = new Map<string, PullOptions>();
 /** Lectures des personnes / étiquettes sur le « provider » simulé (lues par les tests e2e). */
 const mockOptionFetches = { count: 0, delay: 600 };
 if (!inTauri && typeof window !== "undefined") {
-  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions });
+  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions, __mockConflict: mockAddConflict });
 }
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
@@ -814,6 +842,37 @@ const mockApi: Api = {
       .filter((c) => !file || mockDetails(path, c.sha).files.some((f) => f.path.startsWith(file)))
       .slice(0, 200);
   },
+  async fileHistory(path, file) {
+    await mockDelay();
+    // Simulé : les commits de l'historique dont les fichiers contiennent ce chemin.
+    const { commits } = mockHistory(path);
+    return commits.flatMap((commit) => {
+      const change = mockDetails(path, commit.sha).files.find((f) => f.path === file);
+      return change ? [{ commit, change }] : [];
+    });
+  },
+  async blame(path, file, rev) {
+    await mockDelay();
+    // Simulé : des blocs de lignes répartis sur les commits les plus récents.
+    const { commits } = mockHistory(path);
+    const from = rev ? Math.max(0, commits.findIndex((c) => c.sha === rev)) : 0;
+    const pool = commits.slice(from, from + 6);
+    const lines = Array.from({ length: 60 }, (_, i) => {
+      const c = !rev && i >= 56 ? null : pool[Math.floor(i / 7) % pool.length];
+      return { sha: c ? c.sha : "0".repeat(40), orig: i + 1, text: `ligne ${i + 1} de ${file}` };
+    });
+    const used = [...new Set(lines.map((l) => l.sha))];
+    return {
+      commits: used.map((sha) => {
+        const c = commits.find((x) => x.sha === sha);
+        return c
+          ? { sha, author: c.author, email: c.email, time: c.time, summary: c.subject, filename: file, previous: c.parents[0] ? { sha: c.parents[0], filename: file } : null }
+          : { sha, author: "Not Committed Yet", email: "not.committed.yet", time: 0, summary: "", filename: file, previous: null };
+      }),
+      lines,
+      truncated: false,
+    };
+  },
   async reflog(path, refname) {
     await mockDelay();
     return mockReflog(path, refname);
@@ -832,6 +891,14 @@ const mockApi: Api = {
   },
   async stageFiles(path, files) {
     mockStage(path, files, false);
+  },
+  async conflictText(path, file) {
+    await mockDelay();
+    return mockConflictText(path, file);
+  },
+  async resolveConflict(path, file, content) {
+    await mockDelay();
+    mockResolveConflict(path, file, content);
   },
   async unstageFiles(path, files) {
     mockStage(path, files, true);
@@ -888,6 +955,16 @@ const mockApi: Api = {
   async deleteRemoteBranch(path, branch) {
     await mockDelay();
     mockDeleteRemoteBranch(path, branch);
+  },
+  createTag: async (path, name, target) => mockCreateTag(path, name, target),
+  deleteTag: async (path, name) => mockDeleteTag(path, name),
+  async pushTag(path, name, remote) {
+    await mockDelay();
+    return mockTagRemote(path, name, remote);
+  },
+  async deleteRemoteTag(path, name, remote) {
+    await mockDelay();
+    return mockTagRemote(path, name, remote);
   },
   async fetch(path) {
     await mockDelay();

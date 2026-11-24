@@ -112,9 +112,9 @@ function setRefs(path: string, refs: GitRef[], head: string | null, headBranch: 
 const local = (path: string, name: string) => mockHistory(path).refs.refs.find((r) => r.kind === "local" && r.short === name);
 const remote = (path: string, name: string) => mockHistory(path).refs.refs.find((r) => r.kind === "remote" && r.short === name);
 
-function makeRef(kind: "local" | "remote", short: string, target: string, extra: Partial<GitRef> = {}): GitRef {
+function makeRef(kind: "local" | "remote" | "tag", short: string, target: string, extra: Partial<GitRef> = {}): GitRef {
   return {
-    name: kind === "local" ? `refs/heads/${short}` : `refs/remotes/${short}`,
+    name: kind === "local" ? `refs/heads/${short}` : kind === "tag" ? `refs/tags/${short}` : `refs/remotes/${short}`,
     short,
     kind,
     target,
@@ -264,6 +264,31 @@ export function mockDeleteRemoteBranch(path: string, branch: string) {
     .filter((x) => x !== r)
     .map((x) => (x.upstream === branch ? { ...x, gone: true, ahead: 0, behind: 0 } : x));
   setRefs(path, refs, h.refs.head, h.refs.headBranch);
+}
+
+export function mockCreateTag(path: string, name: string, target: string | null) {
+  if (!name || name.startsWith("-") || /[\s~^:?*[\\]|\.\.|\/$|\.lock$/.test(name)) throw "invalid_tag_name";
+  const h = mockHistory(path);
+  if (h.refs.refs.some((r) => r.kind === "tag" && r.short === name)) throw "tag_exists";
+  const sha = target ?? h.refs.head;
+  if (!sha || !h.commits.some((c) => c.sha === sha)) throw "invalid_start_point";
+  setRefs(path, [...h.refs.refs, makeRef("tag", name, sha)], h.refs.head, h.refs.headBranch);
+}
+
+export function mockDeleteTag(path: string, name: string) {
+  const h = mockHistory(path);
+  if (!h.refs.refs.some((r) => r.kind === "tag" && r.short === name)) throw "tag_not_found";
+  setRefs(path, h.refs.refs.filter((r) => !(r.kind === "tag" && r.short === name)), h.refs.head, h.refs.headBranch);
+}
+
+/** Push ou suppression d'un tag sur un remote : rien à simuler, sinon le choix du remote. */
+export function mockTagRemote(path: string, name: string, remote: string | null): string {
+  const h = mockHistory(path);
+  const names = h.refs.remotes.map((r) => r.name);
+  if (remote && !names.includes(remote)) throw "remote_not_found";
+  if (!names.length) throw "no_remote";
+  if (!name) throw "tag_not_found";
+  return remote ?? (names.includes("origin") ? "origin" : names[0]);
 }
 
 /** Branche courante et sa distante ; erreurs comme git. */

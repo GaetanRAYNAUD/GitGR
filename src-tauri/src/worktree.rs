@@ -603,6 +603,32 @@ pub fn add_to_gitignore(repo: &Path, pattern: &str) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Au-delà, un fichier en conflit n'est pas ouvert dans la vue de résolution.
+const CONFLICT_MAX_BYTES: usize = 5 * 1024 * 1024;
+
+/// Contenu d'un fichier en conflit de la copie de travail (avec les marqueurs de git), pour la
+/// vue de résolution. Refusé : absent (supprimé d'un côté), binaire, trop gros, pas en UTF-8.
+pub fn conflict_text(path: &Path, file: &str) -> Result<String, String> {
+    check_dir(path)?;
+    let full = repo_file(path, file)?;
+    let bytes = std::fs::read(&full).map_err(|_| "conflict_no_file".to_string())?;
+    if bytes.len() > CONFLICT_MAX_BYTES {
+        return Err("conflict_too_large".into());
+    }
+    if bytes.contains(&0) {
+        return Err("conflict_binary".into());
+    }
+    String::from_utf8(bytes).map_err(|_| "conflict_not_utf8".into())
+}
+
+/// Écrit la résolution d'un conflit dans la copie de travail et la marque résolue (`git add`).
+pub fn resolve_conflict(path: &Path, file: &str, content: &str) -> Result<(), String> {
+    check_dir(path)?;
+    let full = repo_file(path, file)?;
+    std::fs::write(&full, content).map_err(|e| e.to_string())?;
+    stage_files(path, &[file.to_string()])
+}
+
 /// Fichier `file` (chemin relatif du dépôt, comme Git le donne) de la copie de travail,
 /// refusé s'il sort du dépôt (`..`, chemin absolu, lien) : `outside_repo`.
 pub fn repo_file(repo: &Path, file: &str) -> Result<PathBuf, String> {
@@ -703,6 +729,32 @@ mod tests {
             .filter(|(_, l)| l.kind != " ")
             .map(|(i, l)| (i, l.kind.clone(), l.text.clone()))
             .collect()
+    }
+
+    #[test]
+    fn conflict_read_then_resolved() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "c.txt", "un\n");
+        run(Some(p), &["checkout", "-q", "-b", "autre"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "deux\n");
+        run(Some(p), &["checkout", "-q", "-"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "trois\n");
+        assert!(run(Some(p), &["merge", "-q", "autre"]).is_err());
+        let text = conflict_text(p, "c.txt").unwrap();
+        assert!(text.contains("<<<<<<<") && text.contains("deux") && text.contains("trois"));
+        assert_eq!(status(p).unwrap().conflicted.len(), 1);
+
+        resolve_conflict(p, "c.txt", "deux\ntrois\n").unwrap();
+        assert_eq!(std::fs::read_to_string(p.join("c.txt")).unwrap(), "deux\ntrois\n");
+        let s = status(p).unwrap();
+        assert!(s.conflicted.is_empty());
+        assert_eq!(s.staged[0].path, "c.txt");
+
+        assert_eq!(conflict_text(p, "absent.txt").unwrap_err(), "conflict_no_file");
+        assert_eq!(conflict_text(p, "../x").unwrap_err(), "outside_repo");
+        std::fs::write(p.join("b.bin"), [0u8, 1, 2]).unwrap();
+        assert_eq!(conflict_text(p, "b.bin").unwrap_err(), "conflict_binary");
     }
 
     #[test]

@@ -110,6 +110,172 @@ pub fn search_changes(path: &Path, text: &str, regex: bool, file: Option<&str>) 
 }
 
 // ---------------------------------------------------------------------------
+// Historique d'un fichier
+// ---------------------------------------------------------------------------
+
+const FILE_HISTORY_LIMIT: u32 = 500;
+
+/// Un commit qui touche le fichier, avec ce qu'il lui a fait (chemin à ce commit, ancien
+/// chemin s'il a été renommé).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHistoryEntry {
+    pub commit: Commit,
+    pub change: FileChange,
+}
+
+/// Commits de la branche courante (HEAD) qui modifient `file`, du plus récent au plus ancien,
+/// en suivant ses renommages (`--follow`). Les fusions qui ne le changent pas sont omises.
+pub fn file_history(path: &Path, file: &str) -> Result<Vec<FileHistoryEntry>, String> {
+    check_dir(path)?;
+    if file.is_empty() {
+        return Err("path_not_found".into());
+    }
+    let limit = format!("--max-count={FILE_HISTORY_LIMIT}");
+    let format = format!("--format=%x1e{}", &LOG_FORMAT["--format=".len()..]);
+    let args = ["--literal-pathspecs", "log", "--follow", "-M", "-z", "--name-status", "--no-ext-diff", &format, &limit, "HEAD", "--", file];
+    match run_raw(Some(path), &args) {
+        Ok(out) => Ok(parse_file_history(&out)),
+        // Dépôt sans commit : pas encore d'historique.
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") || e.contains("unknown revision") => Ok(vec![]),
+        Err(e) => Err(e),
+    }
+}
+
+/// Sortie de `log -z --name-status` avec un `\x1e` en tête de chaque commit : l'en-tête
+/// (champs de `LOG_FORMAT`) jusqu'au premier `\0`, puis ses fichiers.
+fn parse_file_history(out: &str) -> Vec<FileHistoryEntry> {
+    out.split('\x1e')
+        .filter_map(|rec| {
+            let (head, files) = rec.split_once('\0')?;
+            let commit = parse_log(head).into_iter().next()?;
+            let change = parse_name_status(files.trim_start_matches('\n')).into_iter().next()?;
+            Some(FileHistoryEntry { commit, change })
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Blame
+// ---------------------------------------------------------------------------
+
+/// Commit d'origine d'au moins une ligne du blame.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameCommit {
+    /// Que des zéros pour les lignes pas encore commitées (copie de travail).
+    pub sha: String,
+    pub author: String,
+    pub email: String,
+    pub time: i64,
+    pub summary: String,
+    /// Chemin du fichier dans ce commit (différent après un renommage).
+    pub filename: String,
+    /// Commit d'avant qui avait ces lignes, et le chemin du fichier là-bas (`previous` de
+    /// `git blame --porcelain`) ; absent pour le commit qui a créé le fichier.
+    pub previous: Option<BlamePrevious>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlamePrevious {
+    pub sha: String,
+    pub filename: String,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameLine {
+    pub sha: String,
+    /// Numéro de la ligne dans le commit d'origine.
+    pub orig: u32,
+    pub text: String,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Blame {
+    /// Chaque commit une fois, dans l'ordre de leur première ligne.
+    pub commits: Vec<BlameCommit>,
+    pub lines: Vec<BlameLine>,
+    /// Plus de `MAX_DIFF_LINES` lignes : la suite n'est pas montrée.
+    pub truncated: bool,
+}
+
+/// Origine de chaque ligne de `file` : au commit `rev`, ou dans la copie de travail (`None`,
+/// lignes pas encore commitées comprises). `git blame --porcelain`.
+pub fn blame(path: &Path, file: &str, rev: Option<&str>) -> Result<Blame, String> {
+    check_dir(path)?;
+    if file.is_empty() {
+        return Err("path_not_found".into());
+    }
+    let mut args = vec!["--literal-pathspecs", "blame", "--porcelain"];
+    if let Some(rev) = rev {
+        check_sha(rev)?;
+        args.push(rev);
+    }
+    args.extend(["--", file]);
+    let out = run_raw(Some(path), &args).map_err(|e| {
+        // Absent au commit, non suivi, ou supprimé de la copie de travail (« Cannot lstat »).
+        let missing = ["no such path", "no such ref", "does not have any commits", "Cannot lstat"];
+        if missing.iter().any(|m| e.contains(m)) { "blame_no_file".to_string() } else { e }
+    })?;
+    Ok(parse_blame(&out))
+}
+
+fn parse_blame(out: &str) -> Blame {
+    let mut commits: Vec<BlameCommit> = vec![];
+    let mut lines = vec![];
+    let mut truncated = false;
+    let mut current: Option<(String, u32)> = None;
+    for line in out.split('\n') {
+        if let Some(text) = line.strip_prefix('\t') {
+            let Some((sha, orig)) = current.take() else { continue };
+            if lines.len() >= MAX_DIFF_LINES {
+                truncated = true;
+                break;
+            }
+            lines.push(BlameLine { sha, orig, text: text.trim_end_matches('\r').to_string() });
+            continue;
+        }
+        let mut words = line.split(' ');
+        let first = words.next().unwrap_or("");
+        // SHA-1 (40) ou SHA-256 (64) : seules les lignes d'en-tête commencent ainsi.
+        if (first.len() == 40 || first.len() == 64) && first.chars().all(|c| c.is_ascii_hexdigit()) {
+            let orig = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
+            if !commits.iter().any(|c| c.sha == first) {
+                commits.push(BlameCommit {
+                    sha: first.into(),
+                    author: String::new(),
+                    email: String::new(),
+                    time: 0,
+                    summary: String::new(),
+                    filename: String::new(),
+                    previous: None,
+                });
+            }
+            current = Some((first.into(), orig));
+            continue;
+        }
+        let Some((sha, _)) = &current else { continue };
+        let Some(c) = commits.iter_mut().find(|c| &c.sha == sha) else { continue };
+        let value = line.split_once(' ').map(|(_, v)| v).unwrap_or("");
+        match first {
+            "author" => c.author = value.into(),
+            "author-mail" => c.email = value.trim_start_matches('<').trim_end_matches('>').into(),
+            "author-time" => c.time = value.parse().unwrap_or(0),
+            "summary" => c.summary = value.into(),
+            "filename" => c.filename = value.into(),
+            "previous" => {
+                c.previous = value.split_once(' ').map(|(sha, filename)| BlamePrevious { sha: sha.into(), filename: filename.into() });
+            }
+            _ => {}
+        }
+    }
+    Blame { commits, lines, truncated }
+}
+
+// ---------------------------------------------------------------------------
 // Reflog
 // ---------------------------------------------------------------------------
 
@@ -592,6 +758,57 @@ pub(crate) fn parse_hunk_header(rest: &str) -> (u32, u32) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn file_history_follows_renames() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\ntrois\nquatre\n");
+        crate::git::tests::commit_file(p, "b.txt", "autre\n");
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\ntrois\nquatre\ncinq\n");
+        run(Some(p), &["mv", "a.txt", "c.txt"]).unwrap();
+        run(Some(p), &["commit", "-qm", "renomme"]).unwrap();
+        let list = file_history(p, "c.txt").unwrap();
+        let got: Vec<_> = list.iter().map(|e| (e.change.status.as_str(), e.change.path.as_str(), e.change.old_path.as_deref())).collect();
+        assert_eq!(got, [("R", "c.txt", Some("a.txt")), ("M", "a.txt", None), ("A", "a.txt", None)]);
+        assert_eq!(list[0].commit.subject, "renomme");
+        assert!(file_history(p, "absent.txt").unwrap().is_empty());
+        assert!(file_history(p, "").is_err());
+    }
+
+    #[test]
+    fn blame_tells_each_line_its_commit() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\n");
+        let first = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        crate::git::tests::commit_file(p, "a.txt", "un\ndeux\ntrois\n");
+        let second = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        std::fs::write(p.join("a.txt"), "un\ndeux\ntrois\nquatre\n").unwrap();
+
+        let b = blame(p, "a.txt", Some(&first)).unwrap();
+        assert_eq!(b.lines.iter().map(|l| (l.sha.as_str(), l.text.as_str())).collect::<Vec<_>>(), [(first.as_str(), "un"), (first.as_str(), "deux")]);
+        assert_eq!(b.commits.len(), 1);
+        assert_eq!(b.commits[0].filename, "a.txt");
+        assert!(b.commits[0].time > 0);
+
+        let work = blame(p, "a.txt", None).unwrap();
+        let shas: Vec<_> = work.lines.iter().map(|l| l.sha.as_str()).collect();
+        assert_eq!(shas[..3], [first.as_str(), first.as_str(), second.as_str()]);
+        assert!(shas[3].chars().all(|c| c == '0'));
+        assert_eq!(work.lines[2].orig, 3);
+        assert_eq!(work.commits.len(), 3);
+        let by = |sha: &str| work.commits.iter().find(|c| c.sha == sha).unwrap();
+        assert_eq!(by(&first).previous, None);
+        assert_eq!(by(&second).previous, Some(BlamePrevious { sha: first.clone(), filename: "a.txt".into() }));
+
+        assert_eq!(blame(p, "absent.txt", Some(&second)).unwrap_err(), "blame_no_file");
+        assert!(blame(p, "a.txt", Some("-x")).is_err());
+        std::fs::remove_file(p.join("a.txt")).unwrap();
+        assert_eq!(blame(p, "a.txt", None).unwrap_err(), "blame_no_file");
+        std::fs::write(p.join("n.txt"), "x\n").unwrap();
+        assert_eq!(blame(p, "n.txt", None).unwrap_err(), "blame_no_file");
+    }
 
     #[test]
     fn search_changes_finds_when_text_came_and_went() {

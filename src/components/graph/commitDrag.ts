@@ -22,9 +22,10 @@ function targetAt(x: number, y: number): HTMLElement | null {
   return el instanceof Element ? (el.closest<HTMLElement>("[data-drop-ref]") ?? null) : null;
 }
 
-/** Commence (après quelques pixels) le glisser d'un commit ; `onDrop` reçoit la branche visée.
+/** Commence (après quelques pixels) le glisser d'un commit ; `onDrop` reçoit la branche visée,
+ *  `onClick` est appelé si le bouton est relâché sans avoir glissé.
  *  À appeler sur le `mousedown` (bouton gauche) d'une ligne du graphe. */
-export function startCommitDrag(e: React.MouseEvent, label: string, onDrop: (drop: CommitDrop) => void) {
+export function startCommitDrag(e: React.MouseEvent, label: string, onDrop: (drop: CommitDrop) => void, onClick?: () => void) {
   if (e.button !== 0) return;
   stop?.();
   const startX = e.clientX;
@@ -67,6 +68,7 @@ export function startCommitDrag(e: React.MouseEvent, label: string, onDrop: (dro
     const dragged = !!ghost;
     const target = dragged ? targetAt(ev.clientX, ev.clientY) : null;
     end();
+    if (!dragged) return onClick?.();
     const ref = target?.dataset.dropRef;
     if (ref) onDrop({ ref, x: ev.clientX, y: ev.clientY });
   };

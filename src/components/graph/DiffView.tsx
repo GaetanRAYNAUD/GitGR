@@ -31,7 +31,7 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
       <header className="diff-head">
         <BackButton onClick={close} />
         <StatusBadge status={file.status} />
-        <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>
+        <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, { rev: diff.sha, deleted: file.status === "D" }))}>
           {file.oldPath && <span className="muted">{file.oldPath} → </span>}
           {file.path}
         </span>

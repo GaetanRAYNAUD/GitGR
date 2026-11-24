@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { DEFAULT_REPO_UI } from "./graph/RefsSidebar";
 import { useTranslation } from "react-i18next";
 import { api, inTauri } from "../lib/api";
 import { repoColor, repoName, useApp } from "../store/app";
@@ -108,6 +109,7 @@ export function TitleBar() {
   const { t } = useTranslation();
   const tabs = useApp((s) => s.tabs);
   const active = useApp((s) => s.active);
+  const summaries = useApp((s) => s.summaries);
   const repos = useApp((s) => s.repos);
   const activate = useApp((s) => s.activate);
   const closeTab = useApp((s) => s.closeTab);
@@ -127,6 +129,23 @@ export function TitleBar() {
     return r ? repoName(r) : path;
   };
 
+  /** Auto-stash propre au dépôt : comme les réglages, toujours, jamais. */
+  const autoStashSub = (path: string): MenuItem => {
+    const app = useApp.getState();
+    const ui = app.repoUi[path] ?? DEFAULT_REPO_UI;
+    const own = ui.autoStash ?? null;
+    const global = app.settings.autoStash ?? true;
+    const choose = (v: boolean | null) => app.setRepoUi(path, { ...ui, autoStash: v });
+    return {
+      label: t("tabs.autoStash"),
+      items: [
+        { label: t(global ? "tabs.autoStashDefaultOn" : "tabs.autoStashDefaultOff"), checked: own === null, onClick: () => choose(null) },
+        { label: t("tabs.autoStashOn"), checked: own === true, onClick: () => choose(true) },
+        { label: t("tabs.autoStashOff"), checked: own === false, onClick: () => choose(false) },
+      ],
+    };
+  };
+
   const tabMenu = (path: string): MenuItem[] => {
     const r = repoOf(path);
     const { rename } = useApp.getState();
@@ -134,6 +153,7 @@ export function TitleBar() {
       { label: t("tabs.rename"), onClick: () => setEditing(path) },
       { label: t("tabs.originalName"), disabled: !r?.alias, onClick: () => rename(path, null) },
       { label: t("tabs.color"), onClick: () => setColoring(path) },
+      autoStashSub(path),
       "sep",
       { label: t("tabs.closeTab"), onClick: () => closeTab(path) },
     ];
@@ -156,13 +176,24 @@ export function TitleBar() {
         {tabs.map((path) => {
           const name = nameOf(path);
           const on = path === active;
+          // Travail en attente (fichiers pas encore commités, commits à pousser / tirer) :
+          // une marque sur la pastille, le détail dans l'infobulle.
+          const sum = summaries[path]?.data;
+          const pending = !!sum && sum.changes > 0;
+          const sync = !!sum && (sum.ahead > 0 || sum.behind > 0);
+          const state = [
+            pending ? t("tabs.pending", { count: sum.changes }) : null,
+            sync ? [sum.ahead ? `↑${sum.ahead}` : "", sum.behind ? `↓${sum.behind}` : ""].filter(Boolean).join(" ") : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
           const Main = editing === path ? "div" : "button";
           return (
             <div
               key={path}
               data-tab-path={path}
               className={["tab", on && "on", dragging === path && "dragged"].filter(Boolean).join(" ")}
-              title={path}
+              title={state ? `${path}\n${state}` : path}
               onAuxClick={(e) => e.button === 1 && closeTab(path)}
               onContextMenu={(e) => openContextMenu(e, tabMenu(path))}
             >
@@ -171,12 +202,16 @@ export function TitleBar() {
               <Main
                 role="tab"
                 aria-selected={on}
+                aria-description={state || undefined}
                 className="tab-main"
                 onClick={editing === path ? undefined : () => activate(path)}
                 onDoubleClick={() => setEditing(path)}
                 onPointerDown={editing === path ? undefined : (e: ReactPointerEvent) => onPointerDown(e, path)}
               >
-                <span className="dot" style={{ background: repoColor(path, repoOf(path)?.color) }} />
+                <span
+                  className={["dot", "tab-dot", pending && "pending", sync && "sync"].filter(Boolean).join(" ")}
+                  style={{ background: repoColor(path, repoOf(path)?.color) }}
+                />
                 {editing === path ? (
                   <input
                     className="tab-rename"

@@ -3,6 +3,7 @@ import { startNotifications } from "./store/notifications";
 import { useTranslation } from "react-i18next";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { DialogHost } from "./components/DialogHost";
+import { QuickOpenHost, useQuickOpen } from "./components/QuickOpen";
 import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
@@ -52,13 +53,16 @@ function typing(target: EventTarget | null): boolean {
 
 /** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
- *  pour annuler / rétablir la dernière opération git du dépôt actif. */
+ *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
+ *  rapide de dépôts. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useApp.getState();
       const ctrl = e.ctrlKey || e.metaKey;
+      // Changer d'onglet ferme le sélecteur rapide (ses repères « onglet actif » seraient faux).
+      if (ctrl && (e.key === "Tab" || e.key === "PageUp" || e.key === "PageDown" || /^[1-9wWtT]$/.test(e.key))) useQuickOpen.getState().hide();
       if (ctrl && e.shiftKey && (e.key === "PageUp" || e.key === "PageDown")) {
         if (s.active) s.moveTab(s.active, s.tabs.indexOf(s.active) + (e.key === "PageUp" ? -1 : 1));
       } else if (ctrl && e.key === "Tab") {
@@ -67,6 +71,11 @@ function useShortcuts() {
         if (s.active) s.closeTab(s.active);
       } else if (ctrl && e.key.toLowerCase() === "t") {
         s.activate(null);
+      } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === "e") {
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]') && !useQuickOpen.getState().open) return;
+        const q = useQuickOpen.getState();
+        if (q.open) q.hide();
+        else q.show();
       } else if (ctrl && e.key.toLowerCase() === "o") {
         s.pickAndOpen(t("welcome.pickTitle"));
       } else if (ctrl && /^[1-9]$/.test(e.key)) {
@@ -88,12 +97,15 @@ function useShortcuts() {
   }, [t]);
 }
 
-/** Rafraîchit le dépôt actif quand la fenêtre reprend le focus (modifs faites ailleurs). */
+/** Rafraîchit le dépôt actif quand la fenêtre reprend le focus (modifs faites ailleurs), et le
+ *  résumé des autres onglets. */
 function useRefreshOnFocus() {
   useEffect(() => {
     const onFocus = () => {
-      const { active, refreshRepo } = useApp.getState();
+      const { active, tabs, refreshRepo, refreshSummary } = useApp.getState();
       if (active) refreshRepo(active);
+      // Les autres onglets : seulement leur résumé (indicateur de travail en attente).
+      for (const p of tabs) if (p !== active) void refreshSummary(p);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -258,6 +270,7 @@ export default function App() {
       <PullDialogHost />
       <PublishDialogHost />
       <DialogHost />
+      <QuickOpenHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}
     </div>

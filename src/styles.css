@@ -5450,3 +5450,601 @@ body.commit-dragging * {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
+/* Historique d'un fichier (FileHistoryView). */
+.file-history-view .st {
+  align-self: center;
+}
+
+.file-history-rename {
+  font-size: 11.5px;
+}
+
+/* Blame (BlameView). */
+.blame-view .diff-head .btn {
+  margin-left: 8px;
+}
+
+.blame-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.blame-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 12px/1.6 "JetBrains Mono", ui-monospace, monospace;
+}
+
+.blame-table td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+
+.blame-table tr.start td {
+  border-top: 1px solid var(--border);
+}
+
+.blame-table tr:first-child td {
+  border-top: 0;
+}
+
+.blame-commit {
+  position: relative;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.blame-commit:hover,
+.blame-table tr.on .blame-commit {
+  background: var(--sel);
+}
+
+.blame-table tr.wip .blame-commit {
+  color: var(--mod);
+  cursor: default;
+}
+
+.blame-summary {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.blame-meta {
+  margin-left: 8px;
+}
+
+.blame-table .ln {
+  width: 1%;
+  min-width: 44px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.blame-text {
+  white-space: pre;
+}
+
+/* Recherche dans le graphe (Ctrl+F, CommitGraph). */
+.graph-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-find {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.graph-find-input {
+  flex: 0 1 320px;
+  min-width: 120px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.graph-find-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.graph-find-count {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.graph-find .flip {
+  transform: rotate(180deg);
+}
+
+.commit-row.dim > :not(.commit-refs) {
+  opacity: 0.4;
+}
+
+.commit-row.found .commit-msg {
+  font-weight: 600;
+}
+
+/* Travail en attente sur la pastille d'un onglet (TitleBar) : fichiers pas encore commités
+   (marque en bas à droite), commits à pousser / tirer (en haut à droite). */
+.tab-dot {
+  position: relative;
+}
+
+.tab-dot.pending::after,
+.tab-dot.sync::before {
+  content: "";
+  position: absolute;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+
+.tab-dot.pending::after {
+  bottom: -3px;
+  background: var(--mod);
+}
+
+.tab-dot.sync::before {
+  top: -3px;
+  background: var(--accent);
+}
+
+.tab.on .tab-dot.pending::after,
+.tab.on .tab-dot.sync::before {
+  box-shadow: 0 0 0 1.5px var(--panel);
+}
+
+/* État d'un dépôt récent à l'accueil (Welcome). */
+.repo-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.repo-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-sync {
+  color: var(--accent);
+}
+
+.repo-pending {
+  color: var(--mod);
+}
+
+/* Sélecteur rapide de dépôts (Ctrl+E, QuickOpen). */
+.quick-overlay {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.quick-open {
+  width: 560px;
+  padding: 10px;
+}
+
+.quick-search {
+  width: 100%;
+}
+
+.quick-list {
+  max-height: 50vh;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-item.on {
+  background: var(--sel);
+}
+
+.quick-name {
+  font-weight: 600;
+}
+
+.quick-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.quick-tag {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.quick-empty,
+.quick-hint {
+  margin: 10px 4px 2px;
+  font-size: 12px;
+}
+
+.graph-find-set {
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.search-highlight {
+  margin-left: 8px;
+}
+
+/* Marque d'âge en marge du blame : plus la ligne est récente, plus elle est marquée. */
+.blame-commit::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: calc(0.12 + 0.88 * var(--age, 0));
+}
+
+.blame-table tr.wip .blame-commit::before {
+  background: var(--mod);
+}
+
+/* Résolution de conflits (ConflictView). */
+.conflict-view .diff-head .btn {
+  margin-left: 6px;
+}
+
+/* Le nom du fichier passe avant le statut quand la place manque. */
+.conflict-view .pull-view-title {
+  flex: 0 1 auto;
+  min-width: 120px;
+}
+
+.conflict-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.conflict-left {
+  color: var(--del);
+}
+
+.conflict-block.proposed {
+  border-left-color: var(--mod);
+}
+
+.conflict-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px 24px;
+}
+
+
+.conflict-block {
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--del);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.conflict-block.done {
+  border-left-color: var(--add);
+}
+
+.conflict-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.conflict-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.conflict-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.conflict-side {
+  min-width: 0;
+}
+
+.conflict-side + .conflict-side {
+  border-left: 1px solid var(--border);
+}
+
+.conflict-side-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.conflict-side pre,
+.conflict-base pre {
+  margin: 0;
+  padding: 2px 10px 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.conflict-side.ours pre {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.conflict-side.theirs pre {
+  background: color-mix(in srgb, var(--mod) 10%, transparent);
+}
+
+.conflict-base {
+  padding: 2px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.conflict-result {
+  border-top: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.conflict-pending {
+  margin: 2px 10px 4px;
+  font-size: 12px;
+}
+
+.conflict-edit {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.conflict-edit:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Contexte autour d'un bloc, et fichier résultant en bas (ConflictView). */
+.conflict-ctx {
+  color: var(--faint);
+}
+
+.conflict-side pre .conflict-lines {
+  display: block;
+  margin: 0 -10px;
+  padding: 0 10px;
+}
+
+.conflict-side.ours pre {
+  background: none;
+}
+
+.conflict-side.theirs pre {
+  background: none;
+}
+
+/* Lignes d'un côté : ajoutée (vert), modifiée (jaune), supprimée de ce côté (rouge, barrée). */
+.conflict-lines .cl {
+  display: block;
+  margin: 0 -10px;
+  padding: 0 10px 0 22px;
+  position: relative;
+}
+
+.conflict-lines .cl::before {
+  position: absolute;
+  left: 8px;
+  font-weight: 700;
+}
+
+.conflict-lines .cl-add {
+  background: color-mix(in srgb, var(--add) 16%, transparent);
+}
+
+.conflict-lines .cl-add::before {
+  content: "+";
+  color: var(--add);
+}
+
+.conflict-lines .cl-mod {
+  background: color-mix(in srgb, var(--mod) 18%, transparent);
+}
+
+.conflict-lines .cl-mod::before {
+  content: "~";
+  color: var(--mod);
+}
+
+.conflict-lines .cl-del {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.conflict-lines .cl-del::before {
+  content: "−";
+  color: var(--del);
+  text-decoration: none;
+}
+
+.conflict-skip {
+  margin: 4px 8px;
+  color: var(--faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.conflict-body {
+  flex: 1 1 55%;
+}
+
+.conflict-preview {
+  flex: 0 0 40%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.conflict-preview-h {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.conflict-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.conflict-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.conflict-preview td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+
+.conflict-preview .ln {
+  width: 1%;
+  min-width: 40px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+}
+
+.conflict-preview .pv-text {
+  white-space: pre;
+}
+
+.conflict-preview tr.pv-open {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+.conflict-preview tr.pv-proposed {
+  background: color-mix(in srgb, var(--mod) 14%, transparent);
+}
+
+.conflict-preview tr.pv-done {
+  background: color-mix(in srgb, var(--add) 12%, transparent);
+}
+
+/* Choix ligne par ligne : case devant chaque ligne d'un côté, cochée si elle est gardée. */
+.conflict-lines .cl.pickable {
+  padding-left: 40px;
+  cursor: pointer;
+}
+
+.conflict-lines .cl.pickable::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin-top: -6px;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+}
+
+.conflict-lines .cl.pickable.picked::after {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--panel);
+}
+
+.conflict-lines .cl.pickable:hover {
+  outline: 1px solid var(--border);
+}
+
+.conflict-lines .cl.pickable:not(.picked) {
+  opacity: 0.6;
+}

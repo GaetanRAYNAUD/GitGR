@@ -139,11 +139,12 @@ test.describe("dépôt propre", () => {
     const row = graph(page).getByRole("option").nth(3);
     const sha = (await row.getAttribute("id"))!.replace("commit-", "").slice(0, 7);
     const drag = async (target: ReturnType<typeof branch>) => {
-      const from = (await row.boundingBox())!;
       const to = (await target.boundingBox())!;
-      await page.mouse.move(from.x + 40, from.y + from.height / 2);
+      // Saisi par le message : depuis une étiquette de branche locale, c'est la branche qu'on glisse.
+      const msg = (await row.locator(".commit-msg").boundingBox())!;
+      await page.mouse.move(msg.x + 20, msg.y + msg.height / 2);
       await page.mouse.down();
-      await page.mouse.move(from.x + 60, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(msg.x + 40, msg.y + msg.height / 2, { steps: 3 });
       await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
       await expect(target).toHaveClass(/drop-over/);
       await page.mouse.up();
@@ -183,6 +184,58 @@ test.describe("dépôt propre", () => {
     await expect(tool(page, "Rétablir")).toBeDisabled();
   });
 
+  test("glisser une sélection de commits sur une branche : cherry-pick du lot, checkout d'abord", async ({ page }) => {
+    const rows = graph(page).getByRole("option");
+    await rows.nth(3).click();
+    await rows.nth(5).click({ modifiers: ["Control"] });
+    await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(2);
+
+    const msg = (await rows.nth(5).locator(".commit-msg").boundingBox())!;
+    const target = branch(page, "ssh-agent");
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(msg.x + 20, msg.y + msg.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(msg.x + 40, msg.y + msg.height / 2, { steps: 3 });
+    await expect(page.locator(".commit-drag-ghost")).toHaveText("2 commits");
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await menu(page).getByRole("menuitem", { name: "Cherry-pick des 2 commits sur fix/ssh-agent (checkout de fix/ssh-agent d’abord)" }).click();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
+
+    // Un simple clic sur un commit de la sélection ne garde que lui.
+    await rows.nth(4).click();
+    await rows.nth(6).click({ modifiers: ["Control"] });
+    await rows.nth(6).click();
+    await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(1);
+  });
+
+  test("glisser une branche sur une autre : merge dans la courante, rebase avec checkout d'abord", async ({ page }) => {
+    const drag = async (source: ReturnType<typeof branch>, target: ReturnType<typeof branch>) => {
+      const from = (await source.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + 20, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 40, from.y + from.height / 2, { steps: 3 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+      await expect(target).toHaveClass(/drop-over/);
+      await page.mouse.up();
+    };
+
+    // Sur elle-même : rien.
+    await drag(branch(page, "profils"), branch(page, "profils"));
+    await expect(menu(page)).toHaveCount(0);
+
+    await drag(branch(page, "profils"), branch(page, "main"));
+    await expect(menu(page).getByRole("menuitem", { name: "Rebase de feature/profils sur main" })).toHaveAttribute("title", /Passe d’abord sur feature\/profils/);
+    await menu(page).getByRole("menuitem", { name: "Merge de feature/profils dans main" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /feature\/profils.*main/ })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
+
+    await drag(branch(page, "ssh-agent"), branch(page, "main"));
+    await menu(page).getByRole("menuitem", { name: "Rebase de fix/ssh-agent sur main" }).click();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
+  });
+
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {
     const row = graph(page).getByRole("option").nth(3);
     await row.click({ button: "right" });
@@ -195,6 +248,37 @@ test.describe("dépôt propre", () => {
     await dialog.getByRole("button", { name: "Créer" }).click();
     await expect(row).toContainText("ici");
     await expect(current(page)).toHaveText("main");
+  });
+});
+
+test.describe("tags", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+    await openNextRepo(page, "GitGR");
+  });
+
+  test("clic droit sur un commit : tag annoté poussé, puis supprimé depuis la barre latérale", async ({ page }) => {
+    const row = graph(page).getByRole("option").nth(3);
+    await row.click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Nouveau tag ici…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouveau tag" });
+    await expect(dialog).toContainText(/Sur [0-9a-f]{7}/);
+    await dialog.getByLabel("Nom du tag").fill("v 9");
+    await expect(dialog.getByRole("button", { name: "Créer le tag" })).toBeDisabled();
+    await dialog.getByLabel("Nom du tag").fill("v9.0.0");
+    await dialog.getByLabel(/^Message/).fill("Version 9");
+    await dialog.getByLabel("Pousser le tag sur origin").check();
+    await dialog.getByRole("button", { name: "Créer le tag" }).click();
+    await expect(row).toContainText("v9.0.0");
+    await expect(page.getByText("Tag v9.0.0 poussé sur origin.")).toBeVisible();
+
+    await sidebar(page).getByRole("button", { name: /^Tags/ }).click();
+    await sidebar(page).getByRole("button", { name: "v9.0.0" }).click({ button: "right" });
+    await menu(page).getByRole("menuitem", { name: "Supprimer le tag v9.0.0…" }).click();
+    const confirm = page.getByRole("alertdialog", { name: "Supprimer le tag v9.0.0 ?" });
+    await confirm.getByRole("button", { name: "Supprimer localement" }).click();
+    await expect(row).not.toContainText("v9.0.0");
+    await expect(sidebar(page).getByRole("button", { name: "v9.0.0" })).toHaveCount(0);
   });
 });
 

@@ -56,7 +56,7 @@ function InputDialog({ request }: { request: InputRequest }) {
   const allPicked = pickItems.length > 0 && pickItems.every((i) => picked.has(i.id));
   const error = request.validate?.(value.trim()) ?? null;
   const secondError = request.second?.validate?.(second.trim()) ?? null;
-  const empty = value.trim() === "" || (!!request.second && second.trim() === "") || (!!request.picks && picked.size === 0);
+  const empty = value.trim() === "" || (!!request.second && !request.second.optional && second.trim() === "") || (!!request.picks && picked.size === 0);
   const invalid = !!error || !!secondError;
 
   return (

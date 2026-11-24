@@ -182,6 +182,16 @@ pub async fn search_changes(path: String, text: String, regex: bool, file: Optio
 }
 
 #[tauri::command]
+pub async fn file_history(path: String, file: String) -> Result<Vec<history::FileHistoryEntry>, String> {
+    history::file_history(Path::new(&path), &file).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn blame(path: String, file: String, rev: Option<String>) -> Result<history::Blame, String> {
+    history::blame(Path::new(&path), &file, rev.as_deref()).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn reflog(path: String, refname: String) -> Result<Vec<history::ReflogEntry>, String> {
     history::reflog(Path::new(&path), &refname).map_err(classify)
 }
@@ -241,6 +251,16 @@ pub async fn work_diff(path: String, file: String, old_file: Option<String>, are
 #[tauri::command]
 pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String> {
     worktree::stage_files(Path::new(&path), &files).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn conflict_text(path: String, file: String) -> Result<String, String> {
+    worktree::conflict_text(Path::new(&path), &file).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn resolve_conflict(path: String, file: String, content: String) -> Result<(), String> {
+    worktree::resolve_conflict(Path::new(&path), &file, &content).map_err(classify)
 }
 
 #[tauri::command]
@@ -383,6 +403,26 @@ pub async fn delete_branch(path: String, branch: String, force: bool) -> Result<
 #[tauri::command]
 pub async fn delete_remote_branch(path: String, branch: String) -> Result<(), String> {
     branches::delete_remote_branch(Path::new(&path), &branch)
+}
+
+#[tauri::command]
+pub async fn create_tag(path: String, name: String, target: Option<String>, message: Option<String>) -> Result<(), String> {
+    branches::create_tag(Path::new(&path), &name, target.as_deref(), message.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_tag(path: String, name: String) -> Result<(), String> {
+    branches::delete_tag(Path::new(&path), &name)
+}
+
+#[tauri::command]
+pub async fn push_tag(path: String, name: String, remote: Option<String>) -> Result<String, String> {
+    branches::push_tag(Path::new(&path), &name, remote.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_remote_tag(path: String, name: String, remote: Option<String>) -> Result<String, String> {
+    branches::delete_remote_tag(Path::new(&path), &name, remote.as_deref())
 }
 
 #[tauri::command]

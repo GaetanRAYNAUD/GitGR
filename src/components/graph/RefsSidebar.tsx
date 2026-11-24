@@ -18,7 +18,7 @@ import { openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
 import { ProfileAvatar } from "../ProfileAvatar";
 import { RemoteMark } from "../RemoteMark";
-import { checkoutRef, refMenu, remoteMenu } from "./menus";
+import { checkoutRef, refMenu, remoteMenu, startBranchDrag } from "./menus";
 import { PULLS_SECTION, PullsSection, termOf } from "./PullsSection";
 import { STASHES_SECTION, StashesSection } from "./StashesSection";
 import { pullOfRef, usePullContexts, usePullList } from "../../store/pullList";
@@ -92,6 +92,7 @@ export function RefsSidebar({ path }: { path: string }) {
           onClick={() => go(r)}
           onDoubleClick={() => checkoutRef(path, r, refs)}
           onContextMenu={(e) => openContextMenu(e, refMenu(t, path, r, refs))}
+          onMouseDown={r.kind === "local" ? (e) => startBranchDrag(e, t, path, r) : undefined}
           data-drop-ref={r.kind === "local" ? r.name : undefined}
           title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${hint}`}
         >

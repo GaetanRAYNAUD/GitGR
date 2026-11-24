@@ -29,8 +29,9 @@ export interface InputRequest {
   submit: string;
   /** Champ masqué (phrase de passe) : ni valeur initiale affichée, ni correction. */
   secret?: boolean;
-  /** Second champ facultatif, sous le premier (URL d'un remote…) ; obligatoire lui aussi. */
-  second?: { label: string; initial: string; placeholder?: string; validate?: (value: string) => string | null };
+  /** Second champ facultatif, sous le premier (URL d'un remote…) ; obligatoire lui aussi,
+   *  sauf `optional` (message d'un tag annoté…). */
+  second?: { label: string; initial: string; placeholder?: string; optional?: boolean; validate?: (value: string) => string | null };
   /** Case à cocher facultative sous le champ. */
   checkbox?: { label: string; checked: boolean };
   /** Liste à cocher facultative (fichiers d'un stash partiel…) : au moins un élément. */

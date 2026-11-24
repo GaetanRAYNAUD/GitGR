@@ -58,6 +58,14 @@ describe("checkout", () => {
     expect(spy).toHaveBeenCalledWith(REPO_B, "feature/profils", false);
   });
 
+  it("l'auto-stash propre au dépôt passe avant le réglage", async () => {
+    await open(REPO_B);
+    const spy = vi.spyOn(api, "checkout");
+    useApp.setState((s) => ({ settings: { ...s.settings, autoStash: false }, repoUi: { ...s.repoUi, [REPO_B]: { collapsed: [], hidden: [], autoStash: true } } }));
+    await ops().checkout(REPO_B, "feature/profils");
+    expect(spy).toHaveBeenCalledWith(REPO_B, "feature/profils", true);
+  });
+
   it("stash gardé (conflits à la réapplication) : message persistant avec le nom du stash", async () => {
     await open(REPO_B);
     vi.spyOn(api, "checkout").mockResolvedValueOnce({ stashed: true, stashKept: true, conflicts: false });

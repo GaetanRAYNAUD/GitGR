@@ -2,6 +2,8 @@
 // et les traits du graphe sont dessinés sur un canvas de la taille de la zone visible.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { commitMatches, findQuery, nextMatch } from "../../lib/graphFind";
+import { useGraphFind } from "../../store/graphFind";
 import { useTranslation } from "react-i18next";
 import { commitDate, initials } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, SIDE_COLOR, type GraphLayout } from "../../lib/graph";
@@ -22,7 +24,7 @@ import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitDropMenu, commitMenu, pickedMenu, refMenu } from "./menus";
+import { checkoutRef, commitDropMenu, commitMenu, pickedDropMenu, pickedMenu, refMenu, startBranchDrag } from "./menus";
 import { startCommitDrag } from "./commitDrag";
 import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
@@ -326,6 +328,7 @@ function Chip({
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
+      onMouseDown={r?.kind === "local" ? (e) => startBranchDrag(e, t, path, r) : undefined}
       data-drop-ref={r?.kind === "local" ? r.name : undefined}
     >
       {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
@@ -460,6 +463,36 @@ export function CommitGraph({ path, changes }: Props) {
   const picked = graph?.picked;
   const pickedSet = useMemo(() => new Set(picked ?? []), [picked]);
 
+  // Recherche (Ctrl+F) parmi les commits chargés : lignes trouvées mises en avant, les
+  // autres estompées ; Entrée / Maj+Entrée passent au résultat suivant / précédent.
+  const findText = useGraphFind((s) => s.queries[path]);
+  const findInput = useRef<HTMLInputElement>(null);
+  const findSet = useGraphFind((s) => s.sets[path]);
+  const query = findText === undefined ? null : findQuery(findText);
+  const finding = !!query || !!findSet;
+  const matches = useMemo(() => {
+    const wanted = findSet ? new Set(findSet.shas) : null;
+    if (!query && !wanted) return [];
+    const out: number[] = [];
+    commits.forEach((c, i) => {
+      if (c.sha === WIP || c.side) return;
+      if (wanted ? wanted.has(c.sha) : commitMatches(c, query!)) out.push(i);
+    });
+    return out;
+  }, [commits, query, findSet]);
+  const matchSet = useMemo(() => new Set(matches), [matches]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      useGraphFind.getState().open(path);
+      requestAnimationFrame(() => findInput.current?.select());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [path]);
+
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
   const last = Math.min(commits.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
 
@@ -545,8 +578,27 @@ export function CommitGraph({ path, changes }: Props) {
     ensureVisible(selectedIndex);
   }, [selected, selectedIndex, ensureVisible]);
 
+  /** Sélectionne le résultat suivant (1) ou précédent (-1) de la recherche. */
+  const jump = (dir: 1 | -1) => {
+    const i = nextMatch(matches, selectedIndex, dir);
+    if (i === null) return;
+    select(path, shas[i]);
+    ensureVisible(i);
+  };
+  const closeFind = () => {
+    useGraphFind.getState().close(path);
+    scrollRef.current?.focus();
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (commits.length === 0) return;
+    // Recherche en cours : F3 / Maj+F3 passent d'un résultat à l'autre ; Échap ferme la barre.
+    if ((finding && e.key === "F3") || ((findText !== undefined || findSet) && e.key === "Escape")) {
+      e.preventDefault();
+      if (e.key === "F3") jump(e.shiftKey ? -1 : 1);
+      else closeFind();
+      return;
+    }
     const page = Math.max(1, Math.floor(viewH / ROW_H) - 1);
     const moves: Record<string, number> = {
       ArrowDown: 1,
@@ -685,7 +737,72 @@ export function CommitGraph({ path, changes }: Props) {
     }
   };
 
+  const findPos = matches.indexOf(selectedIndex);
+  // Commits de la liste qui ne sont pas (encore) dans les pages chargées.
+  const outside = findSet ? findSet.shas.length - matches.length : 0;
+  const findBar = (findText !== undefined || findSet) && (
+    <div className="graph-find" role="search" aria-label={t("graphFind.label")}>
+      <Icon name="search" size={13} />
+      {findSet ? (
+        <span className="graph-find-set" title={findSet.label}>
+          {t("graphFind.setLabel", { label: findSet.label })}
+        </span>
+      ) : (
+      <input
+        ref={findInput}
+        autoFocus
+        className="graph-find-input"
+        value={findText}
+        placeholder={t("graphFind.placeholder")}
+        aria-label={t("graphFind.label")}
+        spellCheck={false}
+        onChange={(e) => useGraphFind.getState().setQuery(path, e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            jump(e.shiftKey ? -1 : 1);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            closeFind();
+          }
+        }}
+      />
+      )}
+      <span className="muted graph-find-count" role="status">
+        {finding &&
+          [
+            matches.length === 0
+              ? t("graphFind.none")
+              : findPos >= 0
+                ? t("graphFind.position", { index: findPos + 1, count: matches.length })
+                : t("graphFind.count", { count: matches.length }),
+            findSet
+              ? outside > 0
+                ? t("graphFind.outside", { count: outside })
+                : null
+              : graph.done
+                ? null
+                : t("graphFind.loaded", { count: graph.commits.length }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+      </span>
+      <button className="icon-btn sm" aria-label={t("graphFind.prev")} title={`${t("graphFind.prev")} (Maj+Entrée)`} disabled={!matches.length} onClick={() => jump(-1)}>
+        <Icon name="chevron" size={13} className="flip" />
+      </button>
+      <button className="icon-btn sm" aria-label={t("graphFind.next")} title={`${t("graphFind.next")} (Entrée)`} disabled={!matches.length} onClick={() => jump(1)}>
+        <Icon name="chevron" size={13} />
+      </button>
+      <button className="icon-btn sm" aria-label={t("graphFind.close")} title={`${t("graphFind.close")} (Échap)`} onClick={closeFind}>
+        <Icon name="close" size={13} />
+      </button>
+    </div>
+  );
+
   return (
+    <div className="graph-wrap">
+    {findBar}
     <div
       className="graph-scroll"
       ref={scrollRef}
@@ -741,7 +858,8 @@ export function CommitGraph({ path, changes }: Props) {
           const isStash = !!stash;
           // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
           const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
-          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far"]
+          const found = finding ? (matchSet.has(i) ? "found" : "dim") : null;
+          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far", found]
             .filter(Boolean)
             .join(" ");
           return (
@@ -761,10 +879,26 @@ export function CommitGraph({ path, changes }: Props) {
                 if (stash) openStash(path, stash);
                 else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
                 else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
-                else {
+                else if (!isWip && pickedSet.size > 1 && pickedSet.has(c.sha)) {
+                  // Dans une sélection multiple : on glisse tout le lot ; un simple clic ne
+                  // garde que ce commit, comme avant.
+                  const ordered = orderPicked(graph.commits, picked ?? []);
+                  startCommitDrag(
+                    e,
+                    t("multi.dragLabel", { count: ordered.length }),
+                    (drop) => {
+                      const refs = useGraph.getState().graphs[path]?.refs ?? null;
+                      const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+                      if (target) useContextMenu.getState().open(drop.x, drop.y, pickedDropMenu(t, path, ordered, target, refs));
+                    },
+                    () => select(path, c.sha),
+                  );
+                } else {
                   select(path, c.sha);
-                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer.
-                  if (!isWip)
+                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer. Pas
+                  // depuis l'étiquette d'une branche locale : c'est elle qu'on glisse alors.
+                  const fromChip = (e.target as HTMLElement).closest?.(".chip[data-drop-ref]");
+                  if (!isWip && !fromChip)
                     startCommitDrag(e, `${c.sha.slice(0, 7)} ${c.subject}`, (drop) => {
                       const refs = useGraph.getState().graphs[path]?.refs ?? null;
                       const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
@@ -787,6 +921,7 @@ export function CommitGraph({ path, changes }: Props) {
         })}
       </div>
       {graph.loading && graph.commits.length > 0 && <div className="graph-more muted">{t("graph.loadingMore")}</div>}
+    </div>
     </div>
   );
 }
