@@ -117,6 +117,32 @@ test("blame d'un fichier à un commit : blocs par commit, détails au clic, puis
   await expect(graph(page)).toBeVisible();
 });
 
+test("Ctrl+F : commits trouvés mis en avant, Entrée pour passer de l'un à l'autre, Échap ferme", async ({ page }) => {
+  await graph(page).getByRole("option").first().click();
+  await page.keyboard.press("Control+f");
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  const input = bar.getByRole("textbox");
+  await expect(input).toBeFocused();
+  await input.fill("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/commits? trouvés? · parmi les 1000 commits chargés/);
+  await expect(graph(page).locator(".commit-row.found").first()).toBeVisible();
+  await expect(graph(page).locator(".commit-row.dim").first()).toBeVisible();
+
+  await input.press("Enter");
+  const selected = graph(page).getByRole("option", { selected: true });
+  await expect(selected).toContainText("perf: rendu virtualisé");
+  await expect(bar.getByRole("status")).toContainText(/^1 \/ \d+/);
+  await input.press("Shift+Enter");
+  await expect(selected).toContainText("perf: rendu virtualisé");
+
+  await input.fill("introuvable-xyz");
+  await expect(bar.getByRole("status")).toContainText("Aucun commit trouvé");
+  await input.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
+  await expect(graph(page)).toBeFocused();
+});
+
 test("navigation au clavier dans le graphe", async ({ page }) => {
   const rows = graph(page).getByRole("option");
   await rows.first().click();

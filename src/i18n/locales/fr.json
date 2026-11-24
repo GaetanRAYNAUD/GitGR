@@ -225,6 +225,19 @@
     "columns": "Colonnes affichées",
     "columnsHint": "Clic droit sur l’en-tête pour y revenir."
   },
+  "graphFind": {
+    "label": "Chercher dans le graphe",
+    "placeholder": "Message, auteur, e-mail ou SHA",
+    "count_one": "{{count}} commit trouvé",
+    "count_other": "{{count}} commits trouvés",
+    "position": "{{index}} / {{count}}",
+    "none": "Aucun commit trouvé",
+    "loaded_one": "parmi le seul commit chargé",
+    "loaded_other": "parmi les {{count}} commits chargés",
+    "prev": "Résultat précédent",
+    "next": "Résultat suivant",
+    "close": "Fermer la recherche"
+  },
   "range": {
     "pushTitle_one": "{{count}} commit à pousser vers {{upstream}}",
     "pushTitle_other": "{{count}} commits à pousser vers {{upstream}}",

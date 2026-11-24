@@ -2,6 +2,8 @@
 // et les traits du graphe sont dessinés sur un canvas de la taille de la zone visible.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { commitMatches, findQuery, nextMatch } from "../../lib/graphFind";
+import { useGraphFind } from "../../store/graphFind";
 import { useTranslation } from "react-i18next";
 import { commitDate, initials } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, SIDE_COLOR, type GraphLayout } from "../../lib/graph";
@@ -460,6 +462,32 @@ export function CommitGraph({ path, changes }: Props) {
   const picked = graph?.picked;
   const pickedSet = useMemo(() => new Set(picked ?? []), [picked]);
 
+  // Recherche (Ctrl+F) parmi les commits chargés : lignes trouvées mises en avant, les
+  // autres estompées ; Entrée / Maj+Entrée passent au résultat suivant / précédent.
+  const findText = useGraphFind((s) => s.queries[path]);
+  const findInput = useRef<HTMLInputElement>(null);
+  const query = findText === undefined ? null : findQuery(findText);
+  const matches = useMemo(() => {
+    if (!query) return [];
+    const out: number[] = [];
+    commits.forEach((c, i) => {
+      if (c.sha !== WIP && !c.side && commitMatches(c, query)) out.push(i);
+    });
+    return out;
+  }, [commits, query]);
+  const matchSet = useMemo(() => new Set(matches), [matches]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      useGraphFind.getState().open(path);
+      requestAnimationFrame(() => findInput.current?.select());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [path]);
+
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
   const last = Math.min(commits.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
 
@@ -544,6 +572,18 @@ export function CommitGraph({ path, changes }: Props) {
     lastSelected.current = selected;
     ensureVisible(selectedIndex);
   }, [selected, selectedIndex, ensureVisible]);
+
+  /** Sélectionne le résultat suivant (1) ou précédent (-1) de la recherche. */
+  const jump = (dir: 1 | -1) => {
+    const i = nextMatch(matches, selectedIndex, dir);
+    if (i === null) return;
+    select(path, shas[i]);
+    ensureVisible(i);
+  };
+  const closeFind = () => {
+    useGraphFind.getState().close(path);
+    scrollRef.current?.focus();
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (commits.length === 0) return;
@@ -685,7 +725,58 @@ export function CommitGraph({ path, changes }: Props) {
     }
   };
 
+  const findPos = matches.indexOf(selectedIndex);
+  const findBar = findText !== undefined && (
+    <div className="graph-find" role="search" aria-label={t("graphFind.label")}>
+      <Icon name="search" size={13} />
+      <input
+        ref={findInput}
+        autoFocus
+        className="graph-find-input"
+        value={findText}
+        placeholder={t("graphFind.placeholder")}
+        aria-label={t("graphFind.label")}
+        spellCheck={false}
+        onChange={(e) => useGraphFind.getState().setQuery(path, e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            jump(e.shiftKey ? -1 : 1);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            closeFind();
+          }
+        }}
+      />
+      <span className="muted graph-find-count" role="status">
+        {query &&
+          [
+            matches.length === 0
+              ? t("graphFind.none")
+              : findPos >= 0
+                ? t("graphFind.position", { index: findPos + 1, count: matches.length })
+                : t("graphFind.count", { count: matches.length }),
+            graph.done ? null : t("graphFind.loaded", { count: graph.commits.length }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+      </span>
+      <button className="icon-btn sm" aria-label={t("graphFind.prev")} title={`${t("graphFind.prev")} (Maj+Entrée)`} disabled={!matches.length} onClick={() => jump(-1)}>
+        <Icon name="chevron" size={13} className="flip" />
+      </button>
+      <button className="icon-btn sm" aria-label={t("graphFind.next")} title={`${t("graphFind.next")} (Entrée)`} disabled={!matches.length} onClick={() => jump(1)}>
+        <Icon name="chevron" size={13} />
+      </button>
+      <button className="icon-btn sm" aria-label={t("graphFind.close")} title={`${t("graphFind.close")} (Échap)`} onClick={closeFind}>
+        <Icon name="close" size={13} />
+      </button>
+    </div>
+  );
+
   return (
+    <div className="graph-wrap">
+    {findBar}
     <div
       className="graph-scroll"
       ref={scrollRef}
@@ -741,7 +832,8 @@ export function CommitGraph({ path, changes }: Props) {
           const isStash = !!stash;
           // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
           const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
-          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far"]
+          const found = query ? (matchSet.has(i) ? "found" : "dim") : null;
+          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far", found]
             .filter(Boolean)
             .join(" ");
           return (
@@ -787,6 +879,7 @@ export function CommitGraph({ path, changes }: Props) {
         })}
       </div>
       {graph.loading && graph.commits.length > 0 && <div className="graph-more muted">{t("graph.loadingMore")}</div>}
+    </div>
     </div>
   );
 }

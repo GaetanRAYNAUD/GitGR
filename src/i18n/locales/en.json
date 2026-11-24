@@ -225,6 +225,19 @@
     "columns": "Visible columns",
     "columnsHint": "Right-click the header to get back here."
   },
+  "graphFind": {
+    "label": "Find in graph",
+    "placeholder": "Message, author, email or SHA",
+    "count_one": "{{count}} commit found",
+    "count_other": "{{count}} commits found",
+    "position": "{{index}} / {{count}}",
+    "none": "No commit found",
+    "loaded_one": "in the only loaded commit",
+    "loaded_other": "in the {{count}} loaded commits",
+    "prev": "Previous result",
+    "next": "Next result",
+    "close": "Close search"
+  },
   "range": {
     "pushTitle_one": "{{count}} commit to push to {{upstream}}",
     "pushTitle_other": "{{count}} commits to push to {{upstream}}",
