@@ -58,8 +58,7 @@ test("signature GPG : clé choisie dans la page du profil", async ({ sandbox }) 
     await page.getByRole("radiogroup", { name: "Signature des commits" }).getByRole("radio", { name: "GPG" }).click();
     // La clé du trousseau est proposée (lue par l'app avec gpg).
     await page.getByLabel("Clé GPG").selectOption(keyId);
-    await page.getByRole("button", { name: "Enregistrer" }).click();
-    await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+    await expect(page.locator(".pf-head-sub")).toContainText("Enregistré");
     await page.getByRole("button", { name: "Fermer les profils" }).click();
 
     await commitFromApp(page, sandbox, mine, "commit signé GPG");

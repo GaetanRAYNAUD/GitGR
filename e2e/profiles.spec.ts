@@ -8,6 +8,11 @@ const page$ = (page: Page) => page.locator(".profiles-page");
 const commitPill = (page: Page) => page.locator(".commit-profile");
 const statusPill = (page: Page) => page.locator(".status-profile");
 
+/** Enregistrement automatique fait : l'état sous le nom du profil le dit. */
+async function expectSaved(page: Page) {
+  await expect(page.locator(".pf-head-sub")).toContainText("Enregistré");
+}
+
 async function openProfiles(page: Page) {
   await page.getByRole("button", { name: "Profils et comptes" }).click();
   await expect(page$(page).getByRole("heading", { name: "Profils" })).toBeVisible();
@@ -22,8 +27,7 @@ async function createBoulot(page: Page) {
   await page.getByLabel("E-mail (user.email)").fill("camille@boulot.fr");
   await page.getByLabel("Nouvelle règle").fill("~/work/*");
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -38,11 +42,14 @@ test("créer un profil : champs vérifiés, puis choisi d'office pour les dépô
   await expect(page$(page)).toContainText("Aucun profil pour l’instant.");
   await page$(page).getByRole("button", { name: "Nouveau profil" }).first().click();
 
-  // Identité incomplète : refusée, avec les champs en cause.
+  // Le focus est dans le nom. Identité incomplète : pas créée, les champs en cause signalés.
+  await expect(page.getByLabel("Nom du profil")).toBeFocused();
   await page.getByLabel("Nom du profil").fill("Boulot");
   await page.getByLabel("E-mail (user.email)").fill("pas-une-adresse");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.locator(".pf-head-sub")).toContainText("Pas encore créé : 2 champs à remplir.");
+  await page.locator(".pf-head-sub").getByRole("button", { name: "Voir" }).click();
   await expect(page.getByLabel("Nom (user.name)")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("Nom (user.name)")).toBeFocused();
   await expect(page$(page)).toContainText("Adresse e-mail invalide.");
 
   await page.getByLabel("Nom (user.name)").fill("Camille Dupont");
@@ -50,7 +57,7 @@ test("créer un profil : champs vérifiés, puis choisi d'office pour les dépô
   await page.getByLabel("Nouvelle règle").fill("~/work/*");
   await page.getByLabel("Nouvelle règle").press("Enter");
   await expect(page$(page).getByRole("listitem").filter({ hasText: "~/work/*" })).toBeVisible();
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expectSaved(page);
 
   // api-backend (dans ~/work) le reçoit, pas GitGR.
   await expect(page$(page).getByRole("button", { name: /Boulot/ })).toContainText("1 dépôt");
@@ -106,8 +113,7 @@ test("générer une clé SSH pour le profil", async ({ page }) => {
   await expect(page.getByLabel("Fichier de clé privée")).toHaveValue("C:/Users/demo/.ssh/gitgr_boulot_ed25519");
   await expect(page$(page)).toContainText("ED25519 · SHA256:");
   await expect(page.getByRole("button", { name: "Copier la clé publique" })).toBeVisible();
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
 
   // Une clé existante n'est jamais écrasée.
   await page.getByRole("button", { name: "Générer une clé ed25519…" }).click();
@@ -124,14 +130,21 @@ test("règle sur une organisation / un groupe du remote", async ({ page }) => {
   await page.getByLabel("E-mail (user.email)").fill("camille@demo.fr");
   await page.getByLabel("Nouvelle règle").fill("gitlab.exemple.fr/autre-groupe/*");
   await page.getByLabel("Nouvelle règle").press("Enter");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expectSaved(page);
   await expect(page$(page).getByRole("button", { name: /Demo/ })).toContainText("aucun dépôt");
+  await expect(page$(page).getByRole("listitem").filter({ hasText: "autre-groupe" })).toContainText("aucun dépôt récent");
 
   await page.getByRole("button", { name: "Retirer gitlab.exemple.fr/autre-groupe/*" }).click();
   await page.getByLabel("Nouvelle règle").fill("https://www.gitlab.exemple.fr/demo/*");
   await page.getByLabel("Nouvelle règle").press("Enter");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expectSaved(page);
   await expect(page$(page).getByRole("button", { name: /Demo/ })).toContainText("2 dépôts");
+  await expect(page$(page).getByRole("listitem").filter({ hasText: "www.gitlab" })).toContainText("2 dépôts récents");
+
+  // Exemple de règle : un clic le copie dans le champ, avec les dépôts qu'il désignerait.
+  await page$(page).getByRole("button", { name: "gitlab.exemple.fr", exact: true }).click();
+  await expect(page.getByLabel("Nouvelle règle")).toHaveValue("gitlab.exemple.fr");
+  await expect(page$(page)).toContainText("Cette règle désigne 2 de vos dépôts récents.");
 });
 
 test("image du profil : affichée à la place des initiales, retirable", async ({ page }) => {
@@ -140,8 +153,7 @@ test("image du profil : affichée à la place des initiales, retirable", async (
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DwHwQZGAAm8gP9CtIkSQAAAABJRU5ErkJggg==", "base64");
   await page.getByLabel("Choisir une image…").setInputFiles({ name: "moi.png", mimeType: "image/png", buffer: png });
   await expect(page.locator(".pf-head img.pf-avatar")).toHaveAttribute("src", /^data:image\/(webp|png);base64,/);
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
   await page.getByRole("button", { name: "Fermer les profils" }).click();
   await expect(statusPill(page).locator("img")).toBeVisible();
 
@@ -193,19 +205,27 @@ test("générer une clé protégée par une phrase de passe", async ({ page }) =
   await expect(page$(page)).toContainText("Phrase de passe dans le trousseau du système.");
 });
 
-test("modifications non enregistrées : confirmation avant de quitter, puis suppression du profil", async ({ page }) => {
+test("enregistrement automatique ; profil incomplet : confirmation avant de quitter, puis suppression", async ({ page }) => {
   await createBoulot(page);
   await page.getByLabel("Nom du profil").fill("Boulot 2");
+  await expectSaved(page);
+  await expect(page$(page).getByRole("button", { name: /Boulot 2/ })).toBeVisible();
+
+  // E-mail vidé : pas enregistré ; quitter demande confirmation.
+  await page.getByLabel("E-mail (user.email)").fill("");
+  await expect(page.locator(".pf-head-sub")).toContainText("Modifications non enregistrées : 1 champ à corriger.");
   await page.getByRole("button", { name: "Fermer les profils" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Abandonner les modifications ?" });
-  await confirm.getByRole("button", { name: "Retour" }).click();
+  await confirm.getByRole("button", { name: "Compléter" }).click();
+  await expect(page.getByLabel("E-mail (user.email)")).toBeFocused();
+  await page.getByRole("button", { name: "Fermer les profils" }).click();
+  await confirm.getByRole("button", { name: "Abandonner" }).click();
+  await openProfiles(page);
+  await expect(page.getByLabel("E-mail (user.email)")).toHaveValue("camille@boulot.fr");
   await expect(page.getByLabel("Nom du profil")).toHaveValue("Boulot 2");
 
-  await page.getByRole("button", { name: "Annuler" }).click();
-  await expect(page.getByLabel("Nom du profil")).toHaveValue("Boulot");
-
   await page.getByRole("button", { name: "Supprimer" }).click();
-  const del = page.getByRole("alertdialog", { name: "Supprimer le profil « Boulot » ?" });
+  const del = page.getByRole("alertdialog", { name: "Supprimer le profil « Boulot 2 » ?" });
   await expect(del).toContainText("Le dépôt qui l’utilise repassera sur la configuration Git.");
   await del.getByRole("button", { name: "Supprimer" }).click();
   await expect(page$(page)).toContainText("Aucun profil pour l’instant.");
@@ -230,19 +250,21 @@ test("signature des commits : GPG (clé choisie dans la liste) ou SSH", async ({
   await expect(page.locator(".profiles-page")).toContainText("Aucune identité de cette clé n’utilise l’adresse camille@boulot.fr");
   await gpgKey.selectOption("5E8B7C4CFAC5417C");
   await expect(page.locator(".profiles-page")).not.toContainText("Aucune identité de cette clé");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("gitgr.mock-state") ?? "{}").profiles[0]);
   expect([saved.signing, saved.signingKey]).toEqual(["gpg", "5E8B7C4CFAC5417C"]);
 
-  // SSH sans aucune clé : refusé ; avec la clé du profil : accepté (clé de signature vide).
-  await signing.getByRole("radio", { name: "SSH" }).click();
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  // Choix aux flèches, comme dans les réglages. SSH sans aucune clé : pas enregistré ; avec la
+  // clé du profil : enregistré (clé de signature vide).
+  await signing.getByRole("radio", { name: "GPG" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(signing.getByRole("radio", { name: "SSH" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".pf-head-sub")).toContainText("1 champ à corriger");
+  await page.locator(".pf-head-sub").getByRole("button", { name: "Voir" }).click();
   await expect(page.locator(".profiles-page")).toContainText("Indiquez une clé de signature, ou une clé SSH pour le profil.");
   await page.getByLabel("Fichier de clé privée").fill("C:/Users/demo/.ssh/id_ed25519");
   await expect(page.locator(".profiles-page")).toContainText("Vide : la clé SSH du profil est utilisée.");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
 
   // Clé de signature à part, protégée : sa phrase de passe se règle ici aussi.
   await page.getByLabel("Clé de signature SSH").fill("C:/Users/demo/.ssh/locked_ed25519");
@@ -291,8 +313,8 @@ test("compte provider : token refusé, compte connecté au profil, utilisé par 
   const row = accounts.getByRole("listitem").filter({ hasText: "camille.dupont" });
   await expect(row).toContainText("gitlab.exemple.fr");
   await expect(row.getByRole("status")).toHaveText("connecté");
-  // Enregistré tout de suite : pas de modification en attente, et jamais de token dans l'état.
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  // Enregistré tout de suite, et jamais de token dans l'état.
+  await expectSaved(page);
   const state = await page.evaluate(() => localStorage.getItem("gitgr.mock-state") ?? "");
   expect(JSON.parse(state).profiles[0].accounts).toEqual([
     { id: "gitlab|https://gitlab.exemple.fr|camille.dupont", kind: "gitlab", url: "https://gitlab.exemple.fr", login: "camille.dupont", name: null },
@@ -301,8 +323,7 @@ test("compte provider : token refusé, compte connecté au profil, utilisé par 
 
   // Une autre modification du profil, enregistrée ensuite, garde le compte.
   await page.getByLabel("Nom (user.name)").fill("Camille D.");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expectSaved(page);
   await expect(row).toBeVisible();
 
   // Dans le dépôt (remote gitlab.exemple.fr, profil Boulot) : icône du provider et compte du remote.
@@ -320,17 +341,17 @@ test("compte provider : token refusé, compte connecté au profil, utilisé par 
   await expect(origin).toHaveAttribute("title", /Aucun compte GitLab connecté pour ce profil/);
 });
 
-test("compte provider : pas avant d'avoir enregistré le profil ; token perdu signalé", async ({ page }) => {
+test("compte provider : pas avant d'avoir complété le profil ; token perdu signalé", async ({ page }) => {
   await openProfiles(page);
   await page$(page).getByRole("button", { name: "Nouveau profil" }).first().click();
   const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
-  await expect(accounts).toContainText("Enregistrez d’abord le profil pour lui connecter un compte.");
+  await expect(accounts).toContainText("Complétez le profil pour lui connecter un compte.");
   await expect(accounts.getByRole("button", { name: "Connecter un compte…" })).toHaveCount(0);
 
   await page.getByLabel("Nom du profil").fill("Perso");
   await page.getByLabel("Nom (user.name)").fill("Camille");
   await page.getByLabel("E-mail (user.email)").fill("camille@perso.fr");
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expectSaved(page);
   await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
   const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Perso »" });
   // Backend simulé : `as:<login>` choisit le compte ; un compte `revoked…` a perdu son token.
