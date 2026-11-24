@@ -42,3 +42,21 @@ describe("conflits", () => {
     expect(moveLines("a\nb", 2, 2, 1)).toBeNull();
   });
 });
+
+describe("couleurs d'un côté", () => {
+  it("marque ajouts, modifications et suppressions par rapport à la référence", async () => {
+    const { sideDiff } = await import("./conflicts");
+    expect(sideDiff(["a", "b", "c"], ["a", "B", "c", "d"])).toEqual([
+      { text: "a", kind: "same" },
+      { text: "B", kind: "mod" },
+      { text: "c", kind: "same" },
+      { text: "d", kind: "add" },
+    ]);
+    expect(sideDiff(["a", "b", "c"], ["a", "c"])).toEqual([
+      { text: "a", kind: "same" },
+      { text: "b", kind: "del" },
+      { text: "c", kind: "same" },
+    ]);
+    expect(sideDiff([], ["x"])).toEqual([{ text: "x", kind: "add" }]);
+  });
+});

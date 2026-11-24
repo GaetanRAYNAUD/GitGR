@@ -184,7 +184,7 @@ test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async
 });
 
 test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+↑, puis enregistré", async ({ page }) => {
-  const text = ["// en-tête", "import a;", "import b;", "", "function f() {", "un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "=======", "y", ">>>>>>> sujet", "fin", "}", "", "// suite", "g();", ""].join("\n");
+  const text = ["// en-tête", "import a;", "import b;", "", "function f() {", "un", "<<<<<<< HEAD", "deux ici", "=======", "deux là-bas", ">>>>>>> sujet", "milieu", "<<<<<<< HEAD", "x", "||||||| base", "x", "w", "=======", "y", "z", ">>>>>>> sujet", "fin", "}", "", "// suite", "g();", ""].join("\n");
   await page.evaluate((t) => (window as unknown as { __mockConflict: (p: string, f: string, t: string) => void }).__mockConflict("C:/Users/demo/work/api-backend", "conflit.txt", t), text);
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
@@ -198,12 +198,17 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   await expect(first.locator(".conflict-side.ours")).toContainText("function f() {");
   await expect(first.locator(".conflict-side.theirs")).toContainText("milieu");
   const preview = view.getByRole("region", { name: "Fichier résultant" });
-  await expect(preview).toContainText("Fichier résultant · 16 lignes");
+  await expect(preview).toContainText("Fichier résultant · 17 lignes");
+  // Couleurs : modifiée / ajoutée / supprimée, par rapport à la version commune quand git l'a écrite.
+  await expect(first.locator(".conflict-side.ours .cl-mod")).toHaveText("deux ici");
+  const secondBlock = view.getByRole("group", { name: "Conflit 2 / 2" });
+  await expect(secondBlock.locator(".conflict-side.ours .cl-del")).toHaveText("w");
+  await expect(secondBlock.locator(".conflict-side.theirs .cl-mod")).toHaveText(["y", "z"]);
   await expect(preview).toContainText("// suite");
   // Rendu tout de suite : chaque bloc proposé « A puis B », à vérifier.
   await expect(view.getByRole("status")).toHaveText("2 blocs proposés « A puis B », à vérifier");
   const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
-  await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny");
+  await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny\nz");
 
   await first.getByRole("button", { name: "B puis A" }).click();
   const edit = first.getByRole("textbox", { name: "Résultat du conflit 1" });

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import { chooseLines, composeResolution, moveLines, parseConflicts, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
+import { chooseLines, composeResolution, moveLines, parseConflicts, sideDiff, type ConflictBlock, type ConflictChoice } from "../../lib/conflicts";
 import { errorMessage } from "../../lib/errors";
 import { useApp } from "../../store/app";
 import { useConflictView } from "../../store/range";
@@ -172,12 +172,18 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             const next = parsed.segments[i + 1];
             const before = prev?.kind === "common" ? prev.lines.slice(-CONTEXT) : [];
             const after = next?.kind === "common" ? next.lines.slice(0, CONTEXT) : [];
-            const side = (lines: string[]) => (
+            // Couleurs : chaque côté comparé à la version commune (diff3), sinon à l'autre côté.
+            const side = (lines: string[], other: string[]) => (
               <pre className="mono">
                 {before.map((l, j) => (
                   <span key={`b${j}`} className="conflict-ctx">{`${l}\n`}</span>
                 ))}
-                <span className="conflict-lines">{lines.map((l) => `${l}\n`).join("") || "\n"}</span>
+                <span className="conflict-lines">
+                  {lines.length === 0 && seg.base === null && other.length === 0 ? "\n" : null}
+                  {sideDiff(seg.base ?? other, lines).map((l, j) => (
+                    <span key={j} className={`cl cl-${l.kind}`} title={l.kind === "same" ? undefined : t(`conflict.kind.${l.kind}`)}>{`${l.text}\n`}</span>
+                  ))}
+                </span>
                 {after.map((l, j) => (
                   <span key={`a${j}`} className="conflict-ctx">{`${l}\n`}</span>
                 ))}
@@ -202,12 +208,16 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                 </div>
                 <div className="conflict-sides">
                   <div className="conflict-side ours">
-                    <div className="conflict-side-h">A · {seg.oursLabel || t("conflict.ours")}</div>
-                    {side(seg.ours)}
+                    <div className="conflict-side-h" title={seg.base ? t("conflict.vsBase") : t("conflict.vsOther")}>
+                      A · {seg.oursLabel || t("conflict.ours")}
+                    </div>
+                    {side(seg.ours, seg.theirs)}
                   </div>
                   <div className="conflict-side theirs">
-                    <div className="conflict-side-h">B · {seg.theirsLabel || t("conflict.theirs")}</div>
-                    {side(seg.theirs)}
+                    <div className="conflict-side-h" title={seg.base ? t("conflict.vsBase") : t("conflict.vsOther")}>
+                      B · {seg.theirsLabel || t("conflict.theirs")}
+                    </div>
+                    {side(seg.theirs, seg.ours)}
                   </div>
                 </div>
                 {seg.base && (

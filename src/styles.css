@@ -5904,12 +5904,48 @@ body.commit-dragging * {
   background: none;
 }
 
-.conflict-side.ours .conflict-lines {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+/* Lignes d'un côté : ajoutée (vert), modifiée (jaune), supprimée de ce côté (rouge, barrée). */
+.conflict-lines .cl {
+  display: block;
+  margin: 0 -10px;
+  padding: 0 10px 0 22px;
+  position: relative;
 }
 
-.conflict-side.theirs .conflict-lines {
-  background: color-mix(in srgb, var(--mod) 12%, transparent);
+.conflict-lines .cl::before {
+  position: absolute;
+  left: 8px;
+  font-weight: 700;
+}
+
+.conflict-lines .cl-add {
+  background: color-mix(in srgb, var(--add) 16%, transparent);
+}
+
+.conflict-lines .cl-add::before {
+  content: "+";
+  color: var(--add);
+}
+
+.conflict-lines .cl-mod {
+  background: color-mix(in srgb, var(--mod) 18%, transparent);
+}
+
+.conflict-lines .cl-mod::before {
+  content: "~";
+  color: var(--mod);
+}
+
+.conflict-lines .cl-del {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.conflict-lines .cl-del::before {
+  content: "−";
+  color: var(--del);
+  text-decoration: none;
 }
 
 .conflict-skip {

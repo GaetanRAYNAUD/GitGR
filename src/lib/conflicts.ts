@@ -135,3 +135,45 @@ export function moveLines(text: string, selStart: number, selEnd: number, dir: -
   const delta = dir === -1 ? -(lines[first - 1].length + 1) : lines[last + 1].length + 1;
   return { text: rest.join("\n"), start: selStart + delta, end: selEnd + delta };
 }
+
+/** Ligne d'un côté d'un bloc comparé à une référence (version commune, ou l'autre côté sans
+ *  elle) : inchangée, ajoutée, modifiée, ou supprimée (ligne de la référence absente ici). */
+export interface SideLine {
+  text: string;
+  kind: "same" | "add" | "mod" | "del";
+}
+
+/** Compare un côté à sa référence ligne à ligne (plus longue sous-suite commune). Dans une suite
+ *  de différences, les lignes retirées et ajoutées sont appariées en « modifiées », le reste
+ *  est ajouté ou supprimé. */
+export function sideDiff(ref: string[], side: string[]): SideLine[] {
+  const n = ref.length;
+  const m = side.length;
+  // Table des longueurs (blocs de conflit : petits).
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--) lcs[i][j] = ref[i] === side[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const out: SideLine[] = [];
+  let dels: string[] = [];
+  let adds: string[] = [];
+  const flush = () => {
+    const pairs = Math.min(dels.length, adds.length);
+    for (let k = 0; k < adds.length; k++) out.push({ text: adds[k], kind: k < pairs ? "mod" : "add" });
+    for (const d of dels.slice(pairs)) out.push({ text: d, kind: "del" });
+    dels = [];
+    adds = [];
+  };
+  let i = 0;
+  let j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && ref[i] === side[j]) {
+      flush();
+      out.push({ text: side[j], kind: "same" });
+      i++;
+      j++;
+    } else if (j < m && (i >= n || lcs[i][j + 1] >= lcs[i + 1][j])) adds.push(side[j++]);
+    else dels.push(ref[i++]);
+  }
+  flush();
+  return out;
+}
