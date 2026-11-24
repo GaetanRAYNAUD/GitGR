@@ -1,6 +1,7 @@
 // Résolution d'un fichier en conflit, ouverte à la place du graphe (bouton « Résoudre » des
 // modifications en cours). Chaque bloc en conflit montre ses deux côtés (et la version commune
-// si git l'a écrite) ; un choix rapide (A, B, A puis B, B puis A, aucun) remplit son résultat,
+// si git l'a écrite) et, tout de suite, un résultat proposé « A puis B » (marqué « à
+// vérifier ») ; un choix rapide (A, B, A puis B, B puis A, aucun) remplace ce résultat,
 // qui reste éditable directement : taper, corriger, supprimer, et Alt+↑ / Alt+↓ pour monter ou
 // descendre des lignes. Rien n'est ajouté « à la suite » dans l'ordre des clics : le résultat
 // d'un bloc est à sa place dans le fichier. « Enregistrer » écrit le fichier et le marque
@@ -31,6 +32,8 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const [error, setError] = useState<string | null>(null);
   /** Résultat de chaque bloc (lignes séparées par `\n`) ; `null` : pas encore résolu. */
   const [results, setResults] = useState<(string | null)[]>([]);
+  /** Blocs choisis ou modifiés (les autres gardent la proposition par défaut, « A puis B »). */
+  const [reviewed, setReviewed] = useState<boolean[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,12 +49,28 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
 
   const parsed = useMemo(() => (text === null ? null : parseConflicts(text)), [text]);
   const blocks = useMemo(() => (parsed?.segments.filter((s) => s.kind === "conflict") ?? []) as ConflictBlock[], [parsed]);
-  useEffect(() => setResults(blocks.map(() => null)), [blocks]);
+  // Rendu tout de suite : chaque bloc part des deux côtés (A puis B), à ajuster.
+  useEffect(() => {
+    setResults(blocks.map((b) => chooseLines(b, "ours-theirs").join("\n")));
+    setReviewed(blocks.map(() => false));
+  }, [blocks]);
 
-  const setResult = (k: number, value: string | null) => setResults((r) => r.map((x, i) => (i === k ? value : x)));
+  const setResult = (k: number, value: string | null) => {
+    setResults((r) => r.map((x, i) => (i === k ? value : x)));
+    setReviewed((r) => r.map((x, i) => i === k || x));
+  };
   const choose = (k: number, choice: ConflictChoice) => setResult(k, chooseLines(blocks[k], choice).join("\n"));
-  const chooseAll = (choice: ConflictChoice) => setResults(blocks.map((b) => chooseLines(b, choice).join("\n")));
+  const chooseAll = (choice: ConflictChoice) => {
+    setResults(blocks.map((b) => chooseLines(b, choice).join("\n")));
+    setReviewed(blocks.map(() => true));
+  };
   const remaining = results.filter((r) => r === null).length;
+  const unreviewed = reviewed.filter((r) => !r).length;
+  const status = remaining
+    ? t("conflict.remaining", { count: remaining })
+    : unreviewed
+      ? t("conflict.unreviewed", { count: unreviewed })
+      : t("conflict.allResolved");
   const oursLabel = blocks[0]?.oursLabel || "HEAD";
   const theirsLabel = blocks[0]?.theirsLabel || t("conflict.theirs");
 
@@ -79,10 +98,12 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
       <header className="diff-head">
         <BackButton onClick={back} />
         <Icon name="merge" size={15} />
-        <span className="pull-view-title mono">{t("conflict.title", { file })}</span>
+        <span className="pull-view-title mono" title={file}>
+          {t("conflict.title", { file })}
+        </span>
         {parsed && blocks.length > 0 && (
-          <span className={remaining ? "conflict-left" : "muted"} role="status">
-            {remaining ? t("conflict.remaining", { count: remaining }) : t("conflict.allResolved")}
+          <span className={remaining ? "conflict-status conflict-left" : "conflict-status muted"} role="status" title={status}>
+            {status}
           </span>
         )}
         {parsed && blocks.length > 0 && (
@@ -132,7 +153,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             const result = results[n] ?? null;
             const rows = result === null ? 0 : Math.max(2, result.split("\n").length + 1);
             return (
-              <div key={i} className={result === null ? "conflict-block open" : "conflict-block done"} role="group" aria-label={t("conflict.block", { index: n + 1, count: blocks.length })}>
+              <div key={i} className={result === null ? "conflict-block open" : reviewed[n] ? "conflict-block done" : "conflict-block proposed"} role="group" aria-label={t("conflict.block", { index: n + 1, count: blocks.length })}>
                 <div className="conflict-head">
                   <span>{t("conflict.block", { index: n + 1, count: blocks.length })}</span>
                   <span className="conflict-choices">

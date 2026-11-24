@@ -374,6 +374,8 @@
     "base": "Common version (before both changes)",
     "remaining_one": "{{count}} block to resolve",
     "remaining_other": "{{count}} blocks to resolve",
+    "unreviewed_one": "{{count}} block shown as “A then B”, to check",
+    "unreviewed_other": "{{count}} blocks shown as “A then B”, to check",
     "allResolved": "All blocks are resolved",
     "allOurs": "All {{side}}",
     "allTheirs": "All {{side}}",

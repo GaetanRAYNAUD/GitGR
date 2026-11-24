@@ -193,9 +193,10 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   await row.getByRole("button", { name: "Résoudre" }).click();
 
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
-  await expect(view.getByRole("status")).toHaveText("2 blocs à résoudre");
+  // Rendu tout de suite : chaque bloc proposé « A puis B », à vérifier.
+  await expect(view.getByRole("status")).toHaveText("2 blocs proposés « A puis B », à vérifier");
   const save = view.getByRole("button", { name: "Enregistrer et marquer résolu" });
-  await expect(save).toBeDisabled();
+  await expect(view.getByRole("textbox", { name: "Résultat du conflit 2" })).toHaveValue("x\ny");
 
   const first = view.getByRole("group", { name: "Conflit 1 / 2" });
   await first.getByRole("button", { name: "B puis A" }).click();
@@ -208,7 +209,6 @@ test("résoudre un conflit : choix par bloc, résultat modifié à la main, Alt+
   await expect(edit).toHaveValue("deux ici\ndeux là-bas");
 
   const second = view.getByRole("group", { name: "Conflit 2 / 2" });
-  await second.getByRole("button", { name: "écrivez le résultat" }).click();
   await second.getByRole("textbox", { name: "Résultat du conflit 2" }).fill("x et y");
   await expect(view.getByRole("status")).toHaveText("Tous les blocs sont résolus");
   await save.click();

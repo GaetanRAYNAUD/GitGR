@@ -374,6 +374,8 @@
     "base": "Version commune (avant les deux modifications)",
     "remaining_one": "{{count}} bloc à résoudre",
     "remaining_other": "{{count}} blocs à résoudre",
+    "unreviewed_one": "{{count}} bloc proposé « A puis B », à vérifier",
+    "unreviewed_other": "{{count}} blocs proposés « A puis B », à vérifier",
     "allResolved": "Tous les blocs sont résolus",
     "allOurs": "Tout {{side}}",
     "allTheirs": "Tout {{side}}",

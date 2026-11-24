@@ -5748,9 +5748,27 @@ body.commit-dragging * {
   margin-left: 6px;
 }
 
+/* Le nom du fichier passe avant le statut quand la place manque. */
+.conflict-view .pull-view-title {
+  flex: 0 1 auto;
+  min-width: 120px;
+}
+
+.conflict-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
 .conflict-left {
   color: var(--del);
-  font-size: 12px;
+}
+
+.conflict-block.proposed {
+  border-left-color: var(--mod);
 }
 
 .conflict-body {
