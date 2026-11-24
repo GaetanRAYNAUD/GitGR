@@ -2935,6 +2935,11 @@ body.resizing-y * {
   background: var(--sel);
 }
 
+/* Sous-titre de l'élément choisi : sur le fond de sélection, l'encre secondaire (contraste). */
+.pf-item.on .pf-item-text span {
+  color: var(--muted);
+}
+
 .pf-item-text {
   display: flex;
   flex-direction: column;
@@ -3044,45 +3049,102 @@ body.resizing-y * {
   white-space: nowrap;
 }
 
-.pf-head-text .muted {
+/* État de l'enregistrement (enregistré, à compléter…) sous le nom du profil. */
+.pf-head-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-height: 20px;
   font-size: 12.5px;
 }
 
-.pf-sec {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 0;
-  border-top: 1px solid var(--border);
-}
-
-.pf-sec h3 {
-  margin: 0;
-}
-
-.pf-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-}
-
-.pf-field {
-  display: flex;
-  flex-direction: column;
+.pf-status {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  min-width: 0;
-}
-
-.pf-field > label,
-.pf-field > .pf-label {
-  font-size: 12px;
-  font-weight: 600;
   color: var(--muted);
 }
 
-.pf-field .input-error {
-  font-size: 12px;
+.pf-status.ok .ico {
+  color: var(--add);
+}
+
+.pf-status.warn {
+  color: var(--mod);
+}
+
+.pf-status.bad {
   color: var(--del);
+}
+
+.pf-head .danger-text {
+  flex: none;
+}
+
+/* Règles de sélection automatique : une ligne par règle, avec les dépôts qu'elle désigne. */
+.pf-rules {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.pf-rules li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 4px 0 12px;
+}
+
+.pf-rules li + li {
+  border-top: 1px solid var(--border);
+}
+
+.pf-rules li > .ico {
+  color: var(--faint);
+}
+
+.pf-rule-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-rule-hits {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pf-rule-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pf-example {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.pf-example:hover {
+  background: var(--hover);
 }
 
 .pf-input {
@@ -3096,15 +3158,44 @@ body.resizing-y * {
   color: var(--text);
   font: inherit;
   font-size: 13px;
-  outline: 0;
 }
 
 .pf-input.mono {
   font-size: 12.5px;
 }
 
+.pf-input::placeholder {
+  color: var(--faint);
+}
+
+/* Focus : la bordure d'accent, plus l'anneau commun au clavier (:focus-visible). */
 .pf-input:focus {
   border-color: var(--accent);
+}
+
+.pf-input:focus:not(:focus-visible) {
+  outline: 0;
+}
+
+/* Champ d'une ligne de réglage : largeur de lecture, pas toute la colonne. */
+.pf-input-md {
+  max-width: 360px;
+}
+
+.st-row .pf-row {
+  width: 100%;
+  max-width: 480px;
+}
+
+.st-row .input-error {
+  font-size: 12px;
+  color: var(--del);
+}
+
+.st-row .pf-key,
+.st-row .pf-actions {
+  align-self: stretch;
+  max-width: 480px;
 }
 
 .pf-input[aria-invalid="true"] {
@@ -3122,6 +3213,7 @@ body.resizing-y * {
 
 .pf-note {
   margin: 0;
+  max-width: 72ch;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--muted);
@@ -3170,48 +3262,6 @@ body.resizing-y * {
   gap: 8px;
 }
 
-.pf-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pf-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 4px 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--panel2);
-  color: var(--text);
-}
-
-.pf-chip > .ico {
-  color: var(--faint);
-}
-
-.pf-chip-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--faint);
-}
-
-.pf-chip-x:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-
 .pf-repos {
   display: flex;
   flex-direction: column;
@@ -3241,18 +3291,6 @@ body.resizing-y * {
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
-}
-
-.pf-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-
-.pf-spacer {
-  flex: 1;
 }
 
 @media (max-width: 720px) {
@@ -4025,7 +4063,7 @@ p.pf-account-keys.bad,
 
 /* La dernière section peut monter en haut quand on la choisit dans la barre latérale
    (hauteur de la fenêtre moins la barre de titre et les marges du contenu). */
-.st-sec:last-child {
+.st-main .st-sec:last-child {
   min-height: calc(100vh - 88px);
 }
 
@@ -4051,6 +4089,24 @@ p.pf-account-keys.bad,
 
 .st-row-title {
   font-weight: 500;
+}
+
+/* Libellé aligné sur la première ligne du contrôle (36px : champ, choix), même quand le
+   contrôle s'étend dessous (état de la clé, boutons). */
+.st-row > .st-row-title {
+  align-self: start;
+  padding-top: 8px;
+  line-height: 20px;
+}
+
+.st-row > .st-row-control {
+  align-self: start;
+}
+
+/* Pastilles de couleur : centrées sur la hauteur d'un champ, comme le libellé. */
+.st-row .color-choice {
+  min-height: 36px;
+  align-items: center;
 }
 
 .st-row-help {

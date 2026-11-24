@@ -8,6 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
+import { trapTab } from "../lib/focusTrap";
+import { onRadioGroupKeyDown } from "../lib/radioKeys";
 import { DEFAULT_HOSTS, instance, instanceHost, instanceLabel, PROVIDER_NAMES, PROVIDERS, tokenPageUrl } from "../lib/providers";
 import type { Account, DeviceStart, Profile, ProviderKind } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
@@ -137,6 +139,13 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
     }
   };
 
+  // À l'ouverture, le focus entre dans la fenêtre : le champ du token, ou (connexion GitHub
+  // proposée) le choix du provider, avant le bouton de connexion.
+  useEffect(() => {
+    if (!oauth) return;
+    ref.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
+  }, []);
+
   return (
     <div className="overlay">
       <form
@@ -145,6 +154,7 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
         aria-modal="true"
         aria-labelledby="acc-title"
         ref={ref}
+        onKeyDown={(e) => trapTab(e, ref.current)}
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -174,13 +184,14 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
           </div>
         ) : (
           <>
-            <div className="segmented" role="radiogroup" aria-label={t("profiles.accountProvider")}>
+            <div className="segmented" role="radiogroup" aria-label={t("profiles.accountProvider")} onKeyDown={onRadioGroupKeyDown}>
               {PROVIDERS.map((k) => (
                 <button
                   key={k}
                   type="button"
                   role="radio"
                   aria-checked={k === kind}
+                  tabIndex={k === kind ? 0 : -1}
                   className={k === kind ? "seg on" : "seg"}
                   onClick={() => {
                     setKind(k);

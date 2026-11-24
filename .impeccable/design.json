@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-24T22:18:03.750Z",
+  "generatedAt": "2026-11-24T22:37:26.095Z",
   "title": "Design System: GitGR",
   "extensions": {
     "source": "src/styles.css (:root = sombre, :root[data-theme=\"light\"] = clair)",

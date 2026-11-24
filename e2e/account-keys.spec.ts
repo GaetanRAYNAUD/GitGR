@@ -60,8 +60,10 @@ test("clés : droits du token insuffisants, clé déjà prise, profil modifié",
   await keys.getByRole("button", { name: "Ajouter au compte" }).click();
   await expect(keys.getByRole("alert")).toContainText("Cette clé est déjà enregistrée");
 
-  // Clé modifiée sans enregistrer : rien n'est ajouté tant que le profil ne l'est pas.
-  await page.getByRole("button", { name: "Ne pas signer" }).or(page.getByRole("radio", { name: "Ne pas signer" })).first().click();
-  await expect(keys).toContainText("Enregistrez le profil pour vérifier ses nouvelles clés");
+  // Profil incomplet (pas enregistré) avec une clé modifiée : rien n'est ajouté tant qu'il ne
+  // l'est pas.
+  await page.getByLabel("E-mail (user.email)").fill("");
+  await page.getByRole("radio", { name: "Ne pas signer" }).click();
+  await expect(keys).toContainText("Complétez le profil pour vérifier ses nouvelles clés");
   await expect(keys.getByRole("button", { name: "Ajouter au compte" })).toBeDisabled();
 });

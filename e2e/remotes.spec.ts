@@ -27,8 +27,7 @@ async function createProfile(page: Page, name: string, rule: string) {
   await page.getByLabel("E-mail (user.email)").fill(`camille@${name.toLowerCase()}.fr`);
   await page.getByLabel("Nouvelle règle").fill(rule);
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
-  await page.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expect(page.locator(".pf-head-sub")).toContainText("Enregistré");
 }
 
 /** Profils « Entreprise » (gitlab.exemple.fr) et « Client » (gitlab.client.fr). */

@@ -238,7 +238,8 @@ Fenêtre plein écran sans marge : barre de titre à onglets (40px), barre d'out
 - **Graphe** : grille à colonnes (`--cols`) avec largeurs par variable (`--col-refs` 180px, `--col-author` 130px, `--col-date` 96px, `--col-sha` 72px), en-tête collant, lignes virtualisées en position absolue, largeur minimale 760px.
 - **Adaptation** : sous 1240px les colonnes du graphe se resserrent et le SHA disparaît ; sous 720px la mise en page des pages se simplifie. Pas de mise en page mobile : c'est une app de bureau.
 - **Pages de gestion** (réglages, profils) : barre latérale de 270px sur `side` (titre, fermeture, liste des sections ou des profils, élément courant sur `sel`), puis le contenu aligné à gauche, 760px au plus. Jamais de colonne centrée.
-- **Lignes de réglage** : libellé à gauche (220px), contrôle à droite à sa largeur naturelle, aide dessous en 12px `muted` ; une case à cocher se place devant son libellé, comme dans un IDE. Sous 960px, le contrôle passe sous le libellé.
+- **Lignes de réglage** : libellé à gauche (220px), contrôle à droite à sa largeur naturelle, aide dessous en 12px `muted` ; libellé aligné sur la première ligne du contrôle, champs de 360px au plus ; une case à cocher se place devant son libellé, comme dans un IDE. Sous 960px, le contrôle passe sous le libellé.
+- **Enregistrement** : tout s'applique tout de suite, sans bouton « Enregistrer ». Un objet qui doit rester cohérent (un profil) s'enregistre dès qu'il est complet, après une courte pause pendant la frappe ; tant qu'il ne l'est pas, une ligne d'état sous son nom dit ce qui manque, avec « Voir » qui amène au premier champ à corriger.
 - **Accueil** : colonne avec cartes ; c'est le seul écran qui respire davantage.
 
 **The Edge-To-Edge Rule.** Les panneaux de l'app vont bord à bord, séparés par une bordure de 1px. Pas de cartes flottantes ni de marges autour des panneaux de travail.
