@@ -254,6 +254,16 @@ pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String>
 }
 
 #[tauri::command]
+pub async fn conflict_text(path: String, file: String) -> Result<String, String> {
+    worktree::conflict_text(Path::new(&path), &file).map_err(classify)
+}
+
+#[tauri::command]
+pub async fn resolve_conflict(path: String, file: String, content: String) -> Result<(), String> {
+    worktree::resolve_conflict(Path::new(&path), &file, &content).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), String> {
     worktree::unstage_files(Path::new(&path), &files).map_err(classify)
 }

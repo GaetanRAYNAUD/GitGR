@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
 import { dirIgnore, ignoreChoices } from "../../lib/gitignore";
-import { dirMenu, fileMenu } from "./menus";
+import { dirMenu, fileMenu, showConflict } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
@@ -80,7 +80,11 @@ export function StagingPanel({ path }: { path: string }) {
   /** Clic droit sur un fichier : ses actions dans cette liste, avant celles de tout fichier. */
   const stagingItems = (kind: ListKind, f: StatusFile): MenuItem[] => {
     if (kind === "staged") return [{ label: t("staging.unstage"), disabled: busy, onClick: () => w.unstage(path, [f]) }, stashItem(f)];
-    if (kind === "conflicted") return [{ label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) }];
+    if (kind === "conflicted")
+      return [
+        { label: t("conflict.open"), disabled: busy, onClick: () => showConflict(path, f.path) },
+        { label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) },
+      ];
     const items: MenuItem[] = [
       { label: t("staging.stage"), disabled: busy, onClick: () => w.stage(path, [f]) },
       { label: t("staging.discard"), danger: true, disabled: busy, onClick: () => void askDiscard([f]) },
@@ -196,9 +200,14 @@ export function StagingPanel({ path }: { path: string }) {
                     {t("staging.unstage")}
                   </button>
                 ) : kind === "conflicted" ? (
-                  <button className="mini" disabled={busy} onClick={() => w.stage(path, [f])} title={t("staging.resolvedHint")}>
-                    {t("staging.resolved")}
-                  </button>
+                  <>
+                    <button className="mini" disabled={busy} onClick={() => showConflict(path, f.path)} title={t("conflict.openHint")}>
+                      {t("conflict.open")}
+                    </button>
+                    <button className="mini" disabled={busy} onClick={() => w.stage(path, [f])} title={t("staging.resolvedHint")}>
+                      {t("staging.resolved")}
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button

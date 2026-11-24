@@ -8,7 +8,7 @@ import type { RangeDirection, StashEntry } from "../lib/types";
 
 /** Ferme toutes les vues ouvertes à la place du graphe pour ce dépôt. */
 export function closeCenterViews(path: string) {
-  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView]) {
+  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView]) {
     view.getState().close(path);
   }
 }
@@ -123,6 +123,22 @@ export const useBlameView = create<BlameViewState>((set) => ({
   show: (path, target) => {
     closeCenterViews(path);
     set((s) => ({ open: { ...s.open, [path]: target } }));
+  },
+  close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
+}));
+
+/** Résolution d'un fichier en conflit (chemin relatif au dépôt), ouverte à la place du graphe. */
+interface ConflictViewState {
+  open: Record<string, string | undefined>;
+  show(path: string, file: string): void;
+  close(path: string): void;
+}
+
+export const useConflictView = create<ConflictViewState>((set) => ({
+  open: {},
+  show: (path, file) => {
+    closeCenterViews(path);
+    set((s) => ({ open: { ...s.open, [path]: file } }));
   },
   close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
 }));

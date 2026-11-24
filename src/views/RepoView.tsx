@@ -26,12 +26,13 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { closeCenterViews, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
+import { closeCenterViews, useConflictView, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
 import { StashView } from "../components/graph/StashView";
 import { ReflogView } from "../components/graph/ReflogView";
 import { SearchView } from "../components/graph/SearchView";
 import { FileHistoryView } from "../components/graph/FileHistoryView";
 import { BlameView } from "../components/graph/BlameView";
+import { ConflictView } from "../components/graph/ConflictView";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
@@ -334,6 +335,7 @@ export function RepoView({ path }: { path: string }) {
   const openSearch = useSearchView((s) => s.open[path]);
   const openFileHistory = useFileHistoryView((s) => s.open[path]);
   const openBlame = useBlameView((s) => s.open[path]);
+  const openConflict = useConflictView((s) => s.open[path]);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -416,6 +418,8 @@ export function RepoView({ path }: { path: string }) {
               <Icon name="alert" />
               {errorMessage(t, error)}
             </div>
+          ) : openConflict ? (
+            <ConflictView key={openConflict} path={path} file={openConflict} />
           ) : diff ? (
             <DiffView path={path} diff={diff} />
           ) : workDiff ? (

@@ -9,7 +9,7 @@ import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useWork } from "../../store/worktree";
 import { usePullList } from "../../store/pullList";
-import { useBlameView, useFileHistoryView } from "../../store/range";
+import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
 import { defaultRemote, useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
@@ -484,6 +484,14 @@ export function showFileHistory(repo: string, file: string) {
   useGraph.getState().closeDiff(repo);
   useWork.getState().closeDiff(repo);
   useFileHistoryView.getState().show(repo, file);
+}
+
+/** Ouvre la résolution d'un fichier en conflit à la place du graphe. */
+export function showConflict(repo: string, file: string) {
+  usePullList.getState().close(repo);
+  useGraph.getState().closeDiff(repo);
+  useWork.getState().closeDiff(repo);
+  useConflictView.getState().show(repo, file);
 }
 
 /** Ouvre le blame d'un fichier à la place du graphe (au commit `rev`, ou copie de travail). */

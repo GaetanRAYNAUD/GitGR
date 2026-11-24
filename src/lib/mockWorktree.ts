@@ -59,13 +59,35 @@ const changed = (s?: Side) => !!s && s.lines.some((l) => l.kind !== " ");
 const prune = (path: string) => repos.set(path, files(path).filter((f) => changed(f.staged) || changed(f.unstaged)));
 const entry = (f: MockFile, s: Side): StatusFile => ({ path: f.path, oldPath: null, status: s.status });
 
+/** Fichiers en conflit simulés (texte avec les marqueurs), posés par les tests e2e
+ *  (`window.__mockConflict`). */
+const conflicts = new Map<string, Map<string, string>>();
+
+export function mockAddConflict(path: string, file: string, text: string) {
+  if (!conflicts.has(path)) conflicts.set(path, new Map());
+  conflicts.get(path)!.set(file, text);
+}
+
+export function mockConflictText(path: string, file: string): string {
+  const text = conflicts.get(path)?.get(file);
+  if (text === undefined) throw "conflict_no_file";
+  return text;
+}
+
+/** Résolution écrite : le fichier n'est plus en conflit, il est indexé avec ce contenu. */
+export function mockResolveConflict(path: string, file: string, content: string) {
+  conflicts.get(path)?.delete(file);
+  files(path).push({ path: file, staged: { status: "M", lines: content.split("\n").filter(Boolean).map((l, i) => add(i + 1, l)) } });
+}
+
 export function mockStatus(path: string): WorkStatus {
   const fs = files(path);
+  const conflicted = [...(conflicts.get(path)?.keys() ?? [])];
   return {
     staged: fs.filter((f) => changed(f.staged)).map((f) => entry(f, f.staged!)),
     unstaged: fs.filter((f) => changed(f.unstaged)).map((f) => entry(f, f.unstaged!)),
-    conflicted: [],
-    operation: null,
+    conflicted: conflicted.map((p) => ({ path: p, oldPath: null, status: "U" })),
+    operation: conflicted.length ? "merge" : null,
     mergeMessage: null,
   };
 }

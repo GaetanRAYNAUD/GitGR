@@ -46,7 +46,7 @@ import {
 import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
-import {
+import { mockAddConflict, mockConflictText, mockResolveConflict,
   mockChangeCount,
   mockCommitIndex,
   mockDiscard,
@@ -159,6 +159,10 @@ export interface Api {
   workStatus(path: string): Promise<WorkStatus>;
   workDiff(path: string, file: string, oldFile: string | null, area: DiffArea): Promise<FileDiff>;
   stageFiles(path: string, files: string[]): Promise<void>;
+  /** Fichier en conflit tel qu'il est sur le disque, avec les marqueurs de git. */
+  conflictText(path: string, file: string): Promise<string>;
+  /** Écrit la résolution d'un conflit et marque le fichier résolu (`git add`). */
+  resolveConflict(path: string, file: string, content: string): Promise<void>;
   unstageFiles(path: string, files: string[]): Promise<void>;
   stageAll(path: string): Promise<void>;
   unstageAll(path: string): Promise<void>;
@@ -422,6 +426,8 @@ const tauriApi: Api = {
   workStatus: (path) => invoke("work_status", { path }),
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
+  conflictText: (path, file) => invoke("conflict_text", { path, file }),
+  resolveConflict: (path, file, content) => invoke("resolve_conflict", { path, file, content }),
   unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
   stageAll: (path) => invoke("stage_all", { path }),
   unstageAll: (path) => invoke("unstage_all", { path }),
@@ -660,7 +666,7 @@ const mockOptionsCache = new Map<string, PullOptions>();
 /** Lectures des personnes / étiquettes sur le « provider » simulé (lues par les tests e2e). */
 const mockOptionFetches = { count: 0, delay: 600 };
 if (!inTauri && typeof window !== "undefined") {
-  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions });
+  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions, __mockConflict: mockAddConflict });
 }
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
@@ -885,6 +891,14 @@ const mockApi: Api = {
   },
   async stageFiles(path, files) {
     mockStage(path, files, false);
+  },
+  async conflictText(path, file) {
+    await mockDelay();
+    return mockConflictText(path, file);
+  },
+  async resolveConflict(path, file, content) {
+    await mockDelay();
+    mockResolveConflict(path, file, content);
   },
   async unstageFiles(path, files) {
     mockStage(path, files, true);

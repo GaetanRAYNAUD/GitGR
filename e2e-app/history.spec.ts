@@ -199,6 +199,38 @@ test("tag annoté créé sur un commit et poussé, puis supprimé ici et sur le 
   }
 });
 
+test("conflit de merge résolu dans GitGR : fichier écrit avec le résultat composé et indexé", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "c.txt", "un\n", "base");
+  git(mine, "checkout", "-q", "-b", "sujet");
+  sandbox.commit(mine, "c.txt", "deux\n", "côté sujet");
+  git(mine, "checkout", "-q", "main");
+  sandbox.commit(mine, "c.txt", "trois\n", "côté main");
+  try {
+    git(mine, "merge", "-q", "sujet");
+  } catch {
+    // conflit attendu
+  }
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" });
+    await row.hover();
+    await row.getByRole("button", { name: "Résoudre" }).click();
+    const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
+    await view.getByRole("group", { name: "Conflit 1 / 1" }).getByRole("button", { name: "A puis B" }).click();
+    await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
+    await expect(view).toHaveCount(0);
+    expect(readFileSync(join(mine, "c.txt"), "utf8")).toBe("trois\ndeux\n");
+    expect(git(mine, "diff", "--name-only", "--diff-filter=U")).toBe("");
+    expect(git(mine, "diff", "--cached", "--name-only")).toBe("c.txt");
+  } finally {
+    await app.close();
+  }
+});
+
 test("revert de deux commits sélectionnés : leurs fichiers retirés par deux nouveaux commits", async ({ sandbox }) => {
   const mine = sandbox.clone("mine");
   sandbox.commit(mine, "x.txt", "x\n", "ajout de x");
