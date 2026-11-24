@@ -172,10 +172,12 @@ fn is_network(args: &[&str]) -> bool {
 fn injected(cwd: Option<&Path>, network: bool) -> (Vec<String>, Vec<(&'static str, String)>) {
     let Some(dir) = cwd else { return (Vec::new(), Vec::new()) };
     let id = identity_for(dir);
-    let args = id.iter().flat_map(Identity::config).flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
+    let mut args: Vec<String> = id.iter().flat_map(Identity::config).flat_map(|(k, v)| ["-c".to_string(), format!("{k}={v}")]).collect();
     let mut keys = id.as_ref().map(Identity::askpass_keys).unwrap_or_default();
     let mut env = Vec::new();
     if network {
+        // Remotes HTTPS : token du compte du profil de chaque remote (cf. `credential`).
+        args.extend(crate::credential::config_args(&crate::remotes::https_accounts(dir)));
         if let Some(ssh) = crate::remotes::ssh_setup(dir, id.as_ref().and_then(|i| i.ssh_key.as_deref())) {
             env.push(("GIT_SSH_COMMAND", ssh.command));
             for key in ssh.keys {

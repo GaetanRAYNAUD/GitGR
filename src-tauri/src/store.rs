@@ -234,14 +234,23 @@ impl AppState {
 
     /// Profils et choix par remote, pour la clé SSH de chaque remote (cf. `remotes::Table`).
     pub fn remote_table(&self) -> crate::remotes::Table {
-        let profiles = self.profiles.iter().map(|p| crate::remotes::KeyProfile { id: p.id.clone(), rules: p.rules.clone(), ssh_key: p.ssh_key.clone() }).collect();
+        let profiles = self
+            .profiles
+            .iter()
+            .map(|p| crate::remotes::KeyProfile { id: p.id.clone(), rules: p.rules.clone(), ssh_key: p.ssh_key.clone(), accounts: p.accounts.clone() })
+            .collect();
         let choices = self
             .repo_profiles
             .iter()
             .filter(|(_, binding)| !binding.remotes.is_empty())
             .map(|(path, binding)| (crate::git::repo_key(std::path::Path::new(path)), binding.remotes.clone()))
             .collect();
-        crate::remotes::Table { profiles, choices }
+        let active = self
+            .repo_profiles
+            .iter()
+            .filter_map(|(path, binding)| Some((crate::git::repo_key(std::path::Path::new(path)), binding.active.clone()?)))
+            .collect();
+        crate::remotes::Table { profiles, choices, active }
     }
 
     /// Identité à injecter par dépôt (cf. `git::Identity`), d'après son profil actif.
@@ -428,7 +437,7 @@ mod tests {
 
         // Choix par remote transmis à la couche git, par dépôt.
         let table = state.remote_table();
-        assert_eq!(table.profiles, [crate::remotes::KeyProfile { id: "boulot".into(), rules: vec!["github.com".into()], ssh_key: None }]);
+        assert_eq!(table.profiles, [crate::remotes::KeyProfile { id: "boulot".into(), rules: vec!["github.com".into()], ..Default::default() }]);
         assert_eq!(table.choices, HashMap::from([(crate::git::repo_key(std::path::Path::new("/r")), remotes)]));
     }
 

@@ -13,10 +13,12 @@
 //! - `secrets`  : trousseau de l'OS (phrases de passe des clés, tokens des comptes).
 //! - `signing`  : clés GPG (signature des commits, injectée par `git`).
 //! - `askpass`  : l'exécutable répond à ssh (phrase de passe) quand ssh le lance.
+//! - `credential`: l'exécutable répond à git (token du compte) pour un remote HTTPS.
 //! - `store`    : état persistant de l'app (dépôts connus, onglets, réglages).
 //! - `commands` : fonctions exposées au frontend via `invoke()`.
 
 pub mod askpass;
+pub mod credential;
 mod avatars;
 mod branches;
 mod clone;
