@@ -184,6 +184,31 @@ test.describe("dépôt propre", () => {
     await expect(tool(page, "Rétablir")).toBeDisabled();
   });
 
+  test("glisser une sélection de commits sur une branche : cherry-pick du lot, checkout d'abord", async ({ page }) => {
+    const rows = graph(page).getByRole("option");
+    await rows.nth(3).click();
+    await rows.nth(5).click({ modifiers: ["Control"] });
+    await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(2);
+
+    const msg = (await rows.nth(5).locator(".commit-msg").boundingBox())!;
+    const target = branch(page, "ssh-agent");
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(msg.x + 20, msg.y + msg.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(msg.x + 40, msg.y + msg.height / 2, { steps: 3 });
+    await expect(page.locator(".commit-drag-ghost")).toHaveText("2 commits");
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await menu(page).getByRole("menuitem", { name: "Cherry-pick des 2 commits sur fix/ssh-agent (checkout de fix/ssh-agent d’abord)" }).click();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
+
+    // Un simple clic sur un commit de la sélection ne garde que lui.
+    await rows.nth(4).click();
+    await rows.nth(6).click({ modifiers: ["Control"] });
+    await rows.nth(6).click();
+    await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(1);
+  });
+
   test("glisser une branche sur une autre : merge dans la courante, rebase avec checkout d'abord", async ({ page }) => {
     const drag = async (source: ReturnType<typeof branch>, target: ReturnType<typeof branch>) => {
       const from = (await source.boundingBox())!;

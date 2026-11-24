@@ -334,7 +334,7 @@ export function commitDropMenu(t: TFunction, path: string, sha: string, target: 
       label: current ? t("menu.cherryPickOnto", { sha: short, branch: target.short }) : t("menu.cherryPickOntoOther", { sha: short, branch: target.short }),
       disabled: merge || there || !refs?.head,
       title: pickWhy,
-      onClick: () => void ops.cherryPickOnto(path, target.short, sha),
+      onClick: () => void ops.cherryPickOnto(path, target.short, [sha]),
     },
     current
       ? resetSub(t, path, sha, refs, short)
@@ -345,6 +345,21 @@ export function commitDropMenu(t: TFunction, path: string, sha: string, target: 
           title: there ? t("menu.why.sameCommit", { branch: target.short }) : undefined,
           onClick: () => void ops.moveBranch(path, target.short, sha),
         },
+  ];
+}
+
+/** Sélection de plusieurs commits déposée sur une branche locale : cherry-pick du lot dessus
+ *  (`ordered` : du plus récent au plus ancien, comme le graphe). */
+export function pickedDropMenu(t: TFunction, path: string, ordered: { sha: string; parents: string[] }[], target: GitRef, refs: RefsInfo | null): MenuItem[] {
+  const merges = ordered.some((c) => c.parents.length > 1);
+  const current = target.short === refs?.headBranch;
+  return [
+    {
+      label: t(current ? "multi.cherryPick" : "multi.cherryPickOther", { count: ordered.length, branch: target.short }),
+      title: merges ? t("multi.cherryPickMerge") : t("multi.cherryPickHint", { branch: target.short }),
+      disabled: merges || !refs?.head,
+      onClick: () => void useOps.getState().cherryPickOnto(path, target.short, ordered.map((c) => c.sha).reverse()),
+    },
   ];
 }
 

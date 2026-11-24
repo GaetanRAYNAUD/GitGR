@@ -78,8 +78,9 @@ interface OpsStore {
   rebaseOnto(path: string, ref: GitRef): Promise<boolean>;
   /** Déplace une branche qui n'est pas la courante sur un commit (confirmation). */
   moveBranch(path: string, branch: string, sha: string): Promise<boolean>;
-  /** Cherry-pick d'un commit sur une autre branche : checkout de celle-ci (auto-stash), puis cherry-pick. */
-  cherryPickOnto(path: string, branch: string, sha: string): Promise<boolean>;
+  /** Cherry-pick de commits (du plus ancien au plus récent) sur une branche : checkout de
+   *  celle-ci d'abord si ce n'est pas la courante (auto-stash). */
+  cherryPickOnto(path: string, branch: string, shas: string[]): Promise<boolean>;
   /** Annule la dernière opération notée (Ctrl+Z) ou rétablit la dernière annulée (Ctrl+Y). */
   replay(path: string, dir: "undo" | "redo"): Promise<boolean>;
   /** `silent` (fetch automatique) : ni erreur ni message, et rien si une commande tourne déjà. */
@@ -554,11 +555,11 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
-    async cherryPickOnto(path, branch, sha) {
+    async cherryPickOnto(path, branch, shas) {
       if (branch !== currentBranch(path) && !(await get().checkout(path, branch))) return false;
       // Checkout arrêté (stash gardé en conflit) : la branche n'est peut-être pas celle visée.
       if (currentBranch(path) !== branch) return false;
-      return get().cherryPick(path, [sha]);
+      return get().cherryPick(path, shas);
     },
 
     async fetch(path, silent = false) {

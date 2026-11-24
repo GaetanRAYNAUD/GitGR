@@ -24,7 +24,7 @@ import { useGraph, WIP } from "../../store/graph";
 import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitDropMenu, commitMenu, pickedMenu, refMenu, startBranchDrag } from "./menus";
+import { checkoutRef, commitDropMenu, commitMenu, pickedDropMenu, pickedMenu, refMenu, startBranchDrag } from "./menus";
 import { startCommitDrag } from "./commitDrag";
 import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
@@ -879,7 +879,21 @@ export function CommitGraph({ path, changes }: Props) {
                 if (stash) openStash(path, stash);
                 else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
                 else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
-                else {
+                else if (!isWip && pickedSet.size > 1 && pickedSet.has(c.sha)) {
+                  // Dans une sélection multiple : on glisse tout le lot ; un simple clic ne
+                  // garde que ce commit, comme avant.
+                  const ordered = orderPicked(graph.commits, picked ?? []);
+                  startCommitDrag(
+                    e,
+                    t("multi.dragLabel", { count: ordered.length }),
+                    (drop) => {
+                      const refs = useGraph.getState().graphs[path]?.refs ?? null;
+                      const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+                      if (target) useContextMenu.getState().open(drop.x, drop.y, pickedDropMenu(t, path, ordered, target, refs));
+                    },
+                    () => select(path, c.sha),
+                  );
+                } else {
                   select(path, c.sha);
                   // Glissé sur une branche locale : menu cherry-pick / reset / déplacer. Pas
                   // depuis l'étiquette d'une branche locale : c'est elle qu'on glisse alors.
