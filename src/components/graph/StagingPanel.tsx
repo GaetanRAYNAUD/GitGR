@@ -204,8 +204,14 @@ export function StagingPanel({ path }: { path: string }) {
                     <button className="mini" disabled={busy} onClick={() => showConflict(path, f.path)} title={t("conflict.openHint")}>
                       {t("conflict.open")}
                     </button>
-                    <button className="mini" disabled={busy} onClick={() => w.stage(path, [f])} title={t("staging.resolvedHint")}>
-                      {t("staging.resolved")}
+                    <button
+                      className="mini icon"
+                      disabled={busy}
+                      onClick={() => w.stage(path, [f])}
+                      aria-label={t("staging.resolved")}
+                      title={`${t("staging.resolved")} — ${t("staging.resolvedHint")}`}
+                    >
+                      <Icon name="check" size={13} />
                     </button>
                   </>
                 ) : (

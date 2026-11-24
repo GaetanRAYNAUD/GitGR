@@ -217,8 +217,9 @@ test("conflit de merge résolu dans GitGR : fichier écrit avec le résultat com
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
     const row = panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" });
-    await row.hover();
-    await row.getByRole("button", { name: "Résoudre" }).click();
+    // Clic droit : marche quelle que soit la largeur du panneau (écran 1024×768 en CI).
+    await row.click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Résoudre" }).click();
     const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
     await view.getByRole("group", { name: "Conflit 1 / 1" }).getByRole("button", { name: "A puis B" }).click();
     await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
