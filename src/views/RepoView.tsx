@@ -26,7 +26,7 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
+import { closeCenterViews, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
 import { StashView } from "../components/graph/StashView";
 import { ReflogView } from "../components/graph/ReflogView";
 import { SearchView } from "../components/graph/SearchView";
@@ -383,8 +383,7 @@ export function RepoView({ path }: { path: string }) {
             onClick={() => {
               if (diff) useGraph.getState().closeDiff(path);
               if (openPull) usePullList.getState().close(path);
-              useRangeView.getState().close(path);
-              useStashView.getState().close(path);
+              closeCenterViews(path);
               select(path, WIP);
             }}
           >

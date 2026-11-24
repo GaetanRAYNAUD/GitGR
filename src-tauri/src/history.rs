@@ -206,7 +206,9 @@ pub fn blame(path: &Path, file: &str, rev: Option<&str>) -> Result<Blame, String
     }
     args.extend(["--", file]);
     let out = run_raw(Some(path), &args).map_err(|e| {
-        if e.contains("no such path") || e.contains("no such ref") || e.contains("does not have any commits") { "blame_no_file".to_string() } else { e }
+        // Absent au commit, non suivi, ou supprimé de la copie de travail (« Cannot lstat »).
+        let missing = ["no such path", "no such ref", "does not have any commits", "Cannot lstat"];
+        if missing.iter().any(|m| e.contains(m)) { "blame_no_file".to_string() } else { e }
     })?;
     Ok(parse_blame(&out))
 }
@@ -228,7 +230,8 @@ fn parse_blame(out: &str) -> Blame {
         }
         let mut words = line.split(' ');
         let first = words.next().unwrap_or("");
-        if first.len() == 40 && first.chars().all(|c| c.is_ascii_hexdigit()) {
+        // SHA-1 (40) ou SHA-256 (64) : seules les lignes d'en-tête commencent ainsi.
+        if (first.len() == 40 || first.len() == 64) && first.chars().all(|c| c.is_ascii_hexdigit()) {
             let orig = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
             if !commits.iter().any(|c| c.sha == first) {
                 commits.push(BlameCommit { sha: first.into(), author: String::new(), email: String::new(), time: 0, summary: String::new(), filename: String::new() });
@@ -777,6 +780,10 @@ mod tests {
 
         assert_eq!(blame(p, "absent.txt", Some(&second)).unwrap_err(), "blame_no_file");
         assert!(blame(p, "a.txt", Some("-x")).is_err());
+        std::fs::remove_file(p.join("a.txt")).unwrap();
+        assert_eq!(blame(p, "a.txt", None).unwrap_err(), "blame_no_file");
+        std::fs::write(p.join("n.txt"), "x\n").unwrap();
+        assert_eq!(blame(p, "n.txt", None).unwrap_err(), "blame_no_file");
     }
 
     #[test]

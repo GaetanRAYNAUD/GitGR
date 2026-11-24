@@ -11,6 +11,7 @@ import { errorMessage } from "../../lib/errors";
 import { relativeTime } from "../../lib/format";
 import type { Blame, BlameCommit } from "../../lib/types";
 import { useGraph } from "../../store/graph";
+import { useWork } from "../../store/worktree";
 import { useBlameView, useFileHistoryView, type BlameTarget } from "../../store/range";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
@@ -33,7 +34,8 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
 
-  // Relu quand les refs changent ; celui de la copie de travail aussi à chaque ouverture.
+  // Relu quand les refs changent ; celui de la copie de travail aussi quand elle change.
+  const work = useWork((s) => (rev ? null : (s.repos[path]?.status ?? null)));
   useEffect(() => {
     let live = true;
     api.blame(path, file, rev).then(
@@ -51,7 +53,7 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
     return () => {
       live = false;
     };
-  }, [path, file, rev, refs]);
+  }, [path, file, rev, refs, work]);
 
   const commits = useMemo(() => new Map((blame?.commits ?? []).map((c) => [c.sha, c])), [blame]);
   const ago = (s: number) => {
@@ -72,7 +74,10 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
     useGraph.getState().select(path, c.sha);
     openContextMenu(ev, [
       { label: t("reflog.showInGraph"), onClick: () => reveal(c.sha) },
-      { label: t("blame.atCommit"), onClick: () => useBlameView.getState().show(path, { file: c.filename || file, rev: c.sha }) },
+      {
+        label: t("blame.atCommit"),
+        onClick: () => useBlameView.getState().show(path, { file: c.filename || file, rev: c.sha, historyFile: target.historyFile ?? file }),
+      },
       "sep",
       ...commitMenu(t, path, c.sha, refs),
     ]);
@@ -87,7 +92,7 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
           {t("blame.title", { file })}
         </span>
         <span className="mono muted diff-sha">{rev ? rev.slice(0, 7) : t("blame.workingCopy")}</span>
-        <button className="btn sm" onClick={() => useFileHistoryView.getState().show(path, file)}>
+        <button className="btn sm" onClick={() => useFileHistoryView.getState().show(path, target.historyFile ?? file)}>
           {t("fileHistory.menu")}
         </button>
       </header>

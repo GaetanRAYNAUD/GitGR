@@ -107,6 +107,8 @@ export const useFileHistoryView = create<FileHistoryViewState>((set) => ({
 export interface BlameTarget {
   file: string;
   rev: string | null;
+  /** Chemin dont montrer l'historique (le chemin actuel, quand `file` est un ancien nom). */
+  historyFile?: string;
 }
 
 /** Blame ouvert à la place du graphe, un par dépôt. */

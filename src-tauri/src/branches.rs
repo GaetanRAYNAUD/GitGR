@@ -499,9 +499,8 @@ pub fn delete_remote_tag(path: &Path, name: &str, to: Option<&str>) -> Result<St
     check_dir(path)?;
     check_tag_name(path, name).map_err(|_| "tag_not_found".to_string())?;
     let remote = default_remote(path, to)?;
-    run(Some(path), &["push", "-q", &remote, "--delete", &format!("refs/tags/{name}")]).map_err(|e| {
-        if e.contains("remote ref does not exist") { "tag_not_on_remote".to_string() } else { classify(&e) }
-    })?;
+    // Un tag absent du remote n'est pas une erreur pour git : la suppression est idempotente.
+    run(Some(path), &["push", "-q", &remote, "--delete", &format!("refs/tags/{name}")]).map_err(|e| classify(&e))?;
     Ok(remote)
 }
 

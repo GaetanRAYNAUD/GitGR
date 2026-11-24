@@ -108,7 +108,7 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
                     {
                       label: t("blame.atCommit"),
                       disabled: e.change.status === "D",
-                      onClick: () => useBlameView.getState().show(path, { file: e.change.path, rev: e.commit.sha }),
+                      onClick: () => useBlameView.getState().show(path, { file: e.change.path, rev: e.commit.sha, historyFile: file }),
                     },
                     "sep",
                     ...commitMenu(t, path, e.commit.sha, refs),

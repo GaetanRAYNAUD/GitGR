@@ -322,7 +322,7 @@
     "deleteLocal": "Delete locally",
     "deleteRemote": "Only on {{remote}}",
     "deleteBoth": "Here and on {{remote}}",
-    "deletedRemote": "Tag {{tag}} deleted on {{remote}}."
+    "deletedRemote": "Tag {{tag}} removed from {{remote}} (if it was there)."
   },
   "reflog": {
     "label": "Reflog",
@@ -781,7 +781,6 @@
     "invalid_tag_name": "Invalid tag name.",
     "tag_exists": "A tag with this name already exists.",
     "tag_not_found": "This tag no longer exists.",
-    "tag_not_on_remote": "This tag does not exist on the remote.",
     "branch_exists": "A branch with this name already exists.",
     "branch_is_current": "Cannot delete the current branch: switch to another branch first.",
     "branch_not_merged": "This branch is not merged.",
@@ -791,7 +790,7 @@
     "local_changes_conflict": "Your local changes would be overwritten. Commit them, stash them, or enable auto-stash in the settings.",
     "unresolved_conflicts": "Some conflicts are not resolved: finish them first.",
     "search_empty": "Type the text to find.",
-    "blame_no_file": "This file does not exist at this commit.",
+    "blame_no_file": "No blame: this file does not exist at this commit, or is not (or no longer) tracked in the working copy.",
     "search_bad_regex": "Invalid regular expression.",
     "revert_merge": "A merge commit cannot be reverted here: remove it from the selection.",
     "squash_pushed": "These commits are already on the server.",

@@ -322,7 +322,7 @@
     "deleteLocal": "Supprimer localement",
     "deleteRemote": "Seulement sur {{remote}}",
     "deleteBoth": "Ici et sur {{remote}}",
-    "deletedRemote": "Tag {{tag}} supprimé sur {{remote}}."
+    "deletedRemote": "Tag {{tag}} retiré de {{remote}} (s’il y était)."
   },
   "reflog": {
     "label": "Reflog",
@@ -781,7 +781,6 @@
     "invalid_tag_name": "Nom de tag invalide.",
     "tag_exists": "Un tag porte déjà ce nom.",
     "tag_not_found": "Ce tag n’existe plus.",
-    "tag_not_on_remote": "Ce tag n’existe pas sur le remote.",
     "branch_exists": "Une branche porte déjà ce nom.",
     "branch_is_current": "Impossible de supprimer la branche courante : passez d’abord sur une autre branche.",
     "branch_not_merged": "Cette branche n’est pas fusionnée.",
@@ -791,7 +790,7 @@
     "local_changes_conflict": "Vos modifications locales seraient écrasées. Commitez-les, mettez-les de côté (stash) ou activez l’auto-stash dans les réglages.",
     "unresolved_conflicts": "Des conflits ne sont pas résolus : terminez-les d’abord.",
     "search_empty": "Saisissez le texte à chercher.",
-    "blame_no_file": "Ce fichier n’existe pas à ce commit.",
+    "blame_no_file": "Pas de blame possible : ce fichier n’existe pas à ce commit, ou n’est pas (ou plus) suivi dans la copie de travail.",
     "search_bad_regex": "Expression régulière invalide.",
     "revert_merge": "Un commit de fusion ne peut pas être annulé ici : retirez-le de la sélection.",
     "squash_pushed": "Ces commits sont déjà sur le serveur.",
