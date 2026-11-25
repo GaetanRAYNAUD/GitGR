@@ -62,7 +62,7 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
   try {
     const { page } = app;
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
-    await locals.getByRole("button", { name: /^feature/ }).dblclick();
+    await locals.getByRole("treeitem", { name: /^feature/ }).dblclick();
     await expect(page.locator(".branch-chip-label")).toHaveText("feature");
     // Modification gardée, combinée avec celle de la branche : pas de conflit, stash vidé.
     expect(git(mine, "diff")).toContain("+cinq");
@@ -70,7 +70,7 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
 
     // Retour sur main avec une modification en conflit sur la ligne 1.
     sandbox.write(mine, "a.txt", "UN\n2\n3\n4\ncinq\n");
-    await locals.getByRole("button", { name: /^main/ }).dblclick();
+    await locals.getByRole("treeitem", { name: /^main/ }).dblclick();
     await expect(page.locator(".branch-chip-label")).toHaveText("main");
     await expect(page.getByRole("status").filter({ hasText: "GitGR-autostash: feature" }).first()).toBeVisible();
     expect(git(mine, "stash", "list")).toContain("GitGR-autostash: feature");
@@ -134,7 +134,7 @@ test("double-clic sur une distante dont la locale existe : checkout puis pull", 
       .getByRole("navigation", { name: "Branches et tags" })
       .locator(".side-group")
       .filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
-    await origin.getByRole("button", { name: /^feature/ }).dblclick();
+    await origin.getByRole("treeitem", { name: /^feature/ }).dblclick();
     await expect(page.locator(".branch-chip-label")).toHaveText("feature");
     await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
     expect(git(mine, "log", "-1", "--format=%s")).toBe("distant: feature");
@@ -189,14 +189,14 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     const menu = page.getByRole("menu").first();
 
-    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await locals.getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Pull de main (avance rapide)" }).click();
     await expect(page.getByRole("status").filter({ hasText: "main mise à jour." })).toBeVisible();
     expect(git(mine, "log", "-1", "--format=%s", "main")).toBe("distant: b");
     expect(git(mine, "branch", "--show-current")).toBe("travail");
 
     // Rebase de la courante sur main : t.txt rejoué après « distant: b ».
-    await locals.getByRole("button", { name: /^main/ }).click({ button: "right" });
+    await locals.getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Rebase de travail sur main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail rebasée sur main." })).toBeVisible();
     expect(git(mine, "log", "-1", "--format=%s", "HEAD~1")).toBe("distant: b");
@@ -204,14 +204,14 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
     // Push de travail sans y être : suivie sur origin.
     git(mine, "switch", "-q", "main");
     // Le menu lit les refs de la barre latérale : attendre qu'elle soit relue.
-    await expect(locals.getByRole("button", { name: /^main/ })).toHaveClass(/current/);
-    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await expect(locals.getByRole("treeitem", { name: /^main/ })).toHaveClass(/current/);
+    await locals.getByRole("treeitem", { name: /^travail/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Push de travail" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail poussée." })).toBeVisible();
     expect(git(mine, "rev-parse", "--abbrev-ref", "travail@{u}")).toBe("origin/travail");
 
     // Merge de travail dans main : avance rapide.
-    await locals.getByRole("button", { name: /^travail/ }).click({ button: "right" });
+    await locals.getByRole("treeitem", { name: /^travail/ }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Merge de travail dans main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail fusionnée dans main." })).toBeVisible();
     expect(git(mine, "rev-parse", "main")).toBe(git(mine, "rev-parse", "travail"));
@@ -230,7 +230,7 @@ test("glisser un commit sur une autre branche : checkout puis cherry-pick", asyn
   try {
     const { page } = app;
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
-    const target = locals.getByRole("button", { name: /^cible/ });
+    const target = locals.getByRole("treeitem", { name: /^cible/ });
     const row = page.locator(`#commit-${sha}`);
     const from = (await row.locator(".commit-msg").boundingBox())!;
     const to = (await target.boundingBox())!;
@@ -265,7 +265,7 @@ test("Ctrl+Z annule un commit (modifications indexées) puis un merge ; Ctrl+Y r
     const committed = git(mine, "rev-parse", "HEAD");
 
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
-    await locals.getByRole("button", { name: /^feature/ }).click({ button: "right" });
+    await locals.getByRole("treeitem", { name: /^feature/ }).click({ button: "right" });
     await page.getByRole("menu").first().getByRole("menuitem", { name: "Merge de feature dans main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "feature fusionnée dans main." })).toBeVisible();
 

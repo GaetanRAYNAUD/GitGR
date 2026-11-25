@@ -624,8 +624,21 @@
     "hidden_one": "{{count}} section masquée · Afficher",
     "hidden_other": "{{count}} sections masquées · Afficher",
     "notFound": "Ce commit n’apparaît pas dans l’historique.",
-    "dblClick": "Double-clic : checkout",
-    "dblClickPull": "Double-clic : checkout de {{branch}}, puis pull"
+    "dblClick": "Double-clic ou Maj+Entrée : checkout",
+    "dblClickPull": "Double-clic ou Maj+Entrée : checkout de {{branch}}, puis pull",
+    "tree": "Branches, tags et stashes",
+    "isCurrent": "branche courante",
+    "hasPull": "{{ref}} ouverte",
+    "ahead_one": "{{count}} commit à pousser",
+    "ahead_other": "{{count}} commits à pousser",
+    "behind_one": "{{count}} commit à tirer",
+    "behind_other": "{{count}} commits à tirer",
+    "openPull": "Voir {{ref}}",
+    "collapse": "Replier",
+    "expand": "Déplier",
+    "hideSection": "Masquer cette section",
+    "clearFilter": "Effacer le filtre",
+    "noMatch": "Aucune branche, aucun tag ni stash ne contient « {{query}} »."
   },
   "staging": {
     "stashFile": "Mettre de côté (stash)…",
@@ -1347,7 +1360,7 @@
     },
     "noAccount": "Connectez un compte {{provider}} au profil du remote {{remote}} pour voir ses demandes.",
     "truncated": "Seules les 100 plus récentes sont affichées.",
-    "dblClick": "Clic : détails · double-clic : checkout de la branche",
+    "dblClick": "Clic : détails · double-clic ou Maj+Entrée : checkout de la branche",
     "branchPull": "{{ref}} {{title}} — clic : voir",
     "menu": {
       "view": "Voir dans GitGR",
@@ -1466,7 +1479,8 @@
       "success": "Réussis ({{count}})"
     },
     "retryFailed": "Relancer les jobs en échec",
-    "retrying": "Relance…"
+    "retrying": "Relance…",
+    "noAccountShort": "Connectez un compte {{provider}} pour les voir ici."
   },
   "notif": {
     "title": "Notifications",

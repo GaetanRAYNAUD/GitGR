@@ -17,7 +17,7 @@ const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches e
 /** Section « Local » de la barre latérale (les distantes ont souvent le même nom). */
 const locals = (page: Page) => sidebar(page).locator(".side-group").first();
 /** Bouton d'une branche locale (son nom affiché est suivi des compteurs ↑ ↓). */
-const branch = (page: Page, label: string) => locals(page).getByRole("button", { name: new RegExp(`^${label}( |$)`) });
+const branch = (page: Page, label: string) => locals(page).getByRole("treeitem", { name: new RegExp(`^${label}( |$)`) });
 const graph = (page: Page) => page.getByRole("listbox", { name: "Historique des commits" });
 /** Menu contextuel principal (un sous-menu ouvert est un second `menu`, imbriqué). */
 const menu = (page: Page) => page.getByRole("menu").first();
@@ -94,7 +94,7 @@ test.describe("dépôt propre", () => {
   test("double-clic sur une distante dont la locale existe : checkout puis pull", async ({ page }) => {
     // Section « origin » : la distante origin/fix/ssh-agent, en avance d'un commit sur la locale.
     const origin = sidebar(page).locator(".side-group").filter({ has: page.locator(".section-name", { hasText: /^origin$/ }) });
-    await origin.getByRole("button", { name: /^ssh-agent/ }).dblclick();
+    await origin.getByRole("treeitem", { name: /^ssh-agent/ }).dblclick();
     await expect(current(page)).toHaveText("fix/ssh-agent");
     await expect(tool(page, "Pull").locator(".badge")).toHaveCount(0);
     await expect(branch(page, "ssh-agent")).toHaveClass(/current/);
@@ -272,13 +272,13 @@ test.describe("tags", () => {
     await expect(row).toContainText("v9.0.0");
     await expect(page.getByText("Tag v9.0.0 poussé sur origin.")).toBeVisible();
 
-    await sidebar(page).getByRole("button", { name: /^Tags/ }).click();
-    await sidebar(page).getByRole("button", { name: "v9.0.0" }).click({ button: "right" });
+    await sidebar(page).getByRole("treeitem", { name: /^Tags/ }).click();
+    await sidebar(page).getByRole("treeitem", { name: "v9.0.0" }).click({ button: "right" });
     await menu(page).getByRole("menuitem", { name: "Supprimer le tag v9.0.0…" }).click();
     const confirm = page.getByRole("alertdialog", { name: "Supprimer le tag v9.0.0 ?" });
     await confirm.getByRole("button", { name: "Supprimer localement" }).click();
     await expect(row).not.toContainText("v9.0.0");
-    await expect(sidebar(page).getByRole("button", { name: "v9.0.0" })).toHaveCount(0);
+    await expect(sidebar(page).getByRole("treeitem", { name: "v9.0.0" })).toHaveCount(0);
   });
 });
 
@@ -302,14 +302,14 @@ test.describe("dépôt avec des modifications", () => {
 
   test("section Stashes : toute la pile, appliquer sans retirer, supprimer après confirmation", async ({ page }) => {
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
-    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    const stashes = sidebar(page).getByRole("group", { name: "Stashes" });
+    await expect(sidebar(page).getByRole("treeitem", { name: /^Stashes/ })).toHaveCount(0);
     await tool(page, "Stash").click();
-    await expect(stashes.getByRole("button")).toHaveCount(1);
+    await expect(stashes.getByRole("treeitem")).toHaveCount(1);
     await expect(stashes).toContainText("main");
 
     // Clic : son contenu à la place du graphe, fichiers et diff ; Échap revient au graphe.
-    await stashes.getByRole("button").first().click();
+    await stashes.getByRole("treeitem").first().click();
     const view = page.getByRole("region", { name: /^Stash/ });
     await expect(view.locator(".file-row")).toHaveCount(4);
     await view.locator(".file-row", { hasText: "notes.txt" }).click();
@@ -319,37 +319,37 @@ test.describe("dépôt avec des modifications", () => {
     await expect(view).toHaveCount(0);
 
     const menu = page.getByRole("menu");
-    await stashes.getByRole("button").first().click({ button: "right" });
+    await stashes.getByRole("treeitem").first().click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Appliquer (le garder)" }).click();
     await expect(panel).toContainText("render.ts");
-    await expect(stashes.getByRole("button")).toHaveCount(1);
+    await expect(stashes.getByRole("treeitem")).toHaveCount(1);
 
-    await stashes.getByRole("button").first().click({ button: "right" });
+    await stashes.getByRole("treeitem").first().click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Renommer…" }).click();
     const rename = page.getByRole("dialog", { name: "Renommer le stash" });
     await rename.getByRole("textbox").fill("mis de côté pour plus tard");
     await rename.getByRole("button", { name: "Renommer" }).click();
     await expect(stashes).toContainText("mis de côté pour plus tard");
 
-    await stashes.getByRole("button").first().click({ button: "right" });
+    await stashes.getByRole("treeitem").first().click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Supprimer…" }).click();
     await page.getByRole("alertdialog", { name: "Supprimer ce stash ?" }).getByRole("button", { name: "Supprimer" }).click();
-    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await expect(sidebar(page).getByRole("treeitem", { name: /^Stashes/ })).toHaveCount(0);
     await expect(tool(page, "Pop")).toBeDisabled();
   });
 
   test("créer une branche depuis un stash : extraite, le stash réappliqué et retiré", async ({ page }) => {
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    const stashes = sidebar(page).getByRole("list", { name: "Stashes" });
+    const stashes = sidebar(page).getByRole("group", { name: "Stashes" });
     await tool(page, "Stash").click();
-    await stashes.getByRole("button").first().click({ button: "right" });
+    await stashes.getByRole("treeitem").first().click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Créer une branche depuis ce stash…" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
     await dialog.getByRole("textbox").fill("reprise");
     await dialog.getByRole("button", { name: "Créer" }).click();
     await expect(current(page)).toHaveText("reprise");
     await expect(panel).toContainText("render.ts");
-    await expect(sidebar(page).getByRole("button", { name: /^Stashes/ })).toHaveCount(0);
+    await expect(sidebar(page).getByRole("treeitem", { name: /^Stashes/ })).toHaveCount(0);
   });
 
   test("« pousser après le commit » est mémorisé et pousse", async ({ page }) => {

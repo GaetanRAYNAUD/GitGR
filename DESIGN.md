@@ -253,7 +253,7 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 ### Named Rules
 **The Weight-Not-Size Rule.** Dans l'app, on hiérarchise par la graisse (400 / 500 / 600 / 700) et la couleur d'encre (text / muted / faint), pas en grossissant le texte. Rien au-dessus de 13px hors titres d'écran et de dialogue.
 
-**The Git-Is-Mono Rule.** Tout identifiant Git (SHA, chemin, ref brute, diff) s'affiche en JetBrains Mono ; la prose et les libellés jamais.
+**The Git-Is-Mono Rule.** Tout identifiant Git (SHA, chemin, ref brute, diff) s'affiche en JetBrains Mono ; la prose et les libellés jamais. Exception : dans la barre latérale, les noms de branches et de tags sont des libellés de liste (police d'interface, plus lisible à 13px) ; leurs compteurs ↑ ↓ restent en mono.
 
 ## Layout
 
@@ -324,7 +324,7 @@ Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), san
 ### Navigation (onglets)
 - **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille.
 - **Logo = onglet Accueil:** même forme, sans bouton de fermeture.
-- **Barre latérale des refs:** éléments de 28px, coins 6px, indentation de 14px par niveau ; sections repliables avec en-tête en capitales `faint` et compteur.
+- **Barre latérale des refs:** éléments de 28px, coins 6px, indentation de 14px par niveau ; sections repliables avec en-tête en capitales `faint` et compteur. Au clavier, un arbre (`role="tree"`) à une seule tabulation : ↑ / ↓, → / ← (déplier, replier, parent), recherche à la frappe, Entrée (le commit), Maj+Entrée (checkout, comme le double-clic), Maj+F10 (menu, aussi sur les dossiers et en-têtes), Alt+↑ / ↓ sur un en-tête pour sa hauteur ; Ctrl+Maj+E y amène. Le libellé passe avant la méta (↑ ↓, date) ; un nom trop long se raccourcit, jamais de défilement horizontal. Filtre : focus marqué sur son cadre, × et Échap pour le vider, une ligne quand rien ne correspond. Section des PR / MR sans compte : une seule ligne d'invitation.
 
 ### Commit row (signature)
 La ligne du graphe : 28px, grille à colonnes (refs, graphe, message, auteur, date, SHA). Survol `hover`, sélection `sel`. Message en 13px ; auteur avec avatar rond ; date et SHA en `muted`, SHA en mono. Le nœud du graphe prend la couleur de sa voie, avec l'initiale ou l'avatar de l'auteur.

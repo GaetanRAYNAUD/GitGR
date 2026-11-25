@@ -63,13 +63,23 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
   if (q && items.length === 0) return null;
   const open = q !== "" || !ui.collapsed.includes(STASHES_SECTION);
   const name = t("stashes.section");
+  const toggleOpen = () => setUi(path, { ...ui, collapsed: open ? [...ui.collapsed, STASHES_SECTION] : ui.collapsed.filter((k) => k !== STASHES_SECTION) });
 
   return (
     <div className="side-group">
       <button
         className="section-h section-btn"
+        role="treeitem"
+        aria-level={1}
         aria-expanded={open}
-        onClick={() => setUi(path, { ...ui, collapsed: open ? [...ui.collapsed, STASHES_SECTION] : ui.collapsed.filter((k) => k !== STASHES_SECTION) })}
+        data-ti={`section:${STASHES_SECTION}`}
+        onClick={toggleOpen}
+        onContextMenu={(e) =>
+          openContextMenu(e, [
+            { label: t(open ? "sidebar.collapse" : "sidebar.expand"), onClick: toggleOpen },
+            { label: t("sidebar.hideSection"), onClick: () => setUi(path, { ...ui, hidden: [...ui.hidden, STASHES_SECTION] }) },
+          ])
+        }
       >
         <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
         <span className="section-icon">
@@ -80,7 +90,7 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
       </button>
       {open && (
         <ResizableBlock layoutKey={sectionKey(STASHES_SECTION)} label={t("layout.section", { name })} className="side-content">
-          <ul aria-label={name}>
+          <ul role="group" aria-label={name}>
             {items.map((s) => {
               const { branch, text } = stashLabel(s.message);
               const r = relativeTime(s.time * 1000);
@@ -88,6 +98,10 @@ export function StashesSection({ path, query, ui }: { path: string; query: strin
                 <li key={s.sha}>
                   <button
                     className="side-item stash-item"
+                    role="treeitem"
+                    aria-level={2}
+                    data-ti={`stash:${s.sha}`}
+                    data-ti-parent={`section:${STASHES_SECTION}`}
                     style={{ "--depth": 0 } as React.CSSProperties}
                     title={missing === s.sha ? t("sidebar.notFound") : [s.message, t("stashes.hint")].join("\n")}
                     onClick={() => {

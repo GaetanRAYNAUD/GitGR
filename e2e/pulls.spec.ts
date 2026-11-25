@@ -6,9 +6,9 @@ import { openNextRepo } from "./fixtures";
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Branches et tags" });
 const locals = (page: Page) => sidebar(page).locator(".side-group").first();
-const branch = (page: Page, label: string) => locals(page).getByRole("button", { name: new RegExp(`^${label}( |$)`) });
+const branch = (page: Page, label: string) => locals(page).getByRole("treeitem", { name: new RegExp(`^${label}( |$)`) });
 /** Branche de la section du remote origin (2e section de la barre latérale). */
-const remoteBranch = (page: Page, label: string) => sidebar(page).locator(".side-group").nth(1).getByRole("button", { name: new RegExp(`^${label}( |$)`) });
+const remoteBranch = (page: Page, label: string) => sidebar(page).locator(".side-group").nth(1).getByRole("treeitem", { name: new RegExp(`^${label}( |$)`) });
 const graph = (page: Page) => page.getByRole("listbox", { name: "Historique des commits" });
 const chip = (page: Page, label: string) => graph(page).locator(".chip", { has: page.locator(".chip-label", { hasText: new RegExp(`^${label}$`) }) });
 const menu = (page: Page) => page.getByRole("menu");
@@ -183,7 +183,7 @@ test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture d
   // attendant, et les derniers choix se reprennent en un clic.
   await page.evaluate(() => ((window as unknown as { __mockOptionFetches: { delay: number } }).__mockOptionFetches.delay = 5000));
   await openNextRepo(page, "api-backend");
-  await locals(page).getByRole("button", { name: /^main( |$)/ }).click({ button: "right" });
+  await locals(page).getByRole("treeitem", { name: /^main( |$)/ }).click({ button: "right" });
   await menu(page).getByRole("menuitem", { name: "Créer une merge request…" }).click();
   await expect(d.getByRole("status").filter({ hasText: "En attendant la liste de ce dépôt : les personnes des autres dépôts de demo." })).toBeVisible();
   await d.getByRole("combobox", { name: "Assignés" }).fill("dev-298");

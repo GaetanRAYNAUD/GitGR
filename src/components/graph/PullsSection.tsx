@@ -80,16 +80,49 @@ export function PullsSection({ path, contexts, query, ui }: { path: string; cont
   const total = groups.reduce((n, g) => n + g.pulls.length, 0);
   if (q && total === 0) return null;
   const several = contexts.length > 1;
+  const name = t(`prv.section_${term}`);
+  const toggleOpen = () => setUi(path, { ...ui, collapsed: open ? [...ui.collapsed, PULLS_SECTION] : ui.collapsed.filter((k) => k !== PULLS_SECTION) });
+  const headMenu = (e: React.MouseEvent) =>
+    openContextMenu(e, [
+      { label: t(open ? "sidebar.collapse" : "sidebar.expand"), onClick: toggleOpen },
+      { label: t("sidebar.hideSection"), onClick: () => setUi(path, { ...ui, hidden: [...ui.hidden, PULLS_SECTION] }) },
+    ]);
+
+  // Aucun compte connecté pour ces remotes : ni compteur, ni filtres, ni actualiser (rien ne
+  // pourrait s'afficher) ; une ligne qui invite à en connecter un.
+  if (contexts.every((c) => !c.account)) {
+    return (
+      <div className="side-group pulls-group">
+        <div className="section-h pulls-head">
+          <button className="section-btn pulls-toggle" role="treeitem" aria-level={1} aria-expanded={open} data-ti={`section:${PULLS_SECTION}`} onClick={toggleOpen} onContextMenu={headMenu}>
+            <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
+            <span className="section-icon">
+              <Icon name="pr" size={15} />
+            </span>
+            <span className="section-name">{name}</span>
+          </button>
+        </div>
+        {open && (
+          <p className="side-empty pulls-invite">
+            {t("prv.noAccountShort", { provider: PROVIDER_NAMES[contexts[0].kind] })}{" "}
+            <button className="link" onClick={() => useProfiles.getState().openPage()}>
+              {t("pr.manageAccounts")}
+            </button>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="side-group pulls-group">
       <div className="section-h pulls-head">
-        <button className="section-btn pulls-toggle" aria-expanded={open} onClick={() => setUi(path, { ...ui, collapsed: open ? [...ui.collapsed, PULLS_SECTION] : ui.collapsed.filter((k) => k !== PULLS_SECTION) })}>
+        <button className="section-btn pulls-toggle" role="treeitem" aria-level={1} aria-expanded={open} data-ti={`section:${PULLS_SECTION}`} onClick={toggleOpen} onContextMenu={headMenu}>
           <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
           <span className="section-icon">
             <Icon name="pr" size={15} />
           </span>
-          <span className="section-name">{t(`prv.section_${term}`)}</span>
+          <span className="section-name">{name}</span>
           <span className="section-count">{total}</span>
         </button>
         <button
@@ -103,7 +136,7 @@ export function PullsSection({ path, contexts, query, ui }: { path: string; cont
         </button>
       </div>
       {open && (
-        <ResizableBlock layoutKey={sectionKey(PULLS_SECTION)} label={t("layout.section", { name: t(`prv.section_${term}`) })} className="side-content">
+        <ResizableBlock layoutKey={sectionKey(PULLS_SECTION)} label={t("layout.section", { name })} className="side-content">
           <div className="pull-filters" role="group" aria-label={t("prv.filter")}>
             {FILTERS.map((f) => (
               <button key={f} className={filter === f ? "on" : undefined} aria-pressed={filter === f} onClick={() => setFilter(f)}>
@@ -130,13 +163,19 @@ export function PullsSection({ path, contexts, query, ui }: { path: string; cont
               ) : pulls.length === 0 ? (
                 <p className="side-empty">{t(`prv.empty.${filter}_${ctx.kind === "gitlab" ? "mr" : "pr"}`)}</p>
               ) : (
-                <ul>
+                <ul role="group">
                   {pulls.map((p) => {
                     const sel = opened?.number === p.number && pullCtxKey(opened.ctx) === pullCtxKey(ctx);
                     return (
                       <li key={p.number}>
                         <button
                           className={sel ? "side-item pull-item sel" : "side-item pull-item"}
+                          role="treeitem"
+                          aria-level={2}
+                          aria-selected={sel}
+                          aria-keyshortcuts="Shift+Enter"
+                          data-ti={`pull:${pullCtxKey(ctx)}#${p.number}`}
+                          data-ti-parent={`section:${PULLS_SECTION}`}
                           onClick={() => usePullList.getState().show(path, ctx, p.number)}
                           onDoubleClick={() => checkoutPull(path, ctx, p)}
                           onContextMenu={(e) => openContextMenu(e, pullMenu(t, path, ctx, p))}

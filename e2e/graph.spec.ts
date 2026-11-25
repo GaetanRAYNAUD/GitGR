@@ -163,21 +163,21 @@ test("un parent cliqué dans les détails devient la sélection", async ({ page 
 
 test("barre latérale : clic sur une branche, sections repliables et masquables (mémorisé)", async ({ page }) => {
   // Les branches `feature/…` sont rangées dans un dossier « feature ».
-  await expect(sidebar(page).getByRole("button", { name: /^feature/ }).first()).toHaveAttribute("aria-expanded", "true");
-  await sidebar(page).getByRole("button", { name: "graph-rendering" }).first().click();
+  await expect(sidebar(page).getByRole("treeitem", { name: /^feature/ }).first()).toHaveAttribute("aria-expanded", "true");
+  await sidebar(page).getByRole("treeitem", { name: "graph-rendering" }).first().click();
   await expect(graph(page).getByRole("option", { selected: true })).toContainText("feat(graph): rendu canvas virtualisé");
 
-  await sidebar(page).getByRole("button", { name: /Local/ }).click();
-  await expect(sidebar(page).getByRole("button", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
+  await sidebar(page).getByRole("treeitem", { name: /Local/ }).click();
+  await expect(sidebar(page).getByRole("treeitem", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
 
   await sidebar(page).getByRole("button", { name: "Sections affichées" }).click();
   await page.getByRole("checkbox", { name: "Tags" }).uncheck();
   await page.keyboard.press("Escape");
-  await expect(sidebar(page).getByRole("button", { name: /^Tags/ })).toHaveCount(0);
+  await expect(sidebar(page).getByRole("treeitem", { name: /^Tags/ })).toHaveCount(0);
 
   // Après redémarrage, les choix sont conservés.
   await page.reload();
-  await expect(sidebar(page).getByRole("button", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(sidebar(page).getByRole("treeitem", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
   await expect(sidebar(page).getByRole("button", { name: /1 section masquée/ })).toBeVisible();
 });
 
