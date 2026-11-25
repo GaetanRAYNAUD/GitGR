@@ -21,6 +21,9 @@ interface ProfilesStore {
   profiles: Profile[];
   /** Par chemin de dépôt ; absent = jamais choisi. */
   repoProfiles: Record<string, RepoProfiles>;
+  /** Incrémenté une fois un choix de profil enregistré côté Rust (l'état est mis à jour avant) :
+   *  ce qui relit l'identité injectée par git attend ce signal. */
+  saved: number;
   home: string | null;
   /** Page de gestion des profils ouverte (à la place du dépôt / de l'accueil). */
   pageOpen: boolean;
@@ -86,6 +89,7 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
     set((s) => ({ repoProfiles: { ...s.repoProfiles, [path]: binding } }));
     try {
       await api.setRepoProfiles(path, binding);
+      set((s) => ({ saved: s.saved + 1 }));
       return true;
     } catch (e) {
       set((s) => {
@@ -102,6 +106,7 @@ export const useProfiles = create<ProfilesStore>((set, get) => {
   return {
     profiles: [],
     repoProfiles: {},
+    saved: 0,
     home: null,
     pageOpen: false,
     pageSelect: null,

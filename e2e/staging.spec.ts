@@ -5,8 +5,8 @@ import { openRepos, tab } from "./fixtures";
 // (dont un non suivi) et 2 indexés ; voir src/lib/mockWorktree.ts.
 
 const panel = (page: Page) => page.getByRole("complementary", { name: "Modifications en cours" });
-const unstaged = (page: Page) => panel(page).getByRole("list", { name: "Non indexés", exact: true });
-const staged = (page: Page) => panel(page).getByRole("list", { name: "Indexés", exact: true });
+const unstaged = (page: Page) => panel(page).getByRole("listbox", { name: "Non indexés", exact: true });
+const staged = (page: Page) => panel(page).getByRole("listbox", { name: "Indexés", exact: true });
 const graph = (page: Page) => page.getByRole("listbox", { name: "Historique des commits" });
 
 test.beforeEach(async ({ page }) => {
@@ -52,7 +52,7 @@ test("indexer des lignes choisies depuis le diff, puis commiter", async ({ page 
 test("indexer / retirer des fichiers et tout indexer", async ({ page }) => {
   const row = unstaged(page).locator("li", { hasText: "notes.txt" });
   await row.hover();
-  await row.getByRole("button", { name: "Indexer" }).click();
+  await row.getByRole("button", { name: "Indexer notes.txt" }).click();
   await expect(staged(page)).toContainText("notes.txt");
 
   await panel(page).getByRole("button", { name: "Tout retirer" }).click();
@@ -117,7 +117,7 @@ test("stash partiel : un seul fichier mis de côté, les autres restent", async 
 });
 
 test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une ligne dans le graphe", async ({ page }) => {
-  await panel(page).getByRole("button", { name: "Mettre de côté des fichiers (stash)…" }).click();
+  await panel(page).getByRole("button", { name: "Stash…" }).click();
   const dialog = page.getByRole("dialog", { name: "Mettre de côté des fichiers" });
   const submit = dialog.getByRole("button", { name: "Mettre de côté" });
   // Rien de coché au départ : rien à mettre de côté.
@@ -172,15 +172,15 @@ test("Maj+clic prend la plage, puis stash de la sélection avec les fichiers dé
 
 test("arborescence : clic droit sur un dossier, actions sur ses fichiers", async ({ page }) => {
   await panel(page).getByRole("button", { name: "Arborescence" }).click();
-  const dir = unstaged(page).locator(".file-dir-row", { hasText: "graph" });
+  const dir = panel(page).getByRole("tree", { name: "Non indexés", exact: true }).locator(".file-dir-row", { hasText: "graph" });
   await dir.click({ button: "right" });
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: "Ouvrir le dossier" })).toBeVisible();
   // Fichiers suivis : pas d'« ignorer le dossier ».
   await expect(menu.getByRole("menuitem", { name: /Ignorer/ })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Indexer le fichier" }).click();
-  await expect(staged(page)).toContainText("render.ts");
-  await expect(unstaged(page)).not.toContainText("render.ts");
+  await expect(panel(page).getByRole("tree", { name: "Indexés", exact: true })).toContainText("render.ts");
+  await expect(panel(page).getByRole("tree", { name: "Non indexés", exact: true })).not.toContainText("render.ts");
 });
 
 type MockConflict = (p: string, f: string, t: string, v?: { base: string | null; ours: string; theirs: string }) => void;
@@ -205,7 +205,7 @@ test("résoudre un conflit en 3 panneaux : baguette, » puis «, lignes une à u
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
   // Un clic sur le fichier ouvre directement la résolution.
-  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" }).click();
+  await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "conflit.txt" }).click();
 
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
   const status = view.locator(".conflict-status");
@@ -251,7 +251,7 @@ test("résoudre un conflit en 3 panneaux : baguette, » puis «, lignes une à u
   await view.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
   await expect(view).toHaveCount(0);
   await expect(page.getByText("conflit.txt résolu et indexé.")).toBeVisible();
-  await expect(panel.getByRole("list", { name: "Indexés", exact: true })).toContainText("conflit.txt");
+  await expect(panel.getByRole("listbox", { name: "Indexés", exact: true })).toContainText("conflit.txt");
 });
 
 test("conflits sur plusieurs fichiers : Accepter, passage au fichier suivant après l'enregistrement", async ({ page }) => {
@@ -259,7 +259,7 @@ test("conflits sur plusieurs fichiers : Accepter, passage au fichier suivant apr
   await addConflict(page, "b.txt");
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "a.txt" }).click();
+  await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "a.txt" }).click();
   const viewA = page.getByRole("region", { name: "Résolution du conflit de a.txt" });
   await expect(viewA.getByText("Fichier 1 / 2")).toBeVisible();
   // Merge en cours : les côtés s'appellent « notre branche » et « branche fusionnée ».
@@ -284,7 +284,7 @@ test("conflits au clavier : focus dans le résultat, F7 saute ce qui est réglé
   await addConflict(page, "conflit.txt");
   await page.keyboard.press("F5");
   const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" }).click();
+  await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "conflit.txt" }).click();
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
   const r1 = view.getByRole("textbox", { name: "Résultat de la modification 1" });
   const r2 = view.getByRole("textbox", { name: "Résultat de la modification 2" });
@@ -322,4 +322,44 @@ test("conflits au clavier : focus dans le résultat, F7 saute ce qui est réglé
   await expect(confirm).toBeVisible();
   await confirm.getByRole("button", { name: "Remplacer" }).click();
   await expect(r1).toHaveValue("let a = 1, b = 20;");
+});
+
+test("au clavier : Entrée depuis le graphe, flèches, Maj+↓, Espace indexe, Suppr annule, Ctrl+A", async ({ page }) => {
+  // Entrée sur la ligne « en cours » : le focus dans la liste des fichiers (une seule tabulation).
+  await graph(page).focus();
+  await page.keyboard.press("Enter");
+  const render = unstaged(page).getByRole("option", { name: "render.ts" });
+  await expect(render).toBeFocused();
+  await expect(unstaged(page).locator('[tabindex="0"]')).toHaveCount(1);
+  await expect(render).toHaveAttribute("aria-description", "Modifié, src/graph");
+
+  // Maj+↓ : sélection de deux fichiers, l'action de la liste devient « Indexer (2) ».
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(panel(page).getByRole("button", { name: "Indexer (2)" })).toBeVisible();
+  // Espace : les deux passent dans les indexés.
+  await page.keyboard.press("Space");
+  await expect(staged(page)).toContainText("render.ts");
+  await expect(unstaged(page)).not.toContainText("render.ts");
+
+  // Suppr sur notes.txt : confirmation (rien n'est perdu sans elle).
+  await unstaged(page).getByRole("option", { name: "notes.txt" }).focus();
+  await page.keyboard.press("Delete");
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("notes.txt");
+  await confirm.getByRole("button", { name: "Retour" }).click();
+
+  // Ctrl+A : toute la liste, pas le texte de la page.
+  await unstaged(page).getByRole("option", { name: "notes.txt" }).focus();
+  await page.keyboard.press("Control+a");
+  expect(await page.evaluate(() => document.getSelection()?.toString() ?? "")).toBe("");
+});
+
+test("zone de commit : identité réelle, bouton grisé focalisable avec sa raison", async ({ page }) => {
+  await expect(panel(page).locator(".commit-as")).toContainText("Commit en tant que Démo ‹demo@exemple.fr›");
+  const commit = panel(page).getByRole("button", { name: /^Commiter/ });
+  await expect(commit).toHaveAttribute("aria-disabled", "true");
+  await expect(commit).toHaveAccessibleDescription("Écrivez un résumé pour commiter.");
+  await panel(page).getByPlaceholder("Résumé").fill("feat: x");
+  await expect(commit).not.toHaveAttribute("aria-disabled", "true");
+  await expect(commit).toHaveAccessibleDescription("Ctrl+Entrée pour commiter.");
 });

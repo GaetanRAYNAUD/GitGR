@@ -212,7 +212,7 @@ test("Échap ferme le menu des sections sans fermer le diff ouvert", async ({ pa
 test("fichiers d'un commit en arborescence, choix conservé au redémarrage", async ({ page }) => {
   await graph(page).getByRole("option").first().click();
   await panel(page).getByRole("button", { name: "Arborescence" }).click();
-  const files = panel(page).getByRole("list", { name: /fichiers? modifiés?/ });
+  const files = panel(page).getByRole("tree", { name: /fichiers? modifiés?/ });
   await expect(files.locator(".file-dir-row").first()).toBeVisible();
 
   await page.reload();

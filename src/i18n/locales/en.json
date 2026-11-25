@@ -728,7 +728,15 @@
       "staged": "Staged",
       "untracked": "Untracked",
       "conflicted": "Conflict"
-    }
+    },
+    "stageSel": "Stage ({{count}})",
+    "unstageSel": "Unstage ({{count}})",
+    "partlyStaged": "the rest is not staged yet",
+    "partlyUnstaged": "partly staged already",
+    "stageOne": "Stage {{file}}",
+    "unstageOne": "Unstage {{file}}",
+    "stageSelHint": "Stage the {{count}} selected files",
+    "unstageSelHint": "Unstage the {{count}} selected files"
   },
   "commit": {
     "message": "Commit message",
@@ -744,7 +752,12 @@
     "conflicts": "Resolve conflicts before committing.",
     "shortcut": "Ctrl+Enter",
     "pushAfter": "Push after committing",
-    "pushAfterHint": "Remembered for this repository"
+    "pushAfterHint": "Remembered for this repository",
+    "needSummary": "Write a summary to commit.",
+    "shortcutHint": "Ctrl+Enter to commit.",
+    "as": "Committing as",
+    "noIdentity": "No identity: git will refuse the commit. Pick a profile.",
+    "countHint": "Suggested summary: {{limit}} characters at most"
   },
   "confirm": {
     "cancel": "Back"

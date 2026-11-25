@@ -57,6 +57,24 @@
           "oklch(95.0% 0.024 261.5)"
         ]
       },
+      "del-fill": {
+        "role": "semantic",
+        "displayName": "Rouge Plein",
+        "canonical": "color-mix(in srgb, var(--del) 62%, var(--bg))",
+        "cssVar": "--del-fill",
+        "darkResolved": "#9c494b",
+        "lightTheme": "var(--del) (#c62f2f)",
+        "tonalRamp": [
+          "oklch(15.0% 0.016 20.3)",
+          "oklch(26.4% 0.044 20.3)",
+          "oklch(37.9% 0.075 20.3)",
+          "oklch(49.3% 0.105 20.3)",
+          "oklch(60.7% 0.105 20.3)",
+          "oklch(72.1% 0.075 20.3)",
+          "oklch(83.6% 0.044 20.3)",
+          "oklch(95.0% 0.016 20.3)"
+        ]
+      },
       "link": {
         "role": "primary",
         "displayName": "Bleu Lien",
@@ -620,6 +638,22 @@
       "description": "Seul type de surface avec ombre, avec dialogues et toasts.",
       "html": "<div class=\"ds-menu\"><button>Extraire</button><button>Fusionner dans main</button><hr /><button disabled title=\"Branche courante\">Supprimer</button></div>",
       "css": ".ds-menu { width: 220px; padding: 4px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); } .ds-menu button { display: flex; align-items: center; min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: 400 13px \"Inter Variable\", Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-menu button:hover:not(:disabled), .ds-menu button:focus-visible { background: var(--hover); outline: none; } .ds-menu button:disabled { opacity: 0.5; cursor: default; } .ds-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }"
+    },
+    {
+      "name": "Liste de fichiers",
+      "kind": "list",
+      "refersTo": "file-list",
+      "description": "Listbox (ou tree) à une seule tabulation : ligne 30px, lettre de statut cerclée colorée (add / mod / del), nom puis dossier en faint ; sélection multiple marquée d'un fond accent 16 % et d'un liseré gauche de l'accent ; boutons de ligne hors tabulation.",
+      "html": "<ul class=\"ds-files\" role=\"listbox\" aria-multiselectable=\"true\"><li class=\"ds-file\" role=\"option\"><span class=\"ds-st add\">A</span>CommitBox.tsx<span class=\"ds-dir\">src/components/graph</span></li><li class=\"ds-file picked\" role=\"option\" aria-selected=\"true\"><span class=\"ds-st mod\">M</span>styles.css<span class=\"ds-dir\">src</span></li><li class=\"ds-file picked\" role=\"option\" aria-selected=\"true\"><span class=\"ds-st del\">D</span>old.ts<span class=\"ds-dir\">src/lib</span></li></ul>",
+      "css": ".ds-files { list-style: none; margin: 0; padding: 0; } .ds-file { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 16px; color: var(--text); font: 400 13px/1.45 \"Inter Variable\", Inter, \"Segoe UI\", system-ui, sans-serif; } .ds-file:hover { background: var(--hover); } .ds-file.picked { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 2px 0 0 var(--accent); } .ds-dir { color: var(--faint); font-size: 12px; } .ds-file.picked .ds-dir, .ds-file:hover .ds-dir { color: var(--muted); } .ds-st { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 4px; font-size: 11px; font-weight: 600; } .ds-st.add { color: var(--add); } .ds-st.mod { color: var(--mod); } .ds-st.del { color: var(--del); } .ds-file.picked .ds-st { background: var(--panel); }"
+    },
+    {
+      "name": "Zone de commit",
+      "kind": "form",
+      "refersTo": "commit-box",
+      "description": "Identité du commit en muted (nom en text 600, teinte mod si aucune), raison du bouton grisé ou raccourci en faint 12px, Commiter seul bouton plein (accent-fill), Stash secondaire sans fond. Confirmation destructive : fond del-fill.",
+      "html": "<div class=\"ds-commit\"><div class=\"ds-commit-as\">Commit en tant que <strong>Nom</strong> ‹nom@exemple.fr›</div><p class=\"ds-commit-hint\">Ctrl+Entrée pour commiter</p><div class=\"ds-commit-actions\"><button class=\"ds-commit-btn\">Commiter 3 fichiers</button><button class=\"ds-stash-btn\">Stash</button></div><button class=\"ds-btn-danger\">Supprimer</button></div>",
+      "css": ".ds-commit { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--panel); color: var(--text); font: 400 13px/1.45 \"Inter Variable\", Inter, \"Segoe UI\", system-ui, sans-serif; } .ds-commit-as { font-size: 12.5px; color: var(--muted); } .ds-commit-as strong { color: var(--text); font-weight: 600; } .ds-commit-hint { margin: 0; font-size: 12px; color: var(--faint); } .ds-commit-actions { display: flex; gap: 6px; } .ds-commit-btn { flex: 1; min-height: 40px; border: 1px solid var(--accent-fill); border-radius: 8px; background: var(--accent-fill); color: var(--accent-text); font: inherit; font-weight: 500; cursor: pointer; } .ds-stash-btn { min-height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-weight: 500; cursor: pointer; } .ds-stash-btn:hover { color: var(--text); } .ds-btn-danger { align-self: flex-start; min-height: 36px; padding: 0 14px; border: 1px solid var(--del-fill); border-radius: 8px; background: var(--del-fill); color: var(--accent-text); font: inherit; font-weight: 500; cursor: pointer; } .ds-btn-danger:hover { background: color-mix(in srgb, var(--del-fill) 88%, var(--text)); } .ds-commit button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
     }
   ],
   "narrative": {

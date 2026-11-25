@@ -714,6 +714,28 @@ pub fn existing_dir(full: &Path, root: &Path) -> PathBuf {
         .unwrap_or_else(|| root.to_path_buf())
 }
 
+/// Identité d'un commit (auteur).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitIdentity {
+    pub name: String,
+    pub email: String,
+}
+
+/// Identité qu'aurait un commit fait maintenant dans ce dépôt : celle du profil actif (injectée
+/// par `git::run`), sinon la configuration git. `None` si git n'en trouve aucune (il refuserait
+/// le commit).
+pub fn commit_identity(path: &Path) -> Result<Option<CommitIdentity>, String> {
+    Ok(run(Some(path), &["var", "GIT_AUTHOR_IDENT"]).ok().and_then(|out| parse_ident(&out)))
+}
+
+/// « Nom <e-mail> horodatage fuseau » → nom et e-mail.
+fn parse_ident(line: &str) -> Option<CommitIdentity> {
+    let (name, rest) = line.split_once(" <")?;
+    let (email, _) = rest.split_once('>')?;
+    Some(CommitIdentity { name: name.trim().to_string(), email: email.trim().to_string() })
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -783,6 +805,20 @@ mod tests {
             .filter(|(_, l)| l.kind != " ")
             .map(|(i, l)| (i, l.kind.clone(), l.text.clone()))
             .collect()
+    }
+
+    #[test]
+    fn commit_identity_reads_the_author_git_would_use() {
+        assert_eq!(
+            parse_ident("Gaëtan R <g@exemple.fr> 1700000000 +0100"),
+            Some(CommitIdentity { name: "Gaëtan R".into(), email: "g@exemple.fr".into() })
+        );
+        assert_eq!(parse_ident("n'importe quoi"), None);
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        run(Some(p), &["config", "user.name", "Locale"]).unwrap();
+        run(Some(p), &["config", "user.email", "locale@exemple.fr"]).unwrap();
+        assert_eq!(commit_identity(p).unwrap(), Some(CommitIdentity { name: "Locale".into(), email: "locale@exemple.fr".into() }));
     }
 
     #[test]

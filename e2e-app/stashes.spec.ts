@@ -67,7 +67,7 @@ test("stash partiel de deux fichiers sur trois, et sa ligne dans le graphe sous 
   try {
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    await panel.getByRole("button", { name: "Mettre de côté des fichiers (stash)…" }).click();
+    await panel.getByRole("button", { name: "Stash…" }).click();
     const dialog = page.getByRole("dialog", { name: "Mettre de côté des fichiers" });
     await dialog.getByRole("checkbox", { name: /a\.txt/ }).check();
     await dialog.getByRole("checkbox", { name: /neuf\.txt/ }).check();

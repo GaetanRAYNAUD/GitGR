@@ -130,6 +130,7 @@ pub fn run() {
             commands::search_changes,
             commands::file_history,
             commands::conflict_versions,
+            commands::commit_identity,
             commands::resolve_conflict,
             commands::blame,
             commands::reset_to,

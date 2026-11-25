@@ -1,13 +1,15 @@
 // Zone de commit : résumé (compteur de caractères), description, amend, « pousser après »,
-// bouton. Pendant un merge / rebase arrêté sur des conflits : bandeau Continuer / Annuler.
+// l'identité du commit (nom et e-mail réels, juste au-dessus du bouton), bouton. Pendant un
+// merge / rebase arrêté sur des conflits : bandeau Continuer / Annuler.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
 import { useTranslation } from "react-i18next";
 import type { Operation } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
-import { useProfiles } from "../../store/profiles";
+import { activeProfile, useProfiles } from "../../store/profiles";
 import { useWork } from "../../store/worktree";
 import { Icon } from "../Icon";
 import { ProfilePill } from "../ProfilePill";
@@ -24,13 +26,13 @@ function OperationBanner({ path, op }: { path: string; op: Operation }) {
   const { t } = useTranslation();
   const running = useOps((s) => !!s.running[path]);
   const ops = useOps.getState();
+  // Compact (une ligne) : la place reste aux listes de fichiers ; l'explication en infobulle.
   return (
-    <div className="op-banner" role="status">
+    <div className="op-banner" role="status" title={t(op === "merge" ? "op.mergeHint" : "op.continueHint")}>
       <div className="op-title">
         <Icon name="alert" size={15} />
         {t(`op.${op}`)}
       </div>
-      <p>{t(op === "merge" ? "op.mergeHint" : "op.continueHint")}</p>
       <div className="op-actions">
         <button className="mini" disabled={running} onClick={() => ops.abortOperation(path)}>
           {t("op.abort")}
@@ -62,6 +64,23 @@ export function CommitBox({ path, onStash }: { path: string; onStash?: () => voi
   const operation = work?.status?.operation ?? null;
   const mergeMessage = work?.status?.mergeMessage ?? null;
   const pushAfter = !!ui.pushAfterCommit && !detached;
+
+  // Identité qu'aurait le commit (profil actif, sinon config git) : relue quand le profil change.
+  // Relue une fois le choix de profil enregistré côté Rust (`saved`), pas avant.
+  const activeId = useProfiles((s) => activeProfile(path, s)?.id ?? null);
+  const profiles = useProfiles((s) => s.profiles);
+  const saved = useProfiles((s) => s.saved);
+  const [identity, setIdentity] = useState<{ name: string; email: string } | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    api.commitIdentity(path).then(
+      (id) => live && setIdentity(id),
+      () => live && setIdentity(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, activeId, profiles, saved]);
 
   // Merge en cours : message préparé par git, proposé une seule fois par dépôt (même si le
   // panneau est recréé : un message effacé exprès ne revient pas).
@@ -98,9 +117,12 @@ export function CommitBox({ path, onStash }: { path: string; onStash?: () => voi
     }
   };
 
+  // Pourquoi le bouton est grisé (affiché, et lu avec le bouton) ; sinon, le raccourci.
   let hint: string | null = null;
   if (conflicts > 0) hint = t("commit.conflicts");
   else if (!draft.amend && staged === 0 && operation !== "merge") hint = t("commit.nothingStaged");
+  else if (draft.summary.trim() === "") hint = t("commit.needSummary");
+  else if (busy) hint = t("repo.busy");
 
   if (operation && operation !== "merge") {
     return (
@@ -119,14 +141,15 @@ export function CommitBox({ path, onStash }: { path: string; onStash?: () => voi
       }}
     >
       {operation && <OperationBanner path={path} op={operation} />}
-      <label htmlFor={`summary-${path}`} className="commit-label">
-        {t("commit.message")}
-        <span className={length > SUMMARY_LIMIT ? "commit-count over" : "commit-count"}>
+      <div className="commit-label">
+        <label htmlFor={`summary-${path}`}>{t("commit.message")}</label>
+        <span id={`summary-count-${path}`} className={length > SUMMARY_LIMIT ? "commit-count over" : "commit-count"} title={t("commit.countHint", { limit: SUMMARY_LIMIT })}>
           {length} / {SUMMARY_LIMIT}
         </span>
-      </label>
+      </div>
       <input
         id={`summary-${path}`}
+        aria-describedby={`summary-count-${path}`}
         className="commit-summary"
         value={draft.summary}
         placeholder={t("commit.summary")}
@@ -146,7 +169,7 @@ export function CommitBox({ path, onStash }: { path: string; onStash?: () => voi
       />
       <div className="commit-options">
         <label title={t("commit.amendHint")}>
-          <input type="checkbox" checked={draft.amend} disabled={busy || !hasHead} onChange={(e) => setAmend(path, e.target.checked)} />
+          <input type="checkbox" checked={draft.amend} disabled={busy || !hasHead} aria-description={t("commit.amendHint")} onChange={(e) => setAmend(path, e.target.checked)} />
           {t("commit.amend")}
         </label>
         <label title={t("commit.pushAfterHint")}>
@@ -154,27 +177,43 @@ export function CommitBox({ path, onStash }: { path: string; onStash?: () => voi
             type="checkbox"
             checked={pushAfter}
             disabled={busy || detached}
+            aria-description={t("commit.pushAfterHint")}
             onChange={(e) => setUi(path, { ...ui, pushAfterCommit: e.target.checked })}
           />
           {t("commit.pushAfter")}
         </label>
-        {hint && <span className="commit-hint">{hint}</span>}
+      </div>
+      {/* L'identité du commit, toujours à la même place : nom et e-mail que git va écrire. */}
+      <div className={identity === null ? "commit-as none" : "commit-as"}>
+        {identity === undefined ? null : identity ? (
+          <span className="commit-as-id" title={`${identity.name} <${identity.email}>`}>
+            {t("commit.as")} <strong>{identity.name}</strong> <span className="commit-as-mail">‹{identity.email}›</span>
+          </span>
+        ) : (
+          <span className="commit-as-id">
+            <Icon name="alert" size={13} /> {t("commit.noIdentity")}
+          </span>
+        )}
         <ProfilePill path={path} className="commit-profile" />
       </div>
+      <p id={`commit-hint-${path}`} className="commit-hint">
+        {hint ?? t("commit.shortcutHint")}
+      </p>
       <div className="commit-actions">
-        <button type="submit" className="btn primary commit-btn" disabled={!canCommit} title={t("commit.shortcut")}>
+        {/* Grisé mais focalisable : sa raison est lue avec lui. */}
+        <button
+          type="submit"
+          className="btn primary commit-btn"
+          aria-disabled={!canCommit || undefined}
+          aria-describedby={`commit-hint-${path}`}
+          aria-keyshortcuts="Control+Enter"
+          title={t("commit.shortcut")}
+        >
           {draft.amend ? t("commit.amendButton") : t("commit.button", { count: staged })}
         </button>
-        <button
-          type="button"
-          className="btn stash-btn"
-          disabled={!onStash}
-          onClick={onStash}
-          aria-label={t("staging.stashFiles")}
-          title={t("staging.stashFilesHint")}
-        >
+        <button type="button" className="btn stash-btn" disabled={!onStash} onClick={onStash} title={t("staging.stashFilesHint")}>
           <Icon name="stash" size={15} />
-          {t("staging.stashShort")}
+          <span className="stash-label">{t("staging.stashShort")}</span>
         </button>
       </div>
     </form>

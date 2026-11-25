@@ -25,7 +25,7 @@ async function panel() {
   );
 }
 
-const list = (name: string) => screen.getByRole("list", { name: new RegExp(`^${name}$`) });
+const list = (name: string) => screen.getByRole("listbox", { name: new RegExp(`^${name}$`) });
 
 // Un clic lance l'action sans l'attendre (git, puis relecture du graphe, de l'état et du diff) :
 // on la laisse se terminer pour qu'elle ne déborde pas sur le test suivant.
@@ -46,7 +46,7 @@ describe("<StagingPanel />", () => {
   it("indexer un fichier, tout retirer", async () => {
     await panel();
     const row = within(list("Non indexés")).getByText("render.ts").closest("li")!;
-    await userEvent.click(within(row).getByRole("button", { name: "Indexer" }));
+    await userEvent.click(within(row).getByRole("button", { name: "Indexer src/graph/render.ts" }));
     expect(await within(list("Indexés")).findByText("render.ts")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Tout retirer" }));
@@ -94,7 +94,9 @@ describe("<CommitBox />", () => {
     await w().refresh(REPO_B);
     render(<CommitBox path={REPO_B} />);
     const button = screen.getByRole("button", { name: "Commiter 2 fichiers" });
-    expect(button).toBeDisabled();
+    // Grisé mais focalisable, avec sa raison.
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).toHaveAccessibleDescription("Écrivez un résumé pour commiter.");
 
     await userEvent.type(screen.getByPlaceholderText("Résumé"), "fix: x");
     expect(screen.getByText("6 / 72")).toBeInTheDocument();
@@ -108,7 +110,7 @@ describe("<CommitBox />", () => {
     await w().unstageAll(REPO_B);
     render(<CommitBox path={REPO_B} />);
     await userEvent.type(screen.getByPlaceholderText("Résumé"), "x");
-    expect(screen.getByRole("button", { name: "Commiter" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Commiter" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Indexez des fichiers pour commiter.")).toBeInTheDocument();
 
     await w().stageAll(REPO_B);

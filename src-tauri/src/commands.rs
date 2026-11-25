@@ -253,6 +253,12 @@ pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String>
     worktree::stage_files(Path::new(&path), &files).map_err(classify)
 }
 
+/// Identité qu'aurait un commit fait maintenant (profil actif, sinon config git).
+#[tauri::command]
+pub async fn commit_identity(path: String) -> Result<Option<worktree::CommitIdentity>, String> {
+    worktree::commit_identity(Path::new(&path)).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn conflict_versions(path: String, file: String) -> Result<worktree::ConflictVersions, String> {
     worktree::conflict_versions(Path::new(&path), &file).map_err(classify)

@@ -217,7 +217,7 @@ test("conflit de merge résolu dans GitGR (3 panneaux) : fichier écrit avec le 
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
     // Un clic sur le fichier en conflit ouvre la résolution.
-    await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "c.txt" }).click();
+    await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "c.txt" }).click();
     const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
     // La modification sans conflit (d → D) est déjà appliquée ; le conflit part de la version commune.
     await expect(view.getByRole("group", { name: /Modification de l’autre côté/ }).getByRole("textbox")).toHaveValue("D");
@@ -256,7 +256,7 @@ test("conflit de rebase : côtés nommés « branche de base » / « vos commits
   try {
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "r.txt" }).click();
+    await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "r.txt" }).click();
     const view = page.getByRole("region", { name: "Résolution du conflit de r.txt" });
     // Pendant un rebase, « nous » est la branche de base, « eux » le commit rejoué.
     await expect(view.locator(".mgrid-head")).toContainText("Branche de base");
