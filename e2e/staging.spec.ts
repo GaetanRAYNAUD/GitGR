@@ -208,11 +208,12 @@ test("résoudre un conflit en 3 panneaux : baguette, » puis «, lignes une à u
   await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" }).click();
 
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
-  const status = view.getByRole("status");
+  const status = view.locator(".conflict-status");
   await expect(status).toHaveText("2 conflits à résoudre");
-  const c1 = view.getByRole("group", { name: "Conflit 1 / 3" });
-  const c2 = view.getByRole("group", { name: "Conflit 2 / 3" });
-  const theirsOnly = view.getByRole("group", { name: "Modification de l’autre côté 3 / 3" });
+  // Numérotés par genre ; « — réglé » s'ajoute au nom une fois la modification réglée.
+  const c1 = view.getByRole("group", { name: /^Conflit 1 \/ 2/ });
+  const c2 = view.getByRole("group", { name: /^Conflit 2 \/ 2/ });
+  const theirsOnly = view.getByRole("group", { name: /^Modification de l’autre côté 1 \/ 1/ });
   // Sans conflit : appliquée d'office. Conflit : la version commune, à résoudre.
   await expect(theirsOnly.getByRole("textbox")).toHaveValue("// ajout");
   await expect(c2.getByRole("textbox")).toHaveValue("deux");
@@ -261,17 +262,64 @@ test("conflits sur plusieurs fichiers : Accepter, passage au fichier suivant apr
   await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "a.txt" }).click();
   const viewA = page.getByRole("region", { name: "Résolution du conflit de a.txt" });
   await expect(viewA.getByText("Fichier 1 / 2")).toBeVisible();
-  await viewA.getByRole("button", { name: "Accepter l’autre version" }).click();
-  await expect(viewA.getByRole("status")).toHaveText("Tout est résolu");
-  await expect(viewA.getByRole("group", { name: "Conflit 1 / 3" }).getByRole("textbox")).toHaveValue("let a = 1, b = 20;");
+  // Merge en cours : les côtés s'appellent « notre branche » et « branche fusionnée ».
+  await viewA.getByRole("button", { name: "Prendre la branche fusionnée" }).click();
+  await expect(viewA.locator(".conflict-status")).toHaveText("Tout est résolu");
+  await expect(viewA.getByRole("group", { name: /^Conflit 1 \/ 2/ }).getByRole("textbox")).toHaveValue("let a = 1, b = 20;");
   await viewA.getByRole("button", { name: "Enregistrer et marquer résolu" }).click();
   // Le fichier suivant s'ouvre tout seul.
   const viewB = page.getByRole("region", { name: "Résolution du conflit de b.txt" });
   await expect(viewB).toBeVisible();
-  await expect(viewB.getByRole("status")).toHaveText("2 conflits à résoudre");
+  // L'enregistrement du précédent est annoncé en haut (pas de toast sur les boutons du pied).
+  await expect(viewB.getByText("a.txt résolu et indexé.")).toBeVisible();
+  await expect(viewB.locator(".conflict-status")).toHaveText("2 conflits à résoudre");
   // Quitter avec des choix faits : confirmation.
-  await viewB.getByRole("button", { name: "Accepter notre version" }).click();
+  await viewB.getByRole("button", { name: "Garder notre branche" }).click();
   await viewB.getByRole("button", { name: "Annuler", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Abandonner cette résolution ?" }).getByRole("button", { name: "Abandonner" }).click();
   await expect(viewB).toHaveCount(0);
+});
+
+test("conflits au clavier : focus dans le résultat, F7 saute ce qui est réglé, Échap, une tabulation par colonne", async ({ page }) => {
+  await addConflict(page, "conflit.txt");
+  await page.keyboard.press("F5");
+  const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+  await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "conflit.txt" }).click();
+  const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
+  const r1 = view.getByRole("textbox", { name: "Résultat de la modification 1" });
+  const r2 = view.getByRole("textbox", { name: "Résultat de la modification 2" });
+  await expect(r1).toBeFocused();
+
+  // Alt+← : notre côté dans le conflit courant ; F7 va au conflit encore à régler.
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(r1).toHaveValue("import o;\nlet a = 10, b = 2;");
+  await page.keyboard.press("F7");
+  await expect(r2).toBeFocused();
+  await page.keyboard.press("F7"); // seul conflit à régler : on y reste
+  await expect(r2).toBeFocused();
+
+  // Échap sort du champ sans quitter la vue ; un second Échap demande confirmation.
+  await page.keyboard.press("Escape");
+  await expect(view.getByRole("group", { name: /^Conflit 2 \/ 2/ })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog", { name: "Abandonner cette résolution ?" })).toBeVisible();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Retour" }).click();
+
+  // Une seule tabulation par colonne : les flèches passent d'une ligne à l'autre.
+  const c1 = view.getByRole("group", { name: /^Conflit 1 \/ 2/ });
+  const first = c1.getByRole("checkbox", { name: /^Notre branche, ligne 3/ });
+  const second = c1.getByRole("checkbox", { name: /^Notre branche, ligne 4/ });
+  await expect(first).toHaveAttribute("tabindex", "0");
+  await expect(second).toHaveAttribute("tabindex", "-1");
+  await first.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(second).toBeFocused();
+  await expect(second).toHaveAttribute("tabindex", "0");
+
+  // Des choix faits : « Prendre la branche fusionnée » demande confirmation avant de tout remplacer.
+  await view.getByRole("button", { name: "Prendre la branche fusionnée" }).click();
+  const confirm = page.getByRole("alertdialog", { name: "Tout remplacer par « Branche fusionnée » ?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Remplacer" }).click();
+  await expect(r1).toHaveValue("let a = 1, b = 20;");
 });

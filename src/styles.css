@@ -6170,7 +6170,8 @@ body.commit-dragging * {
 /* Résolution de conflits en trois panneaux (ConflictView) : notre version, le résultat,
    l'autre version, alignés morceau par morceau dans une seule zone qui défile. */
 .conflict-view {
-  --mcols: minmax(0, 1fr) 48px minmax(0, 1fr) 48px minmax(0, 1fr);
+  /* Le résultat un peu plus large : c'est là qu'on écrit. */
+  --mcols: minmax(0, 1fr) 52px minmax(0, 1.2fr) 52px minmax(0, 1fr);
   --m-ours: var(--accent);
   --m-both: var(--add);
   --m-conflict: var(--del);
@@ -6187,7 +6188,10 @@ body.commit-dragging * {
 }
 
 .conflict-status {
-  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6197,6 +6201,33 @@ body.commit-dragging * {
 
 .conflict-left {
   color: var(--del);
+}
+
+/* Tout est réglé : le statut le dit en vert, avec une coche. */
+.conflict-done {
+  color: var(--add);
+  font-weight: 600;
+}
+
+.conflict-head-gap {
+  flex: 1;
+}
+
+.conflict-error {
+  margin: 8px 12px 0;
+  max-width: none;
+  padding: 8px 12px;
+}
+
+/* Aide des raccourcis, entre les choix de côté et Annuler / Enregistrer. */
+.conflict-keys {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  text-align: center;
 }
 
 .conflict-files,
@@ -6323,13 +6354,43 @@ body.commit-dragging * {
   border-color: color-mix(in srgb, var(--m) 22%, transparent);
 }
 
+/* Réglée : le résultat redevient neutre (le vert reste « identique des deux côtés »), une
+   coche dans ses outils ; les côtés s'effacent. */
 .mchange.resolved .mcell-center {
-  background: color-mix(in srgb, var(--add) 9%, transparent);
-  border-color: color-mix(in srgb, var(--add) 40%, transparent);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-color: var(--border-strong);
 }
 
-.mchange.current .mcell-center {
+.mchange.resolved .ml.mwhole {
+  background: color-mix(in srgb, var(--m) 7%, transparent);
+}
+
+.mchange.resolved .ml.mchg mark {
+  background: color-mix(in srgb, var(--m) 16%, transparent);
+}
+
+.mres-done {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 3px;
+  color: var(--muted);
+}
+
+/* Modification courante (F7, focus) : un repère au bord gauche de la rangée, pas dans le
+   résultat où le bleu se confondait avec les lignes prises. */
+.mchange.current .mcell-ours {
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.mchange:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Numéros de ligne sur fond surligné : `faint` y passait sous le contraste AA. */
+.mchange .ln {
+  color: var(--muted);
 }
 
 .mchange .mcell.ignored {
@@ -6400,8 +6461,8 @@ body.commit-dragging * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 18px;
+  width: 22px;
+  height: 20px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -6426,22 +6487,33 @@ body.commit-dragging * {
   color: var(--mod);
 }
 
-/* Résultat d'une modification : éditable, numéros de ligne à gauche. */
+/* Résultat d'une modification : éditable, numéros de ligne à gauche. Les lignes fantômes
+   (invisibles, même police, même largeur) donnent la hauteur et passent à la ligne comme le
+   champ posé dessus : chaque numéro reste en face de sa ligne, comme dans les colonnes des côtés. */
 .mresult {
   position: relative;
+}
+
+.mres-line {
   display: flex;
 }
 
-.mres-ln {
-  display: flex;
-  flex-direction: column;
-  flex: none;
+.mres-ghost {
+  flex: 1;
+  min-width: 0;
+  padding-right: 52px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  visibility: hidden;
 }
 
 .mres-edit {
-  flex: 1;
-  min-width: 0;
-  min-height: 19px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 40px;
+  width: calc(100% - 40px);
   margin: 0;
   padding: 0 52px 0 0;
   border: 0;
@@ -6449,11 +6521,10 @@ body.commit-dragging * {
   color: var(--text);
   font: inherit;
   line-height: inherit;
-  white-space: pre;
-  overflow-x: auto;
-  overflow-y: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
   resize: none;
-  field-sizing: content;
 }
 
 .mres-edit:focus {

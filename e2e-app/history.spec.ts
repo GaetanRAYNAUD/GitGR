@@ -221,7 +221,10 @@ test("conflit de merge résolu dans GitGR (3 panneaux) : fichier écrit avec le 
     const view = page.getByRole("region", { name: "Résolution du conflit de c.txt" });
     // La modification sans conflit (d → D) est déjà appliquée ; le conflit part de la version commune.
     await expect(view.getByRole("group", { name: /Modification de l’autre côté/ }).getByRole("textbox")).toHaveValue("D");
-    const conflict = view.getByRole("group", { name: "Conflit 1 / 2" });
+    const conflict = view.getByRole("group", { name: /^Conflit 1 \/ 1/ });
+    // Merge : les côtés s'appellent « notre branche » et « branche fusionnée ».
+    await expect(view.locator(".mgrid-head")).toContainText("Notre branche · HEAD");
+    await expect(view.locator(".mgrid-head")).toContainText("Branche fusionnée · sujet");
     await expect(conflict.getByRole("textbox")).toHaveValue("un");
     await conflict.getByRole("button", { name: "Mettre HEAD dans le résultat" }).click();
     await conflict.getByRole("button", { name: "Ajouter sujet à la suite dans le résultat" }).click();
@@ -230,6 +233,43 @@ test("conflit de merge résolu dans GitGR (3 panneaux) : fichier écrit avec le 
     expect(readFileSync(join(mine, "c.txt"), "utf8")).toBe("a\ntrois\ndeux\nb\nc\nD\n");
     expect(git(mine, "diff", "--name-only", "--diff-filter=U")).toBe("");
     expect(git(mine, "diff", "--cached", "--name-only")).toBe("c.txt");
+  } finally {
+    await app.close();
+  }
+});
+
+test("conflit de rebase : côtés nommés « branche de base » / « vos commits », Alt+→ puis Ctrl+S", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "r.txt", "a\nun\nb\n", "base");
+  git(mine, "checkout", "-q", "-b", "travail");
+  sandbox.commit(mine, "r.txt", "a\nà moi\nb\n", "mon commit");
+  git(mine, "checkout", "-q", "main");
+  sandbox.commit(mine, "r.txt", "a\nde main\nb\n", "commit de main");
+  git(mine, "checkout", "-q", "travail");
+  try {
+    git(mine, "rebase", "-q", "main");
+  } catch {
+    // conflit attendu
+  }
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+    await panel.getByRole("list", { name: "Conflits" }).getByRole("listitem").filter({ hasText: "r.txt" }).click();
+    const view = page.getByRole("region", { name: "Résolution du conflit de r.txt" });
+    // Pendant un rebase, « nous » est la branche de base, « eux » le commit rejoué.
+    await expect(view.locator(".mgrid-head")).toContainText("Branche de base");
+    await expect(view.locator(".mgrid-head")).toContainText("Vos commits");
+    await expect(view.getByRole("button", { name: "Prendre vos commits" })).toBeVisible();
+    // Le focus est dans le résultat du conflit ; Alt+→ y met le commit rejoué, Ctrl+S enregistre.
+    await expect(view.getByRole("textbox", { name: "Résultat de la modification 1" })).toBeFocused();
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(view.locator(".conflict-status")).toHaveText("Tout est résolu");
+    await page.keyboard.press("Control+s");
+    await expect(view).toHaveCount(0);
+    expect(readFileSync(join(mine, "r.txt"), "utf8")).toBe("a\nà moi\nb\n");
+    expect(git(mine, "diff", "--name-only", "--diff-filter=U")).toBe("");
   } finally {
     await app.close();
   }
