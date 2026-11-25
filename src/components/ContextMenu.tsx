@@ -36,6 +36,9 @@ export const isSub = (item: MenuItem): item is MenuSub => item !== "sep" && "ite
 
 interface MenuState {
   menu: { x: number; y: number; items: MenuItem[]; id: number } | null;
+  /** Position du dernier menu ouvert, gardée après sa fermeture (fenêtre ouverte par un
+   *  élément du menu, à sa place). */
+  at: { x: number; y: number };
   open(x: number, y: number, items: MenuItem[]): void;
   close(): void;
 }
@@ -44,7 +47,8 @@ let seq = 0;
 
 export const useContextMenu = create<MenuState>((set) => ({
   menu: null,
-  open: (x, y, items) => set({ menu: { x, y, items, id: ++seq } }),
+  at: { x: 0, y: 0 },
+  open: (x, y, items) => set({ menu: { x, y, items, id: ++seq }, at: { x, y } }),
   close: () => set({ menu: null }),
 }));
 

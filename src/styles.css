@@ -4033,6 +4033,25 @@ p.pf-account-keys.bad,
   box-shadow: var(--shadow);
 }
 
+/* Couleur fixe d'un nom de branche (clic droit sur une branche). */
+.bc-popover {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.bc-popover-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bc-popover-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* Page des paramètres ----------------------------------------------------- */
 
 .settings-page {
