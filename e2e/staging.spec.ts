@@ -112,7 +112,7 @@ test("stash partiel : un seul fichier mis de côté, les autres restent", async 
   await dialog.getByRole("button", { name: "Mettre de côté" }).click();
   await expect(unstaged(page)).not.toContainText("notes.txt");
   await expect(unstaged(page)).toContainText("render.ts");
-  const stashes = page.getByRole("navigation", { name: "Branches et tags" }).getByRole("list", { name: "Stashes" });
+  const stashes = page.getByRole("navigation", { name: "Branches et tags" }).getByRole("group", { name: "Stashes" });
   await expect(stashes).toContainText("juste les notes");
 });
 

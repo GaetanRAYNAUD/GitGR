@@ -200,16 +200,16 @@ describe("<RefsSidebar />", () => {
   it("liste les sections ; tags repliés par défaut", async () => {
     await loaded();
     render(<RefsSidebar path={REPO_A} />);
-    expect(screen.getByRole("button", { name: /Local/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /origin/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /Tags/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: /Local/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("treeitem", { name: /origin/ })[0]).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: /Tags/ })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("replier une section est mémorisé pour le dépôt", async () => {
     await loaded();
     render(<RefsSidebar path={REPO_A} />);
-    await userEvent.click(screen.getByRole("button", { name: /Local/ }));
-    expect(screen.getByRole("button", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(screen.getByRole("treeitem", { name: /Local/ }));
+    expect(screen.getByRole("treeitem", { name: /Local/ })).toHaveAttribute("aria-expanded", "false");
     expect(useApp.getState().repoUi[REPO_A].collapsed).toContain("local");
   });
 
@@ -218,7 +218,7 @@ describe("<RefsSidebar />", () => {
     render(<RefsSidebar path={REPO_A} />);
     await userEvent.click(screen.getByRole("button", { name: "Sections affichées" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "origin" }));
-    expect(screen.queryByRole("button", { name: /^origin/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /^origin/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /1 section masquée/ })).toBeInTheDocument();
   });
 
@@ -226,16 +226,16 @@ describe("<RefsSidebar />", () => {
     await loaded();
     render(<RefsSidebar path={REPO_A} />);
     await userEvent.type(screen.getByRole("textbox", { name: "Filtrer" }), "v0.1");
-    expect(screen.getByRole("button", { name: /Tags/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: "v0.1.0" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Local/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: /Tags/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: "v0.1.0" })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /Local/ })).not.toBeInTheDocument();
   });
 
   it("un clic sur une branche sélectionne son commit", async () => {
     await loaded();
     render(<RefsSidebar path={REPO_A} />);
     const fix = history().refs.refs.find((r) => r.short === "fix/ssh-agent")!;
-    await userEvent.click(screen.getAllByRole("button", { name: /^ssh-agent/ })[0]);
+    await userEvent.click(screen.getAllByRole("treeitem", { name: /^ssh-agent/ })[0]);
     expect(g().graphs[REPO_A].selected).toBe(fix.target);
   });
 
@@ -243,13 +243,13 @@ describe("<RefsSidebar />", () => {
     await loaded();
     render(<RefsSidebar path={REPO_A} />);
     const local = screen.getByRole("navigation").querySelector(".side-group")! as HTMLElement;
-    const folder = within(local).getByRole("button", { name: /^feature\s*2$/ });
+    const folder = within(local).getByRole("treeitem", { name: /^feature\s*2$/ });
     expect(folder).toHaveAttribute("aria-expanded", "true");
-    expect(within(local).getByRole("button", { name: "graph-rendering" })).toBeInTheDocument();
-    expect(within(local).getByRole("button", { name: "profils" })).toBeInTheDocument();
+    expect(within(local).getByRole("treeitem", { name: "graph-rendering" })).toBeInTheDocument();
+    expect(within(local).getByRole("treeitem", { name: "profils" })).toBeInTheDocument();
 
     await userEvent.click(folder);
-    expect(within(local).queryByRole("button", { name: "profils" })).not.toBeInTheDocument();
+    expect(within(local).queryByRole("treeitem", { name: "profils" })).not.toBeInTheDocument();
     expect(useApp.getState().repoUi[REPO_A].collapsed).toContain("local/feature");
   });
 });

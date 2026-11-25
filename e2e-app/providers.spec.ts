@@ -281,7 +281,7 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await page.getByRole("button", { name: "Fermer les profils" }).click();
 
     const locals = page.locator(".refs-sidebar .side-group").first();
-    await locals.getByRole("button", { name: /^mr( |$)/ }).click({ button: "right" });
+    await locals.getByRole("treeitem", { name: /^mr( |$)/ }).click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Créer une merge request…" }).click();
     const dialog = page.getByRole("dialog", { name: "Créer une merge request" });
     await expect(dialog.getByLabel("Branche cible")).toHaveValue("main");

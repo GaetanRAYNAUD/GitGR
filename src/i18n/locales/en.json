@@ -624,8 +624,21 @@
     "hidden_one": "{{count}} hidden section · Show",
     "hidden_other": "{{count}} hidden sections · Show",
     "notFound": "This commit is not in the history.",
-    "dblClick": "Double-click to check out",
-    "dblClickPull": "Double-click to check out {{branch}}, then pull"
+    "dblClick": "Double-click or Shift+Enter: checkout",
+    "dblClickPull": "Double-click or Shift+Enter: checkout {{branch}}, then pull",
+    "tree": "Branches, tags and stashes",
+    "isCurrent": "current branch",
+    "hasPull": "{{ref}} open",
+    "ahead_one": "{{count}} commit to push",
+    "ahead_other": "{{count}} commits to push",
+    "behind_one": "{{count}} commit to pull",
+    "behind_other": "{{count}} commits to pull",
+    "openPull": "View {{ref}}",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "hideSection": "Hide this section",
+    "clearFilter": "Clear the filter",
+    "noMatch": "No branch, tag or stash contains “{{query}}”."
   },
   "staging": {
     "stashFile": "Stash this file…",
@@ -1347,7 +1360,7 @@
     },
     "noAccount": "Connect a {{provider}} account to the profile of remote {{remote}} to see its requests.",
     "truncated": "Only the 100 most recent are shown.",
-    "dblClick": "Click: details · double-click: check out the branch",
+    "dblClick": "Click: details · double-click or Shift+Enter: checkout the branch",
     "branchPull": "{{ref}} {{title}} — click to view",
     "menu": {
       "view": "View in GitGR",
@@ -1466,7 +1479,8 @@
       "success": "Passed ({{count}})"
     },
     "retryFailed": "Re-run failed jobs",
-    "retrying": "Re-running…"
+    "retrying": "Re-running…",
+    "noAccountShort": "Connect a {{provider}} account to see them here."
   },
   "notif": {
     "title": "Notifications",

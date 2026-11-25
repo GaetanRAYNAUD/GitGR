@@ -59,7 +59,7 @@ test("une branche distante prend la règle de son nom sans le remote", async ({ 
 });
 
 test("l'entrée est aussi au clic droit d'une branche de la barre latérale", async ({ page }) => {
-  await sidebar(page).getByRole("button", { name: /^profils( |$)/ }).click({ button: "right" });
+  await sidebar(page).getByRole("treeitem", { name: /^profils( |$)/ }).click({ button: "right" });
   await menu(page).getByRole("menuitem", { name: "Couleur fixe pour ce nom…" }).click();
   await expect(popover(page)).toHaveAccessibleName("Couleur fixe pour « feature/profils »");
   // Pas de règle à ce nom : « Aucune règle » a le focus ; les flèches choisissent, Entrée ferme.

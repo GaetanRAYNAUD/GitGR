@@ -88,14 +88,16 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
   const head = refs?.headBranch ?? "HEAD";
   const merge = isMergeCommit(path, r.target);
   const noHead = !refs?.head;
+  // La branche courante sur elle-même : « Cherry-pick du commit de main sur main » n'a pas de sens.
+  const isHead = r.kind === "local" && r.short === refs?.headBranch;
   return [
     { label: t("menu.newBranchFrom", { branch: r.short }), onClick: () => ops.newBranch(path, r.name, r.short) },
-    {
+    ...(isHead ? [] : [{
       label: t("menu.cherryPickTip", { source: r.short, branch: head }),
       disabled: noHead || r.target === refs?.head || merge,
       title: noHead ? t("menu.why.noHead") : merge ? t("multi.cherryPickMerge") : r.target === refs?.head ? t("menu.why.sameCommit", { branch: head }) : undefined,
       onClick: () => void ops.cherryPick(path, [r.target]),
-    },
+    }]),
     resetSub(t, path, r.target, refs, r.short),
     {
       label: t("menu.revertTip", { branch: r.short }),
