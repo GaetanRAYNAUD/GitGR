@@ -619,11 +619,12 @@ export function RepoView({ path }: { path: string }) {
         <CommitPanel path={path} />
       </div>
 
-      <footer className="statusbar">
+      <footer className="statusbar" role="region" aria-label={t("repo.statusbar")}>
         <button
           type="button"
-          className="status-link mono"
-          title={t("repo.openFolder")}
+          className="status-link status-path mono"
+          title={`${path}
+${t("repo.openFolder")}`}
           onClick={() => void api.openRepoFile(path, "", "open").catch((e) => useApp.setState({ error: errorCode(e) }))}
         >
           {path}
@@ -648,11 +649,34 @@ export function RepoView({ path }: { path: string }) {
         <span className="status-spacer" />
         <ProfilePill path={path} className="status-profile" />
         {count > 0 && <span>{done ? t("graph.count", { count }) : t("graph.countMore", { count })}</span>}
-        {data && (
-          <span className="mono" title={tracking}>
-            ↑{data.ahead} ↓{data.behind}
-          </span>
-        )}
+        {data &&
+          (data.upstream ? (
+            // ↑ / ↓ : ce qui part au push, ce qui arrive au pull (comme les badges de la barre d'outils).
+            <span className="status-item status-sync" title={tracking}>
+              {(["push", "pull"] as const).map((d) => {
+                const n = d === "push" ? data.ahead : data.behind;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className="status-link mono"
+                    aria-label={t(d === "push" ? "sidebar.ahead" : "sidebar.behind", { count: n })}
+                    title={`${t(d === "push" ? "sidebar.ahead" : "sidebar.behind", { count: n })} — ${t(`repo.${d}Show`)}`}
+                    onClick={() => {
+                      usePullList.getState().close(path);
+                      useGraph.getState().closeDiff(path);
+                      useRangeView.getState().show(path, d);
+                    }}
+                  >
+                    {d === "push" ? "↑" : "↓"}
+                    {n}
+                  </button>
+                );
+              })}
+            </span>
+          ) : (
+            <span className="status-faint">{t("repo.noUpstreamShort")}</span>
+          ))}
         {data && <LastFetch seconds={data.lastFetch} />}
       </footer>
     </div>

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openNextRepo } from "./fixtures";
+import { openNextRepo, openRepos } from "./fixtures";
 
 // Barre d'outils du dépôt : une tabulation, flèches, raccourcis Ctrl+Maj+lettre, et des
 // actions impossibles qui restent focalisables et disent pourquoi.
@@ -76,4 +76,12 @@ test("merge en cours : pastille dans la barre, actions grisées avec la raison, 
   // La pastille mène aux modifications en cours (conflits, Continuer / Annuler l'opération).
   await pill.click();
   await expect(page.getByRole("complementary", { name: "Modifications en cours" })).toBeVisible();
+});
+
+test("barre d'état : ↑ ouvre ce qui part au push, lu en toutes lettres", async ({ page }) => {
+  await page.goto("/");
+  await openRepos(page, 2);
+  const bar = page.getByRole("region", { name: "Barre d’état" });
+  await bar.getByRole("button", { name: "1 commit à pousser" }).click();
+  await expect(page.getByRole("region", { name: "Ce qui part au push" })).toBeVisible();
 });

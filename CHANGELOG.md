@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Barre d'état : ↑ et ↓ s'ouvrent d'un clic sur ce qui part au push ou arrive au pull, et sont lus en clair par les lecteurs d'écran (« 2 commits à pousser ») ; « Pas de branche suivie » au lieu de ↑0 ↓0 trompeurs ; un chemin long se raccourcit, complet en infobulle.
 - Zone de commit : « Commit en tant que Nom ‹e-mail› » au-dessus du bouton — l'identité que git va vraiment écrire (profil actif, sinon votre configuration git), avec un avertissement s'il n'y en a aucune. Le bouton grisé dit toujours pourquoi (« Écrivez un résumé pour commiter. »), sinon rappelle Ctrl+Entrée.
 - Listes de fichiers au clavier : une seule tabulation par liste, ↑ ↓ (le diff suit), Maj+↑ ↓ et Ctrl+A pour sélectionner, Espace pour indexer ou retirer, Suppr pour annuler (avec confirmation) ; Entrée depuis le graphe arrive dans la liste. Une sélection multiple se voit mieux et « Tout indexer » devient « Indexer (N) ».
 - Modifications en cours : le bandeau « Merge en cours » tient sur une ligne et la description se replie tant qu'elle est vide, pour laisser la place aux fichiers ; Stash devient un bouton discret ; les fichiers en partie indexés le disent ; chemins longs raccourcis ; « Réessayer » si l'état ne peut pas être lu ; couleurs des statuts lisibles sur une ligne sélectionnée.

@@ -340,7 +340,7 @@ Passer chaque écran par `/impeccable critique` puis `/impeccable polish` (cf. C
 - [ ] **Diff** (`DiffView`, `WorkDiffView`, `DiffBody`, `DiffStats`) : en ligne et côte à côte, indexation par bloc et par ligne, images.
 - [ ] **Détails d'un commit** (`CommitPanel`, `CommitText`) : en-tête, message, fichiers, liens.
 - [ ] **Barre de titre et onglets** (`TitleBar`, `TabColorPopover`) : onglets, couleurs, marques de travail en attente, boutons de droite.
-- [ ] **Barre d'état** (dans `RepoView`) : chemin, remote, profil actif, compteurs, dernier fetch.
+- [x] **Barre d'état** (dans `RepoView`) : repère nommé, ↑ / ↓ cliquables (vue de ce qui part / arrive) et lus en toutes lettres, « Pas de branche suivie » sans branche distante, chemin raccourci avec infobulle. Revue légère (budget), sans critique à deux agents.
 
 Vues ponctuelles (à la place du graphe) :
 
