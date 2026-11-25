@@ -333,7 +333,7 @@ Passer chaque écran par `/impeccable critique` puis `/impeccable polish` (cf. C
 
 Écrans de travail (vus en permanence) :
 
-- [ ] **Graphe des commits** (`CommitGraph`) : lignes, puces de branches, colonnes, en-tête, ligne « Modifications en cours », sélection multiple, glisser-déposer.
+- [x] **Graphe des commits** (`CommitGraph`) : tout au clavier (focus à l'ouverture, Ctrl+G, Maj+F10 / touche Menu, Entrée), menu de la ligne « Modifications en cours », erreur de pagination sans perdre le graphe, en-tête hors du listbox, lignes nommées pour les lecteurs d'écran, contrastes. Reste : raccourcis affichés dans les menus (cf. « Menus contextuels »), saut vers HEAD au clavier. Colonne Branche / tag gardée à sa place (décidé).
 - [ ] **Barre d'outils du dépôt** (dans `RepoView`) : Pull / Push / Fetch / Branche / Stash, compteurs ↑ ↓, Annuler / Rétablir, menus des stratégies.
 - [ ] **Barre latérale des refs** (`RefsSidebar`, `StashesSection`, `PullsSection`) : sections repliables, remotes et leurs icônes, filtre, menu des sections affichées.
 - [ ] **Panneau des modifications et commit** (`StagingPanel`, `CommitBox`, `FileList`) : listes indexées / non indexées / en conflit, arborescence, résumé et description, Amend, profil actif.

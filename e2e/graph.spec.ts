@@ -380,3 +380,31 @@ test("squash des deux derniers commits de main : un seul commit, avec le message
   await expect(page.getByText("2 commits réunis en un seul.")).toBeVisible();
   await expect(rows.first()).toContainText("deux en un");
 });
+
+test("tout au clavier : focus au graphe, menu d'un commit (Maj+F10), détails (Entrée), retour (Ctrl+G)", async ({ page }) => {
+  // À l'ouverture du dépôt, le focus est déjà sur le graphe.
+  await expect(graph(page)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Shift+F10");
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: "Copier le SHA" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(graph(page)).toBeFocused();
+
+  await page.keyboard.press("Enter");
+  await expect(panel(page).locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Control+g");
+  await expect(graph(page)).toBeFocused();
+});
+
+test("ligne « en cours » : clic droit pour tout indexer, stasher ou tout annuler", async ({ page }) => {
+  await openNextRepo(page, "api-backend");
+  const wip = graph(page).getByRole("option", { name: /^Modifications en cours/ });
+  await wip.click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem")).toHaveText(["Tout indexer", "Stasher les modifications", "Tout annuler…"]);
+  await menu.getByRole("menuitem", { name: "Tout annuler…" }).click();
+  await expect(page.getByRole("alertdialog").or(page.getByRole("dialog"))).toContainText("Annuler toutes les modifications ?");
+});

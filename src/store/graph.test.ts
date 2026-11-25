@@ -64,6 +64,30 @@ describe("graphe : chargement", () => {
     expect(repo().loading).toBe(false);
   });
 
+  it("l'échec d'une page suivante garde l'historique chargé, et se réessaie", async () => {
+    await g().refresh(REPO_A);
+    const log = vi.spyOn(api, "repoLog").mockRejectedValueOnce("git_failed");
+    await g().loadMore(REPO_A);
+    expect(repo().pageError).toBe("git_failed");
+    expect(repo().error).toBeUndefined();
+    expect(repo().commits).toHaveLength(PAGE_SIZE);
+    // Pas de nouvel essai tout seul (sinon une boucle à chaque défilement).
+    log.mockClear();
+    await g().loadMore(REPO_A);
+    expect(log).not.toHaveBeenCalled();
+    await g().retryMore(REPO_A);
+    expect(repo().pageError).toBeUndefined();
+    expect(repo().commits).toHaveLength(MOCK_COMMIT_COUNT);
+  });
+
+  it("F5 (refs inchangées) efface l'échec d'une page suivante", async () => {
+    await g().refresh(REPO_A);
+    vi.spyOn(api, "repoLog").mockRejectedValueOnce("git_failed");
+    await g().loadMore(REPO_A);
+    await g().refresh(REPO_A);
+    expect(repo().pageError).toBeUndefined();
+  });
+
   it("une page arrivée après un rechargement complet est ignorée", async () => {
     await g().refresh(REPO_A);
     let resolve!: (v: Awaited<ReturnType<typeof api.repoLog>>) => void;

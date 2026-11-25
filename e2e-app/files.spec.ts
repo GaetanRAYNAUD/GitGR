@@ -98,3 +98,32 @@ test("arborescence et sélection multiple : ignorer un dossier, indexer deux fic
     await app.close();
   }
 });
+
+test("ligne « en cours » du graphe : tout indexer puis stasher au clic droit", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "1\n", "ajout de a.txt");
+  sandbox.write(mine, "a.txt", "2\n");
+  sandbox.write(mine, "b.txt", "nouveau\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const wip = page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { name: /^Modifications en cours/ });
+    // Le menu est calculé à l'ouverture : on attend que l'état de la copie de travail soit lu.
+    const changes = page.getByRole("complementary", { name: "Modifications en cours" });
+    await expect(changes.getByRole("list", { name: "Non indexés", exact: true }).getByText("b.txt")).toBeVisible();
+    await wip.click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Tout indexer" }).click();
+    await expect(changes.getByRole("list", { name: "Indexés", exact: true }).getByText("b.txt")).toBeVisible();
+    expect(git(mine, "status", "--porcelain")).toBe("M  a.txt\nA  b.txt");
+
+    await wip.click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Stasher les modifications" }).click();
+    // On attend l'interface, pas `git status` en boucle : il prendrait index.lock pendant le stash.
+    await expect(wip).toHaveCount(0);
+    expect(git(mine, "status", "--porcelain")).toBe("");
+    expect(git(mine, "stash", "list")).toContain("modifications mises de côté");
+  } finally {
+    await app.close();
+  }
+});

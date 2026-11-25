@@ -416,7 +416,10 @@ export function RepoView({ path }: { path: string }) {
           {error ? (
             <div className="notice error repo-error" role="alert">
               <Icon name="alert" />
-              {errorMessage(t, error)}
+              <span>{errorMessage(t, error)}</span>
+              <button type="button" className="link notice-action" onClick={() => refresh(path)}>
+                {t("graph.retry")}
+              </button>
             </div>
           ) : openConflict ? (
             <ConflictView key={openConflict} path={path} file={openConflict} />

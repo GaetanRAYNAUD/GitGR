@@ -7,7 +7,8 @@ import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { api, errorCode } from "../../lib/api";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
-import { useWork } from "../../store/worktree";
+import { changedCount, useWork } from "../../store/worktree";
+import { useDialogs } from "../../store/dialogs";
 import { usePullList } from "../../store/pullList";
 import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
 import { defaultRemote, useOps } from "../../store/ops";
@@ -474,6 +475,43 @@ export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; p
     },
     "sep",
     { label: t("multi.copyShas"), onClick: () => copy(ordered.map((c) => c.sha).join("\n")) },
+  ];
+}
+
+/** « Tout annuler » : confirmation, avec « Stasher à la place » pour ne rien perdre. */
+export async function askDiscardAll(t: TFunction, path: string, total: number, branch: string | null) {
+  const pick = await useDialogs.getState().choose({
+    title: t("staging.discardAllTitle"),
+    body: t("staging.discardAllBody", { count: total }),
+    choices: [
+      { id: "stash", label: t("staging.stashInstead") },
+      { id: "discard", label: t("staging.discardAll"), danger: true },
+    ],
+  });
+  const w = useWork.getState();
+  if (pick === "stash") void w.stashAll(path, t("staging.stashMessage", { branch: branch ?? "HEAD" }));
+  else if (pick === "discard") void w.discardAll(path);
+}
+
+/** Clic droit sur la ligne « Modifications en cours » du graphe. */
+export function wipMenu(t: TFunction, path: string, branch: string | null, changes: number, hasHead: boolean): MenuItem[] {
+  const w = useWork.getState();
+  const work = w.repos[path];
+  const busy = !!work?.busy;
+  // État pas encore lu : le nombre de la ligne fait foi.
+  const total = work?.status ? changedCount(work.status) : changes;
+  const unstaged = work?.status ? work.status.unstaged.length : changes;
+  return [
+    { label: t("staging.stageAll"), disabled: busy || unstaged === 0, onClick: () => void w.stageAll(path) },
+    {
+      label: t("wip.stash"),
+      // Sans commit initial, git refuse de stasher.
+      title: hasHead ? undefined : t("wip.stashNoCommit"),
+      disabled: busy || total === 0 || !hasHead,
+      onClick: () => void w.stashAll(path, t("staging.stashMessage", { branch: branch ?? "HEAD" })),
+    },
+    "sep",
+    { label: t("wip.discardAll"), danger: true, disabled: busy || total === 0, onClick: () => void askDiscardAll(t, path, total, branch) },
   ];
 }
 
