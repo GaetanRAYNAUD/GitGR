@@ -2883,6 +2883,8 @@ body.resizing-y * {
 
 /* Page des profils */
 .profiles-page {
+  /* Hauteur de l'en-tête de la liste des profils (titre, fermeture), partagée par le sous-menu. */
+  --pf-list-head: 42px;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2902,6 +2904,7 @@ body.resizing-y * {
 }
 
 .pf-list-head {
+  min-height: var(--pf-list-head);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2994,49 +2997,69 @@ body.resizing-y * {
   min-width: 0;
   overflow-y: auto;
   padding: 24px 32px 32px;
-  container-type: inline-size;
 }
 
-/* Fiche du profil : en-tête sur toute la largeur, puis une colonne (étroit) ou deux (large :
-   identité, clé et signature à gauche ; sélection automatique, comptes et dépôts à droite).
-   Les champs gardent leur largeur de lecture : c'est le contenu qui occupe la place. */
+/* Sous-menu du profil : ses sous-pages, entre la liste des profils et le contenu. */
+.pf-subnav {
+  width: 200px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Premier élément à la hauteur du premier profil : marge haute de la liste (16px), son
+     en-tête (--pf-list-head) et l'écart entre ses éléments (2px). */
+  padding: calc(18px + var(--pf-list-head)) 10px 16px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.st-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-nav-count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+.st-nav-item.on .st-nav-count {
+  color: var(--muted);
+}
+
+/* Fiche du profil : en-tête, puis la sous-page choisie ; une colonne de lecture. */
 .pf-sheet {
-  max-width: 1640px;
-}
-
-.pf-cols {
-  display: grid;
-  grid-template-columns: minmax(0, 760px);
-  column-gap: 48px;
-  align-items: start;
-}
-
-@container (min-width: 1100px) {
-  .pf-cols {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .pf-sheet > .pf-head {
-    max-width: none;
-  }
-}
-
-.pf-sheet > .pf-head {
   max-width: 760px;
+}
+
+.pf-sheet > .st-page {
+  border-top: 1px solid var(--border);
 }
 
 .pf-empty {
   max-width: 760px;
 }
 
-/* Colonne sans lignes de réglage (sélection automatique, comptes, dépôts) : de l'air entre
-   l'aide, les listes, les champs et les boutons. */
-.pf-col:not(.pf-form) > .st-sec {
+/* Bloc d'une sous-page sans lignes de réglage (règles, dépôts, comptes) : de l'air entre
+   l'aide, les listes, les champs et les boutons ; deux blocs séparés par un filet. */
+.pf-block {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.pf-col:not(.pf-form) > .st-sec > h3 {
-  margin-bottom: 0;
+.pf-block + .pf-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.pf-block > h4 {
+  margin: 0;
 }
 
 .pf-empty {
@@ -3215,14 +3238,37 @@ body.resizing-y * {
   outline: 0;
 }
 
-/* Champ d'une ligne de réglage : largeur de lecture, pas toute la colonne. */
-.pf-input-md {
-  max-width: 360px;
-}
-
-.st-row .pf-row {
+/* Contrôles d'une fiche (profil) : tous sur la même largeur de lecture (480px), champs,
+   clé, aides et listes alignés à droite sur le même bord. */
+.pf-form .st-row-control {
   width: 100%;
   max-width: 480px;
+}
+
+.pf-form .st-row-control > .pf-input,
+.st-row .pf-row {
+  width: 100%;
+}
+
+/* Champ avec un bouton d'effacement à l'intérieur (clé SSH). */
+.pf-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.pf-input-wrap > .pf-input {
+  padding-right: 36px;
+}
+
+.pf-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
 }
 
 .st-row .input-error {
@@ -3230,10 +3276,8 @@ body.resizing-y * {
   color: var(--del);
 }
 
-.st-row .pf-key,
-.st-row .pf-actions {
+.st-row .pf-key {
   align-self: stretch;
-  max-width: 480px;
 }
 
 .pf-input[aria-invalid="true"] {
@@ -3415,7 +3459,10 @@ body.resizing-y * {
   flex: none;
 }
 
-.pf-key-action {
+/* Actions sur la clé (copier la clé publique, phrase de passe), au bout de sa ligne. */
+.pf-key-actions {
+  display: inline-flex;
+  gap: 6px;
   margin-left: auto;
 }
 
@@ -4107,30 +4154,17 @@ p.pf-account-keys.bad,
   max-width: 760px;
 }
 
-.st-sec {
+/* Sous-page (une section des réglages ou du profil) : son titre, puis ses lignes. */
+.st-page {
   display: flex;
   flex-direction: column;
   padding: 16px 0 8px;
-  border-top: 1px solid var(--border);
 }
 
-.st-sec:first-child {
-  border-top: 0;
-}
-
-/* La dernière section peut monter en haut quand on la choisit dans la barre latérale
-   (hauteur de la fenêtre moins la barre de titre et les marges du contenu). */
-.st-main .st-sec:last-child {
-  min-height: calc(100vh - 88px);
-}
-
-.st-sec h2,
-.st-sec h3 {
-  margin: 0 0 4px;
-}
-
-.st-sec h2:focus:not(:focus-visible) {
-  outline: none;
+.st-page-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 /* Une ligne par réglage : libellé à gauche, contrôle à droite, aide dessous sur toute la

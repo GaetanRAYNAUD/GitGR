@@ -30,6 +30,7 @@ async function seed(page: Page, accounts: { login: string; kind?: "github" | "gi
   );
   await page.reload();
   await page.getByRole("button", { name: "Profils et comptes" }).click();
+  await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
 }
 
 const keysOf = (page: Page, login: string) => page.getByRole("list", { name: `Clés du profil sur le compte ${login}` });
@@ -62,8 +63,11 @@ test("clés : droits du token insuffisants, clé déjà prise, profil modifié",
 
   // Profil incomplet (pas enregistré) avec une clé modifiée : rien n'est ajouté tant qu'il ne
   // l'est pas.
+  await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Identité" }).click();
   await page.getByLabel("E-mail (user.email)").fill("");
+  await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Signature" }).click();
   await page.getByRole("radio", { name: "Ne pas signer" }).click();
+  await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
   await expect(keys).toContainText("Complétez le profil pour vérifier ses nouvelles clés");
   await expect(keys.getByRole("button", { name: "Ajouter au compte" })).toBeDisabled();
 });

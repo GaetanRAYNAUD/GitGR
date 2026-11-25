@@ -14,6 +14,7 @@ test("build de développement : pas de mise à jour automatique, plugins chargé
 
     await page.getByRole("button", { name: "Réglages" }).click();
     const settings = page.getByRole("region", { name: "Réglages" });
+    await page.getByRole("navigation", { name: "Sections des réglages" }).getByRole("button", { name: "À propos" }).click();
     await expect(settings.getByText("Version de développement : pas de mise à jour automatique.")).toBeVisible();
     await expect(settings.getByRole("button", { name: "Rechercher les mises à jour" })).toHaveCount(0);
 

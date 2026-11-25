@@ -36,6 +36,7 @@ test("choisir puis retirer la couleur fixe d'une branche depuis le graphe", asyn
 
   // La règle est en tête dans Réglages > Graphe.
   await page.getByRole("button", { name: "Réglages" }).click();
+  await page.getByRole("navigation", { name: "Sections des réglages" }).getByRole("button", { name: "Graphe" }).click();
   await expect(page.getByRole("textbox", { name: "Motif du nom de branche" }).first()).toHaveValue("feature/graph-rendering");
   await page.keyboard.press("Escape");
 
@@ -71,6 +72,7 @@ test("l'entrée est aussi au clic droit d'une branche de la barre latérale", as
 
 test("entrée grisée, avec la raison, quand les couleurs fixes sont désactivées", async ({ page }) => {
   await page.getByRole("button", { name: "Réglages" }).click();
+  await page.getByRole("navigation", { name: "Sections des réglages" }).getByRole("button", { name: "Graphe" }).click();
   await page.getByRole("checkbox", { name: "Couleurs fixes par nom de branche" }).uncheck();
   await page.getByRole("button", { name: "Réglages" }).click();
 

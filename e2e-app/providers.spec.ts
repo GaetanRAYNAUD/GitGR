@@ -43,10 +43,11 @@ test("connecter un compte GitLab par token : vérifié, rangé dans le trousseau
   const gitlab = await fakeGitlab();
   const app = await launchApp(sandbox, [mine], { profiles: [boulot] });
   const { page } = app;
-  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  const accounts = page.getByRole("form", { name: "Comptes GitHub / GitLab" });
   const row = accounts.getByRole("listitem").filter({ hasText: "camille" });
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
     await expect(accounts).toContainText("Aucun compte connecté.");
 
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
@@ -135,9 +136,10 @@ test("ajouter la clé SSH du profil au compte GitLab ; avatar du groupe devant l
     repoProfiles: { [sandbox.top(mine)]: { active: "boulot", allowed: ["boulot"] } },
   });
   const { page } = app;
-  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  const accounts = page.getByRole("form", { name: "Comptes GitHub / GitLab" });
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
     const dialog = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
     await dialog.getByRole("radio", { name: "GitLab" }).click();
@@ -265,9 +267,10 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     repoProfiles: { [sandbox.top(mine)]: { active: "boulot", allowed: ["boulot"] } },
   });
   const { page } = app;
-  const accounts = page.getByRole("region", { name: "Comptes GitHub / GitLab" });
+  const accounts = page.getByRole("form", { name: "Comptes GitHub / GitLab" });
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
     await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
     const connect = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
     await connect.getByRole("radio", { name: "GitLab" }).click();
@@ -387,7 +390,8 @@ test("publier un dépôt sans remote dans un groupe GitLab : projet créé, bran
   const { page } = app;
   try {
     await page.getByRole("button", { name: "Profils et comptes" }).click();
-    await page.getByRole("region", { name: "Comptes GitHub / GitLab" }).getByRole("button", { name: "Connecter un compte…" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Comptes" }).click();
+    await page.getByRole("form", { name: "Comptes GitHub / GitLab" }).getByRole("button", { name: "Connecter un compte…" }).click();
     const connect = page.getByRole("dialog", { name: "Connecter un compte au profil « Boulot »" });
     await connect.getByRole("radio", { name: "GitLab" }).click();
     await connect.getByLabel("Instance").fill(gitlab.url);

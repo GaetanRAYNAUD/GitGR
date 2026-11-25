@@ -61,6 +61,7 @@ test("clé protégée : phrase de passe saisie dans l'app, puis fetch et push pa
     // Phrase de passe saisie dans la page des profils (vérifiée, rangée dans le trousseau).
     await page.locator(".status-profile").click();
     await page.getByRole("menuitem", { name: "Gérer les profils…" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Clé SSH" }).click();
     await expect(page.locator(".profiles-page")).toContainText("Protégée par une phrase de passe : enregistrez-la");
     await page.getByRole("button", { name: "Enregistrer la phrase de passe…" }).click();
     const dialog = page.getByRole("dialog", { name: "Phrase de passe de la clé" });

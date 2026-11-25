@@ -1173,7 +1173,17 @@
     "ruleHitsNew_one": "This rule matches {{count}} of your recent repositories.",
     "ruleHitsNew_other": "This rule matches {{count}} of your recent repositories.",
     "ruleExampleList": "github.com/my-org/*|gitlab.example.com|~/work/*",
-    "discardFailedBody": "The “{{name}}” profile couldn’t be saved: its latest changes will be lost."
+    "discardFailedBody": "The “{{name}}” profile couldn’t be saved: its latest changes will be lost.",
+    "sections": "Profile sections",
+    "navIdentity": "Identity",
+    "navSsh": "SSH key",
+    "navSigning": "Signing",
+    "navRepos": "Repositories",
+    "navReposTitle": "Repositories",
+    "navAccounts": "Accounts",
+    "sshHint": "Key used for the SSH remotes of each repository of the profile; without a key, SSH keeps its usual configuration.",
+    "generateRow": "New key",
+    "generateHelp": "Creates an ed25519 key pair in ~/.ssh and uses it for this profile."
   },
   "branchColors": {
     "fixedTitle": "Fixed color for “{{name}}”",
