@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Barre d'outils au clavier : une seule tabulation, puis ← / → d'un outil à l'autre ; raccourcis Ctrl+Maj+L (Pull), Ctrl+Maj+K (Push), Ctrl+Maj+F (Fetch), Ctrl+Maj+B (Branche), Ctrl+Maj+S (Stash), Ctrl+Maj+P (Pop), rappelés dans les infobulles. Un clic sur la pastille de la branche amène le graphe sur le commit courant.
+- Barre d'outils : une action impossible dit toujours pourquoi (« Merge en cours : terminez-le ou annulez-le d'abord », « Aucune modification à mettre de côté »…), y compris au clavier et pour les lecteurs d'écran. Pendant un merge, un rebase ou un cherry-pick, une pastille l'indique dans la barre et mène aux modifications en cours ; Branche et Pop sont alors grisés comme Pull, Push et Stash.
+- Barre d'outils : Fetch a sa propre icône (un nuage) et son explication, Actualiser rejoint les autres outils ; sous 1000 px de large, les outils tiennent sur une ligne (icônes seules) ; badges plus lisibles en thème sombre et plus faciles à cliquer ; boutons principaux un peu plus foncés en thème sombre pour rester lisibles.
 - Graphe tout au clavier : le focus est sur le graphe à l'ouverture d'un dépôt, Ctrl+G y revient de n'importe où, Maj+F10 (ou la touche Menu) ouvre le menu du commit ou de la sélection, Entrée passe au panneau de détails. En sélection multiple, la ligne au bout de la plage est encadrée.
 - Clic droit sur la ligne « Modifications en cours » : Tout indexer, Stasher les modifications, Tout annuler. Elle s'affiche aussi dans un dépôt qui n'a pas encore de commit.
 - Graphe : si la suite de l'historique ne se charge pas, les commits déjà affichés restent et « Réessayer » relance le chargement (avant, une erreur remplaçait tout le graphe) ; « Réessayer » aussi quand le dépôt ne peut pas être lu. « Début de l'historique » sous le premier commit.

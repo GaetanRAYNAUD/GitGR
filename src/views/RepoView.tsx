@@ -1,12 +1,12 @@
 import { useUndo } from "../store/undo";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitGraph } from "../components/graph/CommitGraph";
 import { CommitPanel } from "../components/graph/CommitPanel";
 import { DiffView } from "../components/graph/DiffView";
 import { WorkDiffView } from "../components/graph/WorkDiffView";
 import { RefsSidebar } from "../components/graph/RefsSidebar";
-import { type MenuItem, openMenuBelow } from "../components/ContextMenu";
+import { type MenuItem, openMenuBelow, useContextMenu } from "../components/ContextMenu";
 import { Icon, type IconName } from "../components/Icon";
 import { ProfilePill } from "../components/ProfilePill";
 import { Splitter } from "../components/Splitter";
@@ -61,19 +61,38 @@ function AutostashBanner({ path }: { path: string }) {
       >
         {t("autostash.later")}
       </button>
-      <button className="mini primary" disabled={running} onClick={() => useOps.getState().pop(path)}>
+      <button className="mini primary" disabled={running} title={running ? t("repo.busy") : undefined} onClick={() => useOps.getState().pop(path)}>
         {t("autostash.apply")}
       </button>
     </div>
   );
 }
 
-/** Boutons pull / push / fetch / branche / stash / pop. */
+/** Raccourcis des outils (Ctrl+Maj+lettre), annoncés dans leurs infobulles. */
+const TOOL_KEYS: Record<string, string> = { pull: "L", push: "K", fetch: "F", branch: "B", stash: "S", pop: "P" };
+
+interface ToolOpts {
+  /** Raison pour laquelle l'action est impossible : bouton grisé, raison en infobulle et
+   *  annoncée (le bouton reste focalisable, `aria-disabled`). */
+  why?: string | null;
+  title?: string;
+  badge?: number;
+  label?: string;
+  /** Nom complet pour les lecteurs d'écran (avec le compteur : « Pop, 1 stash »). */
+  name?: string;
+  onBadge?: () => void;
+  badgeTitle?: string;
+}
+
+/** Barre d'outils du dépôt : annuler / rétablir, pull / push / fetch, branche / stash / pop,
+ *  reflog / recherche, actualiser. Une seule tabulation (`role="toolbar"`), ← / → / Début / Fin
+ *  d'un bouton à l'autre ; une action impossible reste focalisable et dit pourquoi. */
 function Tools({ path, changes }: { path: string; changes: number }) {
   const { t } = useTranslation();
   const data = useApp((s) => s.summaries[path]?.data);
   const strategy = useApp((s) => s.settings.pullStrategy) ?? "ff-only";
   const update = useApp((s) => s.updateSettings);
+  const refresh = useApp((s) => s.refreshRepo);
   const stashes = useGraph((s) => s.graphs[path]?.refs?.stashes ?? 0);
   const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
   const running = useOps((s) => s.running[path]);
@@ -87,35 +106,56 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   };
   const chevron = useRef<HTMLButtonElement>(null);
   const pushChevron = useRef<HTMLButtonElement>(null);
+  // Menu ouvert depuis un chevron : `aria-expanded` tant que ce menu-là est affiché (son id,
+  // pas un autre menu ouvert ensuite).
+  const [menuFrom, setMenuFrom] = useState<{ from: "pull" | "push"; id: number } | null>(null);
+  const menuId = useContextMenu((s) => s.menu?.id);
+  const expanded = (from: "pull" | "push") => menuFrom?.from === from && menuFrom.id === menuId;
+  const openedFrom = (from: "pull" | "push") => {
+    const id = useContextMenu.getState().menu?.id;
+    if (id !== undefined) setMenuFrom({ from, id });
+  };
   const detached = !!data && !data.branch;
   // Plusieurs remotes : « Tirer depuis… », « Pousser vers… » et « Pousser vers tous ».
   const remotes = useGraph((s) => s.graphs[path]?.refs?.remotes) ?? [];
   const several = remotes.length > 1;
   const blocked = !!running || !!operation || detached;
+  const keyOf = (key: string) => (TOOL_KEYS[key] ? t("keys.ctrlShift", { key: TOOL_KEYS[key] }) : null);
+  /** Raisons communes : une commande tourne, ou une opération (merge, rebase…) est en cours. */
+  const busyWhy = running ? t("repo.busy") : null;
+  const opWhy = operation ? t("repo.blockedBy", { op: t(`op.${operation}`) }) : null;
 
-  const tool = (
-    key: OpName | "branch",
-    icon: IconName,
-    onClick: () => void,
-    opts: { disabled?: boolean; title?: string; badge?: number; label?: string; onBadge?: () => void; badgeTitle?: string } = {},
-  ) => {
+  const tool = (key: OpName | "branch", icon: IconName, onClick: () => void, opts: ToolOpts = {}) => {
+    const why = busyWhy ?? opts.why ?? null;
+    const keys = keyOf(key);
+    const hint = running === key ? t("repo.running") : (why ?? [opts.title, keys && `(${keys})`].filter(Boolean).join(" "));
     const button = (
-    <button
-      className={running === key ? "tbtn running" : "tbtn"}
-      disabled={!!running || opts.disabled}
-      title={running === key ? t("repo.running") : opts.title}
-      aria-busy={running === key}
-      onClick={onClick}
-    >
-      <Icon name={icon} />
-      <span>{opts.label ?? t(`repo.${key}`)}</span>
-      {!!opts.badge && !opts.onBadge && <span className="badge">{opts.badge}</span>}
-    </button>
+      <button
+        className={running === key ? "tbtn running" : "tbtn"}
+        aria-disabled={!!why || undefined}
+        aria-label={opts.name}
+        aria-description={why ?? undefined}
+        aria-keyshortcuts={keys ? `Control+Shift+${TOOL_KEYS[key]}` : undefined}
+        title={hint || undefined}
+        aria-busy={running === key}
+        data-tool={key}
+        onClick={() => {
+          if (!why) onClick();
+        }}
+      >
+        <Icon name={icon} />
+        <span className="tbtn-label">{opts.label ?? t(`repo.${key}`)}</span>
+        {!!opts.badge && !opts.onBadge && (
+          <span className="badge" aria-hidden="true">
+            {opts.badge}
+          </span>
+        )}
+      </button>
     );
     if (!opts.badge || !opts.onBadge) return button;
     // Badge cliquable à côté du bouton (pas dedans : un bouton dans un bouton).
     return (
-      <span className="tool-badged">
+      <span className={why ? "tool-badged off" : "tool-badged"}>
         {button}
         <button className="badge badge-btn" title={opts.badgeTitle} aria-label={opts.badgeTitle} onClick={opts.onBadge}>
           {opts.badge}
@@ -126,12 +166,18 @@ function Tools({ path, changes }: { path: string; changes: number }) {
 
   const strategyMenu = () => {
     if (!chevron.current) return;
-    const items: MenuItem[] = STRATEGIES.map((s) => ({ label: t(`pull.${s}`), checked: s === strategy, onClick: () => update({ pullStrategy: s }) }));
+    const items: MenuItem[] = STRATEGIES.map((s) => ({
+      label: t(`pull.${s}`),
+      title: t(s === "ff-only" ? "pull.ffOnlyHint" : `pull.${s}Hint`),
+      checked: s === strategy,
+      onClick: () => update({ pullStrategy: s }),
+    }));
     if (several) {
       items.push("sep");
-      for (const r of remotes) items.push({ label: t("repo.pullFrom", { remote: r.name }), disabled: blocked, onClick: () => ops.pullFrom(path, r.name) });
+      for (const r of remotes) items.push({ label: t("repo.pullFrom", { remote: r.name }), disabled: blocked, title: busyWhy ?? opWhy ?? undefined, onClick: () => ops.pullFrom(path, r.name) });
     }
     openMenuBelow(chevron.current, items);
+    openedFrom("pull");
   };
 
   const pushMenu = () => {
@@ -141,16 +187,52 @@ function Tools({ path, changes }: { path: string; changes: number }) {
       "sep",
       { label: t("repo.pushAll"), disabled: blocked, onClick: () => ops.pushAll(path) },
     ]);
+    openedFrom("push");
   };
 
   // Sans remote, rien où pousser : « Publier » crée le dépôt distant (et y pousse la branche).
   // Seulement une fois les remotes lus, pour ne pas faire clignoter le bouton à l'ouverture.
   const noRemote = useGraph((s) => s.graphs[path]?.refs?.remotes.length === 0);
+  const pushWhy = detached ? t("errors.detached_head") : opWhy;
+  const pullWhy = opWhy ?? (data && !data.upstream ? t("errors.no_upstream") : null);
+  const stashWhy = opWhy ?? (changes === 0 ? t("repo.stashNothing") : null);
+  const popWhy = opWhy ?? (stashes === 0 ? t("repo.popEmpty") : null);
+  const branchWhy = opWhy;
+
+  const actions: Record<string, { run: () => void; why: string | null }> = {
+    pull: { run: () => ops.pull(path), why: pullWhy },
+    push: { run: () => (noRemote ? usePublishDialog.getState().show(path) : ops.push(path)), why: noRemote ? null : pushWhy },
+    fetch: { run: () => ops.fetch(path), why: null },
+    branch: { run: () => ops.newBranch(path, null, data?.branch ?? "HEAD"), why: branchWhy },
+    stash: { run: () => ops.stash(path), why: stashWhy },
+    pop: { run: () => ops.pop(path), why: popWhy },
+  };
+  // Ctrl+Maj+lettre : la même action que le bouton, si elle est possible (pas sous une fenêtre).
+  const keysRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  keysRef.current = (e) => {
+    if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
+    const key = Object.keys(TOOL_KEYS).find((k) => TOOL_KEYS[k] === e.key.toUpperCase());
+    if (!key || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+    e.preventDefault();
+    const a = actions[key];
+    if (running || a.why) {
+      useApp.getState().notify(running ? t("repo.busy") : a.why!);
+      return;
+    }
+    a.run();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keysRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const pushButton = noRemote
-    ? tool("push", "cloud", () => usePublishDialog.getState().show(path), { title: t("publish.buttonHint"), label: t("publish.button") })
-    : tool("push", "push", () => ops.push(path), {
-        disabled: detached || !!operation,
-        title: detached ? t("errors.detached_head") : data?.upstream ?? undefined,
+    ? tool("push", "cloud", actions.push.run, { title: t("publish.buttonHint"), label: t("publish.button") })
+    : tool("push", "push", actions.push.run, {
+        why: pushWhy,
+        title: data?.upstream ? t("repo.pushHint", { upstream: data.upstream }) : t("repo.pushHintNew"),
+        name: data?.ahead ? t("repo.pushName", { count: data.ahead }) : undefined,
         badge: data?.ahead,
         onBadge: () => showRange(path, "push"),
         badgeTitle: t("range.pushBadge", { count: data?.ahead ?? 0 }),
@@ -159,38 +241,81 @@ function Tools({ path, changes }: { path: string; changes: number }) {
   const undoTool = (dir: "undo" | "redo") => {
     const entry = dir === "undo" ? undoNext : redoNext;
     const keys = dir === "undo" ? "Ctrl+Z" : "Ctrl+Y";
+    const why = busyWhy ?? (entry ? null : t(`undo.${dir}None`));
     return (
       <button
         className="tbtn"
-        disabled={!!running || !entry}
-        title={entry ? t(`undo.${dir}Hint`, { label: t(`undo.label.${entry.label}`), keys }) : t(`undo.${dir}None`)}
-        onClick={() => void ops.replay(path, dir)}
+        aria-disabled={!!why || undefined}
+        aria-description={why ?? undefined}
+        aria-keyshortcuts={dir === "undo" ? "Control+Z" : "Control+Y"}
+        title={why ?? (entry ? t(`undo.${dir}Hint`, { label: t(`undo.label.${entry.label}`), keys }) : undefined)}
+        onClick={() => {
+          if (!why) void ops.replay(path, dir);
+        }}
       >
         <Icon name={dir} />
-        <span>{t(`undo.${dir}`)}</span>
+        <span className="tbtn-label">{t(`undo.${dir}`)}</span>
       </button>
     );
   };
 
+  // Une seule tabulation pour toute la barre : la flèche déplace le focus d'un bouton à l'autre,
+  // et le dernier bouton focalisé garde l'arrêt de tabulation.
+  const bar = useRef<HTMLDivElement>(null);
+  const stop = useRef(0);
+  useLayoutEffect(() => {
+    bar.current?.querySelectorAll<HTMLButtonElement>("button").forEach((b, i) => (b.tabIndex = i === stop.current ? 0 : -1));
+  });
+  const buttons = () => [...(bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+  const onBarFocus = (e: React.FocusEvent) => {
+    const all = buttons();
+    const i = all.indexOf(e.target as HTMLButtonElement);
+    if (i < 0) return;
+    stop.current = i;
+    all.forEach((b, j) => (b.tabIndex = j === i ? 0 : -1));
+  };
+  const onBarKey = (e: React.KeyboardEvent) => {
+    const moves: Record<string, (i: number, n: number) => number> = {
+      ArrowRight: (i, n) => (i + 1) % n,
+      ArrowLeft: (i, n) => (i - 1 + n) % n,
+      Home: () => 0,
+      End: (_, n) => n - 1,
+    };
+    const move = moves[e.key];
+    if (!move) return;
+    const all = buttons();
+    const i = all.indexOf(document.activeElement as HTMLButtonElement);
+    if (i < 0) return;
+    e.preventDefault();
+    all[move(i, all.length)]?.focus();
+  };
+
   return (
-    <div className="tools">
+    <div className="tools" role="toolbar" aria-label={t("repo.toolbar")} ref={bar} onFocus={onBarFocus} onKeyDown={onBarKey}>
+      {/* Commande en cours : annoncée (le titre du bouton ne l'est pas). */}
+      <span className="visually-hidden" role="status">
+        {running ? t("repo.runningOp", { op: t(`repo.${running}`, { defaultValue: running }) }) : ""}
+      </span>
       {undoTool("undo")}
       {undoTool("redo")}
       <span className="tool-sep" />
       <span className="tool-wrap tool-split">
-        {tool("pull", "pull", () => ops.pull(path), {
-          disabled: !data?.upstream || !!operation,
-          title: data?.upstream ? t("repo.pullHint", { mode: t(`pull.${strategy}`) }) : t("errors.no_upstream"),
+        {tool("pull", "pull", actions.pull.run, {
+          why: pullWhy,
+          title: t("repo.pullHint", { mode: t(`pull.${strategy}`) }),
+          name: data?.behind ? t("repo.pullName", { count: data.behind }) : undefined,
           badge: data?.behind,
           onBadge: () => showRange(path, "pull"),
           badgeTitle: t("range.pullBadge", { count: data?.behind ?? 0 }),
         })}
+        {/* Le mode du pull se change même pendant une opération (c'est un réglage). */}
         <button
           ref={chevron}
           className="tbtn tool-chevron"
           aria-label={t("repo.pullStrategy")}
           title={t("repo.pullStrategy")}
           aria-haspopup="menu"
+          aria-expanded={expanded("pull")}
           onClick={strategyMenu}
         >
           <Icon name="chevron" size={12} />
@@ -203,11 +328,14 @@ function Tools({ path, changes }: { path: string; changes: number }) {
             ref={pushChevron}
             className="tbtn tool-chevron"
             aria-label={t("repo.pushMenu")}
-            title={t("repo.pushMenu")}
+            title={blocked ? (busyWhy ?? pushWhy ?? t("repo.pushMenu")) : t("repo.pushMenu")}
             aria-haspopup="menu"
+            aria-expanded={expanded("push")}
             // Comme le bouton Push : pas pendant une commande (le menu ne proposerait rien).
-            disabled={blocked}
-            onClick={pushMenu}
+            aria-disabled={blocked || undefined}
+            onClick={() => {
+              if (!blocked) pushMenu();
+            }}
           >
             <Icon name="chevron" size={12} />
           </button>
@@ -215,13 +343,14 @@ function Tools({ path, changes }: { path: string; changes: number }) {
       ) : (
         pushButton
       )}
-      {tool("fetch", "fetch", () => ops.fetch(path))}
+      {tool("fetch", "cloudDown", actions.fetch.run, { title: t("repo.fetchHint") })}
       <span className="tool-sep" />
-      {tool("branch", "branch", () => ops.newBranch(path, null, data?.branch ?? "HEAD"), { title: t("repo.branchHint") })}
-      {tool("stash", "stash", () => ops.stash(path), { disabled: changes === 0 || !!operation, title: t("repo.stashHint") })}
-      {tool("pop", "pop", () => ops.pop(path), {
-        disabled: stashes === 0,
-        title: stashes ? t("repo.popHint", { count: stashes }) : t("repo.popEmpty"),
+      {tool("branch", "branch", actions.branch.run, { why: branchWhy, title: t("repo.branchHint") })}
+      {tool("stash", "stash", actions.stash.run, { why: stashWhy, title: t("repo.stashHint") })}
+      {tool("pop", "pop", actions.pop.run, {
+        why: popWhy,
+        title: stashes ? t("repo.popHint", { count: stashes }) : undefined,
+        name: stashes ? t("repo.popName", { count: stashes }) : undefined,
         badge: stashes,
       })}
       <span className="tool-sep" />
@@ -235,7 +364,7 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         }}
       >
         <Icon name="clock" />
-        <span>{t("reflog.toolbar")}</span>
+        <span className="tbtn-label">{t("reflog.toolbar")}</span>
       </button>
       <button
         className="tbtn"
@@ -247,7 +376,12 @@ function Tools({ path, changes }: { path: string; changes: number }) {
         }}
       >
         <Icon name="search" />
-        <span>{t("contentSearch.toolbar")}</span>
+        <span className="tbtn-label">{t("contentSearch.toolbar")}</span>
+      </button>
+      <span className="tool-sep" />
+      <button className="tbtn" onClick={() => refresh(path)} title={t("repo.refreshHint")} aria-keyshortcuts="F5">
+        <Icon name="fetch" />
+        <span className="tbtn-label">{t("repo.refresh")}</span>
       </button>
     </div>
   );
@@ -290,6 +424,7 @@ export function RepoView({ path }: { path: string }) {
   const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
   const head = useGraph((s) => s.graphs[path]?.refs?.head ?? null);
   const select = useGraph((s) => s.select);
+  const operation = useWork((s) => s.repos[path]?.status?.operation ?? null);
   const setLayout = useApp((s) => s.setLayout);
   // L'état détaillé de la copie de travail fait foi ; le résumé sert en attendant.
   const changes = work?.status ? changedCount(work.status) : (data?.changes ?? 0);
@@ -365,11 +500,30 @@ export function RepoView({ path }: { path: string }) {
       ].join(" — ")
     : t("repo.noUpstream");
   const error = summary?.error ?? graphError;
+  /** Revient au graphe (ou au panneau des modifications) depuis une vue du centre ; pas depuis
+   *  une résolution de conflit, qui a sa propre confirmation (Retour / Échap). */
+  const toGraph = () => {
+    if (useConflictView.getState().open[path]) return false;
+    if (diff) useGraph.getState().closeDiff(path);
+    if (openPull) usePullList.getState().close(path);
+    closeCenterViews(path);
+    return true;
+  };
 
   return (
     <div className="repo-view">
       <div className="toolbar">
-        <div className={data && !data.branch ? "branch-chip detached" : "branch-chip"} title={`${path}\n${tracking}`}>
+        {/* Dépôt et branche courante ; un clic (ou Entrée) amène le graphe sur le commit courant. */}
+        <button
+          type="button"
+          className={data && !data.branch ? "branch-chip detached" : "branch-chip"}
+          title={`${path}\n${tracking}\n${t("repo.chipHint")}`}
+          aria-label={[repo && repoName(repo), branchLabel, tracking].filter(Boolean).join(" — ")}
+          onClick={() => {
+            const head = useGraph.getState().graphs[path]?.refs?.head;
+            if (head && toGraph()) void useGraph.getState().reveal(path, head);
+          }}
+        >
           <span className="branch-chip-repo">{repo && repoName(repo)}</span>
           <span className="branch-chip-name">
             <Icon name={data && !data.branch ? "commit" : "branch"} size={13} />
@@ -377,29 +531,38 @@ export function RepoView({ path }: { path: string }) {
             {!!data?.ahead && <span className="branch-chip-sync mono">↑{data.ahead}</span>}
             {!!data?.behind && <span className="branch-chip-sync mono">↓{data.behind}</span>}
           </span>
-        </div>
+        </button>
         {changes > 0 && (
           <button
             className={selected === WIP && !diff && !openPull ? "changes-pill on" : "changes-pill"}
             title={t("repo.changesHint")}
             onClick={() => {
-              if (diff) useGraph.getState().closeDiff(path);
-              if (openPull) usePullList.getState().close(path);
-              closeCenterViews(path);
-              select(path, WIP);
+              if (toGraph()) select(path, WIP);
             }}
           >
             <span className="changes-dot" />
-            {t("repo.changes", { count: changes })}
+            <span className="pill-label">{t("repo.changes", { count: changes })}</span>
+            <span className="pill-count" aria-hidden="true">
+              {changes}
+            </span>
+          </button>
+        )}
+        {/* Merge, rebase… en cours : dit pourquoi pull, push, branche et stash sont grisés, et
+            mène au panneau des modifications (conflits, Continuer, Annuler l'opération). */}
+        {operation && (
+          <button
+            className="op-pill"
+            title={t("repo.opHint")}
+            onClick={() => {
+              if (toGraph()) select(path, WIP);
+            }}
+          >
+            <Icon name="alert" size={13} />
+            <span className="pill-label">{t(`op.${operation}`)}</span>
           </button>
         )}
 
         <Tools path={path} changes={changes} />
-
-        <button className="tbtn" onClick={() => refresh(path)} title={`${t("repo.refresh")} (F5)`}>
-          <Icon name="fetch" />
-          <span>{t("repo.refresh")}</span>
-        </button>
       </div>
 
       <AutostashBanner path={path} />

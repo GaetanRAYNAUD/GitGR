@@ -29,6 +29,9 @@
   --side: #14161b;
   --accent: #3b7bf0;
   --accent-text: #ffffff;
+  /* Fond des contrôles pleins sur l'accent (bouton principal, badges) : un peu plus sombre en
+     thème sombre, pour que le texte blanc passe le contraste AA (4.0:1 sur l'accent seul). */
+  --accent-fill: color-mix(in srgb, var(--accent) 80%, var(--bg));
   --link: #7fb0ff;
   --l0: #5b95ff;
   --l1: #f0913f;
@@ -50,6 +53,7 @@
 }
 
 :root[data-theme="light"] {
+  --accent-fill: var(--accent);
   color-scheme: light;
   /* Logo : variante claire. */
   --logo-bg: #f4f6fa;
@@ -218,9 +222,16 @@ h2 {
 }
 
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text, #fff);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-text);
+}
+
+/* Le survol générique (`.btn:hover`, plus spécifique) donnait au bouton principal le fond de
+   survol neutre : texte blanc sur gris clair en thème clair. */
+.btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-fill) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--accent-fill) 88%, var(--text));
 }
 
 .icon-btn {
@@ -770,15 +781,25 @@ h2 {
   flex: none;
 }
 
+/* Dépôt et branche courante : un bouton (clic : le graphe va au commit courant). */
 .branch-chip {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.branch-chip:hover {
+  background: var(--hover);
 }
 
 .branch-chip-repo {
@@ -831,7 +852,6 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-left: 8px;
   padding: 5px 11px;
   border: 1px solid color-mix(in srgb, var(--mod) 45%, transparent);
   border-radius: 999px;
@@ -846,6 +866,30 @@ h2 {
 .changes-pill:hover,
 .changes-pill.on {
   background: color-mix(in srgb, var(--mod) 22%, transparent);
+}
+
+/* Merge, rebase… laissé en cours par git : pourquoi pull / push / stash sont grisés. */
+.op-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--mod) 45%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.op-pill .ico {
+  color: var(--mod);
+}
+
+.op-pill:hover {
+  background: color-mix(in srgb, var(--mod) 12%, transparent);
 }
 
 .changes-dot {
@@ -880,9 +924,21 @@ h2 {
   cursor: pointer;
 }
 
+/* Cible de 24 px autour du badge de 16 px (WCAG 2.5.8). */
+.badge.badge-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+/* Action grisée : son badge aussi, pour ne pas sembler disponible. */
+.tool-badged.off .badge-btn {
+  opacity: 0.55;
+}
+
 .badge.badge-btn:hover {
   filter: brightness(1.15);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-fill) 35%, transparent);
 }
 
 .tool-sep {
@@ -909,13 +965,16 @@ h2 {
   font-weight: 500;
 }
 
-.tbtn:hover:not(:disabled) {
+.tbtn:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--hover);
   color: var(--text);
 }
 
-.tbtn:disabled {
-  opacity: 0.55;
+/* Action impossible : grisée mais focalisable (aria-disabled), sa raison en infobulle. */
+.tbtn:disabled,
+.tbtn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .badge {
@@ -926,8 +985,8 @@ h2 {
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 600;
   line-height: 16px;
@@ -1868,14 +1927,14 @@ h2 {
 }
 
 .mini.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text, #fff);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-text);
 }
 
 .mini.primary:hover:not(:disabled) {
-  background: var(--accent);
-  color: var(--accent-text, #fff);
+  background: var(--accent-fill);
+  color: var(--accent-text);
   filter: brightness(1.1);
 }
 
@@ -2501,6 +2560,46 @@ h2 {
   margin-top: 20px;
 }
 
+/* Fenêtre étroite : les outils gardent une seule ligne, libellés masqués (toujours lus par les
+   lecteurs d'écran, et en infobulle). */
+.pill-count {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  /* Pastilles réduites au compteur et à l'icône ; le texte reste lu et en infobulle. */
+  .pill-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .pill-count {
+    display: inline;
+  }
+
+  .tbtn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .tbtn {
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .tool-chevron {
+    min-width: 16px;
+  }
+}
+
 /* Fenêtres étroites (minimum 960 px) : panneaux latéraux et colonnes resserrés,
    le SHA (visible dans les détails) disparaît de la liste. */
 @media (max-width: 1240px) {
@@ -2642,6 +2741,7 @@ body.resizing-y * {
 }
 
 .tool-chevron {
+  justify-content: center;
   min-width: 18px;
   padding: 4px 2px;
   border-top-left-radius: 0;
@@ -5602,7 +5702,7 @@ p.pf-account-keys.bad,
   height: 15px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   font-size: 10px;
   font-weight: 600;
@@ -6280,7 +6380,7 @@ body.commit-dragging * {
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   font-size: 10px;
   line-height: 16px;

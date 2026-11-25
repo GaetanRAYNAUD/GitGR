@@ -225,7 +225,24 @@
     "openFolder": "Ouvrir le dossier dans l'explorateur",
     "openRemote": "Ouvrir {{url}} dans le navigateur",
     "lastFetch": "Fetch {{when}}",
-    "neverFetched": "Jamais de fetch"
+    "neverFetched": "Jamais de fetch",
+    "busy": "Une commande est en cours sur ce dépôt",
+    "blockedBy": "{{op}} : terminez-le ou annulez-le d’abord",
+    "stashNothing": "Aucune modification à mettre de côté",
+    "pushHint": "Pousser vers {{upstream}}",
+    "pushHintNew": "Pousser la branche (elle n’a pas encore de branche distante)",
+    "pushName_one": "Push, {{count}} commit à pousser",
+    "pushName_other": "Push, {{count}} commits à pousser",
+    "pullName_one": "Pull, {{count}} commit à tirer",
+    "pullName_other": "Pull, {{count}} commits à tirer",
+    "popName_one": "Pop, {{count}} stash en réserve",
+    "popName_other": "Pop, {{count}} stash en réserve",
+    "fetchHint": "Récupérer les nouveautés des remotes, sans toucher à vos branches",
+    "refreshHint": "Relire le dépôt (F5)",
+    "toolbar": "Actions du dépôt",
+    "runningOp": "{{op}} en cours…",
+    "chipHint": "Clic : aller au commit courant dans le graphe",
+    "opHint": "Opération laissée en cours par git : terminez-la (conflits, Continuer) ou annulez-la depuis les modifications en cours"
   },
   "graph": {
     "label": "Historique des commits",
@@ -1478,6 +1495,7 @@
   "keys": {
     "enter": "Entrée",
     "shiftEnter": "Maj+Entrée",
-    "escape": "Échap"
+    "escape": "Échap",
+    "ctrlShift": "Ctrl+Maj+{{key}}"
   }
 }

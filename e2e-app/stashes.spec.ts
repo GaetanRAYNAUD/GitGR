@@ -94,3 +94,27 @@ test("stash partiel de deux fichiers sur trois, et sa ligne dans le graphe sous 
     await app.close();
   }
 });
+
+test("raccourcis de la barre d'outils : Ctrl+Maj+S stashe, Ctrl+Maj+P réapplique", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "a\n", "ajout de a.txt");
+  sandbox.write(mine, "a.txt", "modifié\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const pop = page.getByRole("toolbar", { name: "Actions du dépôt" }).getByRole("button", { name: /^Pop/ });
+    await expect(page.locator(".changes-pill")).toBeVisible();
+    await page.keyboard.press("Control+Shift+S");
+    // On attend l'interface (pas `git` en boucle, qui prendrait index.lock pendant le stash).
+    await expect(pop).toHaveAttribute("aria-label", "Pop, 1 stash en réserve");
+    expect(git(mine, "stash", "list").split("\n")).toHaveLength(1);
+    expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("a\n");
+
+    await page.keyboard.press("Control+Shift+P");
+    await expect(page.locator(".changes-pill")).toBeVisible();
+    expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("modifié\n");
+  } finally {
+    await app.close();
+  }
+});

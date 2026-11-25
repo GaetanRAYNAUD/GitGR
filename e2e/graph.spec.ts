@@ -231,7 +231,7 @@ test("branche courante et modifications en attente mises en avant", async ({ pag
   await page.getByRole("button", { name: /Ouvrir un dépôt/ }).click();
   await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
   const pill = page.locator(".changes-pill");
-  await expect(pill).toHaveText("4 modifications en attente");
+  await expect(pill.locator(".pill-label")).toHaveText("4 modifications en attente");
   // Autre commit choisi, puis la pastille ramène aux modifications en cours.
   await graph(page).getByRole("option").nth(3).click();
   await pill.click();
