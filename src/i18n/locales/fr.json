@@ -381,12 +381,6 @@
     "title": "Résoudre {{file}}",
     "open": "Résoudre",
     "openHint": "Résoudre en trois panneaux : notre version, le résultat, l’autre version",
-    "ours": "notre version",
-    "theirs": "l’autre version",
-    "oursCol": "Notre version · {{side}}",
-    "theirsCol": "L’autre version · {{side}}",
-    "oursHint": "Ce qu’il y avait sur la branche courante",
-    "theirsHint": "Ce qui arrive (branche fusionnée, commit rejoué ou appliqué)",
     "result": "Résultat",
     "conflictsLeft_one": "{{count}} conflit à résoudre",
     "conflictsLeft_other": "{{count}} conflits à résoudre",
@@ -415,13 +409,11 @@
     "skipped_one": "{{count}} ligne identique",
     "skipped_other": "{{count}} lignes identiques",
     "expand": "Afficher ces lignes",
-    "prev": "Modification précédente (Maj+F7)",
-    "next": "Modification suivante (F7)",
+    "prev": "Conflit à régler précédent (Maj+F7)",
+    "next": "Conflit à régler suivant (F7 ; Alt+F7 : toute modification)",
     "prevFile": "Fichier en conflit précédent",
     "nextFile": "Fichier en conflit suivant",
     "fileOf": "Fichier {{index}} / {{count}}",
-    "acceptOurs": "Accepter notre version",
-    "acceptTheirs": "Accepter l’autre version",
     "acceptHint": "Le fichier entier de {{side}} (modifiable ensuite)",
     "cancel": "Annuler",
     "leaveTitle": "Abandonner cette résolution ?",
@@ -431,7 +423,57 @@
     "saved": "{{file}} résolu et indexé.",
     "noMarkers": "Le fichier de la copie de travail n’a plus de marqueurs de conflit (déjà modifié ?).",
     "showDiff": "Voir le diff",
-    "markAsIs": "Le marquer résolu tel quel"
+    "markAsIs": "Le marquer résolu tel quel",
+    "col": "{{name}} · {{side}}",
+    "sides": {
+      "none": {
+        "ours": "Notre version",
+        "theirs": "L’autre version",
+        "oursHint": "Ce qu’il y avait ici avant l’opération",
+        "theirsHint": "Ce qui arrive",
+        "acceptOurs": "Accepter notre version",
+        "acceptTheirs": "Accepter l’autre version"
+      },
+      "merge": {
+        "ours": "Notre branche",
+        "theirs": "Branche fusionnée",
+        "oursHint": "La branche courante, avant le merge",
+        "theirsHint": "La branche que vous fusionnez",
+        "acceptOurs": "Garder notre branche",
+        "acceptTheirs": "Prendre la branche fusionnée"
+      },
+      "rebase": {
+        "ours": "Branche de base",
+        "theirs": "Vos commits",
+        "oursHint": "Pendant un rebase, « nous » est la branche sur laquelle vos commits sont rejoués",
+        "theirsHint": "Le commit en train d’être rejoué",
+        "acceptOurs": "Garder la branche de base",
+        "acceptTheirs": "Prendre vos commits"
+      },
+      "pick": {
+        "ours": "Branche courante",
+        "theirs": "Commit repris",
+        "oursHint": "La branche courante",
+        "theirsHint": "Le commit en cours de cherry-pick",
+        "acceptOurs": "Garder la branche courante",
+        "acceptTheirs": "Prendre le commit repris"
+      },
+      "revert": {
+        "ours": "Branche courante",
+        "theirs": "Commit annulé",
+        "oursHint": "La branche courante",
+        "theirsHint": "L’annulation du commit choisi",
+        "acceptOurs": "Garder la branche courante",
+        "acceptTheirs": "Prendre l’annulation"
+      }
+    },
+    "acceptTitle": "Tout remplacer par « {{name}} » ?",
+    "acceptBody": "Les choix faits sur {{file}} seront remplacés par le fichier entier de ce côté (modifiable ensuite).",
+    "acceptConfirm": "Remplacer",
+    "lineLabel": "{{side}}, ligne {{line}} : {{text}}",
+    "resolvedOne": "réglé",
+    "magicShort": "Résoudre ({{count}})",
+    "keys": "Clic : prendre une ligne · Alt+← / → : un côté · F7 : suivant · Ctrl+S : enregistrer"
   },
   "reflog": {
     "label": "Reflog",

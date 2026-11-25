@@ -6,6 +6,10 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Conflits : les côtés portent le nom de l'opération en cours — « Notre branche » / « Branche fusionnée » pour un merge, « Branche de base » / « Vos commits » pour un rebase (où « nous » est la branche de base), « Commit repris » pour un cherry-pick.
+- Conflits au clavier : le focus est dans le résultat du premier conflit à l'ouverture, F7 / Maj+F7 vont au conflit encore à régler (Alt+F7 : toute modification), Alt+← / Alt+→ prennent un côté, Ctrl+S enregistre, Échap sort du résultat ; dans une colonne, ↑ / ↓ passent d'une ligne à l'autre. Les raccourcis sont rappelés en bas de la vue.
+- Conflits : les lignes longues du résultat passent à la ligne comme celles des côtés ; « Accepter » une version entière demande confirmation si des choix seraient perdus ; une modification réglée s'efface et porte une coche, le statut passe au vert quand tout est réglé ; une erreur d'enregistrement s'affiche sans faire disparaître la grille ; l'enregistrement du fichier précédent est annoncé en haut de la vue suivante.
+- Bouton principal lisible au survol en thème clair.
 - Graphe tout au clavier : le focus est sur le graphe à l'ouverture d'un dépôt, Ctrl+G y revient de n'importe où, Maj+F10 (ou la touche Menu) ouvre le menu du commit ou de la sélection, Entrée passe au panneau de détails. En sélection multiple, la ligne au bout de la plage est encadrée.
 - Clic droit sur la ligne « Modifications en cours » : Tout indexer, Stasher les modifications, Tout annuler. Elle s'affiche aussi dans un dépôt qui n'a pas encore de commit.
 - Graphe : si la suite de l'historique ne se charge pas, les commits déjà affichés restent et « Réessayer » relance le chargement (avant, une erreur remplaçait tout le graphe) ; « Réessayer » aussi quand le dépôt ne peut pas être lu. « Début de l'historique » sous le premier commit.
