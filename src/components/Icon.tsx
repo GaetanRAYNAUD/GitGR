@@ -34,6 +34,8 @@ const PATHS = {
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
   inline: "M4 5h16v14H4zM8 9h8M8 12h8M8 15h5",
   split: "M4 5h16v14H4zM12 5v14M6.5 9h3M6.5 12h3M14.5 9h3M14.5 12h3",
+  /** Ignorer les espaces : la barre d'espace (⎵) barrée. */
+  whitespace: "M4 10v4h16v-4M5 19 19 5",
   list: "M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01",
   tree: "M4 4h6v4H4zM13 10h7v4h-7zM13 17h7v4h-7zM7 8v11h6M7 12h6",
   file: "M14 3H6v18h12V7l-4-4ZM14 3v4h4",

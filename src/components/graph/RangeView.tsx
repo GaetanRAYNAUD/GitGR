@@ -17,7 +17,7 @@ import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
-import { BackButton } from "./DiffView";
+import { BackButton, DiffPath } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
 
@@ -28,6 +28,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
   useEscape(back);
   const summary = useApp((s) => s.summaries[path]?.data);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const running = useOps((s) => s.running[path]);
   const reveal = useGraph((s) => s.reveal);
   const [data, setData] = useState<RangeChanges | null>(null);
@@ -58,14 +59,14 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
     if (!file || !data) return;
     let live = true;
     setDiff(null);
-    api.rangeDiff(path, data.base, data.tip, file.path, file.oldPath).then(
+    api.rangeDiff(path, data.base, data.tip, file.path, file.oldPath, ignoreWs).then(
       (d) => live && setDiff({ data: d, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, data, file]);
+  }, [path, data, file, ignoreWs]);
 
   const ops = useOps.getState();
   const upstream = summary?.upstream ?? "";
@@ -130,12 +131,12 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
               <>
                 <header className="diff-head">
                   <StatusBadge status={file.status} />
-                  <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>{file.path}</span>
+                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
                   {diff?.data && <DiffStats diff={diff.data} />}
                   <DiffViewToggle />
                 </header>
                 <div className="diff-body">
-                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} />
+                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
                 </div>
               </>
             ) : (

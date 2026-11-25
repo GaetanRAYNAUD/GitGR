@@ -62,21 +62,21 @@ describe("<StagingPanel />", () => {
   it("abandonner un fichier demande confirmation", async () => {
     await panel();
     const spy = vi.spyOn(api, "discardFiles");
-    await userEvent.click(screen.getByRole("button", { name: "Annuler les modifications de notes.txt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Abandonner les modifications de notes.txt" }));
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("Le fichier non suivi notes.txt sera supprimé");
     await userEvent.click(within(dialog).getByRole("button", { name: "Retour" }));
     expect(spy).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Annuler les modifications de notes.txt" }));
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Annuler les modifications" }));
+    await userEvent.click(screen.getByRole("button", { name: "Abandonner les modifications de notes.txt" }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Abandonner les modifications" }));
     expect(spy).toHaveBeenCalledWith(REPO_B, [], ["notes.txt"]);
   });
 
   it("tout annuler propose de stasher à la place", async () => {
     await panel();
     const stash = vi.spyOn(api, "stashAll");
-    await userEvent.click(screen.getByRole("button", { name: "Tout annuler" }));
+    await userEvent.click(screen.getByRole("button", { name: "Tout abandonner" }));
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stasher à la place" }));
     expect(stash).toHaveBeenCalled();
     expect(await screen.findByText(/la copie de travail est propre/)).toBeInTheDocument();
@@ -176,10 +176,10 @@ describe("<WorkDiffView />", () => {
   it("annuler un bloc passe par une confirmation", async () => {
     await openRender();
     const discard = vi.spyOn(api, "discardLines");
-    await userEvent.click(screen.getByRole("button", { name: "Annuler le bloc" }));
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("Annuler ce bloc (3 lignes) ?");
+    await userEvent.click(screen.getByRole("button", { name: "Abandonner le bloc" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Abandonner ce bloc (3 lignes) ?");
     expect(discard).not.toHaveBeenCalled();
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Annuler les modifications" }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Abandonner les modifications" }));
     expect(discard).toHaveBeenCalled();
     expect(useApp.getState().error).toBeNull();
   });

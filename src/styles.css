@@ -2454,7 +2454,7 @@ h2 {
 }
 
 .diff-table.split td.empty {
-  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--border) 45%, transparent) 6px 7px);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--border-strong) 70%, transparent) 6px 7px);
 }
 
 .diff-table.split.selectable td.add,
@@ -2471,7 +2471,17 @@ h2 {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.diff-head .view-toggle {
+/* Bascules du diff (espaces, en ligne / côte à côte) : toujours au bout de l'en-tête. */
+.diff-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.diff-tools .view-toggle,
+.diff-sha + .diff-tools,
+.diff-file-actions .diff-tools {
   margin-left: 0;
 }
 
@@ -2494,21 +2504,41 @@ h2 {
   flex-direction: column;
 }
 
+/* Étroit : les actions passent sur une seconde ligne plutôt que d'écraser le chemin. */
 .diff-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   flex: none;
 }
 
-
 .diff-path {
+  flex: 0 1 auto;
+  min-width: min(160px, 100%);
+  display: flex;
+  gap: 0.6ch;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Un renommage raccourcit d'abord l'ancien nom : le nouveau est celui qui compte. */
+.diff-old,
+.diff-new {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.diff-old {
+  flex: 0 100 auto;
+  min-width: 3ch;
+}
+
+.diff-new {
+  flex: 0 1 auto;
 }
 
 .diff-sha {
@@ -2516,11 +2546,14 @@ h2 {
 }
 
 .diff-body {
+  --diff-surface: var(--panel);
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 0 0 16px;
   user-select: text;
+  /* Largeur visible, pour les en-têtes de bloc figés (cqw). */
+  container-type: inline-size;
 }
 
 .diff-body > p {
@@ -2531,6 +2564,11 @@ h2 {
   width: 100%;
   border-collapse: collapse;
   font: 400 12px/1.6 "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* La ligne active porte l'anneau (au clavier) : pas de contour autour de la table entière. */
+.diff-table:focus {
+  outline: none;
 }
 
 .diff-table td {
@@ -2559,12 +2597,84 @@ h2 {
   user-select: none;
 }
 
+.diff-table tr {
+  --row-tint: transparent;
+}
+
 .diff-table tr.add {
-  background: color-mix(in srgb, var(--add) 14%, transparent);
+  --row-tint: color-mix(in srgb, var(--add) 14%, transparent);
+  background: var(--row-tint);
 }
 
 .diff-table tr.del {
-  background: color-mix(in srgb, var(--del) 14%, transparent);
+  --row-tint: color-mix(in srgb, var(--del) 14%, transparent);
+  background: var(--row-tint);
+}
+
+/* Numéros d'une ligne modifiée : une encre au-dessus de faint, lisible sur la teinte. */
+.diff-table tr.add .ln,
+.diff-table tr.del .ln,
+.diff-table td.ln.add,
+.diff-table td.ln.del {
+  color: var(--muted);
+}
+
+/* En ligne, une ligne longue fait défiler le code seul : numéros et en-têtes de bloc restent
+ * en place. Fond opaque (surface + teinte de la ligne) pour cacher le code qui passe dessous. */
+.diff-table:not(.split) .ln {
+  --ln-w: calc(var(--ln-ch, 3) * 1ch + 16px);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: var(--ln-w);
+  min-width: var(--ln-w);
+  background: linear-gradient(var(--row-tint), var(--row-tint)), var(--diff-surface);
+}
+
+.diff-table:not(.split) .ln2 {
+  left: var(--ln-w);
+}
+
+.diff-table:not(.split) tr.picked .ln {
+  background: linear-gradient(color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 45%, transparent)), var(--diff-surface);
+}
+
+.diff-table:not(.split) .hunk-head {
+  position: sticky;
+  left: 12px;
+  width: calc(100cqw - 24px);
+}
+
+/* Ligne active de la grille, au clavier : anneau d'accent de 2px autour de la ligne. */
+.diff-table.kbd:focus tr.active > td,
+.diff-table.kbd:focus td.active {
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+
+.diff-table.kbd:focus tr.active > td:first-child,
+.diff-table.kbd:focus td.ln.active {
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+
+.diff-table.kbd:focus tr.active > td:last-child,
+.diff-table.kbd:focus td.code.active {
+  box-shadow: inset -2px 0 0 var(--accent), inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+
+/* Dernière ligne sans fin de ligne (« \ No newline at end of file »). */
+.diff-table .no-eol {
+  margin-left: 8px;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  font: 500 10.5px/1.4 "Inter Variable", Inter, system-ui, sans-serif;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.diff-empty .link {
+  margin-left: 4px;
 }
 
 /* Mots modifiés dans une ligne : fond plus soutenu que celui de la ligne. */
@@ -2582,12 +2692,15 @@ h2 {
   background: color-mix(in srgb, var(--del) 45%, transparent);
 }
 
-.diff-table tr.add .sign {
-  color: var(--add);
+/* Signes un cran plus sombres (clair) ou plus clairs (sombre) que la teinte : AA sur la ligne. */
+.diff-table tr.add .sign,
+.diff-table td.add .sign {
+  color: color-mix(in srgb, var(--add) 82%, var(--text));
 }
 
-.diff-table tr.del .sign {
-  color: var(--del);
+.diff-table tr.del .sign,
+.diff-table td.del .sign {
+  color: color-mix(in srgb, var(--del) 82%, var(--text));
 }
 
 .diff-hunk td {
@@ -2905,7 +3018,8 @@ body.resizing-y * {
   margin-left: auto;
 }
 
-.section-h > .change-counts + .view-toggle {
+.section-h > .change-counts + .view-toggle,
+.section-h > .change-counts + .diff-tools {
   margin-left: 6px;
 }
 
