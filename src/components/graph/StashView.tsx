@@ -16,7 +16,7 @@ import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
-import { BackButton } from "./DiffView";
+import { BackButton, DiffPath } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
 
@@ -28,6 +28,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
   const back = useCallback(() => close(path), [close, path]);
   useEscape(back);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const running = useOps((s) => s.running[path]);
   const [data, setData] = useState<StashChanges | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,14 +66,14 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
     let live = true;
     setDiff(null);
     const [base, tip] = file.untracked ? [EMPTY_TREE, data.untracked!] : [data.base, data.tip];
-    api.rangeDiff(path, base, tip, file.path, file.oldPath).then(
+    api.rangeDiff(path, base, tip, file.path, file.oldPath, ignoreWs).then(
       (d) => live && setDiff({ data: d, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, data, file]);
+  }, [path, data, file, ignoreWs]);
 
   const ops = useOps.getState();
   const { text } = stashLabel(entry.message);
@@ -120,14 +121,12 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
               <>
                 <header className="diff-head">
                   <StatusBadge status={file.status} />
-                  <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>
-                    {file.path}
-                  </span>
+                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
                   {diff?.data && <DiffStats diff={diff.data} />}
                   <DiffViewToggle />
                 </header>
                 <div className="diff-body">
-                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} />
+                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
                 </div>
               </>
             ) : (

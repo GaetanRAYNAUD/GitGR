@@ -28,8 +28,9 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 
 - Le panneau de droite liste les fichiers **Non indexés**, **Indexés** et **en conflit**. Un double-clic indexe ou retire un fichier.
 - Un clic sur un fichier **en conflit** ouvre sa résolution en trois panneaux : votre côté à gauche, le résultat au centre, l'autre côté à droite (nommés selon le merge, le rebase ou le cherry-pick en cours). » / « mettent un côté dans le résultat (Alt+← / Alt+→ au clavier), un clic sur une ligne la prend seule, le résultat se modifie à la main. F7 va au conflit suivant, Ctrl+S enregistre et ouvre le fichier en conflit suivant.
-- Au clavier : Entrée sur la ligne « Modifications en cours » du graphe amène dans la liste ; ↑ ↓ pour se déplacer (le diff suit), Maj+↑ ↓ ou Ctrl+A pour sélectionner, **Espace** pour indexer ou retirer, **Suppr** pour annuler (avec confirmation).
-- Dans le diff, vous pouvez indexer, retirer ou annuler **un bloc** ou **des lignes choisies** (clic, Maj+clic pour une plage).
+- Au clavier : Entrée sur la ligne « Modifications en cours » du graphe amène dans la liste ; ↑ ↓ pour se déplacer (le diff suit), Maj+↑ ↓ ou Ctrl+A pour sélectionner, **Espace** pour indexer ou retirer, **Suppr** pour abandonner (avec confirmation).
+- Dans le diff, vous pouvez indexer, retirer ou abandonner **un bloc** ou **des lignes choisies** (clic, Maj+clic pour une plage). Au clavier : Tab amène dans le diff, ↑ ↓ passent d'une ligne à l'autre, **Espace** choisit la ligne, Maj+↑ ↓ une plage, **Entrée** indexe (ou retire) la sélection ou le bloc, **Suppr** l'abandonne, **F7** / Maj+F7 vont au bloc suivant / précédent. Échap vide la sélection, puis ferme le diff.
+- **Ignorer les espaces** (bouton à côté de En ligne / Côte à côte) masque les changements d'espaces ; l'indexation par bloc ou par ligne est suspendue tant qu'il est actif.
 - Écrivez un résumé et une description, puis validez avec **Commiter** ou Ctrl+Entrée. La case **Amend** corrige le dernier commit. **Pousser après le commit** est retenu pour chaque dépôt.
 
 ## Branches et serveur

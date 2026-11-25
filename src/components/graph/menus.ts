@@ -480,7 +480,7 @@ export function pickedMenu(t: TFunction, path: string, ordered: { sha: string; p
   ];
 }
 
-/** « Tout annuler » : confirmation, avec « Stasher à la place » pour ne rien perdre. */
+/** « Tout abandonner » : confirmation, avec « Stasher à la place » pour ne rien perdre. */
 export async function askDiscardAll(t: TFunction, path: string, total: number, branch: string | null) {
   const pick = await useDialogs.getState().choose({
     title: t("staging.discardAllTitle"),

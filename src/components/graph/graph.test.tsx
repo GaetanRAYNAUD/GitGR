@@ -87,7 +87,7 @@ describe("<CommitGraph /> : clavier, lecteur d'écran, erreurs", () => {
     render(<CommitGraph path={REPO_A} changes={2} />);
     const row = screen.getByRole("option", { name: "Modifications en cours — 2 fichiers" });
     fireEvent.contextMenu(row);
-    expect(labels()).toEqual(["Tout indexer", "Stasher les modifications", "Tout annuler…"]);
+    expect(labels()).toEqual(["Tout indexer", "Stasher les modifications", "Tout abandonner…"]);
     // Sans commit initial, git refuse de stasher : grisé, avec la raison.
     const stash = useContextMenu.getState().menu?.items[1];
     expect(stash !== "sep" && stash && "disabled" in stash && stash.disabled).toBe(true);

@@ -49,6 +49,8 @@ export interface Settings {
   /** Absent dans un état enregistré par une version antérieure. */
   fileView?: FileViewSetting;
   diffView?: DiffViewSetting;
+  /** Diffs sans les changements d'espaces (`git diff -w`). */
+  diffIgnoreWs?: boolean;
   /** Tailles choisies à la souris, par clé (cf. lib/layout.ts) ; absente = par défaut. */
   layout?: Record<string, number>;
   /** Colonnes masquées dans le graphe. */
@@ -357,6 +359,8 @@ export interface DiffLine {
   old: number | null;
   new: number | null;
   text: string;
+  /** Dernière ligne du fichier, sans fin de ligne (« \ No newline at end of file »). */
+  noEol?: boolean;
 }
 
 export interface Hunk {

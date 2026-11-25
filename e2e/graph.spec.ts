@@ -404,7 +404,7 @@ test("ligne « en cours » : clic droit pour tout indexer, stasher ou tout annul
   const wip = graph(page).getByRole("option", { name: /^Modifications en cours/ });
   await wip.click({ button: "right" });
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveText(["Tout indexer", "Stasher les modifications", "Tout annuler…"]);
-  await menu.getByRole("menuitem", { name: "Tout annuler…" }).click();
-  await expect(page.getByRole("alertdialog").or(page.getByRole("dialog"))).toContainText("Annuler toutes les modifications ?");
+  await expect(menu.getByRole("menuitem")).toHaveText(["Tout indexer", "Stasher les modifications", "Tout abandonner…"]);
+  await menu.getByRole("menuitem", { name: "Tout abandonner…" }).click();
+  await expect(page.getByRole("alertdialog").or(page.getByRole("dialog"))).toContainText("Abandonner toutes les modifications ?");
 });

@@ -590,7 +590,22 @@
     "view": "Diff view",
     "inline": "Inline",
     "split": "Side by side",
-    "stats": "{{added}} lines added, {{removed}} removed"
+    "added_one": "{{count}} line added",
+    "added_other": "{{count}} lines added",
+    "removed_one": "{{count}} line removed",
+    "removed_other": "{{count}} lines removed",
+    "lines": "Diff lines",
+    "keys": "Arrows: line by line; F7 / Shift+F7: next / previous hunk.",
+    "keysSelect": "Arrows: line by line; Space: pick the line; Shift+arrows: range; Ctrl+A: all; Enter: stage or unstage; Delete: discard; F7 / Shift+F7: next / previous hunk.",
+    "srAdd": "Added, line {{n}}:",
+    "srDel": "Removed, line {{n}}:",
+    "srContext": "Line {{n}}:",
+    "noEol": "No newline at end of file",
+    "noEolShort": "no newline",
+    "ignoreWs": "Ignore whitespace",
+    "wsHidden": "Whitespace ignored: staging by hunk or line isn’t possible in this view.",
+    "showWs": "Show whitespace",
+    "onlyWs": "Only whitespace changes in this file."
   },
   "stashes": {
     "rename": "Rename",
@@ -695,7 +710,7 @@
     "discardLines_other": "Discard {{count}} lines",
     "linesSelected_one": "{{count}} line selected",
     "linesSelected_other": "{{count}} lines selected",
-    "linesHint": "Click changed lines to select them (Shift+click: range).",
+    "linesHint": "Click or Space: pick lines (Shift: range) · Enter: stage · Delete: discard · F7: next hunk",
     "clearSelection": "Clear selection",
     "resolved": "Mark resolved",
     "resolvedFiles_one": "Mark file resolved",
@@ -740,7 +755,9 @@
     "stageOne": "Stage {{file}}",
     "unstageOne": "Unstage {{file}}",
     "stageSelHint": "Stage the {{count}} selected files",
-    "unstageSelHint": "Unstage the {{count}} selected files"
+    "unstageSelHint": "Unstage the {{count}} selected files",
+    "linesHintStaged": "Click or Space: pick lines (Shift: range) · Enter: unstage · F7: next hunk",
+    "untrackedHint": "Untracked file: stage it whole, then unstage the lines to keep out of the commit."
   },
   "commit": {
     "message": "Commit message",
@@ -1569,6 +1586,7 @@
     "enter": "Enter",
     "shiftEnter": "Shift+Enter",
     "escape": "Esc",
-    "ctrlShift": "Ctrl+Shift+{{key}}"
+    "ctrlShift": "Ctrl+Shift+{{key}}",
+    "delete": "Delete"
   }
 }
