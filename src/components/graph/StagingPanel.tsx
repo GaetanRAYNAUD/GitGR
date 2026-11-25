@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
 import { dirIgnore, ignoreChoices } from "../../lib/gitignore";
-import { dirMenu, fileMenu, showConflict } from "./menus";
+import { askDiscardAll, dirMenu, fileMenu, showConflict } from "./menus";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, sectionKey, useWidthStyle } from "../../lib/layout";
 import type { StatusFile } from "../../lib/types";
@@ -134,19 +134,6 @@ export function StagingPanel({ path }: { path: string }) {
     openContextMenu(e, [...items, "sep", ...dirMenu(t, path, dir)]);
   };
 
-  const askDiscardAll = async () => {
-    const pick = await useDialogs.getState().choose({
-      title: t("staging.discardAllTitle"),
-      body: t("staging.discardAllBody", { count: total }),
-      choices: [
-        { id: "stash", label: t("staging.stashInstead") },
-        { id: "discard", label: t("staging.discardAll"), danger: true },
-      ],
-    });
-    if (pick === "stash") w.stashAll(path, t("staging.stashMessage", { branch: branch ?? "HEAD" }));
-    else if (pick === "discard") w.discardAll(path);
-  };
-
   const section = (kind: ListKind, files: StatusFile[]) => {
     if (kind === "conflicted" && files.length === 0) return null;
     const open = !closed.has(kind);
@@ -254,7 +241,7 @@ export function StagingPanel({ path }: { path: string }) {
         <button
           className="icon-btn bordered danger-text"
           disabled={busy || total === 0}
-          onClick={askDiscardAll}
+          onClick={() => void askDiscardAll(t, path, total, branch ?? null)}
           aria-label={t("staging.discardAll")}
           title={t("staging.discardAllHint")}
         >

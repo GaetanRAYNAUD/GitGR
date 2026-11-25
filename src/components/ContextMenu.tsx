@@ -226,6 +226,17 @@ function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const onClose = useCallback(() => close(), [close]);
   useDismiss(ref, true, onClose);
+  // Le focus revient à ce qui l'avait avant le menu (ouvert au clavier : la liste du graphe),
+  // sauf si l'action choisie l'a déjà mis ailleurs.
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
+  useEffect(() => {
+    const menu = ref.current;
+    return () => {
+      const now = document.activeElement;
+      const lost = !now || now === document.body || !!menu?.contains(now);
+      if (lost && opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true });
+    };
+  }, [opener]);
   // `display: contents` : le conteneur ne compte pas dans la mise en page, il sert aux clics extérieurs.
   return (
     <div ref={ref} style={{ display: "contents" }}>

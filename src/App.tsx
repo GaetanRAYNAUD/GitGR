@@ -55,7 +55,7 @@ function typing(target: EventTarget | null): boolean {
 /** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
  *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
- *  rapide de dépôts. */
+ *  rapide de dépôts, Ctrl+G pour revenir au graphe. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -86,6 +86,11 @@ function useShortcuts() {
         // Pas dans un champ, ni sous une fenêtre (dialogue de saisie ou de confirmation).
         if (!s.active || typing(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
         void useOps.getState().replay(s.active, e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo");
+      } else if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "g") {
+        // Revient au graphe (l'écran principal) depuis n'importe quel panneau.
+        const graph = document.querySelector<HTMLElement>(".graph-scroll");
+        if (!graph || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        graph.focus();
       } else if (e.key === "F5") {
         if (s.active) s.refreshRepo(s.active);
       } else {

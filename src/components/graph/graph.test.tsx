@@ -1,12 +1,14 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockHistory } from "../../lib/mockHistory";
 import { useApp } from "../../store/app";
 import { useGraph, WIP } from "../../store/graph";
 import { useWork } from "../../store/worktree";
 import { REPO_A } from "../../test/utils";
-import { CommitGraph } from "./CommitGraph";
+import { api } from "../../lib/api";
+import { useContextMenu } from "../ContextMenu";
+import { CommitGraph, inkOn, parseColor } from "./CommitGraph";
 import { CommitPanel } from "./CommitPanel";
 import { RefsSidebar } from "./RefsSidebar";
 
@@ -53,6 +55,85 @@ describe("<CommitGraph />", () => {
     });
     render(<CommitGraph path={REPO_A} changes={0} />);
     expect(screen.getByText("Aucun commit pour l’instant.")).toBeInTheDocument();
+  });
+});
+
+describe("<CommitGraph /> : clavier, lecteur d'écran, erreurs", () => {
+  afterEach(() => {
+    useContextMenu.getState().close();
+    vi.restoreAllMocks();
+  });
+  const labels = () => (useContextMenu.getState().menu?.items ?? []).flatMap((i) => (i === "sep" ? [] : [i.label]));
+
+  it("Maj+F10 et la touche Menu ouvrent le menu de la ligne active", async () => {
+    await loaded();
+    render(<CommitGraph path={REPO_A} changes={0} />);
+    const list = screen.getByRole("listbox", { name: "Historique des commits" });
+    expect(list).toHaveFocus(); // focus au graphe à l'ouverture
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    expect(labels()).toContain("Copier le SHA");
+    useContextMenu.getState().close();
+    // Sélection multiple : le menu de la sélection.
+    await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    fireEvent.keyDown(list, { key: "ContextMenu" });
+    expect(labels()).toContain("Copier les SHA");
+  });
+
+  it("la ligne « en cours » a son menu, même dans un dépôt sans commit", async () => {
+    useGraph.setState({
+      graphs: { [REPO_A]: { commits: [], refs: null, loading: false, done: true, selected: null, picked: [], focus: null, fingerprint: "" } },
+    });
+    render(<CommitGraph path={REPO_A} changes={2} />);
+    const row = screen.getByRole("option", { name: "Modifications en cours — 2 fichiers" });
+    fireEvent.contextMenu(row);
+    expect(labels()).toEqual(["Tout indexer", "Stasher les modifications", "Tout annuler…"]);
+    // Sans commit initial, git refuse de stasher : grisé, avec la raison.
+    const stash = useContextMenu.getState().menu?.items[1];
+    expect(stash !== "sep" && stash && "disabled" in stash && stash.disabled).toBe(true);
+  });
+
+  it("liste multisélection, lignes nommées et numérotées, « // » caché du lecteur d'écran", async () => {
+    await loaded();
+    render(<CommitGraph path={REPO_A} changes={1} />);
+    const list = screen.getByRole("listbox");
+    expect(list).toHaveAttribute("aria-multiselectable", "true");
+    // L'en-tête (boutons, poignées) n'est plus dans la liste.
+    expect(within(list).queryByRole("button")).toBeNull();
+    const [wip, head] = screen.getAllByRole("option");
+    expect(wip).toHaveAccessibleName("Modifications en cours — 1 fichier");
+    expect(head).toHaveAttribute("aria-posinset", "2");
+    expect(head).toHaveAttribute("aria-setsize", "-1"); // historique pas encore complet
+    expect(head.getAttribute("aria-label")).toContain("HEAD (commit courant)");
+    expect(head.getAttribute("aria-label")).toContain("main (branche courante)");
+  });
+
+  it("l'échec d'une page suivante laisse le graphe et propose de réessayer", async () => {
+    await loaded();
+    vi.spyOn(api, "repoLog").mockRejectedValueOnce("git_failed");
+    await g().loadMore(REPO_A);
+    render(<CommitGraph path={REPO_A} changes={0} />);
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(10);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Impossible de charger la suite");
+    await userEvent.click(within(alert).getByRole("button", { name: "Réessayer" }));
+    await waitFor(() => expect(g().graphs[REPO_A].done).toBe(true));
+    expect(g().graphs[REPO_A].pageError).toBeUndefined();
+  });
+});
+
+describe("encre des initiales sur un nœud", () => {
+  it("lit les couleurs CSS", () => {
+    expect(parseColor("#fff")).toEqual([255, 255, 255]);
+    expect(parseColor("#e8c547")).toEqual([232, 197, 71]);
+    expect(parseColor("rgb(1, 2, 3)")).toEqual([1, 2, 3]);
+    expect(parseColor("var(--x)")).toBeNull();
+  });
+
+  it("sombre sur les voies claires, blanche sur les voies foncées", () => {
+    expect(inkOn("#e8c547", "#ffffff", "#121418")).toBe("#121418"); // jaune
+    expect(inkOn("#9ccc4a", "#ffffff", "#121418")).toBe("#121418"); // vert
+    expect(inkOn("#2f6fe0", "#ffffff", "#121418")).toBe("#ffffff"); // bleu
   });
 });
 
@@ -198,7 +279,7 @@ describe("<CommitGraph /> colonnes", () => {
     fireEvent.keyDown(screen.getByRole("separator", { name: "Largeur de la colonne « Date »" }), { key: "ArrowRight" });
     // jsdom ne mesure rien : 0 + 16, ramené au minimum.
     expect(useApp.getState().settings.layout?.["col:date"]).toBe(40);
-    expect((document.querySelector(".graph-scroll") as HTMLElement).style.getPropertyValue("--cols")).toContain("40px");
+    expect((document.querySelector(".graph-wrap") as HTMLElement).style.getPropertyValue("--cols")).toContain("40px");
   });
 });
 

@@ -20,7 +20,10 @@ export interface RepoGraph {
   loading: boolean;
   /** Tout l'historique est chargé. */
   done: boolean;
+  /** Échec du premier chargement : rien à montrer. */
   error?: string;
+  /** Échec d'une page suivante : l'historique déjà chargé reste affiché. */
+  pageError?: string;
   /** SHA sélectionné, `WIP`, ou rien. Avec une sélection multiple : le point de départ
    *  des plages (Maj+clic). */
   selected: string | null;
@@ -53,6 +56,8 @@ interface GraphStore {
   /** Relit les refs, et l'historique s'il a changé (ou n'est pas encore chargé). */
   refresh(path: string): Promise<void>;
   loadMore(path: string): Promise<void>;
+  /** Nouvel essai après l'échec d'une page suivante. */
+  retryMore(path: string): Promise<void>;
   select(path: string, sha: string | null): void;
   /** Ctrl+clic : ajoute ou retire un commit de la sélection. */
   togglePick(path: string, sha: string): void;
@@ -111,12 +116,13 @@ export const useGraph = create<GraphStore>((set, get) => {
       const fp = fingerprint(refs);
       const cur = get().graphs[path];
       if (cur && cur.fingerprint === fp && cur.commits.length > 0 && !cur.error) {
-        patch(path, { refs });
+        // F5 réessaie aussi une page suivante en échec.
+        patch(path, { refs, pageError: undefined });
         return;
       }
       const gen = (generation[path] ?? 0) + 1;
       generation[path] = gen;
-      patch(path, { refs, loading: true, error: undefined });
+      patch(path, { refs, loading: true, error: undefined, pageError: undefined });
       try {
         const commits = await api.repoLog(path, 0, PAGE_SIZE);
         if (generation[path] !== gen) return;
@@ -139,7 +145,7 @@ export const useGraph = create<GraphStore>((set, get) => {
 
     loadMore(path) {
       const g = get().graphs[path];
-      if (!g || g.done || g.error) return Promise.resolve();
+      if (!g || g.done || g.error || g.pageError) return Promise.resolve();
       const gen = generation[path];
       const inFlight = pending[path];
       if (inFlight && inFlight.gen === gen) return inFlight.run;
@@ -158,13 +164,19 @@ export const useGraph = create<GraphStore>((set, get) => {
             done: page.length < PAGE_SIZE,
           });
         } catch (e) {
-          if (generation[path] === gen) patch(path, { loading: false, error: errorCode(e) });
+          if (generation[path] === gen) patch(path, { loading: false, pageError: errorCode(e) });
         } finally {
           if (pending[path]?.run === run) pending[path] = undefined;
         }
       })();
       pending[path] = { gen, run };
       return run;
+    },
+
+    retryMore(path) {
+      if (!get().graphs[path]?.pageError) return Promise.resolve();
+      patch(path, { pageError: undefined });
+      return get().loadMore(path);
     },
 
     select(path, sha) {
@@ -202,7 +214,7 @@ export const useGraph = create<GraphStore>((set, get) => {
           get().select(path, sha);
           return true;
         }
-        if (g.done || g.error) return false;
+        if (g.done || g.error || g.pageError) return false;
         const before = g.commits.length;
         await get().loadMore(path);
         if ((get().graphs[path]?.commits.length ?? 0) === before && !get().graphs[path]?.done) return false;

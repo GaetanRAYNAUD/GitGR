@@ -21,13 +21,14 @@ import { useApp } from "../../store/app";
 import { type AuthorContext, useAuthorAvatars, useAvatarImages } from "../../store/avatars";
 import { useProfiles } from "../../store/profiles";
 import { useGraph, WIP } from "../../store/graph";
-import { openContextMenu, useContextMenu } from "../ContextMenu";
+import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { RemoteMark, remoteMarkOf, type RemoteMarkInfo } from "../RemoteMark";
-import { checkoutRef, commitDropMenu, commitMenu, pickedDropMenu, pickedMenu, refMenu, startBranchDrag } from "./menus";
+import { checkoutRef, commitDropMenu, commitMenu, pickedDropMenu, pickedMenu, refMenu, startBranchDrag, wipMenu } from "./menus";
 import { startCommitDrag } from "./commitDrag";
 import { orderPicked } from "../../lib/multiSelect";
 import { Splitter } from "../Splitter";
+import { errorMessage } from "../../lib/errors";
 import { pullOfRef, usePullContexts, usePullList, type PullContext } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
 import type { PullSummary } from "../../lib/types";
@@ -80,6 +81,52 @@ function readSideColor(): string {
   return getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#888";
 }
 
+/** Composantes RVB (0-255) d'une couleur CSS `#rgb`, `#rrggbb` ou `rgb(…)`. */
+export function parseColor(css: string): [number, number, number] | null {
+  const c = css.trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) return [0, 1, 2].map((i) => parseInt(m![1][i] + m![1][i], 16)) as [number, number, number];
+  m = /^#([0-9a-f]{6})/i.exec(c);
+  if (m) return [0, 2, 4].map((i) => parseInt(m![1].slice(i, i + 2), 16)) as [number, number, number];
+  m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(c);
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3])];
+  return null;
+}
+
+function luminance([r, g, b]: [number, number, number]): number {
+  const lin = (v: number) => {
+    const x = v / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/** Encre des initiales sur un nœud : celle des deux qui contraste le plus avec la couleur de
+ *  la voie (initiales blanches illisibles sur les voies jaune ou verte). */
+export function inkOn(fill: string, light: string, dark: string): string {
+  const f = parseColor(fill);
+  const l = parseColor(light);
+  const d = parseColor(dark);
+  if (!f || !l || !d) return light;
+  const lf = luminance(f);
+  const ratio = (x: number) => (Math.max(x, lf) + 0.05) / (Math.min(x, lf) + 0.05);
+  return ratio(luminance(l)) >= ratio(luminance(d)) ? light : dark;
+}
+
+/** Encres claire et sombre des initiales, lues dans les jetons du thème : `--accent-text`
+ *  (blanc), et la plus sombre de `--bg` / `--text` (le fond en sombre, le texte en clair). */
+function readInks(): { light: string; dark: string } {
+  const css = getComputedStyle(document.documentElement);
+  const get = (name: string) => css.getPropertyValue(name).trim();
+  const light = get("--accent-text") || "white";
+  const bg = get("--bg");
+  const text = get("--text");
+  const pb = parseColor(bg);
+  const pt = parseColor(text);
+  const dark = pb && pt ? (luminance(pb) < luminance(pt) ? bg : text) : bg || "black";
+  return { light, dark };
+}
+
 /** Redessine quand le thème change (attribut `data-theme` de <html>). */
 function useThemeVersion() {
   const [v, setV] = useState(0);
@@ -105,6 +152,7 @@ function drawGraph(
   stashes: Set<string>,
   /** Avatars activés : avatar du nœud de la ligne `r` (WIP : `null`). */
   avatarOf: ((r: number) => NodeAvatar | null) | null,
+  inks: { light: string; dark: string },
 ) {
   const laneW = avatarOf ? LANE_W_AVATARS : LANE_W;
   const laneX = (col: number) => GRAPH_PAD + col * laneW + laneW / 2;
@@ -192,7 +240,7 @@ function drawGraph(
         ctx.drawImage(avatar.img, xc - AVATAR_R + 1.5, mid - AVATAR_R + 1.5, (AVATAR_R - 1.5) * 2, (AVATAR_R - 1.5) * 2);
         ctx.restore();
       } else {
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = inkOn(c, inks.light, inks.dark);
         ctx.font = "600 8.5px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -231,6 +279,12 @@ function drawGraph(
       ctx.fill();
     }
   }
+}
+
+/** Message raccourci (« … ») : le texte entier en infobulle au survol, seulement s'il ne tient pas. */
+function titleIfCut(e: React.MouseEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  el.title = el.scrollWidth > el.clientWidth ? (el.textContent ?? "").replace(/^\/\/ /, "") : "";
 }
 
 /** Marges de la colonne Branche / tag (`.commit-refs`). */
@@ -418,6 +472,7 @@ export function CommitGraph({ path, changes }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(() => scrollMemory.get(path) ?? 0);
   const [viewH, setViewH] = useState(600);
+  const [scrollbarW, setScrollbarW] = useState(0);
 
   const head = graph?.refs?.head ?? null;
   const { list: stashList } = useStashList(path);
@@ -437,8 +492,9 @@ export function CommitGraph({ path, changes }: Props) {
       }
       list = out;
     }
-    if (changes > 0 && head) {
-      return [{ sha: WIP, parents: [head], author: "", email: "", time: 0, subject: "" }, ...list];
+    // Dépôt sans commit (pas de HEAD) : la ligne « en cours » quand même, sans parent.
+    if (changes > 0) {
+      return [{ sha: WIP, parents: head ? [head] : [], author: "", email: "", time: 0, subject: "" }, ...list];
     }
     return list;
   }, [graph?.commits, changes, head, stashList]);
@@ -452,6 +508,8 @@ export function CommitGraph({ path, changes }: Props) {
   const palette = useMemo(() => [...readPalette(), ...customColors(rules)], [themeVersion, rules]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const sideColor = useMemo(() => readSideColor(), [themeVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const inks = useMemo(() => readInks(), [themeVersion]);
   const shas = useMemo(() => commits.map((c) => c.sha), [commits]);
   const chips = useMemo(() => chipsByCommit(graph?.refs ?? null), [graph?.refs]);
   const avatarsOn = !useApp((s) => s.settings.graphAvatarsOff);
@@ -462,6 +520,9 @@ export function CommitGraph({ path, changes }: Props) {
   const selectedIndex = selected ? shas.indexOf(selected) : -1;
   const picked = graph?.picked;
   const pickedSet = useMemo(() => new Set(picked ?? []), [picked]);
+  /** Ligne active du clavier : le bout de la plage étendue (Maj+flèches), sinon la sélection. */
+  const focusIndex = pickedSet.size > 1 && graph?.focus ? shas.indexOf(graph.focus) : -1;
+  const activeIndex = focusIndex >= 0 ? focusIndex : selectedIndex;
 
   // Recherche (Ctrl+F) parmi les commits chargés : lignes trouvées mises en avant, les
   // autres estompées ; Entrée / Maj+Entrée passent au résultat suivant / précédent.
@@ -504,9 +565,15 @@ export function CommitGraph({ path, changes }: Props) {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = scrollMemory.get(path) ?? 0;
-    const ro = new ResizeObserver(() => setViewH(el.clientHeight || 600));
+    // Largeur de la barre de défilement verticale : réservée à droite de l'en-tête, pour que
+    // ses colonnes tombent sur celles des lignes.
+    const measure = () => {
+      setViewH(el.clientHeight || 600);
+      setScrollbarW(el.offsetWidth - el.clientWidth);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setViewH(el.clientHeight || 600);
+    measure();
     return () => ro.disconnect();
   }, [path, showList]);
 
@@ -523,10 +590,12 @@ export function CommitGraph({ path, changes }: Props) {
     return { kind: provider, url: remoteInstance(profiles, parsed, account), repo: parsed.path, account: account?.id ?? null };
   }, [avatarsOn, remoteUrl, profiles, binding]);
   // Icônes des remotes (étiquettes de branches) : propriétaire du dépôt et provider.
-  const remoteMarks = useMemo(
-    () => new Map((graph?.refs?.remotes ?? []).map((r) => [r.name, remoteMarkOf(profiles, binding, r)])),
-    [graph?.refs?.remotes, profiles, binding],
-  );
+  // Avec un seul remote, l'icône répétée sur chaque étiquette n'apprend rien (le nuage dit
+  // déjà « distante ») et prend la place du nom : seulement à partir de deux remotes.
+  const remoteMarks = useMemo(() => {
+    const remotes = graph?.refs?.remotes ?? [];
+    return new Map(remotes.length > 1 ? remotes.map((r) => [r.name, remoteMarkOf(profiles, binding, r)]) : []);
+  }, [graph?.refs?.remotes, profiles, binding]);
   const visibleEmails = useMemo(
     () => [...new Set(commits.slice(first, last).filter((c) => c.sha !== WIP && c.email).map((c) => c.email.toLowerCase()))],
     [commits, first, last],
@@ -541,32 +610,39 @@ export function CommitGraph({ path, changes }: Props) {
     const avatarOf = avatarsOn
       ? (r: number) => ({ img: images.get(authors[commits[r].email.toLowerCase()]), initials: initials(commits[r].author || "?").slice(0, 2) })
       : null;
-    drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette, sideColor, stashShas, avatarOf);
+    drawGraph(canvasRef.current, layout, first, last, graphW, head, shas, palette, sideColor, stashShas, avatarOf, inks);
     // `images.get` lit les images chargées : `images.version` dit quand redessiner.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, first, last, graphW, head, shas, palette, sideColor, stashShas, showGraph, avatarsOn, authors, images.version, commits]);
+  }, [layout, first, last, graphW, head, shas, palette, sideColor, inks, stashShas, showGraph, avatarsOn, authors, images.version, commits]);
 
   // Page suivante quand on approche de la fin.
   useEffect(() => {
-    if (graph && !graph.done && !graph.loading && !graph.error && last > commits.length - PREFETCH_ROWS) {
+    if (graph && !graph.done && !graph.loading && !graph.error && !graph.pageError && last > commits.length - PREFETCH_ROWS) {
       loadMore(path);
     }
   }, [graph, last, commits.length, loadMore, path]);
 
+  const headRef = useRef<HTMLDivElement>(null);
   const onScroll = () => {
-    const top = scrollRef.current?.scrollTop ?? 0;
+    const el = scrollRef.current;
+    const top = el?.scrollTop ?? 0;
+    // L'en-tête est hors de la liste (pas dans le listbox) : il suit le défilement horizontal.
+    if (headRef.current) headRef.current.style.transform = `translateX(${-(el?.scrollLeft ?? 0)}px)`;
     scrollMemory.set(path, top);
     setScrollTop(top);
   };
 
   /** Fait défiler pour que la ligne `i` soit visible. */
+  // Dernière ligne de l'historique complet : la marque « Début de l'historique » dessous aussi.
+  const tail = useRef({ count: 0, done: false });
+  tail.current = { count: commits.length, done: !!graph?.done };
   const ensureVisible = useCallback((i: number) => {
     const el = scrollRef.current;
     if (!el || i < 0) return;
-    const header = ROW_H; // en-tête collant
     const top = i * ROW_H;
+    const bottom = top + (tail.current.done && i === tail.current.count - 1 ? 2 : 1) * ROW_H;
     if (top < el.scrollTop) el.scrollTop = top;
-    else if (top + ROW_H > el.scrollTop + el.clientHeight - header) el.scrollTop = top + ROW_H - el.clientHeight + header;
+    else if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight;
   }, []);
 
   // Nouvelle sélection (clavier, barre latérale, parent dans les détails) : on l'amène à l'écran.
@@ -577,6 +653,14 @@ export function CommitGraph({ path, changes }: Props) {
     lastSelected.current = selected;
     ensureVisible(selectedIndex);
   }, [selected, selectedIndex, ensureVisible]);
+
+  // À l'ouverture de l'onglet (ou quand l'historique arrive), le focus va au graphe, l'écran
+  // principal, si personne d'autre ne l'a.
+  useEffect(() => {
+    if (!showList) return;
+    const a = document.activeElement;
+    if (!a || a === document.body) scrollRef.current?.focus({ preventScroll: true });
+  }, [path, showList]);
 
   /** Sélectionne le résultat suivant (1) ou précédent (-1) de la recherche. */
   const jump = (dir: 1 | -1) => {
@@ -590,8 +674,50 @@ export function CommitGraph({ path, changes }: Props) {
     scrollRef.current?.focus();
   };
 
+  /** Menu d'une ligne : la sélection multiple si la ligne en fait partie, la ligne « en
+   *  cours », un stash, ou le commit (qui devient alors la sélection). */
+  const rowMenu = (i: number): MenuItem[] => {
+    const c = commits[i];
+    if (!c || !graph) return [];
+    if (c.sha === WIP) return wipMenu(t, path, graph.refs?.headBranch ?? null, changes, !!head);
+    const stash = stashes.get(c.sha);
+    if (stash) return stashMenu(t, path, stash, () => {});
+    if (pickedSet.has(c.sha)) return pickedMenu(t, path, orderPicked(graph.commits, picked ?? []), graph.refs);
+    select(path, c.sha);
+    return commitMenu(t, path, c.sha, graph.refs);
+  };
+
+  /** Menu de la ligne active au clavier (Maj+F10, touche Menu), ouvert sous son message. */
+  const openRowMenu = () => {
+    if (activeIndex < 0) return;
+    ensureVisible(activeIndex);
+    const row = document.getElementById(`commit-${shas[activeIndex]}`);
+    const box = (row?.querySelector(".commit-msg") ?? row)?.getBoundingClientRect();
+    const items = rowMenu(activeIndex);
+    if (box && items.length) useContextMenu.getState().open(box.left, box.bottom, items);
+  };
+
+  /** Entrée : le focus passe au panneau de droite (détails du commit ou modifications). */
+  const focusPanel = () => {
+    const panel = document.querySelector<HTMLElement>("aside.commit-panel");
+    const target = panel?.querySelector<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])');
+    target?.focus();
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Clavier : l'anneau de focus revient (il est masqué après un clic, cf. onMouseDown).
+    delete scrollRef.current?.dataset.pointer;
     if (commits.length === 0) return;
+    if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+      e.preventDefault();
+      openRowMenu();
+      return;
+    }
+    if (e.key === "Enter" && !e.ctrlKey && !e.altKey && activeIndex >= 0) {
+      e.preventDefault();
+      focusPanel();
+      return;
+    }
     // Recherche en cours : F3 / Maj+F3 passent d'un résultat à l'autre ; Échap ferme la barre.
     if ((finding && e.key === "F3") || ((findText !== undefined || findSet) && e.key === "Escape")) {
       e.preventDefault();
@@ -708,8 +834,13 @@ export function CommitGraph({ path, changes }: Props) {
         return <span key={col} />;
       case "message":
         return (
-          <span key={col} className="commit-msg">
+          <span key={col} className="commit-msg" onMouseEnter={titleIfCut}>
             {isStash && <Icon name="stash" size={13} className="stash-mark" />}
+            {isWip && (
+              <span className="wip-mark" aria-hidden="true">
+                {t("graph.wipMark")}{" "}
+              </span>
+            )}
             {isWip ? t("graph.wip", { count: changes }) : c.subject}
           </span>
         );
@@ -788,140 +919,196 @@ export function CommitGraph({ path, changes }: Props) {
             .filter(Boolean)
             .join(" · ")}
       </span>
-      <button className="icon-btn sm" aria-label={t("graphFind.prev")} title={`${t("graphFind.prev")} (Maj+Entrée)`} disabled={!matches.length} onClick={() => jump(-1)}>
+      <button className="icon-btn sm" aria-label={t("graphFind.prev")} title={`${t("graphFind.prev")} (${t("keys.shiftEnter")})`} disabled={!matches.length} onClick={() => jump(-1)}>
         <Icon name="chevron" size={13} className="flip" />
       </button>
-      <button className="icon-btn sm" aria-label={t("graphFind.next")} title={`${t("graphFind.next")} (Entrée)`} disabled={!matches.length} onClick={() => jump(1)}>
+      <button className="icon-btn sm" aria-label={t("graphFind.next")} title={`${t("graphFind.next")} (${t("keys.enter")})`} disabled={!matches.length} onClick={() => jump(1)}>
         <Icon name="chevron" size={13} />
       </button>
-      <button className="icon-btn sm" aria-label={t("graphFind.close")} title={`${t("graphFind.close")} (Échap)`} onClick={closeFind}>
+      <button className="icon-btn sm" aria-label={t("graphFind.close")} title={`${t("graphFind.close")} (${t("keys.escape")})`} onClick={closeFind}>
         <Icon name="close" size={13} />
       </button>
     </div>
   );
 
+  /** Nom d'une ligne pour un lecteur d'écran : message, puis HEAD / fusion, refs, auteur, date, SHA. */
+  const rowLabel = (c: GraphLine, isWip: boolean, isStash: boolean) => {
+    if (isWip) return t("graph.wip", { count: changes });
+    if (isStash) return t("graph.rowStash", { message: c.subject });
+    const when = commitDate(c.time * 1000, i18n.language, now);
+    const refs = (chips.get(c.sha) ?? []).map((x) => (x.current ? t("graph.rowCurrent", { name: x.label }) : x.label));
+    return [
+      c.subject,
+      c.sha === head && t("graph.rowHead"),
+      c.parents.length > 1 && t("graph.rowMerge"),
+      refs.length > 0 && refs.join(", "),
+      c.author,
+      when.key === "date" ? when.text : t(`time.${when.key}`, { count: when.count }),
+      c.sha.slice(0, 7),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
+
   return (
-    <div className="graph-wrap">
-    {findBar}
-    <div
-      className="graph-scroll"
-      ref={scrollRef}
-      onScroll={onScroll}
-      tabIndex={0}
-      role="listbox"
-      aria-label={t("graph.label")}
-      aria-activedescendant={selectedIndex >= first && selectedIndex < last ? `commit-${shas[selectedIndex]}` : undefined}
-      onKeyDown={onKeyDown}
-      style={{ "--cols": cols } as React.CSSProperties}
-    >
-      <div
-        className="graph-head"
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setMenuOpen(true);
-        }}
-      >
-        {visible.map((c) => (
-          <span key={c} ref={c === "refs" ? setRefsHead : undefined} className={c === "refs" ? "graph-head-cell graph-head-refs" : "graph-head-cell"}>
-            <span className="graph-head-label">{t(`graph.${c}`)}</span>
-            {RESIZABLE.includes(c) && (
-              <Splitter
-                dir="x"
-                label={t("layout.column", { name: t(`graph.${c}`) })}
-                measure={(el) => el.parentElement!.getBoundingClientRect().width}
-                onChange={(v, final) => setLayout({ [colKey(c as GraphColumn)]: clamp(v, LIMITS.column) }, final)}
-                onReset={() => setLayout({ [colKey(c as GraphColumn)]: null })}
-              />
-            )}
-          </span>
-        ))}
-        <button
-          className="icon-btn sm columns-btn"
-          aria-label={t("graph.columns")}
-          aria-expanded={menuOpen}
-          title={t("graph.columns")}
-          onClick={() => setMenuOpen((v) => !v)}
+    <div className="graph-wrap" style={{ "--cols": cols } as React.CSSProperties}>
+      {findBar}
+      {/* En-tête hors de la liste : ses boutons et poignées ne sont pas des options. */}
+      <div className="graph-head-wrap" style={{ paddingRight: scrollbarW }}>
+        <div
+          className="graph-head"
+          ref={headRef}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenuOpen(true);
+          }}
         >
-          <Icon name="sliders" size={13} />
-        </button>
+          {visible.map((c) => (
+            <span key={c} ref={c === "refs" ? setRefsHead : undefined} className={c === "refs" ? "graph-head-cell graph-head-refs" : "graph-head-cell"}>
+              <span className="graph-head-label">{t(`graph.${c}`)}</span>
+              {RESIZABLE.includes(c) && (
+                <Splitter
+                  dir="x"
+                  label={t("layout.column", { name: t(`graph.${c}`) })}
+                  measure={(el) => el.parentElement!.getBoundingClientRect().width}
+                  onChange={(v, final) => setLayout({ [colKey(c as GraphColumn)]: clamp(v, LIMITS.column) }, final)}
+                  onReset={() => setLayout({ [colKey(c as GraphColumn)]: null })}
+                />
+              )}
+            </span>
+          ))}
+          <button
+            className="icon-btn sm columns-btn"
+            aria-label={t("graph.columns")}
+            aria-expanded={menuOpen}
+            title={t("graph.columns")}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <Icon name="sliders" size={13} />
+          </button>
+        </div>
         {menuOpen && <ColumnsMenu hidden={hidden} onClose={closeMenu} />}
       </div>
-      <div className="graph-body" style={{ height: commits.length * ROW_H }}>
-        {showGraph && (
-          <canvas ref={canvasRef} className="graph-canvas" style={{ top: first * ROW_H, left: canvasLeft }} aria-hidden="true" />
-        )}
-        {commits.slice(first, last).map((c, k) => {
-          const i = first + k;
-          const row = layout.rows[i];
-          const isWip = c.sha === WIP;
-          const stash = stashes.get(c.sha);
-          const isStash = !!stash;
-          // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
-          const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
-          const found = finding ? (matchSet.has(i) ? "found" : "dim") : null;
-          const cls = ["commit-row", isWip && "wip", isStash && "stash", c.sha === head && "head", sel && "sel", row.col >= MAX_LANES && "far", found]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <div
-              key={c.sha}
-              id={`commit-${c.sha}`}
-              role="option"
-              aria-selected={sel}
-              title={stash ? [stash.message, t("stashes.graphHint")].join("\n") : undefined}
-              className={cls}
-              style={{ top: i * ROW_H }}
-              onMouseDown={(e) => {
-                // Garde le focus sur la liste pour la navigation au clavier.
-                e.preventDefault();
-                scrollRef.current?.focus();
-                if (e.button !== 0) return;
-                if (stash) openStash(path, stash);
-                else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
-                else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
-                else if (!isWip && pickedSet.size > 1 && pickedSet.has(c.sha)) {
-                  // Dans une sélection multiple : on glisse tout le lot ; un simple clic ne
-                  // garde que ce commit, comme avant.
-                  const ordered = orderPicked(graph.commits, picked ?? []);
-                  startCommitDrag(
-                    e,
-                    t("multi.dragLabel", { count: ordered.length }),
-                    (drop) => {
-                      const refs = useGraph.getState().graphs[path]?.refs ?? null;
-                      const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
-                      if (target) useContextMenu.getState().open(drop.x, drop.y, pickedDropMenu(t, path, ordered, target, refs));
-                    },
-                    () => select(path, c.sha),
-                  );
-                } else {
-                  select(path, c.sha);
-                  // Glissé sur une branche locale : menu cherry-pick / reset / déplacer. Pas
-                  // depuis l'étiquette d'une branche locale : c'est elle qu'on glisse alors.
-                  const fromChip = (e.target as HTMLElement).closest?.(".chip[data-drop-ref]");
-                  if (!isWip && !fromChip)
-                    startCommitDrag(e, `${c.sha.slice(0, 7)} ${c.subject}`, (drop) => {
-                      const refs = useGraph.getState().graphs[path]?.refs ?? null;
-                      const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
-                      if (target) useContextMenu.getState().open(drop.x, drop.y, commitDropMenu(t, path, c.sha, target, refs));
-                    });
-                }
-              }}
-              onContextMenu={(e) => {
-                if (isWip) return e.preventDefault();
-                if (stash) return openContextMenu(e, stashMenu(t, path, stash, () => {}));
-                // Dans une sélection multiple : le menu de la sélection.
-                if (pickedSet.has(c.sha)) return openContextMenu(e, pickedMenu(t, path, orderPicked(graph.commits, picked ?? []), graph.refs));
-                select(path, c.sha);
-                openContextMenu(e, commitMenu(t, path, c.sha, graph.refs));
-              }}
-            >
-              {visible.map((col) => cell(col, c, row.color, isWip, isStash))}
+      <div
+        className="graph-scroll"
+        ref={scrollRef}
+        onScroll={onScroll}
+        tabIndex={0}
+        role="listbox"
+        aria-label={t("graph.label")}
+        aria-multiselectable="true"
+        aria-activedescendant={activeIndex >= first && activeIndex < last ? `commit-${shas[activeIndex]}` : undefined}
+        onKeyDown={onKeyDown}
+        // Après un clic, l'anneau est masqué ; en partant, on le rend pour le prochain retour au clavier.
+        onBlur={() => delete scrollRef.current?.dataset.pointer}
+        onContextMenu={(e) => {
+          // Touche Menu / Maj+F10 : l'événement vise la liste elle-même (un clic droit vise une
+          // ligne). Déjà ouvert par le keydown, ou clic droit sur la barre de défilement
+          // (bouton 2) : pas de second menu.
+          if (e.target !== e.currentTarget) return;
+          e.preventDefault();
+          if (e.button === 2 || useContextMenu.getState().menu) return;
+          openRowMenu();
+        }}
+      >
+        <div className="graph-body" style={{ height: (commits.length + (graph.done ? 1 : 0)) * ROW_H }}>
+          {showGraph && (
+            <canvas ref={canvasRef} className="graph-canvas" style={{ top: first * ROW_H, left: canvasLeft }} aria-hidden="true" />
+          )}
+          {commits.slice(first, last).map((c, k) => {
+            const i = first + k;
+            const row = layout.rows[i];
+            const isWip = c.sha === WIP;
+            const stash = stashes.get(c.sha);
+            const isStash = !!stash;
+            // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
+            const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
+            const found = finding ? (matchSet.has(i) ? "found" : "dim") : null;
+            const cls = [
+              "commit-row",
+              isWip && "wip",
+              isStash && "stash",
+              c.sha === head && "head",
+              sel && "sel",
+              i === focusIndex && "cursor",
+              row.col >= MAX_LANES && "far",
+              found,
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <div
+                key={c.sha}
+                id={`commit-${c.sha}`}
+                role="option"
+                aria-selected={sel}
+                aria-setsize={graph.done ? commits.length : -1}
+                aria-posinset={i + 1}
+                aria-label={rowLabel(c, isWip, isStash)}
+                title={stash ? [stash.message, t("stashes.graphHint")].join("\n") : undefined}
+                className={cls}
+                style={{ top: i * ROW_H }}
+                onMouseDown={(e) => {
+                  // Garde le focus sur la liste pour la navigation au clavier, sans l'anneau
+                  // de focus d'un clic (il revient à la première touche).
+                  e.preventDefault();
+                  if (scrollRef.current) scrollRef.current.dataset.pointer = "";
+                  scrollRef.current?.focus();
+                  if (e.button !== 0) return;
+                  if (stash) openStash(path, stash);
+                  else if (!isWip && (e.ctrlKey || e.metaKey)) useGraph.getState().togglePick(path, c.sha);
+                  else if (!isWip && e.shiftKey) useGraph.getState().pickRange(path, c.sha);
+                  else if (!isWip && pickedSet.size > 1 && pickedSet.has(c.sha)) {
+                    // Dans une sélection multiple : on glisse tout le lot ; un simple clic ne
+                    // garde que ce commit, comme avant.
+                    const ordered = orderPicked(graph.commits, picked ?? []);
+                    startCommitDrag(
+                      e,
+                      t("multi.dragLabel", { count: ordered.length }),
+                      (drop) => {
+                        const refs = useGraph.getState().graphs[path]?.refs ?? null;
+                        const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+                        if (target) useContextMenu.getState().open(drop.x, drop.y, pickedDropMenu(t, path, ordered, target, refs));
+                      },
+                      () => select(path, c.sha),
+                    );
+                  } else {
+                    select(path, c.sha);
+                    // Glissé sur une branche locale : menu cherry-pick / reset / déplacer. Pas
+                    // depuis l'étiquette d'une branche locale : c'est elle qu'on glisse alors.
+                    const fromChip = (e.target as HTMLElement).closest?.(".chip[data-drop-ref]");
+                    if (!isWip && !fromChip)
+                      startCommitDrag(e, `${c.sha.slice(0, 7)} ${c.subject}`, (drop) => {
+                        const refs = useGraph.getState().graphs[path]?.refs ?? null;
+                        const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
+                        if (target) useContextMenu.getState().open(drop.x, drop.y, commitDropMenu(t, path, c.sha, target, refs));
+                      });
+                  }
+                }}
+                onContextMenu={(e) => openContextMenu(e, rowMenu(i))}
+              >
+                {visible.map((col) => cell(col, c, row.color, isWip, isStash))}
+              </div>
+            );
+          })}
+          {graph.done && (
+            <div className="graph-end" style={{ top: commits.length * ROW_H }} aria-hidden="true">
+              <span style={{ gridColumn: visible.indexOf("message") + 1 }}>{t("graph.end")}</span>
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
-      {graph.loading && graph.commits.length > 0 && <div className="graph-more muted">{t("graph.loadingMore")}</div>}
-    </div>
+      {graph.pageError ? (
+        <div className="graph-more error" role="alert">
+          <Icon name="alert" size={13} />
+          <span>{t("graph.pageError", { error: errorMessage(t, graph.pageError) })}</span>
+          <button type="button" className="link notice-action" onClick={() => void useGraph.getState().retryMore(path)}>
+            {t("graph.retry")}
+          </button>
+        </div>
+      ) : (
+        graph.loading && graph.commits.length > 0 && <div className="graph-more muted" role="status">{t("graph.loadingMore")}</div>
+      )}
     </div>
   );
 }
