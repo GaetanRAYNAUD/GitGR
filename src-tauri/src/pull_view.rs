@@ -1048,10 +1048,12 @@ pub fn files(path: &Path, target: &str, head: &str) -> Result<Vec<crate::history
 }
 
 /// Diff d'un fichier de la PR / MR (même point de départ que [`files`]).
-pub fn file_diff(path: &Path, target: &str, head: &str, file: &str, old_file: Option<&str>) -> Result<crate::history::FileDiff, String> {
+pub fn file_diff(path: &Path, target: &str, head: &str, file: &str, old_file: Option<&str>, ignore_ws: bool) -> Result<crate::history::FileDiff, String> {
     crate::history::check_dir(path)?;
     let base = merge_base(path, target, head)?;
-    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3", &base, head, "--"];
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3"];
+    crate::history::push_ws(&mut args, ignore_ws);
+    args.extend([base.as_str(), head, "--"]);
     if let Some(old) = old_file {
         args.push(old);
     }
@@ -1307,7 +1309,7 @@ mod tests {
         git(p, &["commit", "-q", "-am", "a2"]);
         let f = files(p, "main", &head).unwrap();
         assert_eq!(f.iter().map(|x| (x.status.as_str(), x.path.as_str())).collect::<Vec<_>>(), [("A", "b.txt")]);
-        let d = file_diff(p, "main", &head, "b.txt", None).unwrap();
+        let d = file_diff(p, "main", &head, "b.txt", None, false).unwrap();
         assert_eq!(d.hunks[0].lines[0].text, "b");
         assert_eq!(files(p, "--output=x", &head).unwrap_err(), "pull_branch_invalid");
         ensure_head(p, "origin", Kind::GitHub, 1, &head).unwrap();

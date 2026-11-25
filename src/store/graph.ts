@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import { rangeShas } from "../lib/multiSelect";
+import { useApp } from "./app";
 import type { Commit, CommitDetails, FileChange, FileDiff, RefsInfo } from "../lib/types";
 
 /** Taille d'une page d'historique. */
@@ -95,6 +96,9 @@ export const detailsKey = (path: string, sha: string) => `${path}\n${sha}`;
 export function fingerprint(refs: RefsInfo): string {
   return JSON.stringify([refs.head, refs.headBranch, refs.refs.map((r) => [r.name, r.target])]);
 }
+
+/** Diffs sans les changements d'espaces (réglage « Ignorer les espaces »). */
+const ignoreWs = () => !!useApp.getState().settings.diffIgnoreWs;
 
 export const useGraph = create<GraphStore>((set, get) => {
   const patch = (path: string, p: Partial<RepoGraph>) =>
@@ -244,8 +248,8 @@ export const useGraph = create<GraphStore>((set, get) => {
       let next: OpenDiff;
       try {
         const data = base
-          ? await api.rangeDiff(path, base, sha, file.path, file.oldPath)
-          : await api.commitDiff(path, sha, file.path, file.oldPath);
+          ? await api.rangeDiff(path, base, sha, file.path, file.oldPath, ignoreWs())
+          : await api.commitDiff(path, sha, file.path, file.oldPath, ignoreWs());
         next = { sha, file, base, data };
       } catch (e) {
         next = { sha, file, base, error: errorCode(e) };

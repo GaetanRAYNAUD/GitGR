@@ -128,3 +128,36 @@ test("ligne « en cours » du graphe : tout indexer puis stasher au clic droit",
     await app.close();
   }
 });
+
+test("diff : espaces ignorés par git -w, puis un bloc indexé au clavier (Entrée)", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "f.txt", "un\ndeux\ntrois\n" + "x\n".repeat(10) + "fin\n", "ajout de f.txt");
+  // Espaces seuls sur « deux », vrai changement sur « fin ».
+  sandbox.write(mine, "f.txt", "un\n  deux  \ntrois\n" + "x\n".repeat(10) + "FIN\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const changes = page.getByRole("complementary", { name: "Modifications en cours" });
+    await changes.getByRole("listbox", { name: "Non indexés", exact: true }).getByText("f.txt").click();
+    const diff = page.getByRole("region", { name: "Diff de f.txt" });
+    const grid = diff.getByRole("grid", { name: "Lignes du diff" });
+    await expect(grid.getByRole("row", { name: /^@@/ })).toHaveCount(2);
+
+    await diff.getByRole("button", { name: "Ignorer les espaces" }).click();
+    await expect(grid.getByRole("row", { name: /^@@/ })).toHaveCount(1);
+    await expect(grid).not.toContainText("deux");
+    await diff.getByRole("button", { name: "Afficher les espaces" }).click();
+    await expect(grid.getByRole("row", { name: /^@@/ })).toHaveCount(2);
+
+    // F7 : bloc suivant (celui de « fin ») ; Entrée l'indexe seul.
+    await grid.focus();
+    await page.keyboard.press("F7");
+    await page.keyboard.press("Enter");
+    await expect.poll(() => git(mine, "diff", "--cached", "--name-only")).toBe("f.txt");
+    expect(git(mine, "diff", "--cached")).toContain("+FIN");
+    expect(git(mine, "diff", "--cached")).not.toContain("deux");
+  } finally {
+    await app.close();
+  }
+});

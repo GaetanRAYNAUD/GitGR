@@ -1,12 +1,24 @@
 // Corps d'un diff (partagé par le diff d'un commit et celui de la copie de travail) :
 // états de chargement / erreur, hunks en une colonne (inline) ou côte à côte (split),
-// actions par bloc et sélection de lignes.
+// actions par bloc et sélection de lignes. Au clavier, une grille à une seule tabulation :
+// une ligne active que les flèches déplacent (F7 : bloc suivant).
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { errorMessage } from "../../lib/errors";
 import { clamp, DIFF_LN_W as LN_W, diffSplitBounds, LAYOUT, useLayoutValue } from "../../lib/layout";
-import type { DiffLine, DiffViewSetting, FileDiff, Hunk } from "../../lib/types";
+import type { DiffLine, DiffViewSetting, FileDiff, Hunk, LineRef } from "../../lib/types";
 import { DIFF_WORD_BUDGET, hunkItems, hunkWordDiffs, type Segment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
 import { Icon } from "../Icon";
@@ -14,6 +26,9 @@ import { Splitter } from "../Splitter";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
+
+/** Ordre d'affichage de deux lignes d'un diff (bloc, puis rang dans le bloc). */
+export const compareLines = (a: LineRef, b: LineRef) => a.hunk - b.hunk || a.line - b.line;
 
 /** Échap ferme le diff ou la vue (les menus ouverts consomment Échap avant, cf. useDismiss),
  *  sauf pendant une saisie : un commentaire commencé n'est pas perdu. */
@@ -32,33 +47,85 @@ export function useEscape(onEscape: () => void) {
   }, [onEscape]);
 }
 
-/** Bascule inline / côte à côte, mémorisée dans les réglages. */
+/** À la fermeture d'une vue qui avait le focus, le rend à l'élément qui l'avait avant d'y
+ *  entrer (la ligne du fichier dans la liste), au lieu de le laisser tomber sur le graphe. */
+export function useReturnFocus(ref: RefObject<HTMLElement | null>) {
+  const last = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && a !== document.body && !ref.current?.contains(a)) last.current = a;
+    const onIn = (e: FocusEvent) => {
+      const el = e.target;
+      // Une confirmation ou un menu passent : on garde l'élément d'avant.
+      if (el instanceof HTMLElement && !ref.current?.contains(el) && !el.closest('[role="dialog"], [role="alertdialog"], [role="menu"]'))
+        last.current = el;
+    };
+    document.addEventListener("focusin", onIn);
+    return () => document.removeEventListener("focusin", onIn);
+  }, [ref]);
+  return useCallback(() => {
+    const a = document.activeElement;
+    const inside = !a || a === document.body || !!ref.current?.contains(a);
+    if (inside && last.current?.isConnected) last.current.focus();
+  }, [ref]);
+}
+
+/** Bascules du diff, mémorisées dans les réglages : sans les espaces, et en ligne / côte à côte. */
 export function DiffViewToggle() {
   const { t } = useTranslation();
   const view = useApp((s) => s.settings.diffView ?? "inline");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const update = useApp((s) => s.updateSettings);
   const options: DiffViewSetting[] = ["inline", "split"];
   return (
-    <div className="view-toggle" role="group" aria-label={t("diff.view")}>
-      {options.map((o) => (
+    <span className="diff-tools">
+      <span className="view-toggle">
         <button
-          key={o}
-          className={view === o ? "on" : undefined}
-          aria-pressed={view === o}
-          aria-label={t(`diff.${o}`)}
-          title={t(`diff.${o}`)}
-          onClick={() => update({ diffView: o })}
+          className={ignoreWs ? "on" : undefined}
+          aria-pressed={ignoreWs}
+          aria-label={t("diff.ignoreWs")}
+          title={t("diff.ignoreWs")}
+          onClick={() => update({ diffIgnoreWs: !ignoreWs })}
         >
-          <Icon name={o} size={14} />
+          <Icon name="whitespace" size={14} />
         </button>
-      ))}
-    </div>
+      </span>
+      <div className="view-toggle" role="group" aria-label={t("diff.view")}>
+        {options.map((o) => (
+          <button
+            key={o}
+            className={view === o ? "on" : undefined}
+            aria-pressed={view === o}
+            aria-label={t(`diff.${o}`)}
+            title={t(`diff.${o}`)}
+            onClick={() => update({ diffView: o })}
+          >
+            <Icon name={o} size={14} />
+          </button>
+        ))}
+      </div>
+    </span>
   );
+}
+
+/** Ne montre son contenu qu'après un court délai : un chargement rapide ne clignote pas. */
+function Delayed({ ms, children }: { ms: number; children: ReactNode }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setOn(true), ms);
+    return () => clearTimeout(id);
+  }, [ms]);
+  return on ? <>{children}</> : null;
 }
 
 interface Selection {
   selected: Set<string>;
+  /** Clic ou Espace : une ligne ; Maj+clic : la plage depuis la dernière ligne cliquée. */
   toggle: (hunk: number, line: number, range: boolean) => void;
+  /** Maj+flèches : les lignes modifiées de `from` à `to`, à la place de la sélection. */
+  extend: (from: LineRef, to: LineRef) => void;
+  /** Ctrl+A : toutes les lignes modifiées. */
+  all: () => void;
 }
 
 interface Props {
@@ -68,6 +135,12 @@ interface Props {
   hunkActions?: (hunk: number) => ReactNode;
   /** Sélection de lignes modifiées (copie de travail). */
   selection?: Selection;
+  /** Entrée (`apply`) ou Suppr (`discard`) dans la grille, sur la ligne active. */
+  onKeyAction?: (action: "apply" | "discard", at: LineRef) => void;
+  /** Bouton « Réessayer » sous une erreur. */
+  onRetry?: () => void;
+  /** Change avec le fichier affiché : la ligne active repart du début. */
+  resetKey?: string;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -90,10 +163,45 @@ export function splitRows(h: Hunk): { left?: Indexed; right?: Indexed }[] {
   });
 }
 
-function HunkHeader({ h, hi, cols, hunkActions }: { h: Hunk; hi: number; cols: number; hunkActions?: (hunk: number) => ReactNode }) {
+/** Toutes les lignes, dans l'ordre d'affichage en ligne (celui de la navigation au clavier). */
+export function lineOrder(data: FileDiff | undefined): LineRef[] {
+  const out: LineRef[] = [];
+  data?.hunks.forEach((h, hunk) => h.lines.forEach((_, line) => out.push({ hunk, line })));
+  return out;
+}
+
+/** Ligne visée par F7 (bloc suivant) ou Maj+F7 (précédent) : la première ligne modifiée du
+ *  bloc, `-1` s'il n'y en a pas. Maj+F7 au milieu d'un bloc revient d'abord à son début. */
+export function hunkJump(data: FileDiff, order: LineRef[], cur: number, back: boolean): number {
+  const firstChange = (hunk: number) => {
+    const h = data.hunks[hunk];
+    const line = Math.max(0, h.lines.findIndex((l) => l.kind !== " "));
+    return order.findIndex((r) => r.hunk === hunk && r.line === line);
+  };
+  const at = order[cur];
+  if (!at) return order.length ? firstChange(0) : -1;
+  if (!back) return at.hunk + 1 < data.hunks.length ? firstChange(at.hunk + 1) : -1;
+  const start = firstChange(at.hunk);
+  if (cur > start) return start;
+  return at.hunk > 0 ? firstChange(at.hunk - 1) : -1;
+}
+
+function HunkHeader({
+  h,
+  hi,
+  cols,
+  id,
+  hunkActions,
+}: {
+  h: Hunk;
+  hi: number;
+  cols: number;
+  id: string;
+  hunkActions?: (hunk: number) => ReactNode;
+}) {
   return (
-    <tr className="diff-hunk">
-      <td colSpan={cols}>
+    <tr className="diff-hunk" id={id} role="row">
+      <td colSpan={cols} role="gridcell">
         <div className="hunk-head">
           <span className="hunk-title">{h.header}</span>
           {hunkActions && <span className="hunk-actions">{hunkActions(hi)}</span>}
@@ -121,13 +229,19 @@ function LineText({ segments, text }: { segments?: Segment[]; text: string }) {
   );
 }
 
-export function DiffBody({ data, error, hunkActions, selection }: Props) {
+const PAGE = 20;
+
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey }: Props) {
   const { t } = useTranslation();
+  const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const update = useApp((s) => s.updateSettings);
   // Côte à côte : part de la largeur donnée au texte de gauche (absente = moitié-moitié).
   const saved = useLayoutValue(LAYOUT.diffSplit);
   const setLayout = useApp((s) => s.setLayout);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
   // Largeur de la table côte à côte : la part enregistrée est rebornée si la fenêtre rétrécit.
   const [wrapW, setWrapW] = useState(0);
   const hasWrap = mode === "split" && !!data && !error && !data.binary && data.hunks.length > 0;
@@ -145,48 +259,204 @@ export function DiffBody({ data, error, hunkActions, selection }: Props) {
     const budget = { left: DIFF_WORD_BUDGET };
     return data?.hunks.map((h) => hunkWordDiffs(h, budget)) ?? [];
   }, [data]);
+
+  const order = useMemo(() => lineOrder(data), [data]);
+  // Ligne active (rang dans `order`), -1 tant que la grille n'a pas eu le focus. Gardée,
+  // rebornée, quand le diff change après une indexation : on continue au même endroit.
+  const [active, setActive] = useState(-1);
+  const anchor = useRef(-1);
+  // Anneau de la ligne active : au clavier seulement, pas après un clic.
+  const [kbd, setKbd] = useState(false);
+  const scrollTo = useRef<string | null>(null);
+  // Focus donné par un clic sur une ligne : elle est déjà active, onFocus n'en choisit pas d'autre.
+  const pointerFocus = useRef(false);
+  useEffect(() => {
+    setActive(-1);
+    anchor.current = -1;
+  }, [resetKey]);
+  const cur = order.length ? Math.min(active, order.length - 1) : -1;
+
+  // Largeur des numéros de ligne (chiffres du plus grand), pour les figer à gauche.
+  const lnDigits = useMemo(() => {
+    let max = 0;
+    for (const h of data?.hunks ?? []) for (const l of h.lines) max = Math.max(max, l.old ?? 0, l.new ?? 0);
+    return Math.max(3, String(max).length);
+  }, [data]);
+
+  useLayoutEffect(() => {
+    const id = scrollTo.current;
+    scrollTo.current = null;
+    const table = tableRef.current;
+    const box = table?.closest<HTMLElement>(".diff-body");
+    const el = id ? document.getElementById(id) : null;
+    if (!box || !el) return;
+    const row = el.closest("tr") ?? el;
+    const r = row.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    if (r.top < b.top) box.scrollTop -= b.top - r.top;
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
+  });
+
   if (error) {
     return (
       <div className="notice error" role="alert">
         <Icon name="alert" />
-        {errorMessage(t, error)}
+        <span>{errorMessage(t, error)}</span>
+        {onRetry && (
+          <button className="btn sm notice-action" onClick={onRetry}>
+            {t("graph.retry")}
+          </button>
+        )}
       </div>
     );
   }
-  if (!data) return <p className="muted">{t("diff.loading")}</p>;
+  if (!data)
+    return (
+      <Delayed ms={200}>
+        <p className="muted">{t("diff.loading")}</p>
+      </Delayed>
+    );
   if (data.binary) return <p className="muted">{t("diff.binary")}</p>;
-  if (data.hunks.length === 0) return <p className="muted">{data.truncated ? t("diff.tooBig") : t("diff.empty")}</p>;
+  if (data.hunks.length === 0) {
+    if (data.truncated) return <p className="muted">{t("diff.tooBig")}</p>;
+    if (ignoreWs)
+      return (
+        <p className="muted diff-empty">
+          {t("diff.onlyWs")}{" "}
+          <button className="link" onClick={() => update({ diffIgnoreWs: false })}>
+            {t("diff.showWs")}
+          </button>
+        </p>
+      );
+    return <p className="muted">{t("diff.empty")}</p>;
+  }
 
-  const isSel = (hi: number, li: number) => !!selection?.selected.has(lineKey(hi, li));
-  /** Clic (Maj+clic : plage) sur une ligne modifiée, si la sélection est active. */
+  const cellId = (hi: number, li: number) => `${uid}-l${hi}-${li}`;
+  const hunkId = (hi: number) => `${uid}-h${hi}`;
+  const rank = (hi: number, li: number) => order.findIndex((r) => r.hunk === hi && r.line === li);
+  const activeRef = cur >= 0 ? order[cur] : undefined;
+  const isActive = (hi: number, li: number) => !!activeRef && activeRef.hunk === hi && activeRef.line === li;
+  const lineAt = (r: LineRef) => data.hunks[r.hunk]?.lines[r.line];
+
+  const go = (j: number, extend: boolean, target?: string) => {
+    if (!order.length) return;
+    const k = Math.max(0, Math.min(order.length - 1, j));
+    const from = cur < 0 ? k : cur;
+    if (extend && selection) {
+      if (anchor.current < 0) anchor.current = from;
+      selection.extend(order[anchor.current], order[k]);
+    } else {
+      anchor.current = k;
+    }
+    setActive(k);
+    scrollTo.current = target ?? cellId(order[k].hunk, order[k].line);
+  };
+
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLTableElement>) => {
+    if (e.target !== e.currentTarget || e.altKey || e.metaKey) return;
+    setKbd(true);
+    const at = cur < 0 ? 0 : cur;
+    const plain = !e.ctrlKey;
+    const vertical = e.key === "ArrowDown" || e.key === "ArrowUp";
+    const moves: Record<string, number> = {
+      ArrowDown: cur < 0 ? 0 : at + 1,
+      ArrowUp: cur < 0 ? 0 : at - 1,
+      PageDown: at + PAGE,
+      PageUp: at - PAGE,
+      Home: 0,
+      End: order.length - 1,
+    };
+    if (e.key in moves && (plain || e.key === "Home" || e.key === "End")) {
+      e.preventDefault();
+      return go(moves[e.key], e.shiftKey && vertical);
+    }
+    if (e.key === "F7" && plain) {
+      e.preventDefault();
+      const k = hunkJump(data, order, cur, e.shiftKey);
+      // L'en-tête du bloc reste en vue avec sa première ligne.
+      if (k >= 0) go(k, false, hunkId(order[k].hunk));
+      return;
+    }
+    if (!activeRef) return;
+    if (e.key === " " && plain && selection) {
+      e.preventDefault();
+      if (lineAt(activeRef)?.kind !== " ") selection.toggle(activeRef.hunk, activeRef.line, false);
+      anchor.current = cur;
+      return;
+    }
+    if (e.ctrlKey && e.key.toLowerCase() === "a" && selection) {
+      e.preventDefault();
+      selection.all();
+      return;
+    }
+    if (e.key === "Enter" && plain && onKeyAction) {
+      e.preventDefault();
+      onKeyAction("apply", activeRef);
+      return;
+    }
+    if (e.key === "Delete" && plain && onKeyAction) {
+      e.preventDefault();
+      onKeyAction("discard", activeRef);
+    }
+  };
+
+  /** Clic sur une ligne : elle devient active ; si la sélection est active et la ligne
+   *  modifiée, elle est cochée (Maj+clic : plage). */
   const picker = (hi: number, x: Indexed | undefined) =>
-    selection && x && x.l.kind !== " "
+    x
       ? (e: React.MouseEvent) => {
-          e.preventDefault();
-          selection.toggle(hi, x.i, e.shiftKey);
+          setKbd(false);
+          const k = rank(hi, x.i);
+          if (k >= 0) {
+            setActive(k);
+            if (!e.shiftKey) anchor.current = k;
+          }
+          if (selection && x.l.kind !== " ") {
+            // Pas de sélection de texte ; le focus reste sur la grille.
+            e.preventDefault();
+            pointerFocus.current = true;
+            tableRef.current?.focus({ preventScroll: true });
+            pointerFocus.current = false;
+            selection.toggle(hi, x.i, e.shiftKey);
+          }
         }
       : undefined;
+
+  const isSel = (hi: number, li: number) => !!selection?.selected.has(lineKey(hi, li));
   const kindCls = (l: DiffLine) => (l.kind === "+" ? "add" : l.kind === "-" ? "del" : "");
+  /** Ce qu'entend un lecteur d'écran avant le texte : ajout, suppression, numéro. */
+  const srPrefix = (l: DiffLine) =>
+    l.kind === "+" ? t("diff.srAdd", { n: l.new }) : l.kind === "-" ? t("diff.srDel", { n: l.old }) : t("diff.srContext", { n: l.new });
+  const code = (hi: number, x: Indexed) => (
+    <>
+      <span className="visually-hidden">{srPrefix(x.l)}</span>
+      <span className="sign" aria-hidden="true">
+        {x.l.kind === "-" ? "−" : x.l.kind}
+      </span>
+      <LineText segments={words[hi]?.get(x.i)} text={x.l.text} />
+      {x.l.noEol && (
+        <span className="no-eol" title={t("diff.noEol")}>
+          {t("diff.noEolShort")}
+        </span>
+      )}
+    </>
+  );
 
   const inline = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3} hunkActions={hunkActions} />,
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3} id={hunkId(hi)} hunkActions={hunkActions} />,
     ...h.lines.map((l, li) => {
       const changed = l.kind !== " ";
-      const cls = [kindCls(l), isSel(hi, li) ? "picked" : ""].filter(Boolean).join(" ");
+      const cls = [kindCls(l), isSel(hi, li) ? "picked" : "", isActive(hi, li) ? "active" : ""].filter(Boolean).join(" ");
       return (
-        <tr
-          key={`${hi}-${li}`}
-          className={cls || undefined}
-          onMouseDown={picker(hi, { l, i: li })}
-          aria-selected={selection && changed ? isSel(hi, li) : undefined}
-        >
-          <td className="ln">{l.old ?? ""}</td>
-          <td className="ln">{l.new ?? ""}</td>
-          <td className="code">
-            <span className="sign" aria-hidden="true">
-              {l.kind}
-            </span>
-            <LineText segments={words[hi]?.get(li)} text={l.text} />
+        <tr key={`${hi}-${li}`} role="row" className={cls || undefined} onMouseDown={picker(hi, { l, i: li })}>
+          <td className="ln" role="gridcell" aria-hidden="true">
+            {l.old ?? ""}
+          </td>
+          <td className="ln ln2" role="gridcell" aria-hidden="true">
+            {l.new ?? ""}
+          </td>
+          <td className="code" role="gridcell" id={cellId(hi, li)} aria-selected={selection && changed ? isSel(hi, li) : undefined}>
+            {code(hi, { l, i: li })}
           </td>
         </tr>
       );
@@ -194,39 +464,70 @@ export function DiffBody({ data, error, hunkActions, selection }: Props) {
   ]);
 
   const side = (hi: number, x: Indexed | undefined, which: "old" | "new") => {
-    if (!x) return [<td key={`${which}-ln`} className="ln empty" />, <td key={`${which}-code`} className="code empty" />];
+    if (!x)
+      return [
+        <td key={`${which}-ln`} className="ln empty" role="gridcell" aria-hidden="true" />,
+        <td key={`${which}-code`} className="code empty" role="gridcell" aria-hidden="true" />,
+      ];
     const changed = x.l.kind !== " ";
-    const cls = [kindCls(x.l), isSel(hi, x.i) ? "picked" : ""].filter(Boolean).join(" ");
+    // Le contexte paraît des deux côtés : la cellule de droite est celle de la grille.
+    const owner = changed || which === "new";
+    const cls = [kindCls(x.l), isSel(hi, x.i) ? "picked" : "", owner && isActive(hi, x.i) ? "active" : ""].filter(Boolean).join(" ");
     return [
-      <td key={`${which}-ln`} className={`ln ${cls}`} onMouseDown={picker(hi, x)}>
+      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)}>
         {x.l[which] ?? ""}
       </td>,
       <td
         key={`${which}-code`}
         className={`code ${cls}`}
+        role="gridcell"
+        id={owner ? cellId(hi, x.i) : undefined}
+        aria-hidden={owner ? undefined : true}
         onMouseDown={picker(hi, x)}
         aria-selected={selection && changed ? isSel(hi, x.i) : undefined}
       >
-        <LineText segments={words[hi]?.get(x.i)} text={x.l.text} />
+        {code(hi, x)}
       </td>,
     ];
   };
 
   const split = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4} hunkActions={hunkActions} />,
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4} id={hunkId(hi)} hunkActions={hunkActions} />,
     ...splitRows(h).map((r, k) => (
-      <tr key={`${hi}-${k}`}>
+      <tr key={`${hi}-${k}`} role="row">
         {side(hi, r.left, "old")}
         {side(hi, r.right, "new")}
       </tr>
     )),
   ]);
 
-  const cls = ["diff-table", mode === "split" ? "split" : "", selection ? "selectable" : ""].filter(Boolean).join(" ");
+  const cls = ["diff-table", mode === "split" ? "split" : "", selection ? "selectable" : "", kbd ? "kbd" : ""].filter(Boolean).join(" ");
+  const grid = {
+    ref: tableRef,
+    className: cls,
+    role: "grid",
+    tabIndex: 0,
+    "aria-label": t("diff.lines"),
+    "aria-description": t(selection ? "diff.keysSelect" : "diff.keys"),
+    "aria-multiselectable": selection ? true : undefined,
+    "aria-activedescendant": activeRef ? cellId(activeRef.hunk, activeRef.line) : undefined,
+    style: { "--ln-ch": lnDigits } as React.CSSProperties,
+    onKeyDown,
+    onFocus: (e: React.FocusEvent<HTMLTableElement>) => {
+      if (e.target !== e.currentTarget) return;
+      // Arrivée par Tab : l'anneau de la ligne active tout de suite ; par un clic, non.
+      setKbd(e.currentTarget.matches(":focus-visible"));
+      if (cur >= 0 || pointerFocus.current) return;
+      // Premier passage : la première ligne modifiée.
+      const k = order.findIndex((r) => lineAt(r)?.kind !== " ");
+      setActive(Math.max(0, k));
+      anchor.current = Math.max(0, k);
+    },
+  };
   const table =
     mode === "split" ? (
       <div className="diff-split-wrap" ref={wrapRef}>
-        <table className={cls}>
+        <table {...grid}>
           <colgroup>
             <col className="col-ln" />
             <col className="col-code" style={ratio !== undefined ? { width: `${ratio * 100}%` } : undefined} />
@@ -250,7 +551,7 @@ export function DiffBody({ data, error, hunkActions, selection }: Props) {
         />
       </div>
     ) : (
-      <table className={cls}>
+      <table {...grid}>
         <tbody>{inline}</tbody>
       </table>
     );

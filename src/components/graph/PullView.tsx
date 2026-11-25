@@ -23,7 +23,7 @@ import { PersonAvatar } from "../PersonAvatar";
 import { PullEdit } from "./PullEdit";
 import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
-import { BackButton } from "./DiffView";
+import { BackButton, DiffPath } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { useApp } from "../../store/app";
 import { checkoutPull } from "./PullsSection";
@@ -437,6 +437,7 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
   const [file, setFile] = useState<FileChange | null>(null);
   const [diff, setDiff] = useState<{ data: FileDiff | null; error: string | null } | null>(null);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const target = `${ctx.remote}/${d.targetBranch}`;
   const head = d.headSha;
 
@@ -466,14 +467,14 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
     if (!file || !head) return;
     let live = true;
     setDiff(null);
-    api.pullFileDiff(path, target, head, file.path, file.oldPath).then(
+    api.pullFileDiff(path, target, head, file.path, file.oldPath, ignoreWs).then(
       (data) => live && setDiff({ data, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, target, head, file]);
+  }, [path, target, head, file, ignoreWs]);
 
   /** Fils sur le code, par fichier. */
   const comments = useMemo(() => {
@@ -518,12 +519,12 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
           <>
             <header className="diff-head">
               <StatusBadge status={file.status} />
-              <span className="diff-path mono" onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))}>{file.path}</span>
+              <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
               {diff?.data && <DiffStats diff={diff.data} />}
               <DiffViewToggle />
             </header>
             <div className="diff-body">
-              <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} />
+              <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
             </div>
           </>
         ) : (

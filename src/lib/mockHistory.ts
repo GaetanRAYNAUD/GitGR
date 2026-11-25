@@ -2,6 +2,7 @@
 // Déterministe : un même chemin de dépôt donne toujours le même historique.
 
 import type { Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
+import { hunkItems } from "./wordDiff";
 
 /** Petit générateur pseudo-aléatoire déterministe (mulberry32). */
 function rng(seed: number) {
@@ -179,6 +180,17 @@ export function mockDiff(sha: string, file: string): FileDiff {
           { kind: " ", old: start + 5, new: start + 6, text: "}" },
         ],
       },
+      // Espaces seuls (disparaît avec « Ignorer les espaces »), ligne longue, fin sans retour.
+      {
+        header: `@@ -${start + 40},4 +${start + 41},4 @@ export const LIMITES`,
+        lines: [
+          { kind: " ", old: start + 40, new: start + 41, text: "export const LIMITES = {" },
+          { kind: "-", old: start + 41, new: null, text: "  pageSize: 200," },
+          { kind: "+", old: null, new: start + 42, text: "    pageSize:   200," },
+          { kind: " ", old: start + 42, new: start + 43, text: `  message: "${"Le graphe se charge par pages de deux cents commits, la suite arrive au défilement. ".repeat(3).trim()}",` },
+          { kind: " ", old: start + 43, new: start + 44, text: "};", noEol: true },
+        ],
+      },
     ],
   };
 }
@@ -230,4 +242,31 @@ export function mockHeadMessage(path: string): string {
 export function resetMockHistory() {
   cache.clear();
   mockMessages.clear();
+}
+
+/** « Ignorer les espaces » du backend simulé : une suppression et l'ajout apparié qui ne
+ *  diffèrent que par les espaces deviennent une ligne de contexte ; un bloc sans changement
+ *  restant disparaît. Proche de `git diff -w`, sans recalcul des en-têtes. */
+export function mockIgnoreWs(d: FileDiff, ignoreWs?: boolean): FileDiff {
+  if (!ignoreWs) return d;
+  const squash = (s: string) => s.replace(/\s+/g, "");
+  const hunks = d.hunks
+    .map((h) => {
+      const lines: typeof h.lines = [];
+      for (const item of hunkItems(h)) {
+        if ("context" in item) {
+          lines.push(h.lines[item.context]);
+          continue;
+        }
+        const same = item.dels.length === item.adds.length && item.dels.every((di, k) => squash(h.lines[di].text) === squash(h.lines[item.adds[k]].text));
+        if (same) {
+          item.adds.forEach((ai, k) => lines.push({ ...h.lines[ai], kind: " ", old: h.lines[item.dels[k]].old }));
+        } else {
+          for (const i of [...item.dels, ...item.adds]) lines.push(h.lines[i]);
+        }
+      }
+      return { ...h, lines };
+    })
+    .filter((h) => h.lines.some((l) => l.kind !== " "));
+  return { ...d, hunks, fingerprint: `${d.fingerprint}:w` };
 }

@@ -172,8 +172,8 @@ pub async fn stash_changes(path: String, sha: String) -> Result<history::StashCh
 }
 
 #[tauri::command]
-pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
-    history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref()).map_err(classify)
+pub async fn range_diff(path: String, base: String, tip: String, file: String, old_file: Option<String>, ignore_ws: Option<bool>) -> Result<FileDiff, String> {
+    history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref(), ignore_ws.unwrap_or(false)).map_err(classify)
 }
 
 #[tauri::command]
@@ -231,8 +231,9 @@ pub async fn commit_diff(
     sha: String,
     file: String,
     old_file: Option<String>,
+    ignore_ws: Option<bool>,
 ) -> Result<FileDiff, String> {
-    history::diff(Path::new(&path), &sha, &file, old_file.as_deref()).map_err(classify)
+    history::diff(Path::new(&path), &sha, &file, old_file.as_deref(), ignore_ws.unwrap_or(false)).map_err(classify)
 }
 
 // --- Copie de travail ------------------------------------------------------
@@ -244,8 +245,8 @@ pub async fn work_status(path: String) -> Result<WorkStatus, String> {
 
 /// `area` : "unstaged" | "staged" | "untracked" | "conflicted".
 #[tauri::command]
-pub async fn work_diff(path: String, file: String, old_file: Option<String>, area: String) -> Result<FileDiff, String> {
-    worktree::file_diff(Path::new(&path), &file, old_file.as_deref(), &area).map_err(classify)
+pub async fn work_diff(path: String, file: String, old_file: Option<String>, area: String, ignore_ws: Option<bool>) -> Result<FileDiff, String> {
+    worktree::file_diff(Path::new(&path), &file, old_file.as_deref(), &area, ignore_ws.unwrap_or(false)).map_err(classify)
 }
 
 #[tauri::command]
@@ -1018,8 +1019,8 @@ pub async fn pull_files(path: String, target: String, head: String) -> Result<Ve
 }
 
 #[tauri::command]
-pub async fn pull_file_diff(path: String, target: String, head: String, file: String, old_file: Option<String>) -> Result<FileDiff, String> {
-    crate::pull_view::file_diff(Path::new(&path), &target, &head, &file, old_file.as_deref())
+pub async fn pull_file_diff(path: String, target: String, head: String, file: String, old_file: Option<String>, ignore_ws: Option<bool>) -> Result<FileDiff, String> {
+    crate::pull_view::file_diff(Path::new(&path), &target, &head, &file, old_file.as_deref(), ignore_ws.unwrap_or(false))
 }
 
 /// Passe sur la branche d'une PR / MR (créée au besoin) ; renvoie le nom de la branche locale.

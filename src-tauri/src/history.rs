@@ -545,6 +545,9 @@ pub struct DiffLine {
     pub old: Option<u32>,
     pub new: Option<u32>,
     pub text: String,
+    /// Dernière ligne du fichier, sans fin de ligne (« \ No newline at end of file »).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub no_eol: bool,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -567,7 +570,7 @@ pub struct FileDiff {
 }
 
 /// Diff d'un fichier entre `sha` et son premier parent (ou l'arbre vide).
-pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>) -> Result<FileDiff, String> {
+pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>, ignore_ws: bool) -> Result<FileDiff, String> {
     check_dir(path)?;
     check_sha(sha)?;
     let parent = run(Some(path), &["rev-parse", "-q", "--verify", &format!("{sha}^1")]).ok();
@@ -577,7 +580,9 @@ pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>) -> Resul
     let base = parent.as_deref().unwrap_or(EMPTY_TREE);
     // `--literal-pathspecs` : un nom de fichier contenant `*`, `?`, `[` ou commençant par `:`
     // désigne ce fichier, pas un motif.
-    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3", base, sha, "--"];
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3"];
+    push_ws(&mut args, ignore_ws);
+    args.extend([base, sha, "--"]);
     if let Some(old) = old_file {
         args.push(old);
     }
@@ -670,16 +675,25 @@ pub fn compare_files(path: &Path, base: &str, tip: &str) -> Result<Vec<FileChang
 }
 
 /// Diff d'un fichier entre deux commits (diff cumulé d'une plage).
-pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>) -> Result<FileDiff, String> {
+pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>, ignore_ws: bool) -> Result<FileDiff, String> {
     check_dir(path)?;
     check_sha(base)?;
     check_sha(tip)?;
-    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3", base, tip, "--"];
+    let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3"];
+    push_ws(&mut args, ignore_ws);
+    args.extend([base, tip, "--"]);
     if let Some(old) = old_file {
         args.push(old);
     }
     args.push(file);
     Ok(parse_diff(&run_raw(Some(path), &args)?))
+}
+
+/// « Ignorer les espaces » : `--ignore-all-space` (`-w`).
+pub(crate) fn push_ws(args: &mut Vec<&str>, ignore_ws: bool) {
+    if ignore_ws {
+        args.push("--ignore-all-space");
+    }
 }
 
 /// Empreinte stable d'un texte (pour détecter qu'un diff a changé).
@@ -719,7 +733,13 @@ pub(crate) fn parse_diff(out: &str) -> FileDiff {
             Some('+') => ("+", &line[1..]),
             Some('-') => ("-", &line[1..]),
             Some(' ') => (" ", &line[1..]),
-            Some('\\') => continue, // « \ No newline at end of file »
+            Some('\\') => {
+                // « \ No newline at end of file » : porte sur la ligne qui précède.
+                if let Some(last) = hunk.lines.last_mut() {
+                    last.no_eol = true;
+                }
+                continue;
+            }
             None => (" ", ""),
             _ => continue,
         };
@@ -734,7 +754,7 @@ pub(crate) fn parse_diff(out: &str) -> FileDiff {
         if kind != "-" {
             new += 1;
         }
-        hunk.lines.push(DiffLine { kind: kind.into(), old: o, new: n, text: text.into() });
+        hunk.lines.push(DiffLine { kind: kind.into(), old: o, new: n, text: text.into(), no_eol: false });
         count += 1;
     }
     d
@@ -850,7 +870,7 @@ mod tests {
         let c = stash_changes(p, &sha).unwrap();
         assert_eq!(c.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), ["a.txt"]);
         assert_eq!(c.untracked_files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect::<Vec<_>>(), [("A", "neuf.txt")]);
-        let d = range_diff(p, EMPTY_TREE, c.untracked.as_deref().unwrap(), "neuf.txt", None).unwrap();
+        let d = range_diff(p, EMPTY_TREE, c.untracked.as_deref().unwrap(), "neuf.txt", None, false).unwrap();
         assert_eq!(d.hunks.len(), 1);
     }
 
@@ -870,7 +890,7 @@ mod tests {
         assert_eq!(push.tip, git(p, &["rev-parse", "HEAD"]));
         let files: Vec<_> = push.files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect();
         assert_eq!(files, vec![("M", "a.txt"), ("A", "b.txt")]);
-        let d = range_diff(p, &push.base, &push.tip, "a.txt", None).unwrap();
+        let d = range_diff(p, &push.base, &push.tip, "a.txt", None, false).unwrap();
         assert_eq!(d.hunks.len(), 1);
 
         let pull = range_changes(p, "pull").unwrap();
@@ -878,7 +898,7 @@ mod tests {
 
         git(p, &["branch", "--unset-upstream"]);
         assert_eq!(range_changes(p, "push").unwrap_err(), "no_upstream");
-        assert_eq!(range_diff(p, "--x", "HEAD", "a.txt", None).unwrap_err(), "invalid_sha");
+        assert_eq!(range_diff(p, "--x", "HEAD", "a.txt", None, false).unwrap_err(), "invalid_sha");
     }
 
     #[test]
@@ -932,6 +952,9 @@ mod tests {
         assert_eq!((l[2].kind.as_str(), l[2].old, l[2].new), ("+", None, Some(3)));
         assert_eq!((l[3].old, l[3].new), (Some(4), Some(4)));
         assert_eq!(d.hunks[1].lines[1].new, Some(11));
+        // « \ No newline » marque la ligne d'avant, et elle seule.
+        assert!(l[3].no_eol);
+        assert!(!l[2].no_eol && !d.hunks[1].lines[1].no_eol);
     }
 
     #[test]
@@ -1040,7 +1063,7 @@ mod tests {
         let st: Vec<_> = d.files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect();
         assert_eq!(st, vec![("M", "a.txt"), ("A", "b.txt")]);
 
-        let fd = diff(p, &sha, "a.txt", None).unwrap();
+        let fd = diff(p, &sha, "a.txt", None, false).unwrap();
         let changed: Vec<_> = fd.hunks[0]
             .lines
             .iter()
@@ -1052,7 +1075,7 @@ mod tests {
         // Commit racine : tout est ajouté, comparé à l'arbre vide.
         let r = details(p, &root).unwrap();
         assert_eq!(r.files[0].status, "A");
-        let rd = diff(p, &root, "a.txt", None).unwrap();
+        let rd = diff(p, &root, "a.txt", None, false).unwrap();
         assert_eq!(rd.hunks[0].lines.len(), 3);
         assert!(rd.hunks[0].lines.iter().all(|l| l.kind == "+"));
     }
@@ -1073,7 +1096,7 @@ mod tests {
         assert_eq!(d.files[0].status, "R");
         assert_eq!(d.files[0].old_path.as_deref(), Some("ancien.txt"));
 
-        let fd = diff(p, &sha, "nouveau.txt", Some("ancien.txt")).unwrap();
+        let fd = diff(p, &sha, "nouveau.txt", Some("ancien.txt"), false).unwrap();
         let changed: Vec<_> = fd.hunks[0].lines.iter().filter(|l| l.kind != " ").collect();
         assert_eq!(changed.len(), 2, "seule la ligne modifiée apparaît, pas tout le fichier");
     }
@@ -1090,7 +1113,7 @@ mod tests {
         git(p, &["add", "."]);
         git(p, &["commit", "-q", "-m", "deux fichiers"]);
         let sha = git(p, &["rev-parse", "HEAD"]);
-        let fd = diff(p, &sha, "[ab].txt", None).unwrap();
+        let fd = diff(p, &sha, "[ab].txt", None, false).unwrap();
         assert_eq!(fd.hunks.len(), 1, "seul [ab].txt, pas a.txt (que le motif [ab] désignerait)");
     }
 

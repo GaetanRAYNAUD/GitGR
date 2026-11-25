@@ -309,7 +309,8 @@ test("créer une merge request de la branche courante : cible par défaut lue su
     await expect(view.locator(".pull-file-list .file-row")).toHaveCount(1);
     await expect(view.locator(".pull-file-list .file-row")).toContainText("b.txt");
     await view.locator(".pull-file-list .file-row").click();
-    await expect(view.locator(".pull-file-diff .diff-stats")).toHaveText("+1−0");
+    // Pas de « −0 » ; le libellé masqué est lu par les lecteurs d’écran.
+    await expect(view.locator(".pull-file-diff .diff-stats")).toHaveText("1 ligne ajoutée+1");
     // Commentaire envoyé sur l'instance, puis relu.
     await view.getByRole("tab", { name: "Discussion" }).click();
     await view.getByRole("textbox", { name: "Commenter" }).fill("Prête pour relecture");

@@ -15,6 +15,44 @@ test.beforeEach(async ({ page }) => {
   await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
 });
 
+test("diff indexable au clavier : grille, Espace, Entrée, Échap en deux temps", async ({ page }) => {
+  const list = unstaged(page);
+  await list.getByText("render.ts").click();
+  const diff = page.getByRole("region", { name: "Diff de src/graph/render.ts" });
+  const grid = diff.getByRole("grid", { name: "Lignes du diff" });
+  // Les boutons des blocs ne sont pas des arrêts de tabulation.
+  await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toHaveAttribute("tabindex", "-1");
+  await grid.focus();
+  // Première ligne modifiée, puis la suivante ; Espace les choisit.
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(page.getByText("2 lignes sélectionnées")).toBeVisible();
+  await expect(grid.locator('[aria-selected="true"]')).toHaveCount(2);
+  // Échap : la sélection d'abord, la vue ensuite ; le focus revient au fichier.
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("2 lignes sélectionnées")).toHaveCount(0);
+  await expect(diff).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(diff).toHaveCount(0);
+  await expect(list.getByRole("option", { name: /render\.ts/ })).toBeFocused();
+  // Entrée sur une ligne : son bloc entier est indexé.
+  await page.keyboard.press("Enter");
+  await grid.focus();
+  await page.keyboard.press("Enter");
+  await expect(staged(page)).toContainText("render.ts");
+});
+
+test("ignorer les espaces : bascule mémorisée, découpage indisponible", async ({ page }) => {
+  await unstaged(page).getByText("render.ts").click();
+  const diff = page.getByRole("region", { name: "Diff de src/graph/render.ts" });
+  await diff.getByRole("button", { name: "Ignorer les espaces" }).click();
+  await expect(diff.getByRole("button", { name: "Ignorer les espaces" })).toHaveAttribute("aria-pressed", "true");
+  await expect(diff).toContainText("Espaces ignorés");
+  await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toHaveCount(0);
+  await diff.getByRole("button", { name: "Afficher les espaces" }).click();
+  await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toBeVisible();
+});
+
 test("la ligne « en cours » est sélectionnée d'office et liste les fichiers", async ({ page }) => {
   await expect(graph(page).getByRole("option", { selected: true })).toContainText("Modifications en cours — 4 fichiers");
   await expect(panel(page)).toContainText("sur main · 4 fichiers");
@@ -62,10 +100,10 @@ test("indexer / retirer des fichiers et tout indexer", async ({ page }) => {
 });
 
 test("tout annuler (avec confirmation) nettoie la copie de travail", async ({ page }) => {
-  await panel(page).getByRole("button", { name: "Tout annuler" }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Annuler toutes les modifications ?" });
+  await panel(page).getByRole("button", { name: "Tout abandonner" }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Abandonner toutes les modifications ?" });
   await expect(dialog).toContainText("irréversible");
-  await dialog.getByRole("button", { name: "Tout annuler" }).click();
+  await dialog.getByRole("button", { name: "Tout abandonner" }).click();
 
   // Plus rien en cours : la ligne disparaît et le commit courant est sélectionné.
   await expect(graph(page).getByRole("option").first()).not.toContainText("Modifications en cours");
@@ -150,7 +188,7 @@ test("sélection multiple : Ctrl+clic puis clic droit, les actions portent sur t
   await expect(unstaged(page).locator(".file-row.picked")).toHaveCount(2);
   await unstaged(page).locator(".file-row", { hasText: "notes.txt" }).click({ button: "right" });
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: "Annuler les modifications de 2 fichiers…" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Abandonner les modifications de 2 fichiers…" })).toBeVisible();
   await menu.getByRole("menuitem", { name: "Indexer 2 fichiers" }).click();
   await expect(staged(page)).toContainText("render.ts");
   await expect(staged(page)).toContainText("notes.txt");

@@ -157,7 +157,7 @@ export const useWork = create<WorkStore>((set, get) => {
       patch(path, { diff: open });
       let next: WorkDiff;
       try {
-        next = { file, area, data: await api.workDiff(path, file.path, file.oldPath, area) };
+        next = { file, area, data: await api.workDiff(path, file.path, file.oldPath, area, !!useApp.getState().settings.diffIgnoreWs) };
       } catch (e) {
         next = { file, area, error: errorCode(e) };
       }
