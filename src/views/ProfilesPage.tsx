@@ -4,7 +4,7 @@
 // courte pause pendant la frappe) dès que le profil est complet ; un profil incomplet attend,
 // avec ses champs à compléter signalés.
 
-import { type Ref, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type Ref, useEffect, useRef, useState } from "react";
 import { AccountDialog } from "../components/AccountDialog";
 import { ColorChoice } from "../components/ColorChoice";
 import { useTranslation } from "react-i18next";
@@ -87,6 +87,20 @@ function Avatar({ profile, size }: { profile: Profile; size?: "lg" }) {
 /** Champs vérifiés : leur erreur s'affiche une fois le champ quitté (ou tous, à la demande). */
 type FieldId = "name" | "user" | "email" | "signKey";
 
+type IconName = Parameters<typeof Icon>[0]["name"];
+
+/** Sous-pages d'un profil (sous-menu à droite de la liste) : libellé court du menu, titre de
+ *  la page. La sélection automatique et les dépôts associés vont ensemble. */
+const PROFILE_SECTIONS = [
+  { id: "identity", label: "profiles.navIdentity", title: "profiles.identity", icon: "user" },
+  { id: "ssh", label: "profiles.navSsh", title: "profiles.ssh", icon: "key" },
+  { id: "signing", label: "profiles.navSigning", title: "profiles.signing", icon: "lock" },
+  { id: "repos", label: "profiles.navRepos", title: "profiles.navReposTitle", icon: "folder" },
+  { id: "accounts", label: "profiles.navAccounts", title: "profiles.accounts", icon: "link" },
+] as const satisfies readonly { id: string; label: string; title: string; icon: IconName }[];
+
+type ProfileSection = (typeof PROFILE_SECTIONS)[number]["id"];
+
 /** Pause après la dernière frappe avant l'enregistrement automatique. */
 const SAVE_DELAY = 500;
 
@@ -120,6 +134,15 @@ export function ProfilesPage() {
     return p ? { ...p } : null;
   });
   const [touched, setTouched] = useState<ReadonlySet<FieldId>>(new Set());
+  /** Sous-page affichée ; gardée d'un profil à l'autre et d'une ouverture à l'autre (création :
+   *  l'identité). */
+  const [section, setSectionState] = useState<ProfileSection>(() =>
+    useProfiles.getState().pageSelect === "new" ? "identity" : (PROFILE_SECTIONS.find((x) => x.id === useProfiles.getState().pageSection)?.id ?? "identity"),
+  );
+  const setSection = (id: ProfileSection) => {
+    setSectionState(id);
+    useProfiles.setState({ pageSection: id });
+  };
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [newRule, setNewRule] = useState("");
   const [keyReload, setKeyReload] = useState(0);
@@ -191,8 +214,15 @@ export function ProfilesPage() {
     if (isNew) nameInput.current?.focus();
   }, [draftId]);
 
-  /** Signale tous les champs à compléter et amène le focus au premier. */
+  /** Nouveau profil, sur la sous-page de l'identité (le focus va au nom). */
+  const createNew = () => {
+    setSection("identity");
+    setDraft(blank());
+  };
+
+  /** Signale tous les champs à compléter et amène le focus au premier (sur sa sous-page). */
   const reveal = () => {
+    if (draft) setSection(!draft.name.trim() || !draft.userName.trim() || !validEmail(draft.userEmail) ? "identity" : "signing");
     setTouched(new Set<FieldId>(["name", "user", "email", "signKey"]));
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.pf-form [aria-invalid="true"]')?.focus());
   };
@@ -394,7 +424,7 @@ export function ProfilesPage() {
       <input
         id={id}
         ref={opts.ref}
-        className="pf-input pf-input-md"
+        className="pf-input"
         type={opts.type ?? "text"}
         value={value}
         placeholder={opts.placeholder}
@@ -451,6 +481,22 @@ export function ProfilesPage() {
       </span>
     );
 
+  /** Sous-page du profil, avec ce qu'elle contient (le nombre de dépôts et de comptes). */
+  const sectionCount = (id: ProfileSection) =>
+    id === "repos" ? linked.length || undefined : id === "accounts" ? draft?.accounts?.length || undefined : undefined;
+
+  /** Flèches haut / bas, Début / Fin dans le sous-menu : sous-page précédente / suivante. */
+  const onSectionKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const i = PROFILE_SECTIONS.findIndex((s) => s.id === section);
+    const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: PROFILE_SECTIONS.length - 1 }[e.key];
+    if (next === undefined || next < 0 || next >= PROFILE_SECTIONS.length) return;
+    e.preventDefault();
+    setSection(PROFILE_SECTIONS[next].id);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".pf-subnav .st-nav-item.on")?.focus());
+  };
+
+  const sectionTitle = (id: ProfileSection) => t(PROFILE_SECTIONS.find((s) => s.id === id)!.title);
+
   return (
     <div className="profiles-page">
       <aside className="pf-list" aria-label={t("profiles.title")}>
@@ -489,12 +535,35 @@ export function ProfilesPage() {
             </span>
           </button>
         )}
-        <button type="button" className="btn pf-new" onClick={() => leave(() => setDraft(blank()))}>
+        <button type="button" className="btn pf-new" onClick={() => leave(() => createNew())}>
           <Icon name="plus" size={15} />
           {t("profiles.new")}
         </button>
         {draft && profiles.length <= 1 && <p className="pf-hint">{t("profiles.hint")}</p>}
       </aside>
+
+      {draft && (
+        <nav className="pf-subnav" aria-label={t("profiles.sections")}>
+          {PROFILE_SECTIONS.map((s) => {
+            const count = sectionCount(s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={section === s.id ? "st-nav-item on" : "st-nav-item"}
+                aria-current={section === s.id ? "page" : undefined}
+                aria-controls="pf-page"
+                onClick={() => setSection(s.id)}
+                onKeyDown={onSectionKey}
+              >
+                <Icon name={s.icon} size={15} />
+                <span className="st-nav-label">{t(s.label)}</span>
+                {count !== undefined && <span className="st-nav-count">{count}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       <section className="pf-editor">
         {!draft ? (
@@ -502,100 +571,101 @@ export function ProfilesPage() {
             <Icon name="user" size={28} />
             <p>{t("profiles.empty")}</p>
             <p className="muted">{t("profiles.hint")}</p>
-            <button className="btn primary" onClick={() => setDraft(blank())}>
+            <button className="btn primary" onClick={createNew}>
               <Icon name="plus" size={15} />
               {t("profiles.new")}
             </button>
           </div>
         ) : (
-          <>
-            <div className="pf-sheet">
-                <header className="pf-head">
-                  <label className="pf-image" title={`${t("profiles.imagePick")}\n${t("profiles.imageHint")}`}>
-                    <Avatar profile={draft} size="lg" />
-                    <span className="pf-image-edit" aria-hidden="true">
-                      <Icon name="image" size={13} />
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-                      className="visually-hidden"
-                      aria-label={t("profiles.imagePick")}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (file) pickImage(file);
-                      }}
-                    />
-                  </label>
-                  <div className="pf-head-text">
-                    <h2>{draft.name.trim() || t("profiles.newName")}</h2>
-                    <div className="pf-head-sub">
-                      <span role="status">{status}</span>
-                      {draft.image && (
-                        <button type="button" className="link pf-image-remove" onClick={() => patch({ image: null })}>
-                          {t("profiles.imageRemove")}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={isNew || !complete}
-                    onClick={() =>
-                      leave(() =>
-                        setDraft({ ...cleaned(draft), id: newProfileId(), name: t("profiles.copyName", { name: draft.name.trim() }), color: nextColor(profiles) }),
-                      )
-                    }
-                  >
-                    <Icon name="copy" size={15} />
-                    {t("profiles.duplicate")}
-                  </button>
-                  <button type="button" className="btn danger-text" onClick={remove}>
-                    <Icon name="trash" size={15} />
-                    {t("profiles.delete")}
-                  </button>
-                </header>
-
-              {/* Deux colonnes quand la place le permet : l'identité, la clé et la signature à
-                  gauche ; la sélection automatique, les comptes et les dépôts à droite. */}
-              <div className="pf-cols">
-                <form
-                  className="pf-form pf-col"
-                  // Nos propres messages, pas la bulle du navigateur.
-                  noValidate
-                  aria-label={draft.name.trim() || t("profiles.newName")}
-                  onSubmit={(e) => {
-                    // Entrée dans un champ : enregistre tout de suite (ou signale ce qui manque).
-                    e.preventDefault();
-                    if (complete) void persist(draft);
-                    else reveal();
+          <div className="pf-sheet">
+            <header className="pf-head">
+              <label className="pf-image" title={`${t("profiles.imagePick")}\n${t("profiles.imageHint")}`}>
+                <Avatar profile={draft} size="lg" />
+                <span className="pf-image-edit" aria-hidden="true">
+                  <Icon name="image" size={13} />
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                  className="visually-hidden"
+                  aria-label={t("profiles.imagePick")}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) pickImage(file);
                   }}
-                >
+                />
+              </label>
+              <div className="pf-head-text">
+                <h2>{draft.name.trim() || t("profiles.newName")}</h2>
+                <div className="pf-head-sub">
+                  <span role="status">{status}</span>
+                  {draft.image && (
+                    <button type="button" className="link pf-image-remove" onClick={() => patch({ image: null })}>
+                      {t("profiles.imageRemove")}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={isNew || !complete}
+                onClick={() =>
+                  leave(() => {
+                    // La copie s'ouvre sur l'identité, pour la renommer (le focus va au nom).
+                    setSection("identity");
+                    setDraft({ ...cleaned(draft), id: newProfileId(), name: t("profiles.copyName", { name: draft.name.trim() }), color: nextColor(profiles) });
+                  })
+                }
+              >
+                <Icon name="copy" size={15} />
+                {t("profiles.duplicate")}
+              </button>
+              <button type="button" className="btn danger-text" onClick={remove}>
+                <Icon name="trash" size={15} />
+                {t("profiles.delete")}
+              </button>
+            </header>
 
-                  <section className="st-sec" aria-labelledby="pf-identity">
-                    <h3 id="pf-identity" className="eyebrow">
-                      {t("profiles.identity")}
-                    </h3>
-                    <p className="pf-note">{t("profiles.identityHint")}</p>
-                    {field("pf-name", "name", t("profiles.name"), draft.name, (name) => patch({ name }), nameError, {
-                      placeholder: t("profiles.namePlaceholder"),
-                      ref: nameInput,
-                    })}
-                    {field("pf-user", "user", t("profiles.userName"), draft.userName, (userName) => patch({ userName }), userError)}
-                    {field("pf-email", "email", t("profiles.userEmail"), draft.userEmail, (userEmail) => patch({ userEmail }), emailError, { type: "email" })}
-                    <Row id="pf-color" title={t("profiles.color")}>
-                      <ColorChoice value={draft.color} label={t("profiles.color")} onChange={(color) => color !== undefined && patch({ color })} />
-                    </Row>
-                  </section>
+            <form
+              id="pf-page"
+              className="pf-form st-page"
+              // Nos propres messages, pas la bulle du navigateur.
+              noValidate
+              aria-labelledby="pf-page-title"
+              onSubmit={(e) => {
+                // Entrée dans un champ : enregistre tout de suite (ou signale ce qui manque).
+                e.preventDefault();
+                if (complete) void persist(draft);
+                else reveal();
+              }}
+            >
+              <h3 id="pf-page-title" className="st-page-title">
+                {sectionTitle(section)}
+              </h3>
 
-                  <section className="st-sec" aria-labelledby="pf-ssh">
-                    <h3 id="pf-ssh" className="eyebrow">
-                      {t("profiles.ssh")}
-                    </h3>
-                    <Row id="pf-key-label" htmlFor="pf-key" title={t("profiles.sshKey")}>
-                      <div className="pf-row">
+              {section === "identity" && (
+                <>
+                  <p className="pf-note">{t("profiles.identityHint")}</p>
+                  {field("pf-name", "name", t("profiles.name"), draft.name, (name) => patch({ name }), nameError, {
+                    placeholder: t("profiles.namePlaceholder"),
+                    ref: nameInput,
+                  })}
+                  {field("pf-user", "user", t("profiles.userName"), draft.userName, (userName) => patch({ userName }), userError)}
+                  {field("pf-email", "email", t("profiles.userEmail"), draft.userEmail, (userEmail) => patch({ userEmail }), emailError, { type: "email" })}
+                  <Row id="pf-color" title={t("profiles.color")}>
+                    <ColorChoice value={draft.color} label={t("profiles.color")} onChange={(color) => color !== undefined && patch({ color })} />
+                  </Row>
+                </>
+              )}
+
+              {section === "ssh" && (
+                <>
+                  <p className="pf-note">{t("profiles.sshHint")}</p>
+                  <Row id="pf-key-label" htmlFor="pf-key" title={t("profiles.sshKey")}>
+                    <div className="pf-row">
+                      <div className="pf-input-wrap">
                         <input
                           id="pf-key"
                           className="pf-input mono"
@@ -605,48 +675,55 @@ export function ProfilesPage() {
                           spellCheck={false}
                           autoComplete="off"
                         />
-                        <button type="button" className="btn" onClick={browse}>
-                          {t("profiles.browse")}
-                        </button>
-                      </div>
-                      <KeyStatus state={keyState} onPassphrase={(store) => storePassphrase(draft.sshKey, store)} />
-                      <div className="pf-actions">
-                        <button type="button" className="btn" onClick={generate}>
-                          <Icon name="key" size={15} />
-                          {t("profiles.generate")}
-                        </button>
-                        {keyState.status === "ok" && keyState.info.publicKey && (
-                          <button type="button" className="btn" onClick={() => copyPublic(keyState.info.publicKey!)}>
-                            <Icon name="copy" size={15} />
-                            {t("profiles.copyPublic")}
-                          </button>
-                        )}
                         {draft.sshKey && (
-                          <button type="button" className="btn" onClick={() => patch({ sshKey: null })}>
-                            {t("profiles.clearKey")}
+                          <button
+                            type="button"
+                            className="icon-btn pf-input-clear"
+                            aria-label={t("profiles.clearKey")}
+                            title={t("profiles.clearKey")}
+                            onClick={() => patch({ sshKey: null })}
+                          >
+                            <Icon name="close" size={14} />
                           </button>
                         )}
                       </div>
-                    </Row>
-                  </section>
+                      <button type="button" className="btn" onClick={browse}>
+                        {t("profiles.browse")}
+                      </button>
+                    </div>
+                    <KeyStatus
+                      state={keyState}
+                      onPassphrase={(store) => storePassphrase(draft.sshKey, store)}
+                      onCopy={keyState.status === "ok" && keyState.info.publicKey ? () => copyPublic(keyState.info.publicKey!) : undefined}
+                    />
+                  </Row>
+                  <Row id="pf-gen" title={t("profiles.generateRow")} help={t("profiles.generateHelp")}>
+                    <button type="button" className="btn" onClick={generate}>
+                      <Icon name="key" size={15} />
+                      {t("profiles.generate")}
+                    </button>
+                  </Row>
+                </>
+              )}
 
-                  <SigningSection
-                    draft={draft}
-                    patch={patch}
-                    showError={shown("signKey")}
-                    onBlurKey={() => touchOnBlur("signKey")}
-                    home={home}
-                    keyReload={keyReload}
-                    onPassphrase={storePassphrase}
-                  />
-                </form>
+              {section === "signing" && (
+                <SigningSection
+                  draft={draft}
+                  patch={patch}
+                  showError={shown("signKey")}
+                  onBlurKey={() => touchOnBlur("signKey")}
+                  home={home}
+                  keyReload={keyReload}
+                  onPassphrase={storePassphrase}
+                />
+              )}
 
-                {/* Règles, comptes et dépôts : écrits par leurs propres actions, hors du formulaire. */}
-                <div className="pf-col">
-                  <section className="st-sec" aria-labelledby="pf-rules">
-                    <h3 id="pf-rules" className="eyebrow">
+              {section === "repos" && (
+                <>
+                  <section className="pf-block" aria-labelledby="pf-rules">
+                    <h4 id="pf-rules" className="eyebrow">
                       {t("profiles.rules")}
-                    </h3>
+                    </h4>
                     <p className="pf-note">{t("profiles.rulesHint")}</p>
                     {draft.rules.length > 0 && (
                       <ul className="pf-rules">
@@ -707,44 +784,12 @@ export function ProfilesPage() {
                     </p>
                     {newRule.trim() && <p className="pf-note">{t("profiles.ruleHitsNew", { count: ruleRepos(newRule.trim()).length })}</p>}
                   </section>
-                  <section className="st-sec" aria-labelledby="pf-accounts">
-                    <h3 id="pf-accounts" className="eyebrow">
-                      {t("profiles.accounts")}
-                    </h3>
-                    <p className="pf-note">{t("profiles.accountsHint")}</p>
-                    {isNew ? (
-                      <p className="pf-note">{t("profiles.accountsNew")}</p>
-                    ) : (
-                      <>
-                        <AccountList
-                          profileId={draft.id}
-                          keysChanged={
-                            // Comparées comme elles seront enregistrées : vide = aucune.
-                            !!saved &&
-                            ((saved.sshKey?.trim() || null) !== (draft.sshKey?.trim() || null) ||
-                              (saved.signing ?? "") !== (draft.signing ?? "") ||
-                              (saved.signingKey?.trim() || null) !== (draft.signingKey?.trim() || null))
-                          }
-                          accounts={draft.accounts ?? []}
-                          reload={accountReload}
-                          onReconnect={(initial) => setAccountDialog({ initial })}
-                          onDisconnect={disconnect}
-                        />
-                        <div className="pf-actions">
-                          <button type="button" className="btn" onClick={() => setAccountDialog({ initial: null })}>
-                            <Icon name="link" size={15} />
-                            {t("profiles.accountConnect")}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </section>
 
                   {!isNew && (
-                    <section className="st-sec" aria-labelledby="pf-repos">
-                      <h3 id="pf-repos" className="eyebrow">
+                    <section className="pf-block" aria-labelledby="pf-repos">
+                      <h4 id="pf-repos" className="eyebrow">
                         {t("profiles.repos")}
-                      </h3>
+                      </h4>
                       {linked.length === 0 ? (
                         <p className="pf-note">{t("profiles.reposEmpty")}</p>
                       ) : (
@@ -776,16 +821,49 @@ export function ProfilesPage() {
                       )}
                     </section>
                   )}
+                </>
+              )}
+
+              {section === "accounts" && (
+                <div className="pf-block">
+                  <p className="pf-note">{t("profiles.accountsHint")}</p>
+                  {isNew ? (
+                    <p className="pf-note">{t("profiles.accountsNew")}</p>
+                  ) : (
+                    <>
+                      <AccountList
+                        profileId={draft.id}
+                        keysChanged={
+                          // Comparées comme elles seront enregistrées : vide = aucune.
+                          !!saved &&
+                          ((saved.sshKey?.trim() || null) !== (draft.sshKey?.trim() || null) ||
+                            (saved.signing ?? "") !== (draft.signing ?? "") ||
+                            (saved.signingKey?.trim() || null) !== (draft.signingKey?.trim() || null))
+                        }
+                        accounts={draft.accounts ?? []}
+                        reload={accountReload}
+                        onReconnect={(initial) => setAccountDialog({ initial })}
+                        onDisconnect={disconnect}
+                      />
+                      <div className="pf-actions">
+                        <button type="button" className="btn" onClick={() => setAccountDialog({ initial: null })}>
+                          <Icon name="link" size={15} />
+                          {t("profiles.accountConnect")}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            </div>
-          </>
+              )}
+            </form>
+          </div>
         )}
       </section>
       {accountDialog && saved && <AccountDialog profile={saved} initial={accountDialog.initial} onClose={accountClosed} />}
     </div>
   );
 }
+
 
 type AccountState = "checking" | "ok" | { error: string };
 
@@ -939,7 +1017,7 @@ function AccountKeys({ profileId, account, keysChanged, reload }: { profileId: s
   );
 }
 
-function KeyStatus({ state, onPassphrase }: { state: KeyState; onPassphrase: (store: boolean) => void }) {
+function KeyStatus({ state, onPassphrase, onCopy }: { state: KeyState; onPassphrase: (store: boolean) => void; onCopy?: () => void }) {
   const { t } = useTranslation();
   if (state.status === "none") return <p className="pf-note">{t("profiles.sshNone")}</p>;
   if (state.status === "loading") return <p className="pf-note">{t("profiles.keyLoading")}</p>;
@@ -967,10 +1045,19 @@ function KeyStatus({ state, onPassphrase }: { state: KeyState; onPassphrase: (st
       ) : (
         !info.publicKey && <span>{t("profiles.keyNoPublic")}</span>
       )}
-      {info.encrypted && (
-        <button type="button" className="mini pf-key-action" onClick={() => onPassphrase(missing)}>
-          {missing ? t("profiles.passphraseSet") : t("profiles.passphraseForget")}
-        </button>
+      {(info.encrypted || onCopy) && (
+        <span className="pf-key-actions">
+          {onCopy && (
+            <button type="button" className="mini" onClick={onCopy}>
+              {t("profiles.copyPublic")}
+            </button>
+          )}
+          {info.encrypted && (
+            <button type="button" className="mini" onClick={() => onPassphrase(missing)}>
+              {missing ? t("profiles.passphraseSet") : t("profiles.passphraseForget")}
+            </button>
+          )}
+        </span>
       )}
     </div>
   );
@@ -1043,13 +1130,10 @@ function SigningSection({
   };
 
   return (
-    <section className="st-sec" aria-labelledby="pf-signing">
-      <h3 id="pf-signing" className="eyebrow">
-        {t("profiles.signing")}
-      </h3>
+    <>
       <Row id="pf-signing-mode" title={t("profiles.signingMode")}>
         <Segmented<SigningMode>
-          labelledBy="pf-signing"
+          labelledBy="pf-page-title"
           value={mode}
           onChange={(m) => patch({ signing: m, signingKey: m === mode ? draft.signingKey : null })}
           options={modes.map((m) => ({ value: m, label: t(`profiles.signing_${m || "config"}`), hint: t(`profiles.signingHint_${m || "config"}`) }))}
@@ -1064,7 +1148,7 @@ function SigningSection({
               {errorMessage(t, gpg.error)}
             </p>
           ) : (
-            <select id="pf-gpg" className="pf-input pf-input-md" value={chosen?.id ?? key} disabled={gpg.status === "loading"} onChange={(e) => patch({ signingKey: e.target.value || null })}>
+            <select id="pf-gpg" className="pf-input" value={chosen?.id ?? key} disabled={gpg.status === "loading"} onChange={(e) => patch({ signingKey: e.target.value || null })}>
               <option value="">{t("profiles.gpgAuto")}</option>
               {usable.map((k) => (
                 <option key={k.id} value={k.id}>
@@ -1114,6 +1198,6 @@ function SigningSection({
           )}
         </Row>
       )}
-    </section>
+    </>
   );
 }

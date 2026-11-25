@@ -26,6 +26,8 @@ interface ProfilesStore {
   pageOpen: boolean;
   /** Profil à montrer en ouvrant la page. */
   pageSelect: string | null;
+  /** Sous-page ouverte dans la page des profils (retenue jusqu'à la fermeture de l'app). */
+  pageSection?: string;
 
   load(state: AppState, home: string | null): void;
   /** Enregistre toute la liste (ajout, modification, suppression). */

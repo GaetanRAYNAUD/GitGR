@@ -14,6 +14,7 @@ test("avatars des auteurs et des remotes dans le graphe, désactivables dans les
 
   // Réglage : plus d'avatars.
   await page.getByRole("button", { name: "Réglages" }).click();
+  await page.getByRole("navigation", { name: "Sections des réglages" }).getByRole("button", { name: "Graphe" }).click();
   const box = page.getByRole("checkbox", { name: "Avatars des auteurs dans le graphe" });
   await expect(box).toBeChecked();
   await box.uncheck();

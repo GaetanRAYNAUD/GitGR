@@ -24,6 +24,8 @@ interface AppStore {
   active: string | null;
   /** Page des paramètres affichée (par-dessus l'onglet actif). */
   settingsOpen: boolean;
+  /** Section ouverte dans la page des réglages (retenue jusqu'à la fermeture de l'app). */
+  settingsSection?: string;
   settings: Settings;
   summaries: Record<string, SummaryState>;
   /** Préférences d'affichage par dépôt (absent = valeurs par défaut). */

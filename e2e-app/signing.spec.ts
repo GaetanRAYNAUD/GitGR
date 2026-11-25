@@ -55,6 +55,7 @@ test("signature GPG : clé choisie dans la page du profil", async ({ sandbox }) 
   try {
     await page.locator(".status-profile").click();
     await page.getByRole("menuitem", { name: "Gérer les profils…" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Signature" }).click();
     await page.getByRole("radiogroup", { name: "Signature des commits" }).getByRole("radio", { name: "GPG" }).click();
     // La clé du trousseau est proposée (lue par l'app avec gpg).
     await page.getByLabel("Clé GPG").selectOption(keyId);
@@ -91,7 +92,9 @@ test("signature SSH avec une clé protégée : phrase de passe fournie par GitGR
     // Phrase de passe de la clé du profil (qui sert aussi à signer), saisie dans l'app.
     await page.locator(".status-profile").click();
     await page.getByRole("menuitem", { name: "Gérer les profils…" }).click();
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Signature" }).click();
     await expect(page.locator(".profiles-page")).toContainText("Vide : la clé SSH du profil est utilisée.");
+    await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Clé SSH" }).click();
     await page.getByRole("button", { name: "Enregistrer la phrase de passe…" }).click();
     const dialog = page.getByRole("dialog", { name: "Phrase de passe de la clé" });
     await dialog.locator("input[type=password]").fill(passphrase);

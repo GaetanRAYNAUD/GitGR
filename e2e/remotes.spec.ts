@@ -25,6 +25,7 @@ async function createProfile(page: Page, name: string, rule: string) {
   await page.getByLabel("Nom du profil").fill(name);
   await page.getByLabel("Nom (user.name)").fill("Camille Dupont");
   await page.getByLabel("E-mail (user.email)").fill(`camille@${name.toLowerCase()}.fr`);
+  await page.getByRole("navigation", { name: "Sections du profil" }).getByRole("button", { name: "Dépôts" }).click();
   await page.getByLabel("Nouvelle règle").fill(rule);
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
   await expect(page.locator(".pf-head-sub")).toContainText("Enregistré");

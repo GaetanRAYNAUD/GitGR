@@ -1,8 +1,8 @@
 // Page des paramètres de l'app (bouton ⚙ de la barre de titre). Chaque changement est
-// enregistré tout de suite. Même structure que la page des profils : les sections à gauche,
-// le contenu aligné à gauche ; une ligne par réglage (libellé, contrôle, aide dessous).
+// enregistré tout de suite. Les sections à gauche, chacune sa sous-page à droite (contenu
+// aligné à gauche) ; une ligne par réglage (libellé, contrôle, aide dessous).
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BranchColorsEditor } from "../components/BranchColorsEditor";
 import { Flag } from "../components/Flag";
@@ -114,9 +114,7 @@ export function SettingsPage() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
   const close = useApp((s) => s.closeSettings);
-  const main = useRef<HTMLDivElement>(null);
-  const firstNav = useRef<HTMLButtonElement>(null);
-  const [active, setActive] = useState<SectionId>("look");
+  const [active, setActive] = useState<SectionId>(() => (SECTIONS.find((x) => x.id === useApp.getState().settingsSection)?.id ?? "look"));
 
   // Échap ferme la page, où que soit le focus (sauf dans un champ de saisie ou sous une
   // fenêtre de confirmation, qui se ferme seule).
@@ -129,35 +127,23 @@ export function SettingsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [close]);
 
-  // À l'ouverture, le focus entre dans la page (première section de la barre latérale).
-  useEffect(() => firstNav.current?.focus({ preventScroll: true }), []);
+  // À l'ouverture, le focus entre dans la page (section en cours de la barre latérale).
+  useEffect(() => document.querySelector<HTMLElement>(".st-nav-item.on")?.focus({ preventScroll: true }), []);
 
-  // Section en cours : la dernière dont le titre est passé en haut du contenu (la dernière
-  // section tout court quand on est en bas).
-  const onScroll = () => {
-    const el = main.current;
-    if (!el) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) return setActive(SECTIONS[SECTIONS.length - 1].id);
-    const top = el.getBoundingClientRect().top;
-    let cur: SectionId = SECTIONS[0].id;
-    for (const s of SECTIONS) {
-      const sec = document.getElementById(`st-sec-${s.id}`);
-      if (sec && sec.getBoundingClientRect().top - top <= 24) cur = s.id;
-    }
-    setActive(cur);
+  /** Ouvre une section ; retenue jusqu'à la fermeture de l'app. */
+  const show = (id: SectionId) => {
+    setActive(id);
+    useApp.setState({ settingsSection: id });
   };
 
-  const goTo = (id: SectionId) => {
-    const sec = document.getElementById(`st-sec-${id}`);
-    const el = main.current;
-    if (!sec || !el) return;
-    // Le focus suit (avant le défilement, qu'il interromprait), pour que Tab continue dans la
-    // section choisie.
-    document.getElementById(`st-h-${id}`)?.focus({ preventScroll: true });
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const top = el.scrollTop + sec.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
-    el.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
-    setActive(id);
+  /** Flèches haut / bas, Début / Fin dans la barre latérale : section précédente / suivante. */
+  const onNavKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const i = SECTIONS.findIndex((s) => s.id === active);
+    const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: SECTIONS.length - 1 }[e.key];
+    if (next === undefined || next < 0 || next >= SECTIONS.length) return;
+    e.preventDefault();
+    show(SECTIONS[next].id);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".st-nav-item.on")?.focus());
   };
 
   const notifOff = !!settings.notificationsOff;
@@ -171,14 +157,14 @@ export function SettingsPage() {
             <Icon name="close" size={16} />
           </button>
         </div>
-        {SECTIONS.map((s, i) => (
+        {SECTIONS.map((s) => (
           <button
             key={s.id}
-            ref={i === 0 ? firstNav : undefined}
             type="button"
             className={active === s.id ? "st-nav-item on" : "st-nav-item"}
-            aria-current={active === s.id || undefined}
-            onClick={() => goTo(s.id)}
+            aria-current={active === s.id ? "page" : undefined}
+            onClick={() => show(s.id)}
+            onKeyDown={onNavKey}
           >
             <Icon name={s.icon} size={15} />
             {t(s.label)}
@@ -186,10 +172,11 @@ export function SettingsPage() {
         ))}
       </nav>
 
-      <div className="st-main" ref={main} onScroll={onScroll}>
+      <div className="st-main">
         <div className="st-form">
-          <section id="st-sec-look" className="st-sec" aria-labelledby="st-h-look">
-            <h2 id="st-h-look" className="eyebrow" tabIndex={-1}>
+          {active === "look" && (
+          <section id="st-sec-look" className="st-page" aria-labelledby="st-h-look">
+            <h2 id="st-h-look" className="st-page-title">
               {t("settings.sectionLook")}
             </h2>
             <Row id="st-theme" title={t("settings.theme")}>
@@ -217,9 +204,11 @@ export function SettingsPage() {
               />
             </Row>
           </section>
+          )}
 
-          <section id="st-sec-git" className="st-sec" aria-labelledby="st-h-git">
-            <h2 id="st-h-git" className="eyebrow" tabIndex={-1}>
+          {active === "git" && (
+          <section id="st-sec-git" className="st-page" aria-labelledby="st-h-git">
+            <h2 id="st-h-git" className="st-page-title">
               {t("settings.sectionGit")}
             </h2>
             <Row id="st-pull" title={t("settings.pullStrategy")}>
@@ -251,9 +240,11 @@ export function SettingsPage() {
               onChange={(autoStash) => update({ autoStash })}
             />
           </section>
+          )}
 
-          <section id="st-sec-notif" className="st-sec" aria-labelledby="st-h-notif">
-            <h2 id="st-h-notif" className="eyebrow" tabIndex={-1}>
+          {active === "notif" && (
+          <section id="st-sec-notif" className="st-page" aria-labelledby="st-h-notif">
+            <h2 id="st-h-notif" className="st-page-title">
               {t("settings.sectionNotifications")}
             </h2>
             <Check
@@ -280,9 +271,11 @@ export function SettingsPage() {
               onChange={(v) => update({ systemNotificationsOff: !v })}
             />
           </section>
+          )}
 
-          <section id="st-sec-graph" className="st-sec" aria-labelledby="st-h-graph">
-            <h2 id="st-h-graph" className="eyebrow" tabIndex={-1}>
+          {active === "graph" && (
+          <section id="st-sec-graph" className="st-page" aria-labelledby="st-h-graph">
+            <h2 id="st-h-graph" className="st-page-title">
               {t("settings.sectionGraph")}
             </h2>
             <Check
@@ -301,13 +294,16 @@ export function SettingsPage() {
             />
             <BranchColorsEditor disabled={settings.branchColorsOff} />
           </section>
+          )}
 
-          <section id="st-sec-about" className="st-sec" aria-labelledby="st-h-about">
-            <h2 id="st-h-about" className="eyebrow" tabIndex={-1}>
+          {active === "about" && (
+          <section id="st-sec-about" className="st-page" aria-labelledby="st-h-about">
+            <h2 id="st-h-about" className="st-page-title">
               {t("settings.sectionAbout")}
             </h2>
             <AboutSection />
           </section>
+          )}
         </div>
       </div>
     </div>

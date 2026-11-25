@@ -71,6 +71,7 @@ test("nouvelle notification : annoncée par le système ; réglages pour la coup
   // Réglages : fréquence, notifications du système, tout couper (la cloche disparaît).
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Réglages" }).click();
+  await page.getByRole("navigation", { name: "Sections des réglages" }).getByRole("button", { name: "Notifications" }).click();
   await page.getByRole("radiogroup", { name: "Fréquence" }).getByRole("radio", { name: "Rapide" }).click();
   await page.getByRole("checkbox", { name: "Notifications du système" }).uncheck();
   await page.getByRole("checkbox", { name: "Notifications des comptes GitHub / GitLab" }).uncheck();

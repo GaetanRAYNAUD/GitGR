@@ -1173,7 +1173,17 @@
     "ruleHitsNew_one": "Cette règle désigne {{count}} de vos dépôts récents.",
     "ruleHitsNew_other": "Cette règle désigne {{count}} de vos dépôts récents.",
     "ruleExampleList": "github.com/mon-org/*|gitlab.exemple.fr|~/travail/*",
-    "discardFailedBody": "Le profil « {{name}} » n’a pas pu être enregistré : ses dernières modifications seront perdues."
+    "discardFailedBody": "Le profil « {{name}} » n’a pas pu être enregistré : ses dernières modifications seront perdues.",
+    "sections": "Sections du profil",
+    "navIdentity": "Identité",
+    "navSsh": "Clé SSH",
+    "navSigning": "Signature",
+    "navRepos": "Dépôts",
+    "navReposTitle": "Dépôts",
+    "navAccounts": "Comptes",
+    "sshHint": "Clé utilisée pour les remotes en SSH de chaque dépôt du profil ; sans clé, SSH garde sa configuration habituelle.",
+    "generateRow": "Nouvelle clé",
+    "generateHelp": "Crée une paire de clés ed25519 dans ~/.ssh et l’utilise pour ce profil."
   },
   "branchColors": {
     "fixedTitle": "Couleur fixe pour « {{name}} »",
