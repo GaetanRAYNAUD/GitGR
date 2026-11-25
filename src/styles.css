@@ -32,6 +32,8 @@
   /* Fond des contrôles pleins sur l'accent (bouton principal, badges) : un peu plus sombre en
      thème sombre, pour que le texte blanc passe le contraste AA (4.0:1 sur l'accent seul). */
   --accent-fill: color-mix(in srgb, var(--accent) 80%, var(--bg));
+  /* Fond du bouton d'une action destructive (confirmations) : même logique que accent-fill. */
+  --del-fill: color-mix(in srgb, var(--del) 62%, var(--bg));
   --link: #7fb0ff;
   --l0: #5b95ff;
   --l1: #f0913f;
@@ -54,6 +56,7 @@
 
 :root[data-theme="light"] {
   --accent-fill: var(--accent);
+  --del-fill: var(--del);
   color-scheme: light;
   /* Logo : variante claire. */
   --logo-bg: #f4f6fa;
@@ -1821,9 +1824,24 @@ h2 {
   background: var(--sel);
 }
 
-/* Sélection multiple (Ctrl+clic, Maj+clic) dans les modifications en cours. */
+/* Sélection multiple (Ctrl+clic, Maj+clic, Maj+flèches) : teinte et liseré de l'accent, pour
+   la distinguer du fichier ouvert (`on`). */
 .file-row.picked {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Sur un fond sélectionné, survolé ou teinté, le chemin `faint` et la lettre de statut
+   passaient sous AA : le chemin en `muted`, la lettre sur un fond neutre. */
+.file-row.on .file-dir,
+.file-row.picked .file-dir,
+.file-row:hover .file-dir {
+  color: var(--muted);
+}
+
+.file-row.on .st,
+.file-row.picked .st {
+  background: var(--panel);
 }
 
 .file-row.picked.on {
@@ -1877,7 +1895,7 @@ h2 {
 
 .view-toggle button {
   width: 26px;
-  height: 22px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1896,12 +1914,18 @@ h2 {
   color: var(--text);
 }
 
+/* Nom long : raccourci (le dossier se raccourcit d'abord), jamais hors de la ligne. */
 .file-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   white-space: nowrap;
 }
 
 .file-dir {
+  flex: 0 4 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1944,8 +1968,8 @@ h2 {
 }
 
 .st-U {
-  color: var(--del);
-  background: color-mix(in srgb, var(--del) 14%, transparent);
+  color: color-mix(in srgb, var(--del) 82%, var(--text));
+  background: color-mix(in srgb, var(--del) 10%, var(--panel));
 }
 
 /* Petits boutons (actions de ligne, de bloc, de section) ------------------ */
@@ -2007,13 +2031,13 @@ h2 {
 }
 
 .btn.danger {
-  background: #c62f2f;
-  border-color: #c62f2f;
-  color: #fff;
+  background: var(--del-fill);
+  border-color: var(--del-fill);
+  color: var(--accent-text);
 }
 
 .btn.danger:hover:not(:disabled) {
-  background: #b02626;
+  background: color-mix(in srgb, var(--del-fill) 88%, var(--text));
 }
 
 .dialog-icon.danger {
@@ -2056,9 +2080,10 @@ h2 {
   white-space: nowrap;
 }
 
+/* Les listes gardent de la place même quand la zone de commit grandit (merge, petit écran). */
 .staging-lists {
   flex: 1;
-  min-height: 0;
+  min-height: 140px;
   overflow-y: auto;
 }
 
@@ -2115,7 +2140,8 @@ h2 {
   display: flex;
 }
 
-.file-item:hover .file-row {
+/* Le survol ne cache pas la sélection. */
+.file-item:hover .file-row:not(.on):not(.picked) {
   background: var(--hover);
 }
 
@@ -2168,6 +2194,7 @@ h2 {
 
 .commit-body {
   height: 72px;
+  transition: height 0.12s ease-out;
   padding: 8px 10px;
   font: 400 12.5px/1.45 inherit;
   font-family: inherit;
@@ -2177,6 +2204,18 @@ h2 {
 .commit-summary:focus,
 .commit-body:focus {
   border-color: var(--accent);
+}
+
+/* Description vide et sans focus : une ligne (la place va aux listes). */
+.commit-body:placeholder-shown:not(:focus) {
+  height: 34px;
+  resize: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commit-body {
+    transition: none;
+  }
 }
 
 .commit-options {
@@ -2193,11 +2232,46 @@ h2 {
   gap: 6px;
 }
 
+/* Raison du bouton grisé, sinon le raccourci : toujours sous l'identité, au-dessus du bouton. */
 .commit-hint {
-  margin-left: auto;
-  font-size: 11.5px;
+  margin: 0;
+  font-size: 12px;
   color: var(--faint);
-  text-align: right;
+}
+
+/* Identité du commit : nom et e-mail que git va écrire, à gauche ; le profil (menu) à droite. */
+.commit-as {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.commit-as-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.commit-as-id strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.commit-as-mail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commit-as.none .commit-as-id {
+  color: var(--mod);
+  align-items: center;
 }
 
 .commit-actions {
@@ -2212,10 +2286,60 @@ h2 {
   font-weight: 600;
 }
 
+/* Panneau étroit : Stash en icône seule (son nom reste lu), Commiter garde une ligne. */
+.commit-panel.staging {
+  container-type: inline-size;
+}
+
+@container (max-width: 320px) {
+  .stash-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .stash-btn {
+    padding: 0 10px;
+  }
+}
+
+.stage-toggle > span:first-of-type,
+.staging-title .details-subject {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stage-toggle {
+  min-width: 0;
+}
+
+/* Stash : secondaire, sans fond ; Commiter garde la largeur. */
 .stash-btn {
   flex-shrink: 0;
   min-height: 40px;
   gap: 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.stash-btn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Bouton grisé mais focalisable (raison lue avec lui). */
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.primary[aria-disabled="true"]:hover {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 
 /* Diff de la copie de travail ----------------------------------------------- */
@@ -2789,6 +2913,12 @@ body.resizing-y * {
   color: var(--muted);
 }
 
+/* « !2 » des conflits : `del` pur passait sous AA sur l'en-tête. */
+.change-counts .st-U {
+  color: color-mix(in srgb, var(--del) 75%, var(--text));
+  background: none;
+}
+
 /* ------------------------------------------------------------------ */
 /* Branches et réseau (étape 4)                                        */
 /* ------------------------------------------------------------------ */
@@ -2979,11 +3109,13 @@ body.resizing-y * {
 }
 
 /* Opération en cours (merge, rebase…) */
+/* Compact, sur une ligne : titre à gauche, actions à droite (l'explication en infobulle). */
 .op-banner {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 8px 6px 12px;
   border: 1px solid color-mix(in srgb, var(--mod) 45%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--mod) 10%, transparent);
@@ -3011,6 +3143,7 @@ body.resizing-y * {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
 }
 
 .commit-options {
@@ -3079,10 +3212,7 @@ body.resizing-y * {
 
 .commit-profile {
   margin-left: auto;
-}
-
-.commit-hint + .commit-profile {
-  margin-left: 0;
+  flex: none;
 }
 
 .status-profile {

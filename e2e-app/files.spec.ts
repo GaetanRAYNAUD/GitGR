@@ -33,7 +33,7 @@ test("ignorer un fichier non suivi : ligne ajoutée au .gitignore, le fichier qu
   const app = await launchApp(sandbox, [mine]);
   try {
     const { page } = app;
-    const unstaged = page.getByRole("complementary", { name: "Modifications en cours" }).getByRole("list", { name: "Non indexés", exact: true });
+    const unstaged = page.getByRole("complementary", { name: "Modifications en cours" }).getByRole("listbox", { name: "Non indexés", exact: true });
     await unstaged.getByText("sortie.log").click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Ignorer le dossier build/" }).click();
     await expect(unstaged.getByText("sortie.log")).toHaveCount(0);
@@ -54,10 +54,10 @@ test("ne plus suivre un fichier modifié : retiré de l'index, gardé sur le dis
   try {
     const { page } = app;
     const changes = page.getByRole("complementary", { name: "Modifications en cours" });
-    const unstaged = changes.getByRole("list", { name: "Non indexés", exact: true });
+    const unstaged = changes.getByRole("listbox", { name: "Non indexés", exact: true });
     await unstaged.getByText("app.log").click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Ne plus suivre et ignorer app.log" }).click();
-    await expect(changes.getByRole("list", { name: "Indexés", exact: true }).getByText("app.log")).toBeVisible();
+    await expect(changes.getByRole("listbox", { name: "Indexés", exact: true }).getByText("app.log")).toBeVisible();
     expect(readFileSync(join(mine, "app.log"), "utf8")).toBe("2\n");
     expect(readFileSync(join(mine, ".gitignore"), "utf8")).toBe("/app.log\n");
     expect(git(mine, "status", "--porcelain")).toBe("D  app.log\n?? .gitignore");
@@ -80,7 +80,8 @@ test("arborescence et sélection multiple : ignorer un dossier, indexer deux fic
   try {
     const { page } = app;
     const panel = page.getByRole("complementary", { name: "Modifications en cours" });
-    const unstaged = panel.getByRole("list", { name: "Non indexés", exact: true });
+    // En arborescence, les listes sont des arbres (listbox en vue liste).
+    const unstaged = panel.getByRole("tree", { name: "Non indexés", exact: true });
     const menu = page.getByRole("menu");
     await panel.getByRole("button", { name: "Arborescence" }).click();
     await unstaged.locator(".file-dir-row", { hasText: "logs" }).click({ button: "right" });
@@ -92,7 +93,7 @@ test("arborescence et sélection multiple : ignorer un dossier, indexer deux fic
     await unstaged.locator(".file-row", { hasText: "b.txt" }).click({ modifiers: ["Control"] });
     await unstaged.locator(".file-row", { hasText: "b.txt" }).click({ button: "right" });
     await menu.getByRole("menuitem", { name: "Indexer 2 fichiers" }).click();
-    await expect(panel.getByRole("list", { name: "Indexés", exact: true })).toContainText("b.txt");
+    await expect(panel.getByRole("tree", { name: "Indexés", exact: true })).toContainText("b.txt");
     expect(git(mine, "diff", "--cached", "--name-only").split("\n").sort()).toEqual(["a.txt", "b.txt"]);
   } finally {
     await app.close();
@@ -111,10 +112,10 @@ test("ligne « en cours » du graphe : tout indexer puis stasher au clic droit",
     const wip = page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { name: /^Modifications en cours/ });
     // Le menu est calculé à l'ouverture : on attend que l'état de la copie de travail soit lu.
     const changes = page.getByRole("complementary", { name: "Modifications en cours" });
-    await expect(changes.getByRole("list", { name: "Non indexés", exact: true }).getByText("b.txt")).toBeVisible();
+    await expect(changes.getByRole("listbox", { name: "Non indexés", exact: true }).getByText("b.txt")).toBeVisible();
     await wip.click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Tout indexer" }).click();
-    await expect(changes.getByRole("list", { name: "Indexés", exact: true }).getByText("b.txt")).toBeVisible();
+    await expect(changes.getByRole("listbox", { name: "Indexés", exact: true }).getByText("b.txt")).toBeVisible();
     expect(git(mine, "status", "--porcelain")).toBe("M  a.txt\nA  b.txt");
 
     await wip.click({ button: "right" });

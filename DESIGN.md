@@ -5,6 +5,7 @@ colors:
   accent: "#3b7bf0"
   accent-text: "#ffffff"
   accent-fill: "#3366c5"
+  del-fill: "#9c494b"
   link: "#7fb0ff"
   bg: "#121418"
   side: "#14161b"
@@ -229,7 +230,7 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 ### Named Rules
 **The Variable-Only Rule.** Aucune couleur en dur dans un composant : toujours `var(--jeton)` ou un `color-mix()` d'un jeton. Une couleur en dur casse le thème clair.
 
-**The Filled-Accent Rule.** Un fond plein bleu sous du texte prend `--accent-fill`, jamais `--accent` : l'accent seul reste pour le focus, la sélection et les liserés, où aucun texte blanc ne se pose dessus.
+**The Filled-Accent Rule.** Un fond plein bleu sous du texte prend `--accent-fill`, jamais `--accent` : l'accent seul reste pour le focus, la sélection et les liserés, où aucun texte blanc ne se pose dessus. Même chose pour le rouge des actions destructives (bouton de confirmation) : `--del-fill` (en sombre `color-mix(del 62%, bg)`, en clair `--del`).
 
 **The Content-Owns-Color Rule.** Le chrome (barres, panneaux, boutons) reste neutre. Les couleurs vives sont réservées à ce qui vient du dépôt : voies, branches, diff, état des checks. L'accent bleu est la seule exception, et il marque une action ou une sélection.
 
@@ -325,6 +326,12 @@ Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), san
 - **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille.
 - **Logo = onglet Accueil:** même forme, sans bouton de fermeture.
 - **Barre latérale des refs:** éléments de 28px, coins 6px, indentation de 14px par niveau ; sections repliables avec en-tête en capitales `faint` et compteur. Au clavier, un arbre (`role="tree"`) à une seule tabulation : ↑ / ↓, → / ← (déplier, replier, parent), recherche à la frappe, Entrée (le commit), Maj+Entrée (checkout, comme le double-clic), Maj+F10 (menu, aussi sur les dossiers et en-têtes), Alt+↑ / ↓ sur un en-tête pour sa hauteur ; Ctrl+Maj+E y amène. Le libellé passe avant la méta (↑ ↓, date) ; un nom trop long se raccourcit, jamais de défilement horizontal. Filtre : focus marqué sur son cadre, × et Échap pour le vider, une ligne quand rien ne correspond. Section des PR / MR sans compte : une seule ligne d'invitation.
+
+### Listes de fichiers (modifications, détails d'un commit)
+`listbox` (ou `tree` en arborescence) à une seule tabulation : ↑ / ↓ / Début / Fin (le diff suit), Maj+↑ / ↓ et Ctrl+A pour la sélection, Espace = indexer / retirer, Suppr = annuler (confirmé), → / ← sur les dossiers, Maj+F10 = menu. Les boutons d'une ligne (Indexer, poubelle) ne sont pas des arrêts de tabulation ; une sélection multiple porte un liseré de l'accent et remplace « Tout indexer » par « Indexer (N) ». Le nom lu est le fichier, le statut et le dossier en description.
+
+### Zone de commit
+Résumé (compteur relié au champ), description (une ligne tant qu'elle est vide), Amend / Pousser après, puis **l'identité du commit** — « Commit en tant que Nom ‹e-mail› », lue par git (profil actif, sinon config git), teinte `mod` si aucune — avec le profil à droite ; dessous, la raison du bouton grisé, sinon le raccourci. Commiter est le seul plein ; Stash est secondaire, sans fond (icône seule quand le panneau est étroit).
 
 ### Commit row (signature)
 La ligne du graphe : 28px, grille à colonnes (refs, graphe, message, auteur, date, SHA). Survol `hover`, sélection `sel`. Message en 13px ; auteur avec avatar rond ; date et SHA en `muted`, SHA en mono. Le nœud du graphe prend la couleur de sa voie, avec l'initiale ou l'avatar de l'auteur.

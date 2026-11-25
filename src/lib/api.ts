@@ -163,6 +163,8 @@ export interface Api {
   /** Les trois versions d'un fichier en conflit (commune, nôtre, autre) et le fichier tel
    *  qu'il est sur le disque, avec les marqueurs de git. */
   conflictVersions(path: string, file: string): Promise<ConflictVersions>;
+  /** Identité qu'aurait un commit fait maintenant (profil actif, sinon config git) ; `null` : aucune. */
+  commitIdentity(path: string): Promise<{ name: string; email: string } | null>;
   /** Écrit la résolution d'un conflit et marque le fichier résolu (`git add`). */
   resolveConflict(path: string, file: string, content: string): Promise<void>;
   unstageFiles(path: string, files: string[]): Promise<void>;
@@ -429,6 +431,7 @@ const tauriApi: Api = {
   workDiff: (path, file, oldFile, area) => invoke("work_diff", { path, file, oldFile, area }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
   conflictVersions: (path, file) => invoke("conflict_versions", { path, file }),
+  commitIdentity: (path) => invoke("commit_identity", { path }),
   resolveConflict: (path, file, content) => invoke("resolve_conflict", { path, file, content }),
   unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
   stageAll: (path) => invoke("stage_all", { path }),
@@ -897,6 +900,13 @@ const mockApi: Api = {
   async conflictVersions(path, file) {
     await mockDelay();
     return mockConflictVersions(path, file);
+  },
+  async commitIdentity(path) {
+    // Profil actif du dépôt, sinon la « config git » simulée.
+    const s = mockLoad();
+    const active = s.repoProfiles?.[path]?.active;
+    const p = active ? s.profiles?.find((x) => x.id === active) : undefined;
+    return p ? { name: p.userName, email: p.userEmail } : { name: "Démo", email: "demo@exemple.fr" };
   },
   async resolveConflict(path, file, content) {
     await mockDelay();

@@ -1,7 +1,7 @@
 // Panneau de droite quand la ligne « modifications en cours » est sélectionnée :
 // fichiers non indexés / indexés / en conflit, et zone de commit.
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
 import { dirIgnore, ignoreChoices } from "../../lib/gitignore";
@@ -30,6 +30,11 @@ export function StagingPanel({ path }: { path: string }) {
   /** Fichiers sélectionnés (Ctrl+clic, Maj+clic), dans une seule liste à la fois. */
   const [picked, setPicked] = useState<{ kind: ListKind; paths: Set<string> } | null>(null);
   const widthStyle = useWidthStyle(LAYOUT.panel);
+  const panelRef = useRef<HTMLElement>(null);
+  // Poignées de hauteur hors de la tabulation : Alt+↑ / Alt+↓ sur l'en-tête de la liste.
+  useLayoutEffect(() => {
+    panelRef.current?.querySelectorAll<HTMLElement>(".staging-lists .splitter").forEach((s) => (s.tabIndex = -1));
+  });
 
   const st = work?.status;
   const total = changedCount(st);
@@ -134,8 +139,13 @@ export function StagingPanel({ path }: { path: string }) {
     openContextMenu(e, [...items, "sep", ...dirMenu(t, path, dir)]);
   };
 
+  /** Chemins présents dans les deux listes : fichiers en partie indexés. */
+  const partly = new Set((st?.staged ?? []).map((f) => f.path).filter((p) => st?.unstaged.some((u) => u.path === p)));
+
   const section = (kind: ListKind, files: StatusFile[]) => {
     if (kind === "conflicted" && files.length === 0) return null;
+    // Sélection de plusieurs fichiers de cette liste : ses actions remplacent « Tout … ».
+    const sel = picked?.kind === kind && picked.paths.size > 1 ? files.filter((f) => picked.paths.has(f.path)) : [];
     const open = !closed.has(kind);
     const toggle = () =>
       setClosed((prev) => {
@@ -144,20 +154,32 @@ export function StagingPanel({ path }: { path: string }) {
         return next;
       });
     const bulk =
-      kind === "unstaged" ? (
-        <button className="mini" disabled={busy || files.length === 0} onClick={() => w.stageAll(path)}>
-          {t("staging.stageAll")}
+      files.length === 0 ? null : kind === "unstaged" ? (
+        <button className="mini" disabled={busy} title={sel.length ? t("staging.stageSelHint", { count: sel.length }) : undefined} onClick={() => (sel.length ? w.stage(path, sel) : w.stageAll(path))}>
+          {sel.length ? t("staging.stageSel", { count: sel.length }) : t("staging.stageAll")}
         </button>
       ) : kind === "staged" ? (
-        <button className="mini" disabled={busy || files.length === 0} onClick={() => w.unstageAll(path)}>
-          {t("staging.unstageAll")}
+        <button className="mini" disabled={busy} title={sel.length ? t("staging.unstageSelHint", { count: sel.length }) : undefined} onClick={() => (sel.length ? w.unstage(path, sel) : w.unstageAll(path))}>
+          {sel.length ? t("staging.unstageSel", { count: sel.length }) : t("staging.unstageAll")}
         </button>
       ) : null;
 
     return (
       <div className="stage-section" key={kind}>
         <div className="section-h stage-h">
-          <button className="stage-toggle" aria-expanded={open} onClick={toggle}>
+          <button
+            className="stage-toggle"
+            aria-expanded={open}
+            onClick={toggle}
+            onKeyDown={(e) => {
+              // Hauteur de la liste au clavier (sa poignée n'est plus un arrêt de tabulation).
+              if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+              const splitter = e.currentTarget.closest(".stage-section")?.querySelector(".splitter");
+              if (!splitter) return;
+              e.preventDefault();
+              splitter.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, bubbles: true }));
+            }}
+          >
             <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
             <span>{t(`staging.${kind}`)}</span>
             <ChangeCounts files={files} />
@@ -180,13 +202,22 @@ export function StagingPanel({ path }: { path: string }) {
               isActive={(f) => (kind === "conflicted" ? openConflict === f.path : diff?.file.path === f.path && diff.area === areaOf(f, kind))}
               onOpen={(f) => (kind === "conflicted" ? showConflict(path, f.path) : w.openDiff(path, f, areaOf(f, kind)))}
               onDoubleClick={(f) => (kind === "staged" ? w.unstage(path, [f]) : w.stage(path, [f]))}
+              onSpace={kind === "conflicted" ? undefined : (list) => (kind === "staged" ? w.unstage(path, list) : w.stage(path, list))}
+              onDelete={kind === "unstaged" ? (list) => void askDiscard(list) : undefined}
+              describe={(f) => (partly.has(f.path) ? t(kind === "staged" ? "staging.partlyStaged" : "staging.partlyUnstaged") : null)}
               onContextMenu={(e, f) => fileContextMenu(e, kind, files, f)}
               onDirContextMenu={(e, dir, inside) => dirContextMenu(e, kind, dir, inside)}
               selected={picked?.kind === kind ? picked.paths : undefined}
               onSelect={(paths) => setPicked({ kind, paths })}
               actions={(f) =>
                 kind === "staged" ? (
-                  <button className="mini" disabled={busy} onClick={() => w.unstage(path, [f])}>
+                  <button
+                    className="mini"
+                    disabled={busy}
+                    onClick={() => w.unstage(path, [f])}
+                    aria-label={t("staging.unstageOne", { file: f.path })}
+                    title={t("staging.unstageOne", { file: f.path })}
+                  >
                     {t("staging.unstage")}
                   </button>
                 ) : kind === "conflicted" ? (
@@ -215,7 +246,13 @@ export function StagingPanel({ path }: { path: string }) {
                     >
                       <Icon name="trash" size={13} />
                     </button>
-                    <button className="mini" disabled={busy} onClick={() => w.stage(path, [f])}>
+                    <button
+                      className="mini"
+                      disabled={busy}
+                      onClick={() => w.stage(path, [f])}
+                      aria-label={t("staging.stageOne", { file: f.path })}
+                      title={t("staging.stageOne", { file: f.path })}
+                    >
                       {t("staging.stage")}
                     </button>
                   </>
@@ -229,7 +266,7 @@ export function StagingPanel({ path }: { path: string }) {
   };
 
   return (
-    <aside className="commit-panel staging" aria-label={t("staging.label")} style={widthStyle}>
+    <aside className="commit-panel staging" aria-label={t("staging.label")} style={widthStyle} ref={panelRef}>
       <div className="staging-head">
         <div className="staging-title">
           <h2 className="details-subject">{t("staging.title")}</h2>
@@ -252,7 +289,10 @@ export function StagingPanel({ path }: { path: string }) {
       <div className="staging-lists">
         {work?.error ? (
           <p className="details-note muted" role="alert">
-            {errorMessage(t, work.error)}
+            {errorMessage(t, work.error)}{" "}
+            <button className="link" onClick={() => void w.refresh(path)}>
+              {t("graph.retry")}
+            </button>
           </p>
         ) : !st ? (
           <p className="panel-empty muted">{t("details.loading")}</p>

@@ -700,7 +700,10 @@ export function CommitGraph({ path, changes }: Props) {
   /** Entrée : le focus passe au panneau de droite (détails du commit ou modifications). */
   const focusPanel = () => {
     const panel = document.querySelector<HTMLElement>("aside.commit-panel");
-    const target = panel?.querySelector<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])');
+    // D'abord la liste de fichiers (son arrêt de tabulation), sinon le premier contrôle.
+    const target =
+      panel?.querySelector<HTMLElement>('[data-fi][tabindex="0"]') ??
+      panel?.querySelector<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])');
     target?.focus();
   };
 

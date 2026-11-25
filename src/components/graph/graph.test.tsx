@@ -151,7 +151,7 @@ describe("<CommitPanel />", () => {
     // Auteur sur une ligne, e-mail en infobulle.
     expect(screen.getByTitle(new RegExp(`^${c.author} <`))).toBeInTheDocument();
 
-    const files = screen.getAllByRole("button").filter((b) => b.className.includes("file-row"));
+    const files = screen.getAllByRole("option");
     await userEvent.click(files[0]);
     expect(g().diffs[REPO_A]?.sha).toBe(c.sha);
   });
@@ -177,13 +177,13 @@ describe("<CommitPanel />", () => {
     expect(useApp.getState().settings.fileView).toBe("tree");
     expect(screen.getByRole("button", { name: "Arborescence" })).toHaveAttribute("aria-pressed", "true");
 
-    const files = screen.getByRole("list", { name: /fichiers? modifiés?/ });
-    const dirs = within(files).getAllByRole("button", { expanded: true });
+    const files = screen.getByRole("tree", { name: /fichiers? modifiés?/ });
+    const dirs = within(files).getAllByRole("treeitem", { expanded: true });
     expect(dirs.length).toBeGreaterThan(0);
-    const before = within(files).getAllByRole("button").length;
+    const before = within(files).getAllByRole("treeitem").length;
     await userEvent.click(dirs[0]);
     expect(dirs[0]).toHaveAttribute("aria-expanded", "false");
-    expect(within(files).getAllByRole("button").length).toBeLessThan(before);
+    expect(within(files).getAllByRole("treeitem").length).toBeLessThan(before);
   });
 
   it("ligne WIP : panneau des modifications en cours", async () => {

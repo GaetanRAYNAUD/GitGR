@@ -728,7 +728,15 @@
       "staged": "Indexé",
       "untracked": "Non suivi",
       "conflicted": "Conflit"
-    }
+    },
+    "stageSel": "Indexer ({{count}})",
+    "unstageSel": "Retirer ({{count}})",
+    "partlyStaged": "le reste n’est pas encore indexé",
+    "partlyUnstaged": "en partie déjà indexé",
+    "stageOne": "Indexer {{file}}",
+    "unstageOne": "Retirer {{file}} de l’index",
+    "stageSelHint": "Indexer les {{count}} fichiers sélectionnés",
+    "unstageSelHint": "Retirer de l’index les {{count}} fichiers sélectionnés"
   },
   "commit": {
     "message": "Message de commit",
@@ -744,7 +752,12 @@
     "conflicts": "Résolvez les conflits avant de commiter.",
     "shortcut": "Ctrl+Entrée",
     "pushAfter": "Pousser après le commit",
-    "pushAfterHint": "Mémorisé pour ce dépôt"
+    "pushAfterHint": "Mémorisé pour ce dépôt",
+    "needSummary": "Écrivez un résumé pour commiter.",
+    "shortcutHint": "Ctrl+Entrée pour commiter.",
+    "as": "Commit en tant que",
+    "noIdentity": "Aucune identité : git refusera le commit. Choisissez un profil.",
+    "countHint": "Résumé conseillé : {{limit}} caractères au plus"
   },
   "confirm": {
     "cancel": "Retour"
