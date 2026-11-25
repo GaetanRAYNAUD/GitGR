@@ -4,6 +4,7 @@ description: Client Git de bureau rapide et léger — graphe des commits, plusi
 colors:
   accent: "#3b7bf0"
   accent-text: "#ffffff"
+  accent-fill: "#3366c5"
   link: "#7fb0ff"
   bg: "#121418"
   side: "#14161b"
@@ -91,11 +92,28 @@ components:
   button-hover:
     backgroundColor: "{colors.hover}"
   button-primary:
-    backgroundColor: "{colors.accent}"
+    backgroundColor: "{colors.accent-fill}"
     textColor: "{colors.accent-text}"
     rounded: "{rounded.md}"
     padding: "0 14px"
     height: "36px"
+  button-primary-hover:
+    backgroundColor: "#4976ca"
+  tool-button:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    rounded: "{rounded.md}"
+    padding: "4px 8px"
+    height: "44px"
+  tool-button-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.text}"
+  badge:
+    backgroundColor: "{colors.accent-fill}"
+    textColor: "{colors.accent-text}"
+    rounded: "{rounded.md}"
+    padding: "0 4px"
+    height: "16px"
   icon-button:
     backgroundColor: "transparent"
     textColor: "{colors.faint}"
@@ -104,6 +122,11 @@ components:
   icon-button-hover:
     backgroundColor: "{colors.hover}"
     textColor: "{colors.text}"
+  op-pill:
+    backgroundColor: "transparent"
+    textColor: "{colors.text}"
+    rounded: "{rounded.full}"
+    padding: "5px 11px"
   input:
     backgroundColor: "{colors.panel2}"
     textColor: "{colors.text}"
@@ -183,7 +206,8 @@ Deux thèmes complets, sombre (par défaut) et clair, plus « suivre le système
 Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois couleurs sémantiques de diff et huit couleurs de voies pour le graphe. Les valeurs du frontmatter sont celles du thème sombre (`:root`) ; le thème clair redéfinit chaque jeton avec un contraste renforcé (accent `#2f6fe0`, texte `#191c22`, voies et sémantiques assombries pour rester lisibles sur blanc).
 
 ### Primary
-- **Bleu Établi** (accent) : bouton principal, sélection active, anneau de focus (`outline: 2px solid`), liseré gauche de l'élément actif (`inset 3px 0`), compteur de notifications. Le texte posé dessus est `accent-text`.
+- **Bleu Établi** (accent) : sélection active, anneau de focus (`outline: 2px solid`), liseré gauche de l'élément actif (`inset 3px 0`), compteur de notifications.
+- **Bleu Plein** (accent-fill) : fond des contrôles pleins sur l'accent — bouton principal, mini-bouton principal, badges des outils. En sombre, `color-mix(in srgb, var(--accent) 80%, var(--bg))` (la valeur du frontmatter en est le résultat) : le texte blanc ne fait que 4.0:1 sur l'accent seul, il passe AA sur ce bleu assombri. En clair, égal à `accent`. Le texte posé dessus est `accent-text`.
 - **Bleu Lien** (link) : liens et boutons de type lien, en graisse 600.
 
 ### Neutral
@@ -204,6 +228,8 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 
 ### Named Rules
 **The Variable-Only Rule.** Aucune couleur en dur dans un composant : toujours `var(--jeton)` ou un `color-mix()` d'un jeton. Une couleur en dur casse le thème clair.
+
+**The Filled-Accent Rule.** Un fond plein bleu sous du texte prend `--accent-fill`, jamais `--accent` : l'accent seul reste pour le focus, la sélection et les liserés, où aucun texte blanc ne se pose dessus.
 
 **The Content-Owns-Color Rule.** Le chrome (barres, panneaux, boutons) reste neutre. Les couleurs vives sont réservées à ce qui vient du dépôt : voies, branches, diff, état des checks. L'accent bleu est la seule exception, et il marque une action ou une sélection.
 
@@ -231,12 +257,12 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 
 ## Layout
 
-Fenêtre plein écran sans marge : barre de titre à onglets (40px), barre d'outils (rangée d'actions avec libellé sous l'icône), puis trois colonnes redimensionnables par poignées — barre latérale des refs à gauche, graphe au centre, panneau de détails ou des modifications à droite — et une barre d'état de 26px en bas.
+Fenêtre plein écran sans marge : barre de titre à onglets (40px), barre d'outils (pastille de branche, pastilles d'état, puis rangée d'actions avec libellé sous l'icône), puis trois colonnes redimensionnables par poignées — barre latérale des refs à gauche, graphe au centre, panneau de détails ou des modifications à droite — et une barre d'état de 26px en bas.
 
 - **Rythme vertical** : lignes de 28px (graphe, barre latérale, menus), contrôles de 32 à 36px, puces de 20px.
 - **Espacements** : petits pas de 2, 4, 6, 8, 10, 12 et 14px ; 6px et 8px dominent les `gap`. Les dialogues ont 24px de marge intérieure.
 - **Graphe** : grille à colonnes (`--cols`) avec largeurs par variable (`--col-refs` 180px, `--col-author` 130px, `--col-date` 96px, `--col-sha` 72px), en-tête collant, lignes virtualisées en position absolue, largeur minimale 760px.
-- **Adaptation** : sous 1240px les colonnes du graphe se resserrent et le SHA disparaît ; sous 720px la mise en page des pages se simplifie. Pas de mise en page mobile : c'est une app de bureau.
+- **Adaptation** : sous 1240px les colonnes du graphe se resserrent et le SHA disparaît ; sous 1000px la barre d'outils tient sur une ligne (libellés des outils masqués, pastilles réduites au compteur ou à l'icône) ; sous 720px la mise en page des pages se simplifie. Pas de mise en page mobile : c'est une app de bureau.
 - **Pages de gestion** (réglages, profils) : barre latérale de 270px sur `side` (titre, fermeture, liste des sections ou des profils, élément courant sur `sel`), puis le contenu aligné à gauche, 760px au plus, en une seule colonne. Jamais de colonne centrée. Chaque section est une **sous-page** (pas de longue page à défiler) : dans les réglages, la barre latérale les liste ; dans les profils, un sous-menu de 200px entre la liste des profils et la fiche. Flèches haut / bas dans la barre ; la sous-page ouverte est retenue.
 - **Lignes de réglage** : libellé à gauche (220px), contrôle à droite à sa largeur naturelle, aide dessous en 12px `muted` ; libellé aligné sur la première ligne du contrôle ; dans une fiche, tous les contrôles sur la même largeur (480px) pour un bord droit régulier. Une action qui retire une valeur (« Ne plus utiliser de clé ») est une croix dans le champ, pas un bouton à côté d'actions sans rapport ; une case à cocher se place devant son libellé, comme dans un IDE. Sous 960px, le contrôle passe sous le libellé.
 - **Enregistrement** : tout s'applique tout de suite, sans bouton « Enregistrer ». Un objet qui doit rester cohérent (un profil) s'enregistre dès qu'il est complet, après une courte pause pendant la frappe ; tant qu'il ne l'est pas, une ligne d'état sous son nom dit ce qui manque, avec « Voir » qui amène au premier champ à corriger.
@@ -267,13 +293,23 @@ Icônes au trait, 1.7 d'épaisseur, bouts et jointures arrondis, couleur hérit�
 Précis et discrets.
 - **Shape:** coins doucement arrondis (8px), hauteur 36px, icône et texte espacés de 8px, graisse 500.
 - **Default:** fond `panel2`, bordure `border`, texte `text`. Survol : fond `hover`.
-- **Primary:** fond et bordure `accent`, texte `accent-text`. Un seul par zone.
-- **Disabled:** opacité 0.5, curseur par défaut ; une action impossible est grisée, et son infobulle dit pourquoi.
+- **Primary:** fond et bordure `accent-fill`, texte `accent-text`. Un seul par zone. Survol : `color-mix(in srgb, var(--accent-fill) 88%, var(--text))`, fond et bordure — jamais le survol neutre `hover`, qui mettrait du blanc sur du gris clair.
+- **Disabled:** opacité 0.5, curseur par défaut ; une action impossible est grisée, et son infobulle dit pourquoi. Dans la barre d'outils, elle reste focalisable (voir Tool buttons).
 - **Icon button:** 32×32px, sans fond ni bordure, icône `faint` ; survol `hover` + icône `text`.
 - **Focus:** anneau `2px solid accent`, décalé de 1px, sur tous les contrôles (`:focus-visible`).
 
 ### Tool buttons (barre d'outils)
-Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), sans fond au repos. Compteurs ↑ ↓ et pastilles accolés à l'icône.
+Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), sans fond au repos : 44px de haut, 52px de large au moins, coins 8px, libellé 11px 500 `muted` ; survol `hover` + `text`. Fetch a l'icône nuage-flèche (`cloudDown`) ; la flèche circulaire reste à Actualiser.
+- **Clavier:** la rangée est un `role="toolbar"` à une seule tabulation ; ← / → / Début / Fin passent d'un outil à l'autre. Raccourcis Ctrl+Maj+lettre (Pull L, Push K, Fetch F, Branche B, Stash S, Pop P), annoncés entre parenthèses dans l'infobulle.
+- **Grisé:** une action impossible reste focalisable (`aria-disabled`, pas `disabled`), opacité 0.6, curseur par défaut, sans survol ; sa raison est dans l'infobulle et lue par `aria-description`.
+- **Badges:** compteur de 16px sur `accent-fill`, texte `accent-text` 10px 600, accolé à l'icône. Cliquable, il a une cible de 24px (pseudo-élément débordant de 4px) ; atténué (0.55) quand son outil est grisé.
+- **Étroit (< 1000px):** libellés masqués visuellement mais gardés pour les lecteurs d'écran et en infobulle ; outils de 36px au moins.
+
+### Pastilles d'état (barre d'outils)
+- **Branche courante:** bouton de 44px, fond `panel2`, bordure, coins 8px ; nom du dépôt au-dessus, branche et ↑ ↓ en dessous. Survol `hover` ; un clic amène le graphe sur le commit courant.
+- **Modifications en cours:** pilule (999px), bordure `color-mix(--mod 45%)`, fond `--mod` à 12 % (22 % au survol ou active), point `mod`, 12px 600.
+- **Opération en cours** (merge, rebase…) : même pilule, fond transparent (`--mod` à 12 % au survol), icône alerte en `mod`. Elle dit pourquoi pull, push et stash sont grisés et mène au panneau des modifications.
+- **Étroit (< 1000px):** chaque pastille se réduit à son compteur ou à son icône ; le libellé reste lu.
 
 ### Chips (puces de refs)
 - **Style:** 20px de haut, coins de 5px, 11px en graisse 600. Fond `color-mix(--chip 20%)`, bordure `color-mix(--chip 55%)`, où `--chip` est la couleur de voie de la branche.
@@ -312,7 +348,8 @@ Centré en bas (40px du bord), fond `panel`, bordure, coins 10px, padding 10px 1
 - **Do** garder les lignes de liste à 28px et le corps à 13px ; hiérarchiser par graisse et par encre (`text` / `muted` / `faint`).
 - **Do** afficher SHA, chemins, refs et diff en JetBrains Mono.
 - **Do** réserver l'accent bleu à l'action principale, à la sélection et au focus.
-- **Do** griser une action impossible et dire pourquoi en infobulle, plutôt que la cacher.
+- **Do** griser une action impossible et dire pourquoi en infobulle, plutôt que la cacher ; dans une barre d'outils, la laisser focalisable (`aria-disabled`).
+- **Do** poser le texte blanc sur `accent-fill`, pas sur `accent`.
 - **Do** donner à toute animation une durée courte (≤ 150ms) et une variante `prefers-reduced-motion`.
 - **Do** prévoir la longueur des libellés français (souvent plus longs que l'anglais).
 

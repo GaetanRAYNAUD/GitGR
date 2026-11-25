@@ -35,11 +35,12 @@ export type MenuItem = MenuAction | MenuSub | "sep";
 export const isSub = (item: MenuItem): item is MenuSub => item !== "sep" && "items" in item;
 
 interface MenuState {
-  menu: { x: number; y: number; items: MenuItem[]; id: number } | null;
+  /** `label` : nom du menu pour les lecteurs d'écran (celui du bouton qui l'ouvre). */
+  menu: { x: number; y: number; items: MenuItem[]; id: number; label?: string } | null;
   /** Position du dernier menu ouvert, gardée après sa fermeture (fenêtre ouverte par un
    *  élément du menu, à sa place). */
   at: { x: number; y: number };
-  open(x: number, y: number, items: MenuItem[]): void;
+  open(x: number, y: number, items: MenuItem[], label?: string): void;
   close(): void;
 }
 
@@ -48,7 +49,7 @@ let seq = 0;
 export const useContextMenu = create<MenuState>((set) => ({
   menu: null,
   at: { x: 0, y: 0 },
-  open: (x, y, items) => set({ menu: { x, y, items, id: ++seq }, at: { x, y } }),
+  open: (x, y, items, label) => set({ menu: { x, y, items, id: ++seq, label }, at: { x, y } }),
   close: () => set({ menu: null }),
 }));
 
@@ -59,10 +60,10 @@ export function openContextMenu(e: React.MouseEvent, items: MenuItem[]) {
   if (items.length) useContextMenu.getState().open(e.clientX, e.clientY, items);
 }
 
-/** Ouvre le menu sous un bouton (menu déroulant). */
+/** Ouvre le menu sous un bouton (menu déroulant), nommé comme lui. */
 export function openMenuBelow(el: HTMLElement, items: MenuItem[]) {
   const r = el.getBoundingClientRect();
-  useContextMenu.getState().open(r.left, r.bottom + 4, items);
+  useContextMenu.getState().open(r.left, r.bottom + 4, items, el.getAttribute("aria-label") ?? undefined);
 }
 
 const MARGIN = 6;
@@ -71,6 +72,7 @@ interface ListProps {
   x: number;
   y: number;
   items: MenuItem[];
+  label?: string;
   /** Sous-menu : `altX` = position à gauche du parent s'il déborde à droite. */
   altX?: number;
   /** Ferme ce sous-menu (←) et rend le focus au parent. */
@@ -85,7 +87,7 @@ interface ListProps {
  *  de le rejoindre en diagonale. */
 const SUB_CLOSE_MS = 250;
 
-function MenuList({ x, y, items, altX, onBack, focusFirst, onEnter }: ListProps) {
+function MenuList({ x, y, items, label, altX, onBack, focusFirst, onEnter }: ListProps) {
   const close = useContextMenu((s) => s.close);
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
@@ -146,6 +148,7 @@ function MenuList({ x, y, items, altX, onBack, focusFirst, onEnter }: ListProps)
     <div
       className={altX === undefined ? "context-menu" : "context-menu submenu"}
       role="menu"
+      aria-label={label}
       ref={ref}
       style={pos}
       onKeyDown={onKeyDown}
@@ -221,7 +224,7 @@ function MenuList({ x, y, items, altX, onBack, focusFirst, onEnter }: ListProps)
   );
 }
 
-function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
+function Menu({ x, y, items, label }: { x: number; y: number; items: MenuItem[]; label?: string }) {
   const close = useContextMenu((s) => s.close);
   const ref = useRef<HTMLDivElement>(null);
   const onClose = useCallback(() => close(), [close]);
@@ -240,12 +243,12 @@ function Menu({ x, y, items }: { x: number; y: number; items: MenuItem[] }) {
   // `display: contents` : le conteneur ne compte pas dans la mise en page, il sert aux clics extérieurs.
   return (
     <div ref={ref} style={{ display: "contents" }}>
-      <MenuList x={x} y={y} items={items} focusFirst />
+      <MenuList x={x} y={y} items={items} label={label} focusFirst />
     </div>
   );
 }
 
 export function ContextMenuHost() {
   const menu = useContextMenu((s) => s.menu);
-  return menu ? <Menu key={menu.id} x={menu.x} y={menu.y} items={menu.items} /> : null;
+  return menu ? <Menu key={menu.id} x={menu.x} y={menu.y} items={menu.items} label={menu.label} /> : null;
 }

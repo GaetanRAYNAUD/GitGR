@@ -225,7 +225,24 @@
     "openFolder": "Open the folder in the file manager",
     "openRemote": "Open {{url}} in the browser",
     "lastFetch": "Fetched {{when}}",
-    "neverFetched": "Never fetched"
+    "neverFetched": "Never fetched",
+    "busy": "A command is running on this repository",
+    "blockedBy": "{{op}}: finish or abort it first",
+    "stashNothing": "No changes to stash",
+    "pushHint": "Push to {{upstream}}",
+    "pushHintNew": "Push the branch (it has no remote branch yet)",
+    "pushName_one": "Push, {{count}} commit to push",
+    "pushName_other": "Push, {{count}} commits to push",
+    "pullName_one": "Pull, {{count}} commit to pull",
+    "pullName_other": "Pull, {{count}} commits to pull",
+    "popName_one": "Pop, {{count}} stash saved",
+    "popName_other": "Pop, {{count}} stashes saved",
+    "fetchHint": "Get what’s new from the remotes, without touching your branches",
+    "refreshHint": "Reload the repository (F5)",
+    "toolbar": "Repository actions",
+    "runningOp": "{{op}} running…",
+    "chipHint": "Click: go to the current commit in the graph",
+    "opHint": "Operation left in progress by git: finish it (conflicts, Continue) or abort it from the pending changes"
   },
   "graph": {
     "label": "Commit history",
@@ -1520,6 +1537,7 @@
   "keys": {
     "enter": "Enter",
     "shiftEnter": "Shift+Enter",
-    "escape": "Esc"
+    "escape": "Esc",
+    "ctrlShift": "Ctrl+Shift+{{key}}"
   }
 }

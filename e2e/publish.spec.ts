@@ -87,7 +87,7 @@ test("publier : dépôt créé, remote ajouté, branche poussée et suivie", asy
   // Le remote pointe vers le nouveau dépôt, la branche le suit : le bouton Push revient.
   await expect(sidebar(page).locator(".section-btn", { hasText: "origin" })).toHaveAttribute("title", /git@github\.com:octo-demo\/GitGR\.git/);
   await expect(tool(page, "Push")).toBeVisible();
-  await expect(tool(page, "Push")).toHaveAttribute("title", "origin/main");
+  await expect(tool(page, "Push")).toHaveAttribute("title", "Pousser vers origin/main (Ctrl+Maj+K)");
 });
 
 test("publier depuis la barre latérale, dans une organisation, sans pousser", async ({ page }) => {
