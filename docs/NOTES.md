@@ -323,6 +323,41 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Tour guidé** : au premier lancement (et relançable depuis les réglages ou l'aide), une visite courte des zones de l'app : onglets et accueil, graphe, barre latérale, panneau des modifications et commit, barre d'outils (pull / push / fetch), profils et comptes. Bulles ancrées sur chaque zone, « Suivant » / « Passer », sans bloquer l'app ; FR / EN.
 - [ ] **Liste des raccourcis clavier** : une page (ou une section des réglages) qui liste tous les raccourcis, groupés par zone (onglets, graphe, modifications et commit, diff…), avec une recherche. Idéalement **modifiables** : clic sur un raccourci, nouvelle combinaison saisie, conflit signalé, « rétablir par défaut » (par raccourci et global) ; gardés dans les réglages. À prévoir : une table unique des raccourcis (action, combinaison par défaut, zone) dont se servent à la fois les écouteurs et la page, au lieu des combinaisons écrites en dur dans chaque composant ; les infobulles (« Accueil (Ctrl T) »…) lues dans cette table.
 
+
+### Étape 13 — revue de design (Impeccable)
+
+Passer chaque écran par `/impeccable critique` puis `/impeccable polish` (cf. CLAUDE.md, « Processus pour une fonctionnalité »), un écran par PR, en commençant par ceux qu'on voit le plus. Le système visuel de référence est `DESIGN.md` (« L'Établi »). Ce qu'on vérifie à chaque fois : densité, cohérence avec les autres écrans, clavier (un arrêt de tabulation par groupe de choix, focus visible, focus dans les fenêtres), textes FR / EN, thème clair et sombre, et états vides, d'erreur et de chargement.
+
+- [x] **Réglages** : sous-pages, lignes de réglage, clavier des choix.
+- [x] **Profils** : sous-menu, enregistrement automatique, clé SSH, règles avec les dépôts désignés.
+
+Écrans de travail (vus en permanence) :
+
+- [ ] **Graphe des commits** (`CommitGraph`) : lignes, puces de branches, colonnes, en-tête, ligne « Modifications en cours », sélection multiple, glisser-déposer.
+- [ ] **Barre d'outils du dépôt** (dans `RepoView`) : Pull / Push / Fetch / Branche / Stash, compteurs ↑ ↓, Annuler / Rétablir, menus des stratégies.
+- [ ] **Barre latérale des refs** (`RefsSidebar`, `StashesSection`, `PullsSection`) : sections repliables, remotes et leurs icônes, filtre, menu des sections affichées.
+- [ ] **Panneau des modifications et commit** (`StagingPanel`, `CommitBox`, `FileList`) : listes indexées / non indexées / en conflit, arborescence, résumé et description, Amend, profil actif.
+- [ ] **Diff** (`DiffView`, `WorkDiffView`, `DiffBody`, `DiffStats`) : en ligne et côte à côte, indexation par bloc et par ligne, images.
+- [ ] **Détails d'un commit** (`CommitPanel`, `CommitText`) : en-tête, message, fichiers, liens.
+- [ ] **Barre de titre et onglets** (`TitleBar`, `TabColorPopover`) : onglets, couleurs, marques de travail en attente, boutons de droite.
+- [ ] **Barre d'état** (dans `RepoView`) : chemin, remote, profil actif, compteurs, dernier fetch.
+
+Vues ponctuelles (à la place du graphe) :
+
+- [ ] **Résolution de conflits, 3 panneaux** (`ConflictView`) : toute neuve, à critiquer en priorité.
+- [ ] **Suivi d'une PR / MR** (`PullView`, `PullEdit`) : onglets Discussion / Fichiers / Checks, fils de relecture, merge.
+- [ ] **Blame** (`BlameView`) et **historique d'un fichier** (`FileHistoryView`).
+- [ ] **Recherche dans les modifications** (`SearchView`), **reflog** (`ReflogView`), **plage de commits** (`RangeView`), **contenu d'un stash** (`StashView`), **sélection de commits** (`PickedPanel`).
+
+Accueil et fenêtres :
+
+- [ ] **Accueil** (`Welcome`) : actions, dépôts récents avec leur état, recherche, état vide.
+- [ ] **Cloner** (`CloneDialog`), **Publier** (`PublishDialog`), **Créer une PR / MR** (`PullDialog`), **Connecter un compte** (`AccountDialog`).
+- [ ] **Sélecteur rapide de dépôts** (`QuickOpen`) et **notifications** (`NotificationsBell`).
+- [ ] **Menus contextuels** (`ContextMenu`, `menus.ts`) : longueur, regroupement, actions grisées avec leur raison, raccourcis affichés.
+- [ ] **Fenêtres de confirmation et de saisie** (`DialogHost`) : boutons, focus, textes.
+- [ ] **Git absent** (`GitMissing`) et **toasts** (messages, erreurs, mises à jour).
+
 ---
 
 # Cadrage d'origine (référence)
