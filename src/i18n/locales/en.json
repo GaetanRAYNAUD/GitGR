@@ -373,12 +373,6 @@
     "title": "Resolve {{file}}",
     "open": "Resolve",
     "openHint": "Resolve in three panes: our version, the result, their version",
-    "ours": "our version",
-    "theirs": "their version",
-    "oursCol": "Our version · {{side}}",
-    "theirsCol": "Their version · {{side}}",
-    "oursHint": "What was on the current branch",
-    "theirsHint": "What comes in (merged branch, replayed or applied commit)",
     "result": "Result",
     "conflictsLeft_one": "{{count}} conflict to resolve",
     "conflictsLeft_other": "{{count}} conflicts to resolve",
@@ -407,13 +401,11 @@
     "skipped_one": "{{count}} identical line",
     "skipped_other": "{{count}} identical lines",
     "expand": "Show these lines",
-    "prev": "Previous change (Shift+F7)",
-    "next": "Next change (F7)",
+    "prev": "Previous conflict to resolve (Shift+F7)",
+    "next": "Next conflict to resolve (F7; Alt+F7: any change)",
     "prevFile": "Previous conflicted file",
     "nextFile": "Next conflicted file",
     "fileOf": "File {{index}} / {{count}}",
-    "acceptOurs": "Accept ours",
-    "acceptTheirs": "Accept theirs",
     "acceptHint": "The whole file from {{side}} (editable afterwards)",
     "cancel": "Cancel",
     "leaveTitle": "Drop this resolution?",
@@ -423,7 +415,57 @@
     "saved": "{{file}} resolved and staged.",
     "noMarkers": "The working copy file has no conflict markers left (already edited?).",
     "showDiff": "Show the diff",
-    "markAsIs": "Mark it resolved as is"
+    "markAsIs": "Mark it resolved as is",
+    "col": "{{name}} · {{side}}",
+    "sides": {
+      "none": {
+        "ours": "Our version",
+        "theirs": "Their version",
+        "oursHint": "What was here before the operation",
+        "theirsHint": "What comes in",
+        "acceptOurs": "Accept ours",
+        "acceptTheirs": "Accept theirs"
+      },
+      "merge": {
+        "ours": "Our branch",
+        "theirs": "Merged branch",
+        "oursHint": "The current branch, before the merge",
+        "theirsHint": "The branch you are merging",
+        "acceptOurs": "Keep our branch",
+        "acceptTheirs": "Take the merged branch"
+      },
+      "rebase": {
+        "ours": "Base branch",
+        "theirs": "Your commits",
+        "oursHint": "During a rebase, “ours” is the branch your commits are replayed onto",
+        "theirsHint": "The commit being replayed",
+        "acceptOurs": "Keep the base branch",
+        "acceptTheirs": "Take your commits"
+      },
+      "pick": {
+        "ours": "Current branch",
+        "theirs": "Picked commit",
+        "oursHint": "The current branch",
+        "theirsHint": "The commit being cherry-picked",
+        "acceptOurs": "Keep the current branch",
+        "acceptTheirs": "Take the picked commit"
+      },
+      "revert": {
+        "ours": "Current branch",
+        "theirs": "Reverted commit",
+        "oursHint": "The current branch",
+        "theirsHint": "The revert of the chosen commit",
+        "acceptOurs": "Keep the current branch",
+        "acceptTheirs": "Take the revert"
+      }
+    },
+    "acceptTitle": "Replace everything with “{{name}}”?",
+    "acceptBody": "The choices made on {{file}} will be replaced by that side’s whole file (still editable).",
+    "acceptConfirm": "Replace",
+    "lineLabel": "{{side}}, line {{line}}: {{text}}",
+    "resolvedOne": "resolved",
+    "magicShort": "Resolve ({{count}})",
+    "keys": "Click: take a line · Alt+← / →: a side · F7: next · Ctrl+S: save"
   },
   "reflog": {
     "label": "Reflog",

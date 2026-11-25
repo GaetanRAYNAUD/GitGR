@@ -344,7 +344,7 @@ Passer chaque écran par `/impeccable critique` puis `/impeccable polish` (cf. C
 
 Vues ponctuelles (à la place du graphe) :
 
-- [ ] **Résolution de conflits, 3 panneaux** (`ConflictView`) : toute neuve, à critiquer en priorité.
+- [x] **Résolution de conflits, 3 panneaux** (`ConflictView`) : côtés nommés selon l'opération (merge, rebase, cherry-pick, revert), tout au clavier (focus dans le résultat, F7 sur ce qui reste à régler, Alt+← / →, Ctrl+S, une tabulation par colonne), résultat qui passe à la ligne, confirmation avant « Accepter », état réglé neutre avec coche, erreurs en bandeau, contrastes des numéros de ligne. Reste : légende des couleurs, fichiers binaires / supprimés d'un côté (cf. étape 10).
 - [ ] **Suivi d'une PR / MR** (`PullView`, `PullEdit`) : onglets Discussion / Fichiers / Checks, fils de relecture, merge.
 - [ ] **Blame** (`BlameView`) et **historique d'un fichier** (`FileHistoryView`).
 - [ ] **Recherche dans les modifications** (`SearchView`), **reflog** (`ReflogView`), **plage de commits** (`RangeView`), **contenu d'un stash** (`StashView`), **sélection de commits** (`PickedPanel`).

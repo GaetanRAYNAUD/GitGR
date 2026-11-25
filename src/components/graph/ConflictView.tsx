@@ -8,8 +8,12 @@
 // clics), X pour l'écarter, la baguette quand le conflit se résout mot à mot, ↺ pour revenir
 // au départ. Un clic sur une ligne d'un côté la prend seule (ordre des clics) ; une ligne se
 // glisse aussi dans le résultat. Le résultat reste éditable directement (Alt+↑ / Alt+↓
-// déplacent des lignes). F7 / Maj+F7 : modification suivante / précédente. « Enregistrer »
-// écrit le fichier, le marque résolu, puis ouvre le fichier en conflit suivant.
+// déplacent des lignes). Clavier : F7 / Maj+F7 vont au conflit à régler suivant / précédent
+// (Alt+F7 : toutes les modifications), Alt+← / Alt+→ prennent un côté pour la modification
+// courante, Ctrl+S enregistre ; dans une colonne, ↑ / ↓ passent d'une ligne à l'autre (un
+// seul arrêt de tabulation par colonne). « Enregistrer » écrit le fichier, le marque résolu,
+// puis ouvre le fichier en conflit suivant. Les noms des côtés suivent l'opération en cours
+// (merge, rebase, cherry-pick, revert) : pendant un rebase, « nous » est la branche de base.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as KeyEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,7 +36,7 @@ import {
   type Chunk,
   type Side,
 } from "../../lib/merge3";
-import type { ConflictVersions } from "../../lib/types";
+import type { ConflictVersions, Operation } from "../../lib/types";
 import { wordDiff, type Segment as WordSegment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
 import { useDialogs } from "../../store/dialogs";
@@ -46,6 +50,16 @@ type Change = Extract<Chunk, { kind: "change" }>;
 
 /** Lignes identiques gardées visibles autour d'une modification. */
 const CONTEXT = 3;
+
+/** Fichier tout juste enregistré : annoncé en haut de la vue du fichier suivant (un toast
+ *  cacherait les boutons du pied). */
+let justSaved: string | null = null;
+
+/** Clé des libellés des côtés selon l'opération (`conflict.sides.*`). */
+export function sidesKey(op: Operation | null | undefined): "merge" | "rebase" | "pick" | "revert" | "none" {
+  if (op === "cherry-pick") return "pick";
+  return op ?? "none";
+}
 
 interface Loaded {
   chunks: Chunk[];
@@ -106,6 +120,16 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   /** Modification courante (navigation F7). */
   const [current, setCurrent] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** Échec d'un enregistrement : en bandeau, la grille et les choix restent. */
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Lu à la création, effacé ensuite (un initialiseur doit rester pur : StrictMode l'appelle deux fois).
+  const [saved] = useState(() => justSaved);
+  useEffect(() => {
+    justSaved = null;
+  }, []);
+  /** Ligne qui porte l'arrêt de tabulation de chaque colonne (`modification:côté`). */
+  const [roving, setRoving] = useState<Record<string, number>>({});
+  const operation = useWork((s) => s.repos[path]?.status?.operation);
   const conflicted = useWork((s) => s.repos[path]?.status?.conflicted);
   const files = useMemo(() => (conflicted ?? []).map((f) => f.path), [conflicted]);
 
@@ -141,40 +165,60 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
     : changesLeft
       ? t("conflict.changesLeft", { count: changesLeft })
       : t("conflict.allResolved");
-  const oursLabel = data?.oursLabel || t("conflict.ours");
-  const theirsLabel = data?.theirsLabel || t("conflict.theirs");
+  // Noms des côtés selon l'opération ; le libellé des marqueurs (HEAD, nom de branche) à côté.
+  const sk = sidesKey(operation);
+  const oursName = t(`conflict.sides.${sk}.ours`);
+  const theirsName = t(`conflict.sides.${sk}.theirs`);
+  const oursLabel = data?.oursLabel || oursName;
+  const theirsLabel = data?.theirsLabel || theirsName;
+  const colTitle = (name: string, marker: string | undefined) => (marker ? t("conflict.col", { name, side: marker }) : name);
 
+  /** Va à la modification `k` : la fait défiler au milieu et met le focus dans son résultat. */
   const goTo = useCallback((k: number) => {
     setCurrent(k);
-    document.getElementById(`mchange-${k}`)?.scrollIntoView({ block: "center" });
+    const row = document.getElementById(`mchange-${k}`);
+    row?.scrollIntoView({ block: "center" });
+    row?.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true });
   }, []);
-  // Ouverture : sur le premier conflit.
+  // Ouverture : sur le premier conflit, le focus dans son résultat.
   const opened = useRef(false);
   useEffect(() => {
     if (opened.current || !changes.length) return;
     opened.current = true;
     const first = changes.findIndex((c) => c.type === "conflict");
-    if (first >= 0) requestAnimationFrame(() => goTo(first));
+    requestAnimationFrame(() => goTo(first >= 0 ? first : 0));
   }, [changes, goTo]);
-  const step = useCallback(
-    (dir: 1 | -1) => {
-      if (!changes.length) return;
-      goTo((current + dir + changes.length) % changes.length);
-    },
-    [changes.length, current, goTo],
-  );
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "F7") return;
-      e.preventDefault();
-      step(e.shiftKey ? -1 : 1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  /** F7 : la modification à régler suivante (`all` : n'importe laquelle, Alt+F7). */
+  const step = (dir: 1 | -1, all = false) => {
+    const n = changes.length;
+    // Plus rien à régler : on parcourt tout (relire avant d'enregistrer).
+    const every = all || resolved.every(Boolean);
+    for (let d = 1; d <= n; d++) {
+      const k = (((current + dir * d) % n) + n) % n;
+      if (every || !resolved[k]) return goTo(k);
+    }
+  };
 
   const applyMagicAll = () => setStates((all) => all.map((s, k) => (changes[k] && !isResolved(changes[k], s) ? (prepared[k]?.magic ?? s) : s)));
-  const acceptSide = (side: Side) => setStates(changes.map((c) => acceptAll(c, side)));
+  /** Le fichier entier d'un côté : confirmation si des choix seraient remplacés. */
+  const acceptSide = async (side: Side) => {
+    if (touched) {
+      const ok = await useDialogs.getState().choose({
+        title: t("conflict.acceptTitle", { name: side === "ours" ? oursName : theirsName }),
+        body: t("conflict.acceptBody", { file }),
+        choices: [{ id: "accept", label: t("conflict.acceptConfirm"), danger: true }],
+      });
+      if (!ok) return;
+    }
+    setStates(changes.map((c) => acceptAll(c, side)));
+  };
+  /** Alt+← / Alt+→ : un côté dans le résultat de la modification courante. */
+  const applyCurrent = (side: Side) => {
+    const c = changes[current];
+    const st = states[current];
+    if (!c || !st || !changedSides(c).includes(side) || st.applied.includes(side) || st.ignored.includes(side)) return;
+    set(current, (x) => applySide(c, x, side));
+  };
 
   /** Quitter ce fichier : confirmation si des choix seraient perdus. */
   const leave = async (then: () => void) => {
@@ -196,24 +240,63 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const fileIndex = files.indexOf(file);
   const otherFile = (dir: 1 | -1) => files[(fileIndex + dir + files.length) % files.length];
 
+  const ready = !!data && conflictsLeft + changesLeft === 0 && !saving;
   const save = async () => {
-    if (!data || conflictsLeft + changesLeft > 0) return;
+    if (!data || conflictsLeft + changesLeft > 0 || saving) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await api.resolveConflict(path, file, composeMerged(data.chunks, states, data.eol, data.finalEol));
       await useApp.getState().refreshRepo(path);
       await useWork.getState().refresh(path);
-      useApp.getState().notify(t("conflict.saved", { file }));
       const left = (useWork.getState().repos[path]?.status?.conflicted ?? []).map((f) => f.path).filter((p) => p !== file);
-      // Fichier suivant dans l'ordre de la liste, sinon retour au graphe.
+      // Fichier suivant dans l'ordre de la liste (annoncé en haut de sa vue), sinon retour au graphe.
       const next = left.find((p) => files.indexOf(p) > fileIndex) ?? left[0];
-      if (next) show(path, next);
-      else back();
+      if (next) {
+        justSaved = file;
+        show(path, next);
+      } else {
+        useApp.getState().notify(t("conflict.saved", { file }));
+        back();
+      }
     } catch (e) {
-      setError(errorCode(e));
+      setSaveError(errorCode(e));
       setSaving(false);
     }
   };
+  const markAsIs = async () => {
+    setSaveError(null);
+    // `stage` n'échoue pas : l'erreur part dans le toast global. On ne quitte que si le
+    // fichier n'est plus en conflit.
+    await useWork.getState().stage(path, [{ path: file, oldPath: null, status: "U" }]);
+    const still = useWork.getState().repos[path]?.status?.conflicted.some((f) => f.path === file);
+    if (!still) back();
+  };
+
+  // Raccourcis de la vue : F7, Alt+← / Alt+→, Ctrl+S (pas sous une fenêtre de confirmation, ni
+  // quand le focus est ailleurs, dans le message de commit par exemple).
+  const viewRef = useRef<HTMLElement>(null);
+  const keys = useRef<(e: KeyboardEvent) => void>(() => {});
+  keys.current = (e) => {
+    if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+    const target = e.target as Node | null;
+    if (target && target !== document.body && !viewRef.current?.contains(target)) return;
+    if (e.key === "F7") {
+      e.preventDefault();
+      step(e.shiftKey ? -1 : 1, e.altKey);
+    } else if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      applyCurrent(e.key === "ArrowLeft" ? "ours" : "theirs");
+    } else if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      void save();
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keys.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Numéros de ligne de chaque colonne, au fil des morceaux.
   const rows: ReactNode[] = [];
@@ -222,7 +305,17 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
     let lr = 1;
     let lc = 1;
     let k = -1;
-    const num = (n: number) => <span className="ln">{n}</span>;
+    const num = (n: number) => (
+      <span className="ln" aria-hidden="true">
+        {n}
+      </span>
+    );
+    // Rang de chaque modification parmi celles de son genre (« Conflit 1 / 2 »).
+    const ofType = new Map<number, { index: number; count: number }>();
+    changes.forEach((c, j) => {
+      const same = changes.filter((x) => x.type === c.type);
+      ofType.set(j, { index: same.indexOf(c) + 1, count: same.length });
+    });
     data.chunks.forEach((c, i) => {
       if (c.kind === "same") {
         const long = c.lines.length > 2 * CONTEXT + 2 && !expanded.has(i);
@@ -271,6 +364,9 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
         const lines = prepared[n][side];
         const picked = new Map(s.picks.map((p, order) => [`${p.side}:${p.index}`, order + 1]));
         const pickable = sides.includes(side);
+        const rk = `${n}:${side}`;
+        const stop = Math.min(roving[rk] ?? 0, Math.max(0, lines.length - 1));
+        const sideName = side === "ours" ? oursName : theirsName;
         return (
           <div className={`mcell mcell-${side}${pickable ? " changed" : ""}${s.ignored.includes(side) ? " ignored" : ""}${s.applied.includes(side) ? " applied" : ""}`}>
             {lines.length === 0 && <div className="mempty" />}
@@ -280,8 +376,9 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                 ? {
                     role: "checkbox",
                     "aria-checked": order !== undefined,
-                    "aria-label": l.text || t("conflict.emptyLine"),
-                    tabIndex: 0,
+                    "aria-label": t("conflict.lineLabel", { side: sideName, line: start + j, text: l.text || t("conflict.emptyLine") }),
+                    tabIndex: j === stop ? 0 : -1,
+                    onFocus: () => setRoving((r) => (r[rk] === j ? r : { ...r, [rk]: j })),
                     title: t("conflict.pickHint"),
                     draggable: true,
                     onDragStart: (e: DragEvent) => e.dataTransfer.setData("text/plain", `${l.text}\n`),
@@ -290,6 +387,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                       if (e.key === " " || e.key === "Enter") {
                         e.preventDefault();
                         set(n, (x) => togglePickLine(c, x, side, j));
+                      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        // Une seule tabulation par colonne : les flèches passent d'une ligne à l'autre.
+                        e.preventDefault();
+                        const all = e.currentTarget.parentElement?.querySelectorAll<HTMLElement>(".ml.pickable");
+                        all?.[j + (e.key === "ArrowDown" ? 1 : -1)]?.focus();
                       }
                     },
                   }
@@ -314,7 +416,8 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           <span className={`mgut mgut-${side === "ours" ? "l" : "r"}`}>
             {open && (
               <>
-                {side === "theirs" && (
+                {/* La flèche contre le résultat, X vers l'extérieur (comme IntelliJ). */}
+                {side === "ours" && (
                   <button className="mg-btn" onClick={() => set(n, (x) => ignoreSide(x, side))} aria-label={t("conflict.ignore", { side: label })} title={t("conflict.ignore", { side: label })}>
                     <Icon name="close" size={12} />
                   </button>
@@ -323,11 +426,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                   className="mg-btn mg-apply"
                   onClick={() => set(n, (x) => applySide(c, x, side))}
                   aria-label={t(s.applied.length ? "conflict.append" : "conflict.apply", { side: label })}
-                  title={t(s.applied.length ? "conflict.append" : "conflict.apply", { side: label })}
+                  title={`${t(s.applied.length ? "conflict.append" : "conflict.apply", { side: label })} (${side === "ours" ? "Alt+←" : "Alt+→"})`}
                 >
                   {side === "ours" ? "»" : "«"}
                 </button>
-                {side === "ours" && (
+                {side === "theirs" && (
                   <button className="mg-btn" onClick={() => set(n, (x) => ignoreSide(x, side))} aria-label={t("conflict.ignore", { side: label })} title={t("conflict.ignore", { side: label })}>
                     <Icon name="close" size={12} />
                   </button>
@@ -345,25 +448,28 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           id={`mchange-${n}`}
           className={`mrow mchange mtype-${c.type}${done ? " resolved" : ""}${n === current ? " current" : ""}`}
           role="group"
-          aria-label={t(`conflict.kind.${c.type}`, { index: n + 1, count: changes.length })}
+          tabIndex={-1}
+          aria-label={[t(`conflict.kind.${c.type}`, ofType.get(n) ?? { index: n + 1, count: changes.length }), done && t("conflict.resolvedOne")].filter(Boolean).join(" — ")}
           onFocusCapture={() => setCurrent(n)}
         >
           {sideCell("ours", o)}
           {gutter("ours")}
           <div className="mcell mcell-center">
             <div className="mresult">
-              <div className="mres-ln" aria-hidden>
-                {(s.result.length ? s.result : [""]).map((_, j) => (
-                  <span key={j} className="ln">
-                    {s.result.length ? m + j : ""}
-                  </span>
+              {/* Lignes fantômes sous le champ : elles passent à la ligne comme lui, et chaque
+                  numéro reste en face de sa ligne (les côtés passent aussi à la ligne). */}
+              <div className="mres-lines" aria-hidden="true">
+                {(s.result.length ? s.result : [""]).map((line, j) => (
+                  <div key={j} className="mres-line">
+                    <span className="ln">{s.result.length ? m + j : ""}</span>
+                    <span className="mres-ghost">{line || " "}</span>
+                  </div>
                 ))}
               </div>
               <textarea
                 className="mono mres-edit"
                 value={value}
-                rows={Math.max(1, s.result.length)}
-                wrap="off"
+                wrap="soft"
                 spellCheck={false}
                 placeholder={t("conflict.emptyResult")}
                 aria-label={t("conflict.resultOf", { index: n + 1 })}
@@ -373,6 +479,12 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                   set(n, (x) => ({ ...x, result: v === "" ? [] : v.split("\n"), edited: true, picks: [] }));
                 }}
                 onKeyDown={(e) => {
+                  // Échap sort du champ (vers la modification) ; un second Échap quitte la vue.
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.currentTarget.closest<HTMLElement>(".mchange")?.focus();
+                    return;
+                  }
                   if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
                   e.preventDefault();
                   const el = e.currentTarget;
@@ -383,6 +495,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                 }}
               />
               <span className="mres-tools">
+                {done && (
+                  <span className="mres-done" title={t("conflict.resolvedOne")}>
+                    <Icon name="check" size={12} />
+                  </span>
+                )}
                 {wand && (
                   <button className="mg-btn mg-wand" onClick={() => set(n, () => wand)} aria-label={t("conflict.magicOne")} title={t("conflict.magicOne")}>
                     <Icon name="wand" size={12} />
@@ -407,7 +524,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   }
 
   return (
-    <section className="pull-view conflict-view" aria-label={t("conflict.label", { file })}>
+    <section ref={viewRef} className="pull-view conflict-view" aria-label={t("conflict.label", { file })}>
       <header className="diff-head">
         <BackButton onClick={() => void leave(back)} />
         <Icon name="merge" size={15} />
@@ -426,7 +543,8 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           </span>
         )}
         {data && (
-          <span className={conflictsLeft ? "conflict-status conflict-left" : "conflict-status muted"} role="status" title={status}>
+          <span className={conflictsLeft ? "conflict-status conflict-left" : changesLeft ? "conflict-status muted" : "conflict-status conflict-done"} role="status" title={status}>
+            {!conflictsLeft && !changesLeft && <Icon name="check" size={13} />}
             {status}
           </span>
         )}
@@ -438,34 +556,49 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             <button className="mini icon" onClick={() => step(1)} aria-label={t("conflict.next")} title={t("conflict.next")}>
               <Icon name="chevron" size={13} />
             </button>
-            <button className="mini icon" disabled={magicCount === 0} onClick={applyMagicAll} aria-label={t("conflict.magicAll")} title={t("conflict.magicAllHint", { count: magicCount })}>
+            <button className="mini" disabled={magicCount === 0} onClick={applyMagicAll} title={t("conflict.magicAllHint", { count: magicCount })}>
               <Icon name="wand" size={13} />
+              {t("conflict.magicShort", { count: magicCount })}
             </button>
           </span>
         )}
+        <span className="conflict-head-gap" />
       </header>
       {error ? (
         <p className="details-note" role="alert">
           {errorMessage(t, error)}
         </p>
       ) : !data ? (
-        <p className="muted pull-pad">{t("details.loading")}</p>
+        <p className="muted pull-pad" role="status">
+          {t("details.loading")}
+        </p>
       ) : (
         <>
+          {saved && (
+            <p className="details-note muted conflict-note" role="status">
+              <Icon name="check" size={13} /> {t("conflict.saved", { file: saved })}
+            </p>
+          )}
+          {saveError && (
+            <p className="notice error conflict-error" role="alert">
+              <Icon name="alert" size={14} />
+              <span>{errorMessage(t, saveError)}</span>
+            </p>
+          )}
           {data.noMarkers && (
             <p className="details-note muted conflict-note">
               {t("conflict.noMarkers")}{" "}
-              <button className="link" onClick={() => void useWork.getState().stage(path, [{ path: file, oldPath: null, status: "U" }]).then(back)}>
+              <button className="link" onClick={() => void markAsIs()}>
                 {t("conflict.markAsIs")}
               </button>
             </p>
           )}
-          <div className="mgrid-head">
-            <span title={t("conflict.oursHint")}>{t("conflict.oursCol", { side: oursLabel })}</span>
+          <div className="mgrid-head" aria-hidden="true">
+            <span title={t(`conflict.sides.${sk}.oursHint`)}>{colTitle(oursName, data.oursLabel)}</span>
             <span />
             <span>{t("conflict.result")}</span>
             <span />
-            <span title={t("conflict.theirsHint")}>{t("conflict.theirsCol", { side: theirsLabel })}</span>
+            <span title={t(`conflict.sides.${sk}.theirsHint`)}>{colTitle(theirsName, data.theirsLabel)}</span>
           </div>
           <div className="mgrid mono">
             {rows}
@@ -473,20 +606,24 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
         </>
       )}
       <footer className="conflict-foot">
-        <button className="btn sm" disabled={!data} onClick={() => acceptSide("ours")} title={t("conflict.acceptHint", { side: oursLabel })}>
-          {t("conflict.acceptOurs")}
+        <button className="btn sm" disabled={!data} onClick={() => void acceptSide("ours")} title={t("conflict.acceptHint", { side: oursLabel })}>
+          {t(`conflict.sides.${sk}.acceptOurs`)}
         </button>
-        <button className="btn sm" disabled={!data} onClick={() => acceptSide("theirs")} title={t("conflict.acceptHint", { side: theirsLabel })}>
-          {t("conflict.acceptTheirs")}
+        <button className="btn sm" disabled={!data} onClick={() => void acceptSide("theirs")} title={t("conflict.acceptHint", { side: theirsLabel })}>
+          {t(`conflict.sides.${sk}.acceptTheirs`)}
         </button>
-        <span className="conflict-foot-gap" />
+        <span className="conflict-keys muted" title={t("conflict.keys")}>
+          {t("conflict.keys")}
+        </span>
         <button className="btn sm" onClick={() => void leave(back)}>
           {t("conflict.cancel")}
         </button>
-        <button className="btn sm primary" disabled={!data || conflictsLeft + changesLeft > 0 || saving} onClick={() => void save()}>
+        {/* Grisé tant qu'il reste à régler : le statut en infobulle dit quoi. */}
+        <button className="btn sm primary" disabled={!ready} onClick={() => void save()} title={ready ? `${t("conflict.save")} (Ctrl+S)` : status}>
           {t("conflict.save")}
         </button>
       </footer>
+
     </section>
   );
 }
