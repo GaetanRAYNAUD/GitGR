@@ -752,6 +752,8 @@
     "resetHere": "Reset {{branch}} here…",
     "copySha": "Copy SHA",
     "copyName": "Copy name",
+    "branchColor": "Fixed color for this name…",
+    "branchColorRemove": "Remove fixed color",
     "openFile": "Open with default program",
     "openDir": "Open folder",
     "revealFile": "Show in folder",
@@ -779,6 +781,7 @@
     "deleteRemoteOf": "Delete {{branch}} on the server…",
     "deleteBoth": "Delete {{branch}} and {{remote}}…",
     "why": {
+      "branchColorsOff": "Fixed colors by branch name are turned off (Settings > Graph).",
       "checkoutFirst": "Checks out {{branch}} first (with auto-stash)",
       "noHead": "The repository has no commit yet.",
       "sameCommit": "{{branch}} is already on this commit.",
@@ -1155,6 +1158,10 @@
     "accountOAuthCopied": "Code copied."
   },
   "branchColors": {
+    "fixedTitle": "Fixed color for “{{name}}”",
+    "fixedHint": "Applies to “{{name}}” locally and on every remote. All rules: Settings > Graph.",
+    "fixedNone": "No rule for this name",
+    "fixedInherited": "Color currently given by the pattern “{{pattern}}”.",
     "title": "Colors by branch name",
     "help": "A branch takes the color of the first rule matching its name (without the remote). “*” matches any characters.",
     "pattern": "Branch name pattern",

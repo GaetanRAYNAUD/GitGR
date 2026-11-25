@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { startNotifications } from "./store/notifications";
 import { useTranslation } from "react-i18next";
 import { ContextMenuHost } from "./components/ContextMenu";
+import { BranchColorPopoverHost } from "./components/BranchColorPopover";
 import { DialogHost } from "./components/DialogHost";
 import { QuickOpenHost, useQuickOpen } from "./components/QuickOpen";
 import { GitMissing } from "./components/GitMissing";
@@ -271,6 +272,7 @@ export default function App() {
       <PublishDialogHost />
       <DialogHost />
       <QuickOpenHost />
+      <BranchColorPopoverHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}
     </div>

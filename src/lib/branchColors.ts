@@ -2,7 +2,7 @@
 // Les couleurs sont des indices de la palette du graphe (`--g0`…`--g7`).
 
 import { PALETTE_SIZE } from "./graph";
-import type { BranchColorRule, RefsInfo } from "./types";
+import type { BranchColorRule, ColorValue, RefsInfo } from "./types";
 
 /** Règles utilisées tant que l'utilisateur n'a rien changé. */
 export const DEFAULT_BRANCH_COLORS: BranchColorRule[] = [
@@ -57,15 +57,14 @@ export function laneCss(index: number, custom: string[]): string {
 
 /** Indice de couleur fixe d'une branche (nom court, sans le remote), ou `undefined`. */
 export function fixedColor(rules: BranchColorRule[], branch: string): number | undefined {
-  const rule = rules.find((r) => matches(r.pattern, branch));
+  const rule = matchingRule(rules, branch);
   return rule && colorIndex(rules, rule.color);
 }
 
 /** Couleur fixe d'une étiquette du graphe : branche locale, ou distante sans son remote. */
 export function chipFixedColor(rules: BranchColorRule[], kind: string, label: string): number | undefined {
   if (kind === "tag" || !rules.length) return undefined;
-  const name = kind === "remote" ? label.slice(label.indexOf("/") + 1) : label;
-  return fixedColor(rules, name);
+  return fixedColor(rules, ruleName(kind, label));
 }
 
 /** Couleur fixe par commit : celle de la première branche (locale d'abord) qui y pointe. */
@@ -79,4 +78,33 @@ export function fixedColorsByCommit(rules: BranchColorRule[], info: RefsInfo | n
     if (c !== undefined) out.set(r.target, c);
   }
   return out;
+}
+
+/** Nom d'une branche tel que les règles le comparent : sans le remote pour une distante. */
+export function ruleName(kind: string, short: string): string {
+  return kind === "remote" ? short.slice(short.indexOf("/") + 1) : short;
+}
+
+/** Règle qui donne sa couleur fixe à la branche (la première qui correspond), ou `undefined`. */
+export function matchingRule(rules: BranchColorRule[], name: string): BranchColorRule | undefined {
+  return rules.find((r) => matches(r.pattern, name));
+}
+
+/** Règle au nom exact de la branche (motif sans `*` égal au nom), ou `undefined`. */
+export function exactRule(rules: BranchColorRule[], name: string): BranchColorRule | undefined {
+  return rules.find((r) => r.pattern === name);
+}
+
+/** Couleur fixe pour ce nom exact (clic droit sur une branche). La règle exacte existante
+ *  garde sa place si c'est déjà elle qui l'emporte ; sinon (absente, ou cachée derrière un
+ *  motif placé avant) elle passe en tête, pour que la couleur choisie se voie. */
+export function withExactColor(rules: BranchColorRule[], name: string, color: ColorValue): BranchColorRule[] {
+  const first = matchingRule(rules, name);
+  if (first?.pattern === name) return rules.map((r) => (r === first ? { ...r, color } : r));
+  return [{ pattern: name, color }, ...rules.filter((r) => r.pattern !== name)];
+}
+
+/** Retire la règle au nom exact de la branche (les motifs qui la couvrent restent). */
+export function withoutExactColor(rules: BranchColorRule[], name: string): BranchColorRule[] {
+  return rules.filter((r) => r.pattern !== name);
 }

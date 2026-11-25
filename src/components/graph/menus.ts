@@ -18,6 +18,8 @@ import { type MenuItem, useContextMenu } from "../ContextMenu";
 import { startCommitDrag } from "./commitDrag";
 import { squashable } from "../../lib/multiSelect";
 import { remoteMarkOf } from "../RemoteMark";
+import { useBranchColorPopover } from "../BranchColorPopover";
+import { customColors, DEFAULT_BRANCH_COLORS, exactRule, fixedColor, laneCss, ruleName, withoutExactColor } from "../../lib/branchColors";
 
 const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => {});
 
@@ -145,12 +147,52 @@ function upstreamSub(t: TFunction, path: string, r: GitRef, refs: RefsInfo | nul
   };
 }
 
+/** Couleur fixe pour le nom de la branche (sans le remote) : la choisir dans une petite
+ *  fenêtre au point du clic, ou retirer la règle à ce nom exact. Pastille : la couleur fixe
+ *  actuelle de ce nom, quelle que soit la règle qui la donne (cercle vide : aucune). Grisé si les couleurs fixes
+ *  sont désactivées dans les réglages. */
+export function branchColorItems(t: TFunction, r: GitRef): MenuItem[] {
+  const { branchColors, branchColorsOff } = useApp.getState().settings;
+  const rules = branchColors ?? DEFAULT_BRANCH_COLORS;
+  const name = ruleName(r.kind, r.short);
+  const why = branchColorsOff ? t("menu.why.branchColorsOff") : undefined;
+  const current = branchColorsOff ? undefined : fixedColor(rules, name);
+  // Focus rendu à la fermeture de la fenêtre : ce qui l'avait au moment du clic droit.
+  const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const items: MenuItem[] = [
+    {
+      label: t("menu.branchColor"),
+      disabled: !!branchColorsOff,
+      title: why,
+      // Cercle vide : aucune couleur fixe pour ce nom (ou couleurs fixes désactivées).
+      swatch: current === undefined ? null : laneCss(current, customColors(rules)),
+      onClick: () => {
+        const { x, y } = useContextMenu.getState().at;
+        useBranchColorPopover.getState().show(x, y, name, back);
+      },
+    },
+  ];
+  if (exactRule(rules, name)) {
+    items.push({
+      label: t("menu.branchColorRemove"),
+      disabled: !!branchColorsOff,
+      title: why,
+      onClick: () => {
+        const app = useApp.getState();
+        app.updateSettings({ branchColors: withoutExactColor(app.settings.branchColors ?? DEFAULT_BRANCH_COLORS, name) });
+      },
+    });
+  }
+  return items;
+}
+
 /** Clic droit sur une branche (barre latérale ou étiquette du graphe), par groupes : réseau,
  *  merge / rebase, checkout, commit pointé, PR / MR, gestion de la branche. */
 export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null): MenuItem[] {
   const ops = useOps.getState();
   const head = refs?.headBranch ?? null;
   const copyName: MenuItem = { label: t("menu.copyName"), onClick: () => copy(r.short) };
+  const colors = r.kind === "tag" ? [] : branchColorItems(t, r);
   const pulls = pullItems(t, path, r, refs);
   const pullGroup: MenuItem[] = pulls.length ? ["sep", ...pulls] : [];
   const detached: MenuItem = {
@@ -210,6 +252,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
           ] as MenuItem[])
         : []),
       "sep",
+      ...colors,
       copyName,
     ];
   }
@@ -261,6 +304,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
           ] as MenuItem[])
         : []),
       "sep",
+      ...colors,
       copyName,
     ];
   }

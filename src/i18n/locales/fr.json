@@ -752,6 +752,8 @@
     "resetHere": "Reset de {{branch}} ici…",
     "copySha": "Copier le SHA",
     "copyName": "Copier le nom",
+    "branchColor": "Couleur fixe pour ce nom…",
+    "branchColorRemove": "Retirer la couleur fixe",
     "openFile": "Ouvrir avec le programme par défaut",
     "openDir": "Ouvrir le dossier",
     "revealFile": "Montrer dans le dossier",
@@ -779,6 +781,7 @@
     "deleteRemoteOf": "Supprimer {{branch}} sur le serveur…",
     "deleteBoth": "Supprimer {{branch}} et {{remote}}…",
     "why": {
+      "branchColorsOff": "Les couleurs fixes par nom de branche sont désactivées (Réglages > Graphe).",
       "checkoutFirst": "Passe d’abord sur {{branch}} (avec l’auto-stash)",
       "noHead": "Le dépôt n’a pas encore de commit.",
       "sameCommit": "{{branch}} est déjà sur ce commit.",
@@ -1155,6 +1158,10 @@
     "accountOAuthCopied": "Code copié."
   },
   "branchColors": {
+    "fixedTitle": "Couleur fixe pour « {{name}} »",
+    "fixedHint": "S’applique à « {{name}} » en local et sur chaque remote. Toutes les règles : Réglages > Graphe.",
+    "fixedNone": "Aucune règle pour ce nom",
+    "fixedInherited": "Couleur donnée pour l’instant par le motif « {{pattern}} ».",
     "title": "Couleurs par nom de branche",
     "help": "Une branche prend la couleur de la première règle qui correspond à son nom (sans le remote). « * » remplace n’importe quelle suite de caractères.",
     "pattern": "Motif du nom de branche",

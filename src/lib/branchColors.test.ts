@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { chipFixedColor, customColors, DEFAULT_BRANCH_COLORS, fixedColor, fixedColorsByCommit, laneCss } from "./branchColors";
+import {
+  chipFixedColor,
+  customColors,
+  DEFAULT_BRANCH_COLORS,
+  exactRule,
+  fixedColor,
+  fixedColorsByCommit,
+  laneCss,
+  ruleName,
+  withExactColor,
+  withoutExactColor,
+} from "./branchColors";
 import { layoutGraph } from "./graph";
 import type { RefsInfo } from "./types";
 
@@ -50,5 +61,54 @@ describe("branchColors", () => {
     expect(rows[1].color).toBe(5);
     expect(rows[1].in).toEqual([0, 0]);
     expect(rows[2].color).toBe(5);
+  });
+});
+
+describe("couleur fixe d'un nom exact", () => {
+  it("compare le nom sans le remote", () => {
+    expect(ruleName("remote", "origin/feature/x")).toBe("feature/x");
+    expect(ruleName("local", "feature/x")).toBe("feature/x");
+  });
+
+  it("ajoute la règle en tête quand aucune règle exacte n'existe", () => {
+    const next = withExactColor(DEFAULT_BRANCH_COLORS, "feature/x", 3);
+    expect(next[0]).toEqual({ pattern: "feature/x", color: 3 });
+    expect(next.slice(1)).toEqual(DEFAULT_BRANCH_COLORS);
+    expect(fixedColor(next, "feature/x")).toBe(3);
+  });
+
+  it("passe devant un motif qui couvre déjà le nom", () => {
+    const next = withExactColor(DEFAULT_BRANCH_COLORS, "release/2.0", "#123456");
+    expect(next[0]).toEqual({ pattern: "release/2.0", color: "#123456" });
+    expect(fixedColor(next, "release/1.0")).toBe(1);
+  });
+
+  it("met à jour sur place une règle exacte qui l'emporte déjà", () => {
+    const next = withExactColor(DEFAULT_BRANCH_COLORS, "develop", 7);
+    expect(next.map((r) => r.pattern)).toEqual(DEFAULT_BRANCH_COLORS.map((r) => r.pattern));
+    expect(exactRule(next, "develop")?.color).toBe(7);
+    expect(DEFAULT_BRANCH_COLORS[2].color).toBe(5);
+  });
+
+  it("remonte une règle exacte cachée derrière un motif, sans doublon", () => {
+    const rules = [
+      { pattern: "feat*", color: 1 },
+      { pattern: "feature", color: 2 },
+    ];
+    expect(withExactColor(rules, "feature", 4)).toEqual([
+      { pattern: "feature", color: 4 },
+      { pattern: "feat*", color: 1 },
+    ]);
+  });
+
+  it("retire seulement la règle exacte", () => {
+    const rules = [
+      { pattern: "release/2.0", color: 3 },
+      ...DEFAULT_BRANCH_COLORS,
+    ];
+    const next = withoutExactColor(rules, "release/2.0");
+    expect(next).toEqual(DEFAULT_BRANCH_COLORS);
+    expect(exactRule(next, "release/2.0")).toBeUndefined();
+    expect(fixedColor(next, "release/2.0")).toBe(1);
   });
 });
