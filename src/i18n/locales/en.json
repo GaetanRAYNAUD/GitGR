@@ -235,8 +235,8 @@
     "author": "Author",
     "date": "Date",
     "sha": "SHA",
-    "wip_one": "// Work in progress — {{count}} file",
-    "wip_other": "// Work in progress — {{count}} files",
+    "wip_one": "Work in progress — {{count}} file",
+    "wip_other": "Work in progress — {{count}} files",
     "loading": "Reading history…",
     "loadingMore": "Loading more…",
     "empty": "No commits yet.",
@@ -247,7 +247,15 @@
     "current": "current branch",
     "synced": "in sync with the remote branch",
     "columns": "Visible columns",
-    "columnsHint": "Right-click the header to get back here."
+    "columnsHint": "Right-click the header to get back here.",
+    "end": "Start of history",
+    "pageError": "Couldn’t load more history: {{error}}",
+    "retry": "Retry",
+    "rowHead": "HEAD (current commit)",
+    "rowMerge": "merge commit",
+    "rowCurrent": "{{name}} (current branch)",
+    "rowStash": "Stash: {{message}}",
+    "wipMark": "//"
   },
   "graphFind": {
     "label": "Find in graph",
@@ -1461,5 +1469,15 @@
       "commit": "commit",
       "amend": "amend"
     }
+  },
+  "wip": {
+    "stash": "Stash changes",
+    "discardAll": "Discard all…",
+    "stashNoCommit": "Can’t stash before the first commit."
+  },
+  "keys": {
+    "enter": "Enter",
+    "shiftEnter": "Shift+Enter",
+    "escape": "Esc"
   }
 }

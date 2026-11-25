@@ -7,8 +7,15 @@ test("avatars des auteurs et des remotes dans le graphe, désactivables dans les
   const graph = page.getByRole("listbox", { name: "Historique des commits" });
 
   // Colonne Auteur : l'avatar de l'auteur (backend simulé : une image pour chaque adresse).
-  // Étiquettes de branches : l'avatar du propriétaire du dépôt distant (groupe `demo` d'origin).
   await expect(graph.locator(".commit-author .author-avatar").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
+  // Étiquettes de branches : avec un seul remote, pas d'icône (elle n'apprendrait rien).
+  await expect(graph.locator(".chip-mark")).toHaveCount(0);
+  // À partir de deux remotes : l'avatar du propriétaire du dépôt distant (groupe `demo` d'origin).
+  await page.getByRole("navigation", { name: "Branches et tags" }).getByRole("button", { name: "Ajouter un remote…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Ajouter un remote" });
+  await dialog.getByLabel("Nom du remote").fill("client");
+  await dialog.getByLabel("URL").fill("git@gitlab.client.fr:projet/gitgr.git");
+  await dialog.getByRole("button", { name: "Ajouter" }).click();
   await expect(graph.locator(".chip .chip-mark .remote-avatar").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
   await expect(graph.locator(".chip.tag .chip-mark")).toHaveCount(0);
 

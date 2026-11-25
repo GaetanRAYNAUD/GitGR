@@ -1257,7 +1257,8 @@ h2 {
   position: relative;
 }
 
-.graph-scroll:focus-visible {
+/* Anneau au clavier seulement : un clic pose `data-pointer`, la première touche l'enlève. */
+.graph-scroll:focus-visible:not([data-pointer]) {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
@@ -1271,13 +1272,20 @@ h2 {
   padding-right: 32px;
 }
 
-.graph-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  height: 28px;
+/* En-tête hors de la liste défilante (il n'est pas une option du listbox) : il suit son
+   défilement horizontal (translateX), la place de la barre verticale réservée à droite. */
+.graph-head-wrap {
+  flex: none;
+  position: relative;
+  z-index: 3;
+  overflow-x: clip;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
+}
+
+.graph-head {
+  position: relative;
+  height: 28px;
   color: var(--faint);
   font-size: 11px;
   font-weight: 600;
@@ -1411,6 +1419,39 @@ h2 {
   background: var(--sel);
 }
 
+/* Bout de la plage étendue au clavier (Maj+↑ / Maj+↓) dans une sélection multiple. */
+.commit-row.cursor {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Sur le survol et la sélection, `faint` passe sous le contraste AA en sombre. */
+.commit-row:hover .commit-date,
+.commit-row:hover .commit-sha,
+.commit-row.sel .commit-date,
+.commit-row.sel .commit-sha {
+  color: var(--muted);
+}
+
+.wip-mark {
+  color: var(--faint);
+}
+
+/* Fin de l'historique : sous le premier commit, dans la colonne du message. */
+.graph-end {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  min-width: 760px;
+  height: 28px;
+  padding-right: 32px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
 .commit-row > span {
   min-width: 0;
   overflow: hidden;
@@ -1509,12 +1550,20 @@ h2 {
   opacity: 0.7;
 }
 
+/* Sous la liste : chargement de la suite, ou son échec avec « Réessayer ». */
 .graph-more {
-  position: sticky;
-  bottom: 0;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
+  border-top: 1px solid var(--border);
   background: var(--panel);
   font-size: 12px;
+}
+
+.graph-more.error .ico {
+  color: var(--del);
 }
 
 /* Panneau de détails --------------------------------------------------- */
@@ -2472,6 +2521,7 @@ h2 {
 
   .graph-head,
   .commit-row,
+  .graph-end,
   .graph-body {
     min-width: 480px;
   }
@@ -5844,7 +5894,6 @@ body.commit-dragging * {
 }
 
 .graph-find-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

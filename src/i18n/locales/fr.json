@@ -235,8 +235,8 @@
     "author": "Auteur",
     "date": "Date",
     "sha": "SHA",
-    "wip_one": "// Modifications en cours — {{count}} fichier",
-    "wip_other": "// Modifications en cours — {{count}} fichiers",
+    "wip_one": "Modifications en cours — {{count}} fichier",
+    "wip_other": "Modifications en cours — {{count}} fichiers",
     "loading": "Lecture de l’historique…",
     "loadingMore": "Chargement de la suite…",
     "empty": "Aucun commit pour l’instant.",
@@ -247,7 +247,15 @@
     "current": "branche courante",
     "synced": "à jour avec la branche distante",
     "columns": "Colonnes affichées",
-    "columnsHint": "Clic droit sur l’en-tête pour y revenir."
+    "columnsHint": "Clic droit sur l’en-tête pour y revenir.",
+    "end": "Début de l’historique",
+    "pageError": "Impossible de charger la suite de l’historique : {{error}}",
+    "retry": "Réessayer",
+    "rowHead": "HEAD (commit courant)",
+    "rowMerge": "commit de fusion",
+    "rowCurrent": "{{name}} (branche courante)",
+    "rowStash": "Stash : {{message}}",
+    "wipMark": "//"
   },
   "graphFind": {
     "label": "Chercher dans le graphe",
@@ -1461,5 +1469,15 @@
       "commit": "commit",
       "amend": "amend"
     }
+  },
+  "wip": {
+    "stash": "Stasher les modifications",
+    "discardAll": "Tout annuler…",
+    "stashNoCommit": "Impossible de stasher avant le premier commit."
+  },
+  "keys": {
+    "enter": "Entrée",
+    "shiftEnter": "Maj+Entrée",
+    "escape": "Échap"
   }
 }
