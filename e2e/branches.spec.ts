@@ -74,7 +74,7 @@ test.describe("dépôt propre", () => {
     await tool(page, "Push").click();
     await expect(page.getByRole("status").filter({ hasText: "main poussée." })).toBeVisible();
     await expect(tool(page, "Push").locator(".badge")).toHaveCount(0);
-    await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
+    await expect(page.locator(".statusbar").getByRole("button", { name: "0 commit à pousser" })).toHaveText("↑0");
   });
 
   test("barre d'état : date du dernier fetch", async ({ page }) => {

@@ -2757,6 +2757,24 @@ h2 {
   flex: 1;
 }
 
+/* Chemin long : raccourci, complet en infobulle ; jamais de seconde ligne. */
+.status-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-sync {
+  flex: none;
+  gap: 8px;
+}
+
+.status-faint {
+  flex: none;
+  color: var(--faint);
+}
+
 /* Dossier du dépôt et origin : cliquables, discrets jusqu'au survol. */
 .status-link {
   padding: 0;

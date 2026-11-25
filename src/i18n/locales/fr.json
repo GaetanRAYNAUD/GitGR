@@ -242,7 +242,11 @@
     "toolbar": "Actions du dépôt",
     "runningOp": "{{op}} en cours…",
     "chipHint": "Clic : aller au commit courant dans le graphe",
-    "opHint": "Opération laissée en cours par git : terminez-la (conflits, Continuer) ou annulez-la depuis les modifications en cours"
+    "opHint": "Opération laissée en cours par git : terminez-la (conflits, Continuer) ou annulez-la depuis les modifications en cours",
+    "statusbar": "Barre d’état",
+    "pushShow": "voir ce qui part au push",
+    "pullShow": "voir ce qui arrive au pull",
+    "noUpstreamShort": "Pas de branche suivie"
   },
   "graph": {
     "label": "Historique des commits",

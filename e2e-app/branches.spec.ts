@@ -109,7 +109,7 @@ test("push d'une nouvelle branche : créée sur origin et suivie", async ({ sand
     await tool(page, "Push").click();
     await expect(page.getByRole("status").filter({ hasText: "nouvelle poussée." })).toBeVisible();
     expect(git(mine, "rev-parse", "--abbrev-ref", "@{u}")).toBe("origin/nouvelle");
-    await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
+    await expect(page.locator(".statusbar").getByRole("button", { name: "0 commit à pousser" })).toHaveText("↑0");
   } finally {
     await app.close();
   }

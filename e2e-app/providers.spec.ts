@@ -417,7 +417,7 @@ test("publier un dépôt sans remote dans un groupe GitLab : projet créé, bran
     // Poussée, et suivie : ahead / behind tout de suite (pas de `branch -u` à faire à la main).
     expect(git(mine, "rev-parse", "--abbrev-ref", "main@{u}")).toBe("origin/main");
     expect(git(bare, "log", "-1", "--format=%s", "main")).toBe("premier commit");
-    await expect(page.locator(".statusbar")).toContainText("↑0 ↓0");
+    await expect(page.locator(".statusbar").getByRole("button", { name: "0 commit à pousser" })).toHaveText("↑0");
   } finally {
     await app.close();
     gitlab.server.close();

@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Barre d'état : ↑ et ↓ s'ouvrent d'un clic sur ce qui part au push ou arrive au pull, et sont lus en clair par les lecteurs d'écran (« 2 commits à pousser ») ; « Pas de branche suivie » au lieu de ↑0 ↓0 trompeurs ; un chemin long se raccourcit, complet en infobulle.
 - Diff au clavier : une seule tabulation, puis ↑ / ↓ de ligne en ligne et F7 / Maj+F7 de bloc en bloc. Dans les modifications en cours, Espace choisit une ligne, Maj+flèches une plage, Ctrl+A toutes ; Entrée indexe (ou retire) la sélection ou le bloc, Suppr l'abandonne (avec confirmation). Échap vide d'abord la sélection, puis ferme le diff et vous ramène au fichier.
 - Diff : « Ignorer les espaces » (bouton à côté de la bascule en ligne / côte à côte) masque les changements qui ne touchent que des espaces ; l'indexation par bloc ou par ligne est alors suspendue, le temps de les réafficher.
 - Diff : avec une ligne très longue, les numéros de ligne et les boutons des blocs restent à l'écran pendant le défilement horizontal. La dernière ligne sans retour à la ligne est marquée ; les lecteurs d'écran annoncent ajouts et suppressions, et le côte à côte montre les signes + / −. Plus de « −0 » sur un fichier ajouté ; chemin complet en infobulle ; « Réessayer » si le diff ne se charge pas ; numéros plus lisibles en thème sombre.

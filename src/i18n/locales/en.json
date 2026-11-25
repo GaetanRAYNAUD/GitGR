@@ -242,7 +242,11 @@
     "toolbar": "Repository actions",
     "runningOp": "{{op}} running…",
     "chipHint": "Click: go to the current commit in the graph",
-    "opHint": "Operation left in progress by git: finish it (conflicts, Continue) or abort it from the pending changes"
+    "opHint": "Operation left in progress by git: finish it (conflicts, Continue) or abort it from the pending changes",
+    "statusbar": "Status bar",
+    "pushShow": "show what a push sends",
+    "pullShow": "show what a pull brings",
+    "noUpstreamShort": "No upstream branch"
   },
   "graph": {
     "label": "Commit history",
