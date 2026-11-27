@@ -294,6 +294,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P).
 - [ ] **Aperçu des images dans le diff** : ancienne et nouvelle version côte à côte (ou en fondu / curseur), dimensions et poids avant / après ; aujourd'hui « Fichier binaire : pas d'aperçu ». Pour les autres binaires, au moins la taille et le type.
 - [ ] **Diff virtualisé** : un fichier de 20 000 lignes (`MAX_DIFF_LINES`) est rendu en entier ; virtualiser les lignes comme le graphe (en ligne et côte à côte, en gardant la grille au clavier, la sélection de lignes et les en-têtes de bloc figés), ou plafonner bien plus bas avec « Afficher quand même » / « Ouvrir dans l'éditeur ».
+- [ ] **Copier un diff** : dans la vue des modifications d'un fichier (diff d'un commit, modifications en cours) et dans la résolution de conflits, copier au format patch le bloc en cours (bouton du bloc, menu, raccourci), les lignes sélectionnées ou le fichier entier (en-tête de la vue, clic droit sur le fichier) ; pour un conflit, copier un côté ou le résultat. Copie annoncée, comme celle du SHA.
 
 ### Étape 9 — organisation multi-dépôt
 
