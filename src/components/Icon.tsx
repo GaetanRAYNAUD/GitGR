@@ -16,6 +16,7 @@ const PATHS = {
   close: "M6 6l12 12M18 6 6 18",
   minimize: "M5 12h14",
   maximize: "M6 6h12v12H6z",
+  restore: "M6 9h9v9H6zM9 9V6h9v9h-3",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4-4",
   check: "m5 12 5 5 9-10",
   settings:
