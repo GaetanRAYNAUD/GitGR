@@ -200,7 +200,9 @@ test("liens d'un message de commit : !12 ouvre la MR dans GitGR, un SHA sélecti
   const parent = body.locator(".commit-link").filter({ hasText: /^[0-9a-f]{8}$/ });
   const short = (await parent.textContent())!;
   await parent.click();
-  await expect(details.locator(".sha-line")).toHaveAttribute("title", new RegExp(`^${short}`));
+  await expect(details.locator(".sha-line .mono")).toHaveText(new RegExp(`^${short}`));
+  // Le focus suit : titre du commit atteint.
+  await expect(details.locator("h2.details-subject")).toBeFocused();
 
   await details.locator(".details-body .commit-link", { hasText: "!12" }).click();
   await expect(view(page).locator(".pull-view-title")).toHaveText("Rendu du graphe sur canvas");

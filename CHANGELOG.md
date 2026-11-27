@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Détails d'un commit : l'e-mail de l'auteur est affiché à côté de son nom, avec son avatar, et « Commité par … » apparaît sous l'auteur quand quelqu'un d'autre a commité (ou à une autre date, après un rebase ou un amend). Le SHA est complet ; les parents s'affichent sur 7 caractères comme dans le graphe.
+- Détails d'un commit au clavier : en passant à un parent ou à un SHA cité dans le message, le focus arrive sur le titre du nouveau commit, et Alt+← revient au commit précédent. La copie du SHA est annoncée (ou son échec).
+- Détails d'un commit : un message très long ne repousse plus la liste des fichiers hors de l'écran (il défile dans son bloc) ; « Chargement… » ne clignote plus en parcourant le graphe ; « Réessayer » si les détails ne se chargent pas ; un SHA cité mais absent de l'historique chargé le dit en infobulle.
 - Barre d'état : ↑ et ↓ s'ouvrent d'un clic sur ce qui part au push ou arrive au pull, et sont lus en clair par les lecteurs d'écran (« 2 commits à pousser ») ; « Pas de branche suivie » au lieu de ↑0 ↓0 trompeurs ; un chemin long se raccourcit, complet en infobulle.
 - Diff au clavier : une seule tabulation, puis ↑ / ↓ de ligne en ligne et F7 / Maj+F7 de bloc en bloc. Dans les modifications en cours, Espace choisit une ligne, Maj+flèches une plage, Ctrl+A toutes ; Entrée indexe (ou retire) la sélection ou le bloc, Suppr l'abandonne (avec confirmation). Échap vide d'abord la sélection, puis ferme le diff et vous ramène au fichier.
 - Diff : « Ignorer les espaces » (bouton à côté de la bascule en ligne / côte à côte) masque les changements qui ne touchent que des espaces ; l'indexation par bloc ou par ligne est alors suspendue, le temps de les réafficher.

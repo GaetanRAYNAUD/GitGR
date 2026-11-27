@@ -337,8 +337,25 @@ function chipRef(chip: RefChip, refs: RefsInfo | null): GitRef | undefined {
   return refs?.refs.find((r) => r.kind === chip.kind && r.short === chip.label);
 }
 
-/** Avatar d'un auteur (colonne Auteur, étiquettes de branches) : son image, sinon ses initiales. */
-function AuthorBadge({ name, avatar, className }: { name: string; avatar: string | null | undefined; className: string }) {
+/** Avatars des auteurs : provider et dépôt du remote `origin`, avec le compte de son profil ;
+ *  `null` quand les avatars sont désactivés dans les réglages. */
+export function useAuthorContext(path: string): AuthorContext | null {
+  const avatarsOn = !useApp((s) => s.settings.graphAvatarsOff);
+  const remoteUrl = useApp((s) => s.summaries[path]?.data?.remoteUrl ?? null);
+  const profiles = useProfiles((s) => s.profiles);
+  const binding = useProfiles((s) => s.repoProfiles[path]);
+  return useMemo((): AuthorContext | null => {
+    if (!avatarsOn) return null;
+    const parsed = parseRemote(remoteUrl);
+    const provider = remoteProvider(profiles, parsed);
+    if (!parsed || !provider) return { kind: null, url: null, repo: null, account: null };
+    const account = remoteAccount(remoteProfile(profiles, binding, { name: "origin", url: remoteUrl }).profile, parsed);
+    return { kind: provider, url: remoteInstance(profiles, parsed, account), repo: parsed.path, account: account?.id ?? null };
+  }, [avatarsOn, remoteUrl, profiles, binding]);
+}
+
+/** Avatar d'un auteur (colonne Auteur, étiquettes de branches, détails) : son image, sinon ses initiales. */
+export function AuthorBadge({ name, avatar, className }: { name: string; avatar: string | null | undefined; className: string }) {
   if (avatar) return <img className={className} src={avatar} alt="" draggable={false} />;
   return (
     <span className={`${className} initials`} aria-hidden="true">
@@ -577,18 +594,9 @@ export function CommitGraph({ path, changes }: Props) {
     return () => ro.disconnect();
   }, [path, showList]);
 
-  // Avatars des auteurs : provider et dépôt du remote `origin`, avec le compte de son profil.
-  const remoteUrl = useApp((s) => s.summaries[path]?.data?.remoteUrl ?? null);
+  const authorCtx = useAuthorContext(path);
   const profiles = useProfiles((s) => s.profiles);
   const binding = useProfiles((s) => s.repoProfiles[path]);
-  const authorCtx = useMemo((): AuthorContext | null => {
-    if (!avatarsOn) return null;
-    const parsed = parseRemote(remoteUrl);
-    const provider = remoteProvider(profiles, parsed);
-    if (!parsed || !provider) return { kind: null, url: null, repo: null, account: null };
-    const account = remoteAccount(remoteProfile(profiles, binding, { name: "origin", url: remoteUrl }).profile, parsed);
-    return { kind: provider, url: remoteInstance(profiles, parsed, account), repo: parsed.path, account: account?.id ?? null };
-  }, [avatarsOn, remoteUrl, profiles, binding]);
   // Icônes des remotes (étiquettes de branches) : propriétaire du dépôt et provider.
   // Avec un seul remote, l'icône répétée sur chaque étiquette n'apprend rien (le nuage dit
   // déjà « distante ») et prend la place du nom : seulement à partir de deux remotes.
