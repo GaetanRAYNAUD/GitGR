@@ -12,7 +12,11 @@ describe("<GitMissing />", () => {
     expect(dialog).toHaveAttribute("aria-modal", "true");
     // Pas de bouton mort « Git embarqué » tant que la fonction n'existe pas.
     expect(screen.queryByRole("button", { name: /embarqué/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Télécharger Git" })).toHaveFocus();
+    // Sous Linux (la CI), Git s'installe par le gestionnaire de paquets : pas de téléchargement,
+    // « Réessayer » est l'action principale.
+    const linux = navigator.userAgent.toLowerCase().includes("linux");
+    expect(screen.getByRole("button", { name: linux ? "Réessayer" : "Télécharger Git" })).toHaveFocus();
+    expect(screen.queryAllByRole("button", { name: "Télécharger Git" })).toHaveLength(linux ? 0 : 1);
 
     await userEvent.click(screen.getByRole("button", { name: "Réessayer" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Git n’est toujours pas trouvé dans le PATH");
