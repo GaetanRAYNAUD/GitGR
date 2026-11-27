@@ -6483,8 +6483,15 @@ body.commit-dragging * {
   text-overflow: ellipsis;
 }
 
+.blame-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @container (max-width: 560px) {
-  .blame-view {
+  /* (Une requête de conteneur ne touche que les descendants : la variable passe par .blame-body.) */
+  .blame-body {
     --blame-col: 150px;
   }
 

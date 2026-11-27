@@ -356,7 +356,7 @@
     "renamedFrom": "renamed from {{path}}",
     "showDiff": "Show the file's diff",
     "of": "History:",
-    "keys": "↑ ↓: details · Enter: file diff · Shift+Enter: in the graph · Shift+F10: actions",
+    "keys": "↑ ↓ details · Enter file diff · Shift+Enter in the graph · Shift+F10 actions",
     "resultsMore": "{{count}}+ commits (most recent)",
     "blameGone": "The file no longer exists in the working copy: open the blame of a commit (right-click)."
   },
@@ -373,12 +373,13 @@
     "deleted": "The file no longer exists at this commit.",
     "truncated": "File truncated: too long to be shown in full.",
     "of": "Blame:",
-    "keys": "↑ ↓: lines · F7: next block · Enter: details · Shift+Enter: in the graph · Shift+F10: actions · darker margin mark = more recent line",
+    "keys": "↑ ↓ lines · F7 next block · Enter details · Shift+Enter in the graph · Shift+F10 actions",
     "atCommitSame": "Already shown at this commit.",
     "gridLabel": "Blame of {{file}}",
     "row": "Line {{n}}, {{summary}}, {{who}}",
     "rowUncommitted": "Line {{n}}, not committed yet",
-    "uncommittedHint": "Changed in the working copy, not committed yet."
+    "uncommittedHint": "Changed in the working copy, not committed yet.",
+    "ageHint": "Margin mark: the darker, the more recent the line."
   },
   "tag": {
     "newTitle": "New tag",

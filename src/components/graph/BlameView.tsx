@@ -180,7 +180,9 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
           {t("fileHistory.menu")}
         </button>
       </header>
-      <p className="muted reflog-hint blame-hint">{t("blame.keys")}</p>
+      <p className="muted reflog-hint blame-hint" title={t("blame.ageHint")}>
+        {t("blame.keys")}
+      </p>
       {blame?.truncated && <p className="details-note muted blame-note">{t("blame.truncated")}</p>}
       {missing && (
         <p className="details-note muted blame-note" role="status">

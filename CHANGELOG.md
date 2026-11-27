@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Blame au clavier : une seule tabulation, puis ↑ / ↓ de ligne en ligne, F7 / Maj+F7 de commit en commit, Entrée pour ses détails, Maj+Entrée pour le montrer dans le graphe, Maj+F10 pour ses actions. Historique d'un fichier : ↑ / ↓ (les détails suivent), Entrée ouvre le diff du fichier. Les lecteurs d'écran lisent chaque ligne avec son commit, son auteur et sa date.
+- Blame et historique : Retour (ou Échap) revient à la vue d'où l'on vient (historique ↔ blame, « Blame avant ce commit »), puis au fichier qui les avait ouverts. « Réessayer » si la lecture échoue, sans effacer ce qui était affiché.
+- Blame : la marge (qui, quand, puis le résumé) reste en place quand une ligne longue défile et se resserre quand la place manque ; la marque d'âge est grise (l'accent bleu reste à la sélection) ; un fichier tronqué le dit en haut. Dates courtes au-delà d'une semaine, comme dans le graphe. « Blame » est grisé dans l'historique d'un fichier supprimé.
 - Suivi d'une PR / MR : un commentaire ou une réponse en cours n'est plus perdu en changeant d'onglet ou en fermant la vue — il vous attend jusqu'à l'envoi. Ctrl+Entrée envoie. Quitter une description en cours de modification demande confirmation, et Échap dans le formulaire ne ferme plus toute la vue.
 - Suivi d'une PR / MR : la vue prend toute la largeur (le panneau des détails d'un commit revient dès qu'on ouvre un commit cité) ; le titre passe à la ligne quand la place manque et la liste des fichiers se resserre. « En tant que … » rappelle le compte avec lequel on commente, approuve ou fusionne.
 - Suivi d'une PR / MR au clavier : les onglets Discussion / Fichiers / Checks se parcourent avec ← / →, en une seule tabulation ; après une confirmation, le focus revient au bouton d'origine.
