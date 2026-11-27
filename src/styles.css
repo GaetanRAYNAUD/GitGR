@@ -2882,6 +2882,14 @@ h2 {
   margin-left: 4px;
 }
 
+/* Texte cherché (recherche dans les modifications) : teinte « modifié », par-dessus le reste. */
+.diff-table mark.diff-find {
+  color: inherit;
+  background: color-mix(in srgb, var(--mod) 40%, transparent);
+  box-shadow: 0 0 0 1px var(--mod);
+  border-radius: 2px;
+}
+
 /* Mots modifiés dans une ligne : fond plus soutenu que celui de la ligne. */
 .diff-table .hl {
   border-radius: 3px;
@@ -6104,6 +6112,23 @@ p.pf-account-keys.bad,
   gap: 6px;
 }
 
+/* « Toute la plage », en tête des commits : séparée d'eux par un filet. */
+.range-all {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Message complet du commit centré. */
+.range-body {
+  margin: 0;
+  padding: 6px 12px;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
 .range-meta > span + span::before {
   content: "·";
   margin-right: 6px;
@@ -6139,10 +6164,21 @@ p.pf-account-keys.bad,
 }
 
 /* Reflog (ReflogView). */
+/* Titre « Où était [ref ▾] » : la liste fait partie du titre. */
+.reflog-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .reflog-ref {
+  /* À la taille de la ref choisie, comme un mot du titre. */
+  field-sizing: content;
   width: auto;
-  max-width: 220px;
-  margin-left: auto;
+  min-width: 0;
+  max-width: 260px;
+  font-weight: 600;
 }
 
 /* Position dans le reflog (@{n}). */
@@ -6257,6 +6293,37 @@ p.pf-account-keys.bad,
 .search-empty {
   flex-basis: 100%;
   margin: 0;
+}
+
+/* Deux volets : commits trouvés à gauche, fichiers et diff du commit choisi à droite. */
+.search-split {
+  flex: 1;
+  height: auto;
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  width: clamp(240px, 36%, 420px);
+  padding: 0;
+}
+
+.search-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+}
+
+.search-row .reflog-message {
+  flex: none;
+}
+
+/* Plusieurs fichiers touchés : leur liste au-dessus du diff, qui garde la place. */
+.search-files {
+  flex: none;
+  max-height: 30%;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
 }
 
 .search-author {

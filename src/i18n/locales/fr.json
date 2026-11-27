@@ -333,7 +333,13 @@
     "pushBadge_other": "Voir les {{count}} commits qui partent au push",
     "pullBadge_one": "Voir le commit qui arrive au pull",
     "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull",
-    "keys": "↑ ↓ commit · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 actions"
+    "keys": "↑ ↓ commit ou toute la plage · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "all": "Toute la plage",
+    "allHint_one": "changements cumulés du commit",
+    "allHint_other": "changements cumulés des {{count}} commits",
+    "commitFiles_one": "{{count}} fichier dans {{sha}}",
+    "commitFiles_other": "{{count}} fichiers dans {{sha}}",
+    "noFiles": "Ce commit ne modifie aucun fichier."
   },
   "contentSearch": {
     "label": "Recherche dans les modifications",
@@ -351,8 +357,11 @@
     "regexHint": "Expression régulière : les lignes modifiées qui correspondent",
     "resultsMore": "{{count}}+ commits (les plus récents)",
     "searching": "Recherche…",
-    "keys": "↓ résultats · ↑ ↓ commit · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 actions",
-    "highlightHint": "Met ces commits en avant dans le graphe, les autres estompés (F3 de l’un à l’autre, Échap pour sortir)."
+    "keys": "↓ résultats · ↑ ↓ commit · Entrée ses fichiers · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "highlightHint": "Met ces commits en avant dans le graphe, les autres estompés (F3 de l’un à l’autre, Échap pour sortir).",
+    "files_one": "{{count}} fichier où le texte change dans {{sha}}",
+    "files_other": "{{count}} fichiers où le texte change dans {{sha}}",
+    "noFiles": "Le texte ne change dans aucun fichier de ce commit (merge, ou fichier hors du filtre)."
   },
   "squash": {
     "title": "Squash de {{count}} commits",
@@ -550,7 +559,36 @@
     "showInGraph": "Montrer dans le graphe",
     "toolbar": "Reflog",
     "toolbarHint": "Où était HEAD : retrouver un commit perdu (reset, rebase, branche supprimée)",
-    "keys": "↑ ↓ position · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 branche, checkout, reset"
+    "keys": "↑ ↓ position · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 branche, checkout, reset",
+    "where": "Où était",
+    "op": {
+      "commit": "Commit",
+      "amend": "Commit modifié",
+      "initial": "Premier commit",
+      "commitMerge": "Commit de merge",
+      "checkout": "Checkout",
+      "reset": "Reset",
+      "rebase": "Rebase",
+      "rebaseEnd": "Fin du rebase",
+      "merge": "Merge",
+      "pull": "Pull",
+      "cherryPick": "Cherry-pick",
+      "revert": "Revert",
+      "branch": "Branche créée",
+      "clone": "Clone",
+      "push": "Push",
+      "fetch": "Fetch",
+      "rename": "Renommage"
+    },
+    "msg": {
+      "moving": "de {{from}} vers {{to}}",
+      "movingTo": "vers {{to}}",
+      "returning": "retour sur {{to}}",
+      "created": "depuis {{from}}",
+      "renamed": "{{from}} renommée en {{to}}",
+      "fastForward": "avance rapide",
+      "mergeMade": "commit de merge créé"
+    }
   },
   "multi": {
     "label": "Commits sélectionnés",

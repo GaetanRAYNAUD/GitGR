@@ -2,31 +2,49 @@
 // place du graphe depuis la barre d'outils : `git log -S` (ou `-G` pour une expression
 // régulière) sur toutes les branches, éventuellement limité à un fichier ou un dossier.
 //
-// Souris : clic = ses détails ; double-clic = le montrer dans le graphe ; clic droit = ses
-// actions. Clavier : le champ a le focus à l'ouverture, Entrée lance la recherche et la liste
-// prend le focus ; ↓ depuis le champ y va aussi. Liste à une tabulation : ↑ / ↓ (les détails
-// suivent), Entrée = détails, Maj+Entrée = dans le graphe, Maj+F10 = actions ; Échap ferme.
+// Deux volets : à gauche les commits trouvés, à droite celui qui est choisi, avec les seuls
+// fichiers où le texte change et leur diff, le texte surligné.
+//
+// Souris : clic = le montrer à droite ; double-clic = le montrer dans le graphe ; clic droit =
+// ses actions. Clavier : le champ a le focus à l'ouverture, Entrée lance la recherche et la
+// liste prend le focus ; ↓ depuis le champ y va aussi. Liste à une tabulation : ↑ / ↓ (le volet
+// de droite suit), Entrée = aller à ses fichiers, Maj+Entrée = dans le graphe, Maj+F10 =
+// actions ; Échap ferme.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import type { Commit } from "../../lib/types";
+import type { Commit, FileChange, FileDiff } from "../../lib/types";
+import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useGraphFind } from "../../store/graphFind";
 import { useSearchView, type ContentQuery } from "../../store/range";
 import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
-import { useEscape, useReturnFocus } from "./DiffBody";
-import { BackButton } from "./DiffView";
-import { commitMenu } from "./menus";
-import { listKeys, RetryNotice, scrollRow, useCommitWhen } from "./viewKit";
+import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
+import { DiffStats } from "./DiffStats";
+import { BackButton, DiffPath } from "./DiffView";
+import { FileList, StatusBadge } from "./FileList";
+import { commitMenu, fileMenu } from "./menus";
+import { listKeys, RetryNotice, samePath, scrollRow, useCommitWhen } from "./viewKit";
 
 const LIMIT = 200;
 const EMPTY: ContentQuery = { text: "", regex: false, file: "" };
+
+/** Le texte cherché en expression globale, pour le surligner dans le diff. */
+export function searchMark(q: ContentQuery): RegExp | null {
+  if (!q.text) return null;
+  try {
+    return new RegExp(q.regex ? q.text : q.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+  } catch {
+    return null;
+  }
+}
 
 export function SearchView({ path }: { path: string }) {
   const { t } = useTranslation();
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const filesRef = useRef<HTMLDivElement>(null);
   const returnFocus = useReturnFocus(sectionRef);
   const close = useSearchView((s) => s.close);
   const back = useCallback(() => {
@@ -37,7 +55,9 @@ export function SearchView({ path }: { path: string }) {
   const last = useSearchView((s) => s.queries[path]) ?? EMPTY;
   const setQuery = useSearchView((s) => s.setQuery);
   const refs = useGraph((s) => s.graphs[path]?.refs ?? null);
-  const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
+  const fileView = useApp((s) => s.settings.fileView ?? "list");
+  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const [form, setForm] = useState<ContentQuery>(last);
   const [results, setResults] = useState<Commit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +66,18 @@ export function SearchView({ path }: { path: string }) {
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  /** Commit montré à droite. */
+  const [focus, setFocus] = useState<string | null>(null);
+  /** Fichiers du commit montré, pour la recherche `query` (ignorés si elle a changé). */
+  const [files, setFiles] = useState<{ sha: string; query: ContentQuery; data?: FileChange[]; error?: string } | null>(null);
+  const [filesReload, setFilesReload] = useState(0);
+  const [file, setFile] = useState<FileChange | null>(null);
+  const [diff, setDiff] = useState<{ data: FileDiff | null; error: string | null } | null>(null);
+  const [diffReload, setDiffReload] = useState(0);
   /** Après un envoi, la liste prend le focus dès qu'elle arrive. */
   const focusList = useRef(false);
-  const { when, full } = useCommitWhen();
+  const { when, full: fullDate } = useCommitWhen();
+  const mark = useMemo(() => searchMark(last), [last]);
 
   // La dernière recherche est refaite en revenant sur la vue. Un échec garde les résultats
   // précédents (erreur en bandeau, « Réessayer »).
@@ -62,6 +91,8 @@ export function SearchView({ path }: { path: string }) {
         setResults(list);
         setError(null);
         setBusy(false);
+        // Le commit montré reste s'il est encore trouvé ; sinon le premier.
+        setFocus((s) => (s && list.some((c) => c.sha === s) ? s : (list[0]?.sha ?? null)));
       },
       (e) => {
         if (!live) return;
@@ -81,11 +112,45 @@ export function SearchView({ path }: { path: string }) {
     }
   }, [results]);
 
+  // Fichiers du commit montré où le texte change ; le premier s'ouvre.
+  useEffect(() => {
+    if (!focus || !last.text) return;
+    let live = true;
+    api.searchFiles(path, focus, last.text, last.regex, last.file || null).then(
+      (list) => {
+        if (!live) return;
+        setFiles({ sha: focus, query: last, data: list });
+        setFile((f) => samePath(f, list));
+      },
+      (e) => live && setFiles({ sha: focus, query: last, error: errorCode(e) }),
+    );
+    return () => {
+      live = false;
+    };
+    // `reload` : la même recherche relancée relit aussi les fichiers (le dépôt a pu changer).
+  }, [path, focus, last, reload, filesReload]);
+
+  const shown = focus && files?.sha === focus && files.query === last ? files : null;
+  const fileShown = file && shown?.data?.some((f) => f.path === file.path) ? file : null;
+  useEffect(() => {
+    if (!focus || !fileShown) return;
+    let live = true;
+    setDiff(null);
+    api.commitDiff(path, focus, fileShown.path, fileShown.oldPath, { ignoreWs, full }).then(
+      (d) => live && setDiff({ data: d, error: null }),
+      (e) => live && setDiff({ data: null, error: errorCode(e) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, focus, fileShown, ignoreWs, full, diffReload]);
+
   const list = results ?? [];
   const at = Math.max(
     0,
-    list.findIndex((c) => c.sha === selected),
+    list.findIndex((c) => c.sha === focus),
   );
+  const current = list[at];
   const reveal = (sha: string) =>
     void useGraph.getState().reveal(path, sha).then((ok) => {
       if (ok) close(path);
@@ -95,15 +160,19 @@ export function SearchView({ path }: { path: string }) {
     const c = list[i];
     if (!c) return;
     setMissing(null);
-    useGraph.getState().select(path, c.sha);
+    setFocus(c.sha);
     scrollRow(`sr-${c.sha}`);
   };
   const items = (sha: string): MenuItem[] => [{ label: t("reflog.showInGraph"), onClick: () => reveal(sha) }, "sep", ...commitMenu(t, path, sha, refs)];
   const onKeyDown = listKeys(list.length, at, {
     go: choose,
-    enter: (shift) => (shift ? reveal(list[at].sha) : choose(at)),
+    enter: (shift) => {
+      if (shift) return reveal(list[at].sha);
+      choose(at);
+      // Entrée : vers les fichiers du commit (la liste, ou le diff s'il n'y en a qu'un).
+      filesRef.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+    },
     menu: () => {
-      useGraph.getState().select(path, list[at].sha);
       const box = document.getElementById(`sr-${list[at].sha}`)?.getBoundingClientRect();
       if (box) useContextMenu.getState().open(box.left + 12, box.bottom, items(list[at].sha));
     },
@@ -124,6 +193,7 @@ export function SearchView({ path }: { path: string }) {
   };
 
   const count = results ? (results.length >= LIMIT ? t("contentSearch.resultsMore", { count: LIMIT }) : t("contentSearch.results", { count: results.length })) : "";
+  const filesLabel = current ? t("contentSearch.files", { count: shown?.data?.length ?? 0, sha: current.sha.slice(0, 7) }) : "";
 
   return (
     <section ref={sectionRef} className="pull-view reflog-view search-view" aria-label={t("contentSearch.label")}>
@@ -203,40 +273,93 @@ export function SearchView({ path }: { path: string }) {
       ) : results && results.length === 0 ? (
         <p className="muted pull-pad">{t("contentSearch.none")}</p>
       ) : results ? (
-        <ul
-          ref={listRef}
-          className="reflog-list"
-          role="listbox"
-          tabIndex={0}
-          aria-label={count}
-          aria-activedescendant={list[at] ? `sr-${list[at].sha}` : undefined}
-          onKeyDown={onKeyDown}
-        >
-          {results.map((c, i) => (
-            <li
-              key={c.sha}
-              id={`sr-${c.sha}`}
-              role="option"
-              aria-selected={selected === c.sha}
-              aria-label={c.subject}
-              aria-description={[c.author, when(c.time), c.sha.slice(0, 7)].join(", ")}
-              className={["reflog-row", selected === c.sha && "on", i === at && "active"].filter(Boolean).join(" ")}
-              onClick={() => choose(i)}
-              onDoubleClick={() => reveal(c.sha)}
-              onContextMenu={(ev) => {
-                useGraph.getState().select(path, c.sha);
-                openContextMenu(ev, items(c.sha));
-              }}
+        <div className="pull-files range-files search-split">
+          <div className="pull-file-list search-results">
+            <ul
+              ref={listRef}
+              className="reflog-list"
+              role="listbox"
+              tabIndex={0}
+              aria-label={count}
+              aria-activedescendant={current ? `sr-${current.sha}` : undefined}
+              onKeyDown={onKeyDown}
             >
-              <span className="reflog-message">{c.subject}</span>
-              <span className="muted search-author">{c.author}</span>
-              <span className="mono muted reflog-sha">{c.sha.slice(0, 7)}</span>
-              <span className="muted reflog-time" title={full(c.time)}>
-                {when(c.time)}
-              </span>
-            </li>
-          ))}
-        </ul>
+              {results.map((c, i) => (
+                <li
+                  key={c.sha}
+                  id={`sr-${c.sha}`}
+                  role="option"
+                  aria-selected={focus === c.sha}
+                  aria-label={c.subject}
+                  aria-description={[c.author, when(c.time), c.sha.slice(0, 7)].join(", ")}
+                  className={["reflog-row search-row", focus === c.sha && "on active"].filter(Boolean).join(" ")}
+                  onClick={() => choose(i)}
+                  onDoubleClick={() => reveal(c.sha)}
+                  onContextMenu={(ev) => {
+                    choose(i);
+                    openContextMenu(ev, items(c.sha));
+                  }}
+                >
+                  <span className="reflog-message">{c.subject}</span>
+                  <span className="range-meta muted">
+                    <span className="mono">{c.sha.slice(0, 7)}</span>
+                    <span className="search-author">{c.author}</span>
+                    <span title={fullDate(c.time)}>{when(c.time)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="pull-file-diff search-detail" ref={filesRef}>
+            {current && (
+              <>
+                <div className="section-h">
+                  <span>{filesLabel}</span>
+                </div>
+                {shown?.error ? (
+                  <RetryNotice error={shown.error} onRetry={() => setFilesReload((n) => n + 1)} />
+                ) : !shown?.data ? (
+                  <p className="muted pull-pad">{t("details.loading")}</p>
+                ) : shown.data.length === 0 ? (
+                  <p className="muted pull-pad">{t("contentSearch.noFiles")}</p>
+                ) : (
+                  shown.data.length > 1 && (
+                    <div className="search-files">
+                      <FileList
+                        files={shown.data}
+                        view={fileView}
+                        label={filesLabel}
+                        isActive={(f) => fileShown?.path === f.path}
+                        onOpen={setFile}
+                        onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+                      />
+                    </div>
+                  )
+                )}
+                {fileShown && (
+                  <>
+                    <header className="diff-head">
+                      <StatusBadge status={fileShown.status} />
+                      <DiffPath file={fileShown} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, fileShown.path))} />
+                      {diff?.data && <DiffStats diff={diff.data} />}
+                      <DiffViewToggle />
+                    </header>
+                    <div className="diff-body">
+                      <DiffBody
+                        data={diff?.data ?? undefined}
+                        error={diff?.error ?? undefined}
+                        onRetry={() => setDiffReload((n) => n + 1)}
+                        resetKey={`${focus}:${fileShown.path}`}
+                        blame={fileShown.status === "D" ? undefined : { path, file: fileShown.path, rev: focus }}
+                        mark={mark}
+                      />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       ) : null}
     </section>
   );

@@ -4,6 +4,7 @@
 // une ligne active que les flèches déplacent (F7 : bloc suivant).
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useId,
@@ -185,6 +186,8 @@ interface Props {
   resetKey?: string;
   /** Fichier et version de droite, pour la marge de blame (« Annoter »). */
   blame?: BlameSource;
+  /** Texte cherché, surligné dans les lignes (recherche dans les modifications). */
+  mark?: RegExp | null;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -255,27 +258,68 @@ function HunkHeader({
   );
 }
 
-/** Texte d'une ligne, avec les parties modifiées surlignées quand on les connaît. */
-function LineText({ segments, text }: { segments?: Segment[]; text: string }) {
-  if (!segments) return <>{text}</>;
-  return (
-    <>
-      {segments.map((seg, k) =>
-        seg.changed ? (
-          <span key={k} className="hl">
-            {seg.text}
-          </span>
+/** Positions `[début, fin)` des correspondances de `mark` (expression globale) dans `text`. */
+export function markRanges(text: string, mark: RegExp | null | undefined): [number, number][] {
+  if (!mark || !text) return [];
+  const out: [number, number][] = [];
+  mark.lastIndex = 0;
+  for (let m = mark.exec(text); m; m = mark.exec(text)) {
+    // Une correspondance vide n'avance pas : on saute d'un caractère.
+    if (!m[0]) mark.lastIndex++;
+    else out.push([m.index, m.index + m[0].length]);
+  }
+  return out;
+}
+
+/** Texte d'une ligne, avec les parties modifiées surlignées quand on les connaît, et le texte
+ *  cherché marqué — sur la ligne entière, même à cheval sur un mot modifié. */
+function LineText({ segments, text, mark }: { segments?: Segment[]; text: string; mark?: RegExp | null }) {
+  const ranges = markRanges(text, mark);
+  if (!segments && !ranges.length) return <>{text}</>;
+  const segs = segments ?? [{ text, changed: false }];
+  // Coupures : bords des segments et des correspondances.
+  const out: ReactNode[] = [];
+  let at = 0;
+  segs.forEach((seg, k) => {
+    const end = at + seg.text.length;
+    const cuts = new Set([at, end]);
+    for (const [s, e] of ranges) {
+      if (s > at && s < end) cuts.add(s);
+      if (e > at && e < end) cuts.add(e);
+    }
+    const points = [...cuts].sort((a, b) => a - b);
+    const parts: ReactNode[] = [];
+    for (let p = 0; p < points.length - 1; p++) {
+      const [s, e] = [points[p], points[p + 1]];
+      const piece = text.slice(s, e);
+      const hit = ranges.some(([rs, re]) => s >= rs && e <= re);
+      parts.push(
+        hit ? (
+          <mark key={s} className="diff-find">
+            {piece}
+          </mark>
         ) : (
-          seg.text
+          <Fragment key={s}>{piece}</Fragment>
         ),
-      )}
-    </>
-  );
+      );
+    }
+    out.push(
+      seg.changed ? (
+        <span key={k} className="hl">
+          {parts}
+        </span>
+      ) : (
+        <Fragment key={k}>{parts}</Fragment>
+      ),
+    );
+    at = end;
+  });
+  return <>{out}</>;
 }
 
 const PAGE = 20;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -494,7 +538,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       <span className="sign" aria-hidden="true">
         {x.l.kind === "-" ? "−" : x.l.kind}
       </span>
-      <LineText segments={words[hi]?.get(x.i)} text={x.l.text} />
+      <LineText segments={words[hi]?.get(x.i)} text={x.l.text} mark={mark} />
       {x.l.noEol && (
         <span className="no-eol" title={t("diff.noEol")}>
           {t("diff.noEolShort")}
