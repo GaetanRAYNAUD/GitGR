@@ -401,7 +401,7 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   const results = view.getByRole("listbox", { name: /commits?/ }).getByRole("option");
   await expect(results.first()).toContainText("perf: rendu virtualisé des lignes");
   // Après la recherche, la liste a le focus.
-  await expect(view.getByRole("listbox")).toBeFocused();
+  await expect(view.getByRole("listbox", { name: /commits?/ })).toBeFocused();
   // Deux volets : le commit choisi, ses fichiers où le texte change et leur diff ; pas de panneau.
   await results.first().click();
   await expect(panel(page)).toHaveCount(0);
