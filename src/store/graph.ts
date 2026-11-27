@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import { rangeShas } from "../lib/multiSelect";
-import { useApp } from "./app";
+import { diffOpts } from "./app";
 import type { Commit, CommitDetails, FileChange, FileDiff, RefsInfo } from "../lib/types";
 
 /** Taille d'une page d'historique. */
@@ -60,6 +60,8 @@ interface GraphStore {
   /** Nouvel essai après l'échec d'une page suivante. */
   retryMore(path: string): Promise<void>;
   select(path: string, sha: string | null): void;
+  /** Détails d'un commit dans le panneau, sans fermer le diff ouvert (marge de blame). */
+  showDetails(path: string, sha: string): void;
   /** Ctrl+clic : ajoute ou retire un commit de la sélection. */
   togglePick(path: string, sha: string): void;
   /** Maj+clic (ou Maj+flèche) : la plage du graphe entre le point de départ et `sha`. */
@@ -97,8 +99,6 @@ export function fingerprint(refs: RefsInfo): string {
   return JSON.stringify([refs.head, refs.headBranch, refs.refs.map((r) => [r.name, r.target])]);
 }
 
-/** Diffs sans les changements d'espaces (réglage « Ignorer les espaces »). */
-const ignoreWs = () => !!useApp.getState().settings.diffIgnoreWs;
 
 export const useGraph = create<GraphStore>((set, get) => {
   const patch = (path: string, p: Partial<RepoGraph>) =>
@@ -189,6 +189,11 @@ export const useGraph = create<GraphStore>((set, get) => {
       if (sha && sha !== WIP) get().loadDetails(path, sha);
     },
 
+    showDetails(path, sha) {
+      patch(path, { selected: sha, picked: [], focus: null });
+      get().loadDetails(path, sha);
+    },
+
     togglePick(path, sha) {
       const g = get().graphs[path];
       if (!g || sha === WIP) return;
@@ -248,8 +253,8 @@ export const useGraph = create<GraphStore>((set, get) => {
       let next: OpenDiff;
       try {
         const data = base
-          ? await api.rangeDiff(path, base, sha, file.path, file.oldPath, ignoreWs())
-          : await api.commitDiff(path, sha, file.path, file.oldPath, ignoreWs());
+          ? await api.rangeDiff(path, base, sha, file.path, file.oldPath, diffOpts())
+          : await api.commitDiff(path, sha, file.path, file.oldPath, diffOpts());
         next = { sha, file, base, data };
       } catch (e) {
         next = { sha, file, base, error: errorCode(e) };

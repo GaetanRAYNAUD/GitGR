@@ -611,7 +611,15 @@
     "ignoreWs": "Ignorer les espaces",
     "wsHidden": "Espaces ignorés : l’indexation par bloc ou par ligne n’est pas possible dans cet affichage.",
     "showWs": "Afficher les espaces",
-    "onlyWs": "Seuls des espaces changent dans ce fichier."
+    "onlyWs": "Seuls des espaces changent dans ce fichier.",
+    "blame": "Annoter (blame)",
+    "blameShow": "Annoter (blame)",
+    "blameHide": "Masquer les annotations",
+    "keysBlame": "B : détails du commit de la ligne ; Maj+B : ses actions.",
+    "full": "Fichier entier",
+    "fullHidden": "Fichier entier : l’indexation par bloc ou par ligne n’est pas possible dans cet affichage.",
+    "showHunks": "Afficher les blocs seuls",
+    "blameStaged": "Pas d’annotations sur la version indexée : ouvrez la version de travail."
   },
   "stashes": {
     "rename": "Renommer",

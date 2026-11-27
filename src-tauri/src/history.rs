@@ -570,7 +570,7 @@ pub struct FileDiff {
 }
 
 /// Diff d'un fichier entre `sha` et son premier parent (ou l'arbre vide).
-pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>, ignore_ws: bool) -> Result<FileDiff, String> {
+pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>, ignore_ws: bool, full: bool) -> Result<FileDiff, String> {
     check_dir(path)?;
     check_sha(sha)?;
     let parent = run(Some(path), &["rev-parse", "-q", "--verify", &format!("{sha}^1")]).ok();
@@ -582,6 +582,7 @@ pub fn diff(path: &Path, sha: &str, file: &str, old_file: Option<&str>, ignore_w
     // désigne ce fichier, pas un motif.
     let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3"];
     push_ws(&mut args, ignore_ws);
+    push_full(&mut args, full);
     args.extend([base, sha, "--"]);
     if let Some(old) = old_file {
         args.push(old);
@@ -675,18 +676,31 @@ pub fn compare_files(path: &Path, base: &str, tip: &str) -> Result<Vec<FileChang
 }
 
 /// Diff d'un fichier entre deux commits (diff cumulé d'une plage).
-pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>, ignore_ws: bool) -> Result<FileDiff, String> {
+pub fn range_diff(path: &Path, base: &str, tip: &str, file: &str, old_file: Option<&str>, ignore_ws: bool, full: bool) -> Result<FileDiff, String> {
     check_dir(path)?;
     check_sha(base)?;
     check_sha(tip)?;
     let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M", "--unified=3"];
     push_ws(&mut args, ignore_ws);
+    push_full(&mut args, full);
     args.extend([base, tip, "--"]);
     if let Some(old) = old_file {
         args.push(old);
     }
     args.push(file);
     Ok(parse_diff(&run_raw(Some(path), &args)?))
+}
+
+/// Contexte d'un diff « fichier entier » : tout le fichier autour des changements (un seul bloc).
+pub(crate) const FULL_CONTEXT: &str = "--unified=100000000";
+
+/// « Fichier entier » : `--unified=3` remplacé par [`FULL_CONTEXT`].
+pub(crate) fn push_full(args: &mut [&str], full: bool) {
+    if full {
+        if let Some(a) = args.iter_mut().find(|a| a.starts_with("--unified=")) {
+            *a = FULL_CONTEXT;
+        }
+    }
 }
 
 /// « Ignorer les espaces » : `--ignore-all-space` (`-w`).
@@ -870,7 +884,7 @@ mod tests {
         let c = stash_changes(p, &sha).unwrap();
         assert_eq!(c.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), ["a.txt"]);
         assert_eq!(c.untracked_files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect::<Vec<_>>(), [("A", "neuf.txt")]);
-        let d = range_diff(p, EMPTY_TREE, c.untracked.as_deref().unwrap(), "neuf.txt", None, false).unwrap();
+        let d = range_diff(p, EMPTY_TREE, c.untracked.as_deref().unwrap(), "neuf.txt", None, false, false).unwrap();
         assert_eq!(d.hunks.len(), 1);
     }
 
@@ -890,7 +904,7 @@ mod tests {
         assert_eq!(push.tip, git(p, &["rev-parse", "HEAD"]));
         let files: Vec<_> = push.files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect();
         assert_eq!(files, vec![("M", "a.txt"), ("A", "b.txt")]);
-        let d = range_diff(p, &push.base, &push.tip, "a.txt", None, false).unwrap();
+        let d = range_diff(p, &push.base, &push.tip, "a.txt", None, false, false).unwrap();
         assert_eq!(d.hunks.len(), 1);
 
         let pull = range_changes(p, "pull").unwrap();
@@ -898,7 +912,7 @@ mod tests {
 
         git(p, &["branch", "--unset-upstream"]);
         assert_eq!(range_changes(p, "push").unwrap_err(), "no_upstream");
-        assert_eq!(range_diff(p, "--x", "HEAD", "a.txt", None, false).unwrap_err(), "invalid_sha");
+        assert_eq!(range_diff(p, "--x", "HEAD", "a.txt", None, false, false).unwrap_err(), "invalid_sha");
     }
 
     #[test]
@@ -1044,6 +1058,29 @@ mod tests {
     }
 
     #[test]
+    fn full_file_diff_keeps_every_line_in_one_hunk() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let lines: Vec<String> = (1..=30).map(|i| format!("ligne {i}")).collect();
+        commit_file(p, "a.txt", &(lines.join("
+") + "
+"));
+        let mut changed = lines.clone();
+        changed[0] = "première".into();
+        changed[29] = "dernière".into();
+        commit_file(p, "a.txt", &(changed.join("
+") + "
+"));
+        let sha = git(p, &["rev-parse", "HEAD"]);
+
+        // Contexte de 3 lignes : deux blocs ; fichier entier : un seul, avec toutes les lignes.
+        assert_eq!(diff(p, &sha, "a.txt", None, false, false).unwrap().hunks.len(), 2);
+        let full = diff(p, &sha, "a.txt", None, false, true).unwrap();
+        assert_eq!(full.hunks.len(), 1);
+        assert_eq!(full.hunks[0].lines.iter().filter(|l| l.kind != "-").count(), 30);
+    }
+
+    #[test]
     fn details_and_diff_of_a_commit() {
         let repo = temp_repo();
         let p = repo.path();
@@ -1063,7 +1100,7 @@ mod tests {
         let st: Vec<_> = d.files.iter().map(|f| (f.status.as_str(), f.path.as_str())).collect();
         assert_eq!(st, vec![("M", "a.txt"), ("A", "b.txt")]);
 
-        let fd = diff(p, &sha, "a.txt", None, false).unwrap();
+        let fd = diff(p, &sha, "a.txt", None, false, false).unwrap();
         let changed: Vec<_> = fd.hunks[0]
             .lines
             .iter()
@@ -1075,7 +1112,7 @@ mod tests {
         // Commit racine : tout est ajouté, comparé à l'arbre vide.
         let r = details(p, &root).unwrap();
         assert_eq!(r.files[0].status, "A");
-        let rd = diff(p, &root, "a.txt", None, false).unwrap();
+        let rd = diff(p, &root, "a.txt", None, false, false).unwrap();
         assert_eq!(rd.hunks[0].lines.len(), 3);
         assert!(rd.hunks[0].lines.iter().all(|l| l.kind == "+"));
     }
@@ -1096,7 +1133,7 @@ mod tests {
         assert_eq!(d.files[0].status, "R");
         assert_eq!(d.files[0].old_path.as_deref(), Some("ancien.txt"));
 
-        let fd = diff(p, &sha, "nouveau.txt", Some("ancien.txt"), false).unwrap();
+        let fd = diff(p, &sha, "nouveau.txt", Some("ancien.txt"), false, false).unwrap();
         let changed: Vec<_> = fd.hunks[0].lines.iter().filter(|l| l.kind != " ").collect();
         assert_eq!(changed.len(), 2, "seule la ligne modifiée apparaît, pas tout le fichier");
     }
@@ -1113,7 +1150,7 @@ mod tests {
         git(p, &["add", "."]);
         git(p, &["commit", "-q", "-m", "deux fichiers"]);
         let sha = git(p, &["rev-parse", "HEAD"]);
-        let fd = diff(p, &sha, "[ab].txt", None, false).unwrap();
+        let fd = diff(p, &sha, "[ab].txt", None, false, false).unwrap();
         assert_eq!(fd.hunks.len(), 1, "seul [ab].txt, pas a.txt (que le motif [ab] désignerait)");
     }
 

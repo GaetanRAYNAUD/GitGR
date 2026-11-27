@@ -29,6 +29,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
   const summary = useApp((s) => s.summaries[path]?.data);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const running = useOps((s) => s.running[path]);
   const reveal = useGraph((s) => s.reveal);
   const [data, setData] = useState<RangeChanges | null>(null);
@@ -59,14 +60,14 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
     if (!file || !data) return;
     let live = true;
     setDiff(null);
-    api.rangeDiff(path, data.base, data.tip, file.path, file.oldPath, ignoreWs).then(
+    api.rangeDiff(path, data.base, data.tip, file.path, file.oldPath, { ignoreWs, full }).then(
       (d) => live && setDiff({ data: d, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, data, file, ignoreWs]);
+  }, [path, data, file, ignoreWs, full]);
 
   const ops = useOps.getState();
   const upstream = summary?.upstream ?? "";
@@ -136,7 +137,12 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
                   <DiffViewToggle />
                 </header>
                 <div className="diff-body">
-                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
+                  <DiffBody
+                    data={diff?.data ?? undefined}
+                    error={diff?.error ?? undefined}
+                    resetKey={file.path}
+                    blame={file.status === "D" ? undefined : { path, file: file.path, rev: data.tip }}
+                  />
                 </div>
               </>
             ) : (

@@ -618,6 +618,7 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
   const [diff, setDiff] = useState<{ data: FileDiff | null; error: string | null } | null>(null);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const target = `${ctx.remote}/${d.targetBranch}`;
   const head = d.headSha;
 
@@ -647,14 +648,14 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
     if (!file || !head) return;
     let live = true;
     setDiff(null);
-    api.pullFileDiff(path, target, head, file.path, file.oldPath, ignoreWs).then(
+    api.pullFileDiff(path, target, head, file.path, file.oldPath, { ignoreWs, full }).then(
       (data) => live && setDiff({ data, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, target, head, file, ignoreWs]);
+  }, [path, target, head, file, ignoreWs, full]);
 
   // Fichier demandé depuis un fil (« Voir dans le diff ») : ouvert dès que la liste est là.
   useEffect(() => {
@@ -711,7 +712,12 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
               <DiffViewToggle />
             </header>
             <div className="diff-body">
-              <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
+              <DiffBody
+                data={diff?.data ?? undefined}
+                error={diff?.error ?? undefined}
+                resetKey={file.path}
+                blame={file.status === "D" || !head ? undefined : { path, file: file.path, rev: head, beforeReveal: () => usePullList.getState().close(path) }}
+              />
             </div>
           </>
         ) : (

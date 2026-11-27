@@ -21,8 +21,10 @@ import { clamp, DIFF_LN_W as LN_W, diffSplitBounds, LAYOUT, useLayoutValue } fro
 import type { DiffLine, DiffViewSetting, FileDiff, Hunk, LineRef } from "../../lib/types";
 import { DIFF_WORD_BUDGET, hunkItems, hunkWordDiffs, type Segment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
+import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { Splitter } from "../Splitter";
+import { type BlameSource, MARGIN_W, useBlameMargin } from "./BlameMargin";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
@@ -70,16 +72,56 @@ export function useReturnFocus(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-/** Bascules du diff, mémorisées dans les réglages : sans les espaces, et en ligne / côte à côte. */
+let annotateToggles = 0;
+function onAnnotateKey(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey) || !e.altKey || e.shiftKey || e.key.toLowerCase() !== "b") return;
+  e.preventDefault();
+  const s = useApp.getState();
+  s.updateSettings({ diffBlame: !s.settings.diffBlame });
+}
+
+/** Bascule « Annoter » (marge de blame, Ctrl+Alt+B), mémorisée dans les réglages ; à placer
+ *  dans un groupe `.view-toggle`. */
+export function AnnotateToggle() {
+  const { t } = useTranslation();
+  const annotate = useApp((s) => !!s.settings.diffBlame);
+  const update = useApp((s) => s.updateSettings);
+  useEffect(() => {
+    // Un seul écouteur, même si deux bascules sont montées (sinon Ctrl+Alt+B s'annulerait).
+    if (annotateToggles++ === 0) window.addEventListener("keydown", onAnnotateKey);
+    return () => {
+      if (--annotateToggles === 0) window.removeEventListener("keydown", onAnnotateKey);
+    };
+  }, []);
+  return (
+    <button
+      className={annotate ? "on" : undefined}
+      aria-pressed={annotate}
+      aria-label={t("diff.blame")}
+      title={`${t("diff.blame")} (Ctrl+Alt+B)`}
+      onClick={() => update({ diffBlame: !annotate })}
+    >
+      <Icon name="user" size={14} />
+    </button>
+  );
+}
+
+/** Bascules du diff, mémorisées dans les réglages : marge de blame (Ctrl+Alt+B), fichier
+ *  entier, sans les espaces, et en ligne / côte à côte. */
 export function DiffViewToggle() {
   const { t } = useTranslation();
   const view = useApp((s) => s.settings.diffView ?? "inline");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const update = useApp((s) => s.updateSettings);
   const options: DiffViewSetting[] = ["inline", "split"];
   return (
     <span className="diff-tools">
       <span className="view-toggle">
+        <AnnotateToggle />
+        <button className={full ? "on" : undefined} aria-pressed={full} aria-label={t("diff.full")} title={t("diff.full")} onClick={() => update({ diffFull: !full })}>
+          <Icon name="file" size={14} />
+        </button>
         <button
           className={ignoreWs ? "on" : undefined}
           aria-pressed={ignoreWs}
@@ -141,6 +183,8 @@ interface Props {
   onRetry?: () => void;
   /** Change avec le fichier affiché : la ligne active repart du début. */
   resetKey?: string;
+  /** Fichier et version de droite, pour la marge de blame (« Annoter »). */
+  blame?: BlameSource;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -231,12 +275,14 @@ function LineText({ segments, text }: { segments?: Segment[]; text: string }) {
 
 const PAGE = 20;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const annotate = useApp((s) => !!s.settings.diffBlame);
   const update = useApp((s) => s.updateSettings);
+  const margin = useBlameMargin(blame);
   // Côte à côte : part de la largeur donnée au texte de gauche (absente = moitié-moitié).
   const saved = useLayoutValue(LAYOUT.diffSplit);
   const setLayout = useApp((s) => s.setLayout);
@@ -253,7 +299,9 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     setWrapW(el.clientWidth);
     return () => ro.disconnect();
   }, [hasWrap]);
-  const ratio = saved === undefined ? undefined : clamp(saved, diffSplitBounds(wrapW));
+  // Largeur de la marge de blame, retirée de la place des deux versions.
+  const annW = margin ? MARGIN_W : 0;
+  const ratio = saved === undefined ? undefined : clamp(saved, diffSplitBounds(Math.max(0, wrapW - annW)));
   // Mots réellement modifiés dans chaque ligne changée (suppression ↔ ajout appariés).
   const words = useMemo(() => {
     const budget = { left: DIFF_WORD_BUDGET };
@@ -378,6 +426,19 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       return;
     }
     if (!activeRef) return;
+    // B : détails du commit de la ligne (marge de blame) ; Maj+B : ses actions.
+    if (margin && plain && e.key.toLowerCase() === "b") {
+      const c = margin.at(lineAt(activeRef)?.new);
+      if (!c) return;
+      e.preventDefault();
+      if (!e.shiftKey) margin.pick(c);
+      else {
+        const box = document.getElementById(cellId(activeRef.hunk, activeRef.line))?.getBoundingClientRect();
+        const items = margin.menu(c);
+        if (box && items.length) useContextMenu.getState().open(box.left, box.bottom, items);
+      }
+      return;
+    }
     if (e.key === " " && plain && selection) {
       e.preventDefault();
       if (lineAt(activeRef)?.kind !== " ") selection.toggle(activeRef.hunk, activeRef.line, false);
@@ -442,17 +503,49 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     </>
   );
 
+  // Marge de blame : le commit de chaque ligne de la nouvelle version ; son nom et sa date sur
+  // la première ligne d'un bloc du même commit (`prev` : commit de la ligne affichée au-dessus).
+  let prev: string | null = null;
+  const annCell = (n: number | null | undefined, key: string) => {
+    if (!margin) return null;
+    const c = margin.at(n);
+    const start = !!c && c.sha !== prev;
+    prev = c?.sha ?? null;
+    return (
+      <td
+        key={key}
+        className={c ? (start ? "ann start" : "ann") : "ann empty"}
+        role="gridcell"
+        aria-hidden="true"
+        style={c ? ({ "--age": margin.age(c).toFixed(2) } as React.CSSProperties) : undefined}
+        title={c ? margin.title(c) : undefined}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => c && margin.pick(c)}
+        onDoubleClick={() => c && margin.reveal(c)}
+        onContextMenu={(e) => c && openContextMenu(e, margin.menu(c))}
+      >
+        {start && c ? margin.label(c) : null}
+      </td>
+    );
+  };
+  /** Clic droit sur les numéros : afficher ou masquer la marge. */
+  const lnMenu = (e: React.MouseEvent) =>
+    openContextMenu(e, [{ label: t(annotate ? "diff.blameHide" : "diff.blameShow"), onClick: () => update({ diffBlame: !annotate }) }]);
+  const extra = margin ? 1 : 0;
+
   const inline = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3} id={hunkId(hi)} hunkActions={hunkActions} />,
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3 + extra} id={hunkId(hi)} hunkActions={hunkActions} />,
     ...h.lines.map((l, li) => {
+      if (li === 0) prev = null;
       const changed = l.kind !== " ";
       const cls = [kindCls(l), isSel(hi, li) ? "picked" : "", isActive(hi, li) ? "active" : ""].filter(Boolean).join(" ");
       return (
         <tr key={`${hi}-${li}`} role="row" className={cls || undefined} onMouseDown={picker(hi, { l, i: li })}>
-          <td className="ln" role="gridcell" aria-hidden="true">
+          {annCell(l.kind === "-" ? null : l.new, "ann")}
+          <td className="ln" role="gridcell" aria-hidden="true" onContextMenu={lnMenu}>
             {l.old ?? ""}
           </td>
-          <td className="ln ln2" role="gridcell" aria-hidden="true">
+          <td className="ln ln2" role="gridcell" aria-hidden="true" onContextMenu={lnMenu}>
             {l.new ?? ""}
           </td>
           <td className="code" role="gridcell" id={cellId(hi, li)} aria-selected={selection && changed ? isSel(hi, li) : undefined}>
@@ -474,7 +567,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     const owner = changed || which === "new";
     const cls = [kindCls(x.l), isSel(hi, x.i) ? "picked" : "", owner && isActive(hi, x.i) ? "active" : ""].filter(Boolean).join(" ");
     return [
-      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)}>
+      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)} onContextMenu={lnMenu}>
         {x.l[which] ?? ""}
       </td>,
       <td
@@ -492,23 +585,27 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
   };
 
   const split = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4} id={hunkId(hi)} hunkActions={hunkActions} />,
-    ...splitRows(h).map((r, k) => (
-      <tr key={`${hi}-${k}`} role="row">
-        {side(hi, r.left, "old")}
-        {side(hi, r.right, "new")}
-      </tr>
-    )),
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4 + extra} id={hunkId(hi)} hunkActions={hunkActions} />,
+    ...splitRows(h).map((r, k) => {
+      if (k === 0) prev = null;
+      return (
+        <tr key={`${hi}-${k}`} role="row">
+          {annCell(r.right?.l.new, "ann")}
+          {side(hi, r.left, "old")}
+          {side(hi, r.right, "new")}
+        </tr>
+      );
+    }),
   ]);
 
-  const cls = ["diff-table", mode === "split" ? "split" : "", selection ? "selectable" : "", kbd ? "kbd" : ""].filter(Boolean).join(" ");
+  const cls = ["diff-table", mode === "split" ? "split" : "", selection ? "selectable" : "", kbd ? "kbd" : "", margin ? "annotated" : ""].filter(Boolean).join(" ");
   const grid = {
     ref: tableRef,
     className: cls,
     role: "grid",
     tabIndex: 0,
     "aria-label": t("diff.lines"),
-    "aria-description": t(selection ? "diff.keysSelect" : "diff.keys"),
+    "aria-description": [t(selection ? "diff.keysSelect" : "diff.keys"), margin ? t("diff.keysBlame") : null].filter(Boolean).join(" "),
     "aria-multiselectable": selection ? true : undefined,
     "aria-activedescendant": activeRef ? cellId(activeRef.hunk, activeRef.line) : undefined,
     style: { "--ln-ch": lnDigits } as React.CSSProperties,
@@ -529,6 +626,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       <div className="diff-split-wrap" ref={wrapRef}>
         <table {...grid}>
           <colgroup>
+            {margin && <col className="col-ann" />}
             <col className="col-ln" />
             <col className="col-code" style={ratio !== undefined ? { width: `${ratio * 100}%` } : undefined} />
             <col className="col-ln" />
@@ -541,11 +639,13 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
           dir="x"
           label={t("layout.diffSplit")}
           className="diff-splitter"
-          style={{ left: ratio !== undefined ? `calc(${LN_W}px + ${ratio * 100}%)` : "50%" }}
+          style={{
+            left: ratio !== undefined ? `calc(${LN_W + annW}px + ${ratio * 100}%)` : annW ? `calc(${annW}px + (100% - ${annW}px) / 2)` : "50%",
+          }}
           measure={(el) => el.offsetLeft}
           onChange={(x, final) => {
             const w = wrapRef.current?.clientWidth ?? 0;
-            if (w > 0) setLayout({ [LAYOUT.diffSplit]: clamp((x - LN_W) / w, diffSplitBounds(w)) }, final);
+            if (w > 0) setLayout({ [LAYOUT.diffSplit]: clamp((x - LN_W - annW) / w, diffSplitBounds(w - annW)) }, final);
           }}
           onReset={() => setLayout({ [LAYOUT.diffSplit]: null })}
         />
@@ -557,6 +657,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     );
   return (
     <>
+      {annotate && blame?.unavailable && <p className="muted diff-note">{blame.unavailable}</p>}
       {table}
       {data.truncated && <p className="notice diff-truncated">{t("diff.truncated")}</p>}
     </>

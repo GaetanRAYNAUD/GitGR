@@ -121,7 +121,8 @@ fn diff_args<'a>(area: &str, file: &'a str, old_file: Option<&'a str>) -> Result
 }
 
 /// `ignore_ws` : pour l'affichage seulement ; l'indexation par ligne relit le diff sans `-w`.
-pub fn file_diff(path: &Path, file: &str, old_file: Option<&str>, area: &str, ignore_ws: bool) -> Result<FileDiff, String> {
+/// `full` : tout le fichier en contexte (affichage seulement, comme `ignore_ws`).
+pub fn file_diff(path: &Path, file: &str, old_file: Option<&str>, area: &str, ignore_ws: bool, full: bool) -> Result<FileDiff, String> {
     check_dir(path)?;
     if area == "untracked" {
         return untracked_diff(path, file);
@@ -132,6 +133,7 @@ pub fn file_diff(path: &Path, file: &str, old_file: Option<&str>, area: &str, ig
         let at = args.iter().position(|a| *a == "--").unwrap_or(args.len());
         args.insert(at, "--ignore-all-space");
     }
+    crate::history::push_full(&mut args, full);
     let out = run_raw(Some(path), &args)?;
     Ok(parse_diff(&out))
 }
@@ -1003,7 +1005,7 @@ mod tests {
         commit_file(p, "f.txt", "un\ndeux\ntrois\nquatre\n");
         write(p, "f.txt", "un\nDEUX\ntrois\nquatre\ncinq\n");
 
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         let ch = changed(&d, 0);
         // -deux, +DEUX, +cinq
         assert_eq!(ch.iter().map(|c| c.2.as_str()).collect::<Vec<_>>(), vec!["deux", "DEUX", "cinq"]);
@@ -1013,14 +1015,14 @@ mod tests {
         assert_eq!(read(p, "f.txt"), "un\nDEUX\ntrois\nquatre\ncinq\n", "copie de travail intacte");
 
         // Puis indexe le remplacement deux → DEUX (suppression et ajout).
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         let ch = changed(&d, 0);
         let all: Vec<_> = ch.iter().map(|c| (0, c.0)).collect();
         stage_lines(p, "f.txt", None, &sel(&all), &d.fingerprint, false).unwrap();
         assert!(status(p).unwrap().unstaged.is_empty());
 
         // Retire de l'index la seule ligne « cinq ».
-        let d = file_diff(p, "f.txt", None, "staged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "staged", false, false).unwrap();
         let cinq = changed(&d, 0).into_iter().find(|c| c.2 == "cinq").unwrap();
         stage_lines(p, "f.txt", None, &sel(&[(0, cinq.0)]), &d.fingerprint, true).unwrap();
         assert_eq!(staged(p, "f.txt"), "un\nDEUX\ntrois\nquatre\n");
@@ -1032,10 +1034,10 @@ mod tests {
         let p = repo.path();
         commit_file(p, "f.txt", "un\ndeux\ntrois\n");
         write(p, "f.txt", "un\n  deux  \nTROIS\n");
-        let all = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let all = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         assert_eq!(changed(&all, 0).len(), 4);
         // Avec -w, seul trois → TROIS reste.
-        let ws = file_diff(p, "f.txt", None, "unstaged", true).unwrap();
+        let ws = file_diff(p, "f.txt", None, "unstaged", true, false).unwrap();
         let ch = changed(&ws, 0);
         assert_eq!(ch.iter().map(|c| c.2.as_str()).collect::<Vec<_>>(), vec!["trois", "TROIS"]);
     }
@@ -1047,14 +1049,14 @@ mod tests {
         commit_file(p, "base.txt", "x\n");
         write(p, "nouveau.txt", "un\ndeux\ntrois\n");
         stage_files(p, &["nouveau.txt".into()]).unwrap();
-        let d = file_diff(p, "nouveau.txt", None, "staged", false).unwrap();
+        let d = file_diff(p, "nouveau.txt", None, "staged", false, false).unwrap();
         // Retire seulement « deux » de l'index.
         stage_lines(p, "nouveau.txt", None, &sel(&[(0, 1)]), &d.fingerprint, true).unwrap();
         assert_eq!(staged(p, "nouveau.txt"), "un\ntrois\n");
         assert_eq!(status(p).unwrap().staged, vec![file("nouveau.txt", None, 'A')]);
 
         // Puis tout le reste : le fichier n'est plus indexé du tout.
-        let d = file_diff(p, "nouveau.txt", None, "staged", false).unwrap();
+        let d = file_diff(p, "nouveau.txt", None, "staged", false, false).unwrap();
         let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
         stage_lines(p, "nouveau.txt", None, &sel(&all), &d.fingerprint, true).unwrap();
         assert!(status(p).unwrap().staged.is_empty());
@@ -1066,7 +1068,7 @@ mod tests {
         let p = repo.path();
         commit_file(p, "f.txt", "a\nb\n");
         std::fs::remove_file(p.join("f.txt")).unwrap();
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         // N'indexe que la suppression de « a ».
         stage_lines(p, "f.txt", None, &sel(&[(0, 0)]), &d.fingerprint, false).unwrap();
         assert_eq!(staged(p, "f.txt"), "b\n");
@@ -1078,7 +1080,7 @@ mod tests {
         let p = repo.path();
         commit_file(p, "f.txt", "a\n");
         write(p, "f.txt", "b\n");
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         write(p, "f.txt", "c\n");
         let err = stage_lines(p, "f.txt", None, &sel(&[(0, 1)]), &d.fingerprint, false).unwrap_err();
         assert_eq!(err, "diff_changed");
@@ -1092,7 +1094,7 @@ mod tests {
         commit_file(p, "f.txt", "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n");
         // Deux hunks : 2 → deux (+ ajout), et 11 supprimé.
         write(p, "f.txt", "1\ndeux\nnouveau\n3\n4\n5\n6\n7\n8\n9\n10\n12\n");
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         assert_eq!(d.hunks.len(), 2);
         let h0 = changed(&d, 0); // -2, +deux, +nouveau
         let h1 = changed(&d, 1); // -11
@@ -1101,7 +1103,7 @@ mod tests {
         assert_eq!(read(p, "f.txt"), "1\ndeux\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n");
 
         // Abandonne le reste : retour au contenu indexé.
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
         discard_lines(p, "f.txt", &sel(&all), &d.fingerprint).unwrap();
         assert!(status(p).unwrap().unstaged.is_empty());
@@ -1114,7 +1116,7 @@ mod tests {
         git(p, &["config", "core.autocrlf", "true"]);
         commit_file(p, "f.txt", "a\r\nb\r\nc\r\n");
         write(p, "f.txt", "a\r\nB\r\nc\r\nd\r\n");
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         let ch = changed(&d, 0); // -b, +B, +d
         assert_eq!(ch.len(), 3);
         discard_lines(p, "f.txt", &sel(&[(0, ch[0].0), (0, ch[1].0)]), &d.fingerprint).unwrap();
@@ -1143,7 +1145,7 @@ mod tests {
         let p = repo.path();
         commit_file(p, "f.txt", "a\nb");
         write(p, "f.txt", "a\nB");
-        let d = file_diff(p, "f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "f.txt", None, "unstaged", false, false).unwrap();
         let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
         discard_lines(p, "f.txt", &sel(&all), &d.fingerprint).unwrap();
         assert_eq!(read(p, "f.txt"), "a\nb");
@@ -1162,7 +1164,7 @@ mod tests {
         git(p, &["config", "diff.noprefix", "true"]);
         git(p, &["config", "diff.mnemonicPrefix", "true"]);
         write(p, "src/f.txt", "un\ndeux\ntrois\n");
-        let d = file_diff(p, "src/f.txt", None, "unstaged", false).unwrap();
+        let d = file_diff(p, "src/f.txt", None, "unstaged", false, false).unwrap();
         let all: Vec<_> = changed(&d, 0).iter().map(|c| (0, c.0)).collect();
         stage_lines(p, "src/f.txt", None, &sel(&all), &d.fingerprint, false).unwrap();
         assert_eq!(staged(p, "src/f.txt"), "un\ndeux\ntrois\n");
@@ -1209,11 +1211,11 @@ mod tests {
         commit_file(p, "a.txt", "1\n");
         write(p, "n.txt", "x\ny\n");
         write(p, "d/bin.dat", "\0\0\0");
-        let d = file_diff(p, "n.txt", None, "untracked", false).unwrap();
+        let d = file_diff(p, "n.txt", None, "untracked", false, false).unwrap();
         assert_eq!(d.hunks[0].lines.len(), 2);
         assert!(d.hunks[0].lines.iter().all(|l| l.kind == "+"));
-        assert!(file_diff(p, "d/bin.dat", None, "untracked", false).unwrap().binary);
-        assert_eq!(file_diff(p, "../ailleurs.txt", None, "untracked", false).unwrap_err(), "invalid_path");
+        assert!(file_diff(p, "d/bin.dat", None, "untracked", false, false).unwrap().binary);
+        assert_eq!(file_diff(p, "../ailleurs.txt", None, "untracked", false, false).unwrap_err(), "invalid_path");
 
         write(p, "a.txt", "2\n");
         discard_files(p, &["a.txt".into()], &["n.txt".into(), "d/bin.dat".into()]).unwrap();

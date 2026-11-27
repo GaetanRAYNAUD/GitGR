@@ -611,7 +611,15 @@
     "ignoreWs": "Ignore whitespace",
     "wsHidden": "Whitespace ignored: staging by hunk or line isn’t possible in this view.",
     "showWs": "Show whitespace",
-    "onlyWs": "Only whitespace changes in this file."
+    "onlyWs": "Only whitespace changes in this file.",
+    "blame": "Annotate (blame)",
+    "blameShow": "Annotate (blame)",
+    "blameHide": "Hide annotations",
+    "keysBlame": "B: details of the line's commit; Shift+B: its actions.",
+    "full": "Whole file",
+    "fullHidden": "Whole file: staging by hunk or line is not possible in this view.",
+    "showHunks": "Show hunks only",
+    "blameStaged": "No annotations on the staged version: open the working version."
   },
   "stashes": {
     "rename": "Rename",
