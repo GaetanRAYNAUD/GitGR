@@ -140,6 +140,8 @@ export interface Api {
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
   /** Commits qui ajoutent ou retirent `text` (`git log -S`, ou `-G` si `regex`), toutes branches. */
   searchChanges(path: string, text: string, regex: boolean, file: string | null): Promise<Commit[]>;
+  /** Fichiers du commit `sha` où `text` apparaît ou disparaît (même règle que `searchChanges`). */
+  searchFiles(path: string, sha: string, text: string, regex: boolean, file: string | null): Promise<FileChange[]>;
   /** Commits de la branche courante qui modifient `file`, renommages suivis, le plus récent d'abord. */
   fileHistory(path: string, file: string): Promise<FileHistoryEntry[]>;
   /** Commit de chaque ligne de `file` : au commit `rev`, ou dans la copie de travail (`null`). */
@@ -425,6 +427,7 @@ const tauriApi: Api = {
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
+  searchFiles: (path, sha, text, regex, file) => invoke("search_files", { path, sha, text, regex, file }),
   fileHistory: (path, file) => invoke("file_history", { path, file }),
   blame: (path, file, rev) => invoke("blame", { path, file, rev }),
   resetTo: (path, sha, mode) => invoke("reset_to", { path, sha, mode }),
@@ -856,6 +859,12 @@ const mockApi: Api = {
       .filter((c) => (re ? re.test(c.subject) : c.subject.includes(text)))
       .filter((c) => !file || mockDetails(path, c.sha).files.some((f) => f.path.startsWith(file)))
       .slice(0, 200);
+  },
+  async searchFiles(path, sha, text, _regex, file) {
+    await mockDelay();
+    if (!text) throw "search_empty";
+    // Simulé : les fichiers du commit (sous `file` s'il est donné).
+    return mockDetails(path, sha).files.filter((f) => !file || f.path.startsWith(file));
   },
   async fileHistory(path, file) {
     await mockDelay();

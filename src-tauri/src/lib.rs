@@ -128,6 +128,7 @@ pub fn run() {
             commands::compare_files,
             commands::reflog,
             commands::search_changes,
+            commands::search_files,
             commands::file_history,
             commands::conflict_versions,
             commands::commit_identity,

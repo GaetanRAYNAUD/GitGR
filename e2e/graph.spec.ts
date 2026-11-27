@@ -304,10 +304,21 @@ test("badge ↑ du bouton Push : commits qui partent et leurs fichiers, avant de
   await page.getByRole("button", { name: "Voir le commit qui part au push" }).click();
   const view = page.getByRole("region", { name: "Ce qui part au push" });
   await expect(view.locator(".pull-view-title")).toHaveText("1 commit à pousser vers origin/main");
-  await expect(view.locator(".range-commit")).toHaveCount(1);
-  await expect(view.locator(".range-commit")).toContainText("fix: correctif local pas encore poussé");
+  // La vue prend toute la largeur : pas de panneau des détails.
+  await expect(panel(page)).toHaveCount(0);
+  const commits = view.getByRole("listbox", { name: "1 commit" }).getByRole("option");
+  await expect(commits).toHaveCount(2);
+  await expect(commits.first()).toHaveText(/Toute la plage/);
+  await expect(commits.nth(1)).toContainText("fix: correctif local pas encore poussé");
   await view.locator(".file-row").first().click();
   await expect(view.locator(".diff-body tr.add").first()).toBeVisible();
+  // Choisir le commit centre la vue sur lui : ses fichiers ; « Toute la plage » revient au cumul.
+  await commits.nth(1).click();
+  await expect(view.locator(".section-h").nth(1)).toContainText(/dans [0-9a-f]{7}/);
+  await expect(view.locator(".diff-body tr.add").first()).toBeVisible();
+  await page.keyboard.press("ArrowUp");
+  await expect(commits.first()).toHaveAttribute("aria-selected", "true");
+  await expect(view.locator(".section-h").nth(1)).not.toContainText(/dans [0-9a-f]{7}/);
   // Échap revient au graphe.
   await page.keyboard.press("Escape");
   await expect(view).toHaveCount(0);
@@ -363,7 +374,9 @@ test("reset de main sur un commit plus ancien, puis le reflog retrouve l'ancienn
   await page.getByRole("button", { name: "Reflog" }).click();
   const view = page.getByRole("region", { name: "Reflog" });
   const entries = view.getByRole("listbox", { name: "Où était HEAD" }).getByRole("option");
-  await expect(entries.first()).toContainText("reset");
+  // Opération traduite, ref choisie dans le titre.
+  await expect(entries.first()).toContainText("Reset");
+  await expect(view.getByRole("combobox", { name: "Où était" })).toHaveValue("HEAD");
   // L'ancienne position de HEAD : clic, ses détails à droite.
   await entries.nth(1).click();
   await expect(panel(page)).toContainText(lost);
@@ -389,8 +402,11 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   await expect(results.first()).toContainText("perf: rendu virtualisé des lignes");
   // Après la recherche, la liste a le focus.
   await expect(view.getByRole("listbox")).toBeFocused();
+  // Deux volets : le commit choisi, ses fichiers où le texte change et leur diff ; pas de panneau.
   await results.first().click();
-  await expect(panel(page)).toContainText("perf: rendu virtualisé des lignes");
+  await expect(panel(page)).toHaveCount(0);
+  await expect(view.locator(".search-detail .section-h")).toContainText(/où le texte change dans [0-9a-f]{7}/);
+  await expect(view.locator(".search-detail .diff-body tr.add").first()).toBeVisible();
 
   await view.getByLabel("Regex").check();
   await view.getByLabel("Texte cherché").fill("perf(");

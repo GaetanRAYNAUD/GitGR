@@ -62,7 +62,7 @@ test("reset hard, puis le reflog retrouve le commit perdu et une branche le réc
 
     await page.getByRole("button", { name: "Reflog" }).click();
     const list = page.getByRole("region", { name: "Reflog" }).getByRole("listbox", { name: "Où était HEAD" });
-    await expect(list.getByRole("option").first()).toContainText("reset");
+    await expect(list.getByRole("option").first()).toContainText("Reset");
     const entry = list.getByRole("option").filter({ hasText: "commit à retrouver" }).first();
     await expect(entry).toContainText("hors des branches");
     await entry.click({ button: "right" });
@@ -97,6 +97,10 @@ test("chercher quand un texte a été ajouté puis retiré, limité à un fichie
     await view.getByLabel("Fichier ou dossier (facultatif)").fill("");
     await view.getByRole("button", { name: "Chercher" }).click();
     await expect(results).toHaveCount(3);
+    // À droite : seulement le fichier où le texte change, et le diff avec le texte surligné.
+    await results.nth(1).click();
+    await expect(view.locator(".search-detail .diff-path")).toContainText("b.txt");
+    await expect(view.locator(".search-detail mark.diff-find").first()).toHaveText("aiguille");
     await results.nth(1).dblclick();
     await expect(view).toHaveCount(0);
     await expect(page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { selected: true })).toContainText("aiguille dans b");

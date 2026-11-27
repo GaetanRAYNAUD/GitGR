@@ -54,4 +54,8 @@ export function listKeys(count: number, active: number, h: { go: (i: number) => 
 }
 
 /** Rend visible la ligne `id` de la liste qui défile. */
+/** Le fichier de même chemin dans la nouvelle liste (son statut, son ancien chemin y sont
+ *  à jour), sinon le premier : le fichier ouvert reste ouvert d'un commit à l'autre. */
+export const samePath = <F extends { path: string }>(f: F | null, list: F[]): F | null => (f && list.find((x) => x.path === f.path)) || list[0] || null;
+
 export const scrollRow = (id: string) => document.getElementById(id)?.scrollIntoView({ block: "nearest" });
