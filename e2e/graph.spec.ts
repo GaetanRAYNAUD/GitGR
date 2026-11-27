@@ -80,10 +80,10 @@ test("historique d'un fichier : ses commits, diff au double-clic, retour à l'hi
 
   const view = page.getByRole("region", { name: "Historique du fichier" });
   await expect(view).toContainText(`Historique de ${name}`);
-  const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+  const rows = view.getByRole("listbox", { name: /commits?/ }).getByRole("option");
   const row = rows.filter({ hasText: "feat(graph): rendu canvas virtualisé" });
   await expect(row).toHaveCount(1);
-  await row.getByRole("button").dblclick();
+  await row.dblclick();
   const diff = page.getByRole("region", { name: /^Diff de / });
   await expect(diff).toBeVisible();
 
@@ -111,10 +111,47 @@ test("blame d'un fichier à un commit : blocs par commit, détails au clic, puis
   const picked = (await starts.nth(1).locator(".blame-summary").textContent())!;
   await expect(panel(page).getByRole("heading", { name: picked })).toBeVisible();
 
+  // Historique ouvert depuis le blame : Échap revient au blame, puis au graphe.
   await view.getByRole("button", { name: "Historique du fichier" }).click();
   await expect(page.getByRole("region", { name: "Historique du fichier" })).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(view).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(graph(page)).toBeVisible();
+});
+
+test("blame et historique au clavier : focus à l'ouverture, flèches, Entrée, Maj+F10, focus rendu au fichier", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  await file.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+  const view = page.getByRole("region", { name: "Blame" });
+  const grid = view.getByRole("grid");
+  await expect(grid).toBeFocused();
+  // F7 : début du bloc suivant ; Entrée : ses détails à droite.
+  await page.keyboard.press("F7");
+  const second = (await view.locator("tr.start").nth(1).getAttribute("id"))!;
+  await expect(grid).toHaveAttribute("aria-activedescendant", second);
+  await page.keyboard.press("Enter");
+  const picked = (await view.locator("tr.start").nth(1).locator(".blame-summary").textContent())!;
+  await expect(panel(page).getByRole("heading", { name: picked })).toBeVisible();
+  // Maj+F10 : les actions du commit.
+  await page.keyboard.press("Shift+F10");
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Blame avant ce commit" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(view).toBeVisible();
+
+  // Historique : la liste a le focus, ↓ choisit le commit suivant, Entrée ouvre le diff.
+  await view.getByRole("button", { name: "Historique du fichier" }).click();
+  const history = page.getByRole("region", { name: "Historique du fichier" });
+  const list = history.getByRole("listbox");
+  await expect(list).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(list.getByRole("option", { selected: true })).toHaveCount(1);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("region", { name: /^Diff de / })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(history).toBeVisible();
 });
 
 test("Ctrl+F : commits trouvés mis en avant, Entrée pour passer de l'un à l'autre, Échap ferme", async ({ page }) => {

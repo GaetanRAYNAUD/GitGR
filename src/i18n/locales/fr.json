@@ -355,19 +355,20 @@
   },
   "fileHistory": {
     "label": "Historique du fichier",
-    "title": "Historique de {{file}}",
     "menu": "Historique du fichier",
     "results_one": "{{count}} commit",
     "results_other": "{{count}} commits",
     "limit": "Les 500 plus récents seulement.",
     "none": "Aucun commit de la branche courante ne modifie ce fichier.",
-    "hint": "Commits de la branche courante qui modifient ce fichier, renommages suivis. Clic : ses détails ; double-clic : le diff du fichier ; clic droit : ses actions.",
     "renamedFrom": "renommé depuis {{path}}",
-    "showDiff": "Voir le diff du fichier"
+    "showDiff": "Voir le diff du fichier",
+    "of": "Historique de",
+    "keys": "↑ ↓ détails · Entrée diff du fichier · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "resultsMore": "{{count}}+ commits (les plus récents)",
+    "blameGone": "Le fichier n’existe plus dans la copie de travail : ouvrez le blame d’un commit (clic droit)."
   },
   "blame": {
     "label": "Blame",
-    "title": "Blame de {{file}}",
     "menu": "Blame",
     "atCommit": "Blame à ce commit",
     "before": "Blame avant ce commit",
@@ -377,7 +378,15 @@
     "uncommitted": "Pas encore commité",
     "empty": "Fichier vide.",
     "deleted": "Le fichier n’existe plus à ce commit.",
-    "truncated": "Fichier tronqué : il est trop long pour être affiché en entier."
+    "truncated": "Fichier tronqué : il est trop long pour être affiché en entier.",
+    "of": "Blame de",
+    "keys": "↑ ↓ lignes · F7 bloc suivant · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "atCommitSame": "Déjà affiché à ce commit.",
+    "gridLabel": "Blame de {{file}}",
+    "row": "Ligne {{n}}, {{summary}}, {{who}}",
+    "rowUncommitted": "Ligne {{n}}, pas encore commitée",
+    "uncommittedHint": "Modifiée dans la copie de travail, pas encore commitée.",
+    "ageHint": "Marque en marge : plus elle est foncée, plus la ligne est récente."
   },
   "tag": {
     "newTitle": "Nouveau tag",

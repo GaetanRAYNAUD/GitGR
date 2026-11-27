@@ -6357,24 +6357,96 @@ body.commit-dragging * {
   outline-offset: -2px;
 }
 
-/* Historique d'un fichier (FileHistoryView). */
+/* Historique d'un fichier (FileHistoryView) : une listbox à une tabulation ; la ligne active
+   au clavier porte l'anneau intérieur. Étroit : le SHA puis l'auteur s'effacent (lus dans la
+   description de la ligne). */
+.file-history-view {
+  container-type: inline-size;
+}
+
 .file-history-view .st {
   align-self: center;
 }
 
 .file-history-rename {
+  margin-left: 8px;
   font-size: 11.5px;
 }
 
-/* Blame (BlameView). */
+.file-history-count {
+  margin-right: 10px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.reflog-list[role="listbox"]:focus-visible {
+  outline: none;
+}
+
+.reflog-list[role="listbox"]:focus-visible .reflog-row.active {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+@container (max-width: 620px) {
+  .file-history-sha {
+    display: none;
+  }
+}
+
+@container (max-width: 480px) {
+  .file-history-view .search-author {
+    display: none;
+  }
+}
+
+/* Blame (BlameView) : une grille à une tabulation. La gouttière (qui, quand, résumé) et les
+   numéros restent figés quand une ligne longue défile ; la gouttière se resserre avec la vue,
+   et sous 560 px ne garde que l'auteur et la date. */
+.blame-view {
+  container-type: inline-size;
+  --blame-col: clamp(170px, 34%, 320px);
+}
+
 .blame-view .diff-head .btn {
   margin-left: 8px;
+}
+
+.blame-note {
+  margin: 0;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.blame-error {
+  margin: 8px 12px;
 }
 
 .blame-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+.blame-table:focus-visible {
+  outline: none;
+}
+
+.blame-table:focus-visible tr.active td {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.blame-table:focus-visible tr.active td:first-child {
+  box-shadow:
+    inset 2px 2px 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.blame-table:focus-visible tr.active td:last-child {
+  box-shadow:
+    inset -2px 2px 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
 }
 
 .blame-table {
@@ -6397,22 +6469,31 @@ body.commit-dragging * {
 }
 
 .blame-commit {
-  position: relative;
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: var(--blame-col);
+  min-width: var(--blame-col);
+  max-width: var(--blame-col);
   font-family: "Inter Variable", Inter, system-ui, sans-serif;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   border-right: 1px solid var(--border);
+  background: var(--panel);
   cursor: pointer;
 }
 
 .blame-commit:hover,
 .blame-table tr.on .blame-commit {
-  background: var(--sel);
+  background: linear-gradient(var(--sel), var(--sel)), var(--panel);
+}
+
+/* Première ligne d'un bloc : qui et quand d'abord (gardés), puis le résumé, qui s'efface. */
+.blame-cell {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
 .blame-table tr.wip .blame-commit {
@@ -6421,20 +6502,47 @@ body.commit-dragging * {
 }
 
 .blame-summary {
-  display: inline-block;
-  max-width: 180px;
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: bottom;
 }
 
 .blame-meta {
-  margin-left: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blame-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container (max-width: 560px) {
+  /* (Une requête de conteneur ne touche que les descendants : la variable passe par .blame-body.) */
+  .blame-body {
+    --blame-col: 150px;
+  }
+
+  .blame-commit .blame-summary {
+    display: none;
+  }
+
+  .blame-table tr.wip .blame-commit .blame-summary {
+    display: inline;
+  }
 }
 
 .blame-table .ln {
+  position: sticky;
+  left: var(--blame-col);
+  z-index: 1;
   width: 1%;
   min-width: 44px;
+  background: var(--panel);
   text-align: right;
   color: var(--faint);
   user-select: none;
@@ -6634,14 +6742,15 @@ body.commit-dragging * {
   margin-left: 8px;
 }
 
-/* Marque d'âge en marge du blame : plus la ligne est récente, plus elle est marquée. */
+/* Marque d'âge en marge du blame : plus la ligne est récente, plus elle est foncée. Neutre :
+   l'accent reste à la sélection et au focus. */
 .blame-commit::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: var(--accent);
-  opacity: calc(0.12 + 0.88 * var(--age, 0));
+  background: var(--text);
+  opacity: calc(0.1 + 0.6 * var(--age, 0));
 }
 
 .blame-table tr.wip .blame-commit::before {
