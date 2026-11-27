@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Historique d'un fichier en deux volets : les commits à gauche, le diff du fichier au commit choisi à droite — ↑ / ↓ passent d'un commit à l'autre et le diff suit, Entrée va dans le diff. Ctrl+clic (ou Espace) sur un second commit compare les deux versions du fichier.
+- Historique d'un fichier : « Voir dans le graphe » met ses commits en avant dans le graphe principal, les autres estompés (F3 de l'un à l'autre, × ou Échap pour sortir).
 - Blame au clavier : une seule tabulation, puis ↑ / ↓ de ligne en ligne, F7 / Maj+F7 de commit en commit, Entrée pour ses détails, Maj+Entrée pour le montrer dans le graphe, Maj+F10 pour ses actions. Historique d'un fichier : ↑ / ↓ (les détails suivent), Entrée ouvre le diff du fichier. Les lecteurs d'écran lisent chaque ligne avec son commit, son auteur et sa date.
 - Blame et historique : Retour (ou Échap) revient à la vue d'où l'on vient (historique ↔ blame, « Blame avant ce commit »), puis au fichier qui les avait ouverts. « Réessayer » si la lecture échoue, sans effacer ce qui était affiché.
 - Blame : la marge (qui, quand, puis le résumé) reste en place quand une ligne longue défile et se resserre quand la place manque ; la marque d'âge est grise (l'accent bleu reste à la sélection) ; un fichier tronqué le dit en haut. Dates courtes au-delà d'une semaine, comme dans le graphe. « Blame » est grisé dans l'historique d'un fichier supprimé.

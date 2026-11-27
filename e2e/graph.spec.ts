@@ -141,14 +141,38 @@ test("blame et historique au clavier : focus à l'ouverture, flèches, Entrée, 
   await page.keyboard.press("Escape");
   await expect(view).toBeVisible();
 
-  // Historique : la liste a le focus, ↓ choisit le commit suivant, Entrée ouvre le diff.
+  // Historique : la liste a le focus, ↓ choisit le commit suivant (le diff à droite suit),
+  // Entrée passe dans le diff.
   await view.getByRole("button", { name: "Historique du fichier" }).click();
   const history = page.getByRole("region", { name: "Historique du fichier" });
   const list = history.getByRole("listbox");
   await expect(list).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(list.getByRole("option", { selected: true })).toHaveCount(1);
+  const sha = (await list.getByRole("option", { selected: true }).locator(".file-history-sha").textContent())!;
+  await expect(history.locator(".file-history-diff .diff-head")).toContainText(sha);
   await page.keyboard.press("Enter");
+  await expect(history.locator(".file-history-diff").getByRole("grid")).toBeFocused();
+  // Espace marque le commit, ↓ en choisit un autre : le diff compare les deux versions.
+  await list.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowDown");
+  await expect(history.locator(".file-history-compare")).toContainText("..");
+  await history.getByRole("button", { name: "Arrêter la comparaison" }).click();
+  await expect(history.locator(".file-history-compare")).toHaveCount(0);
+  // Voir dans le graphe : ses commits mis en avant, les autres estompés.
+  await history.getByRole("button", { name: "Voir dans le graphe" }).click();
+  await expect(history).toHaveCount(0);
+  await expect(page.getByRole("search")).toContainText("src/");
+  await expect(graph(page).locator(".dim").first()).toBeVisible();
+});
+
+test("historique d'un fichier : double-clic ouvre le diff en plein écran, Échap revient", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  await panel(page).locator(".file-row").first().click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
+  const history = page.getByRole("region", { name: "Historique du fichier" });
+  await history.getByRole("option").nth(1).dblclick();
   await expect(page.getByRole("region", { name: /^Diff de / })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(history).toBeVisible();

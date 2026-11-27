@@ -6458,6 +6458,66 @@ body.commit-dragging * {
   container-type: inline-size;
 }
 
+/* Deux volets : les commits à gauche, le diff du fichier à droite ; empilés quand la vue est
+   étroite. Un commit marqué pour la comparaison porte un contour d'accent. */
+.file-history-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 38%) minmax(0, 1fr);
+}
+
+.file-history-list {
+  /* Conteneur des requêtes qui effacent le SHA puis l'auteur d'une ligne étroite. */
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
+.file-history-diff {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.file-history-diff .diff-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.file-history-compare {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reflog-row.compared {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.file-history-list .reflog-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container (max-width: 760px) {
+  .file-history-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  .file-history-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 .file-history-view .st {
   align-self: center;
 }
