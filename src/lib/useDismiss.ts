@@ -4,7 +4,7 @@ import { useEffect, type RefObject } from "react";
  *  Échap est consommé : il ne ferme pas aussi ce qui se trouve derrière (diff ouvert…).
  *  Un menu contextuel ouvert par-dessus (choix dans une fenêtre) passe d'abord : tant qu'il est
  *  là, clic et Échap ne ferment que lui. */
-export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void, outside: () => void = close) {
   useEffect(() => {
     if (!open) return;
     /** Un menu contextuel est ouvert, et ce n'est pas `ref` (ni ce qu'il contient). */
@@ -14,7 +14,7 @@ export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, cl
     };
     const onDown = (e: MouseEvent) => {
       if (menuAbove()) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) close();
+      if (ref.current && !ref.current.contains(e.target as Node)) outside();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || menuAbove()) return;
@@ -28,5 +28,5 @@ export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, cl
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [ref, open, close]);
+  }, [ref, open, close, outside]);
 }

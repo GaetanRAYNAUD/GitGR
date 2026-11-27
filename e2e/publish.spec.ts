@@ -58,9 +58,10 @@ test("publier : dépôt créé, remote ajouté, branche poussée et suivie", asy
   const d = dialog(page);
   await expect(d).toBeVisible();
   // Propriétaire : un menu avec l'avatar de chacun, le compte d'abord.
-  await expect(d.getByRole("button", { name: "Propriétaire" })).toHaveText("octo-demo");
-  await expect(d.getByRole("button", { name: "Propriétaire" }).locator("img")).toBeVisible();
-  await d.getByRole("button", { name: "Propriétaire" }).click();
+  const owner = d.getByRole("button", { name: /^Propriétaire / });
+  await expect(owner).toHaveAccessibleName("Propriétaire octo-demo");
+  await expect(owner.locator("img")).toBeVisible();
+  await owner.click();
   const owners = page.getByRole("menu").getByRole("menuitemradio");
   await expect(owners).toHaveText(["octo-demo", "acme"]);
   await expect(owners.locator("img")).toHaveCount(2);
@@ -71,8 +72,9 @@ test("publier : dépôt créé, remote ajouté, branche poussée et suivie", asy
   await expect(d.getByRole("checkbox", { name: "Pousser main vers origin et la suivre" })).toBeChecked();
   await expect(d.getByText("Sera créé sur GitHub : octo-demo/GitGR")).toBeVisible();
 
-  // Nom invalide : refusé avant tout envoi.
-  await d.getByLabel("Nom du dépôt").fill("mon depot");
+  // Nom invalide : refusé avant tout envoi (les espaces deviennent des « - »).
+  await d.getByLabel("Nom du dépôt").fill("mon dépôt");
+  await expect(d.getByLabel("Nom du dépôt")).toHaveValue("mon-dépôt");
   await expect(d.getByRole("button", { name: "Publier" })).toBeDisabled();
   // Nom déjà pris sur le compte : l'erreur du provider reste dans la fenêtre.
   await d.getByLabel("Nom du dépôt").fill("dotfiles");
@@ -94,7 +96,7 @@ test("publier depuis la barre latérale, dans une organisation, sans pousser", a
   await withoutRemote(page);
   await sidebar(page).getByRole("button", { name: "Publier le dépôt…" }).click();
   const d = dialog(page);
-  await d.getByRole("button", { name: "Propriétaire" }).click();
+  await d.getByRole("button", { name: /^Propriétaire / }).click();
   await page.getByRole("menu").getByRole("menuitemradio", { name: "acme" }).click();
   await d.getByRole("radio", { name: "Public" }).click();
   await d.getByRole("radio", { name: "HTTPS" }).click();

@@ -290,6 +290,7 @@ Système à plat. La profondeur vient de cinq paliers de ton (`side` < `bg` < `p
 
 ### Shadow Vocabulary
 - **Flottant** (`--shadow` : `0 12px 32px rgba(0,0,0,0.35)` en sombre, `rgba(20,24,32,0.14)` en clair) : menus contextuels, dialogues, toasts, popovers.
+- **Voile** (`--scrim` : `rgba(8,10,14,0.55)` dans les deux thèmes) : derrière une fenêtre modale.
 - **Liseré actif** (`box-shadow: inset 3px 0 0 var(--accent)`) : marque l'élément actif d'une liste ; en `var(--mod)` sur un fond teinté à 9 %, il signale la ligne « Modifications en cours » du graphe.
 - **Anneau de focus interne** (`inset 0 0 0 2px var(--accent)`) : zones défilantes focalisées au clavier, comme le graphe.
 

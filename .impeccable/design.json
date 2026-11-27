@@ -530,6 +530,11 @@
         "purpose": "--shadow en thème clair."
       },
       {
+        "name": "scrim",
+        "value": "rgba(8, 10, 14, 0.55)",
+        "purpose": "--scrim : voile derrière une fenêtre modale, dans les deux thèmes."
+      },
+      {
         "name": "active-edge",
         "value": "inset 3px 0 0 var(--accent)",
         "purpose": "Liseré de l'élément actif d'une liste."

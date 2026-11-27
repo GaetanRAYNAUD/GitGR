@@ -358,7 +358,7 @@ Vues ponctuelles (à la place du graphe) :
 
 Accueil et fenêtres :
 
-- [ ] **Cloner** (`CloneDialog`), **Publier** (`PublishDialog`), **Créer une PR / MR** (`PullDialog`), **Connecter un compte** (`AccountDialog`).
+- [x] **Cloner** (`CloneDialog`), **Publier** (`PublishDialog`), **Créer une PR / MR** (`PullDialog`), **Connecter un compte** (`AccountDialog`) : Tab gardé dans la fenêtre et focus rendu à la fermeture (`useRestoreFocus`), groupes Source / Protocole / Visibilité aux flèches, dépôts du compte en arbre à une tabulation, `Picker` lu avec sa valeur, `MultiPicker` avec `aria-activedescendant`, raison du bouton grisé à côté de lui (`.dialog-why`), erreurs reliées à leur champ, fenêtres qui défilent dans une petite fenêtre d'app, jeton `--scrim`. PR / MR : blocage en tête, saisie protégée (clic à côté ignoré, Échap confirme), Ctrl+Entrée. À décider : identité qui pousse / crée la PR affichée (Publier, PR / MR) ; proposer le profil qui a un compte sur l'instance (PR / MR) ; Cloner depuis un compte et PR / MR en deux colonnes ou en deux étapes ; fenêtres ancrées en haut plutôt que centrées ; `<select>` / `<datalist>` natifs de la PR / MR remplacés par des choix maison.
 - [ ] **Sélecteur rapide de dépôts** (`QuickOpen`) et **notifications** (`NotificationsBell`).
 - [ ] **Menus contextuels** (`ContextMenu`, `menus.ts`) : longueur, regroupement, actions grisées avec leur raison, raccourcis affichés.
 - [ ] **Fenêtres de confirmation et de saisie** (`DialogHost`) : boutons, focus, textes.

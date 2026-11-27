@@ -190,4 +190,16 @@ test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture d
   await expect(d.getByRole("option", { name: /dev-298/ })).toBeVisible();
   await d.getByRole("button", { name: "Reprendre les derniers choix" }).click();
   await expect(d.locator(".mpick-chip")).toHaveText([/dev-042/, /camille/, /bug/]);
+
+  // Des choix en cours : un clic à côté ne ferme pas, Échap demande d'abord confirmation.
+  await page.mouse.click(5, 300);
+  await expect(d).toBeVisible();
+  await d.getByLabel("Titre").focus();
+  await page.keyboard.press("Escape");
+  await expect(d.getByRole("button", { name: "Continuer la saisie" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(d.getByRole("button", { name: "Créer la merge request" })).toBeVisible();
+  await d.getByRole("button", { name: "Retour" }).click();
+  await d.getByRole("button", { name: "Abandonner" }).click();
+  await expect(d).toHaveCount(0);
 });

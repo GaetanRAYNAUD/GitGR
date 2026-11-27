@@ -172,7 +172,16 @@
     "phase_checkout": "Checking out files…",
     "stop": "Stop",
     "cloning": "Cloning…",
-    "submit": "Clone"
+    "submit": "Clone",
+    "urlPlaceholder": "https://github.com/… · git@gitlab.com:…",
+    "destLabel": "Will be cloned into",
+    "whyUrl": "Enter the repository URL.",
+    "whyRepo": "Pick a repository in the list.",
+    "whyParent": "Choose the destination folder.",
+    "whyName": "Give the folder a name.",
+    "repoCount_one": "{{count}} repository",
+    "repoCount_other": "{{count}} repositories",
+    "treeKeys": "↑ ↓ repository · ← → collapse, expand an owner · Home, End"
   },
   "publish": {
     "title": "Publish to GitHub / GitLab",
@@ -198,7 +207,11 @@
     "publishing": "Publishing…",
     "submit": "Publish",
     "done": "Repository {{repo}} published.",
-    "createdButFailed": "Repository {{repo}} created ({{url}}), but the next step failed: {{error}}"
+    "createdButFailed": "Repository {{repo}} created ({{url}}), but the next step failed: {{error}}",
+    "noOwner": "This account cannot create a repository anywhere (no owner available).",
+    "destLabel": "Will be created on {{provider}}:",
+    "whyLoading": "Reading the owners…",
+    "whyName": "Give the repository a name."
   },
   "repo": {
     "pull": "Pull",
@@ -1460,7 +1473,16 @@
     "noMatch": "No match.",
     "noOptions": "Empty list.",
     "truncated": "list cut (too long): someone may be missing",
-    "view": "View"
+    "view": "View",
+    "into": "into",
+    "people": "Reviewers, assignees, labels",
+    "whyTarget": "Enter the target branch.",
+    "whyTitle": "Give it a title.",
+    "leave_pr": "Discard this pull request? What you typed will be lost.",
+    "leave_mr": "Discard this merge request? What you typed will be lost.",
+    "keepEditing": "Keep editing",
+    "discard": "Discard",
+    "submitKeys": "Ctrl+Enter"
   },
   "prv": {
     "section_pr": "Pull requests",

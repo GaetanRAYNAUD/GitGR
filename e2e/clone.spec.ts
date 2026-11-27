@@ -38,7 +38,8 @@ async function seedProfiles(page: Page) {
 
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Cloner un dépôt" });
 /** Bouton de choix (profil, compte) : il affiche le choix en cours. */
-const picker = (page: Page, name: string) => dialog(page).getByRole("button", { name, exact: true });
+// Nom lu : le libellé puis la valeur choisie (« Profil Perso (proposé) »).
+const picker = (page: Page, name: string) => dialog(page).getByRole("button", { name: new RegExp(`^${name} `) });
 
 async function choose(page: Page, name: string, option: string | RegExp) {
   await picker(page, name).click();
@@ -119,19 +120,28 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
   const d = dialog(page);
   await d.getByRole("radio", { name: "Depuis un compte" }).click();
 
-  const list = d.getByRole("listbox", { name: "Dépôts du compte" });
-  await expect(list.getByRole("option")).toHaveCount(6);
+  // Arbre à une tabulation : propriétaires, puis leurs dépôts.
+  const list = d.getByRole("tree", { name: "Dépôts du compte" });
+  const repos = list.locator('[role="treeitem"][aria-level="2"]');
+  await expect(repos).toHaveCount(6);
   // Rangés par propriétaire : le compte d'abord, puis ses organisations.
   await expect(list.locator(".clone-owner-name")).toHaveText(["octo-demo", "acme"]);
-  await expect(list.getByRole("group", { name: "acme" }).getByRole("option")).toHaveCount(3);
+  const acme = list.getByRole("treeitem", { name: /^acme, / });
+  await expect(acme.locator('[role="treeitem"]')).toHaveCount(3);
   // Une section se replie ; une recherche montre ses dépôts quand même.
-  const acme = list.getByRole("button", { name: /^acme/ });
-  await acme.click();
+  await acme.locator(".clone-owner").click();
   await expect(acme).toHaveAttribute("aria-expanded", "false");
-  await expect(list.getByRole("option")).toHaveCount(3);
+  await expect(repos).toHaveCount(3);
+  // Au clavier : Fin va au dernier propriétaire, → le déplie.
+  await list.focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowRight");
+  await expect(acme).toHaveAttribute("aria-expanded", "true");
   await d.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("acme front");
-  await expect(list.getByRole("option")).toHaveCount(1);
-  await list.getByRole("group", { name: "acme" }).getByRole("option", { name: /^front/ }).click();
+  await expect(repos).toHaveCount(1);
+  // Entrée dans la recherche choisit le premier dépôt trouvé, sans lancer le clone.
+  await d.getByRole("textbox", { name: "Rechercher un dépôt" }).press("Enter");
+  await expect(acme.getByRole("treeitem", { name: /^front/ })).toHaveAttribute("aria-selected", "true");
 
   // Le profil « Perso » a une clé SSH : URL ssh d'office ; HTTPS au choix.
   await expect(d).toContainText("git@github.com:acme/front.git");
@@ -145,7 +155,7 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
   // Le menu fermé, la fenêtre reste ouverte.
   await expect(d).toBeVisible();
   await d.getByRole("textbox", { name: "Rechercher un dépôt" }).fill("");
-  await list.getByRole("group", { name: "camille" }).getByRole("option", { name: /^dotfiles/ }).click();
+  await list.getByRole("treeitem", { name: /^camille/ }).getByRole("treeitem", { name: /^dotfiles/ }).click();
   await expect(d).toContainText("https://gitlab.exemple.fr/camille/dotfiles.git");
   await expect(picker(page, "Profil").locator(".picker-text")).toHaveText("Boulot (proposé)");
 

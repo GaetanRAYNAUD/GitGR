@@ -13,6 +13,7 @@ import { onRadioGroupKeyDown } from "../lib/radioKeys";
 import { DEFAULT_HOSTS, instance, instanceHost, instanceLabel, PROVIDER_NAMES, PROVIDERS, tokenPageUrl } from "../lib/providers";
 import type { Account, DeviceStart, Profile, ProviderKind } from "../lib/types";
 import { useDismiss } from "../lib/useDismiss";
+import { useRestoreFocus } from "../lib/useRestoreFocus";
 import { useProfiles } from "../store/profiles";
 import { Icon } from "./Icon";
 
@@ -46,12 +47,24 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
 
   // Pendant la vérification, la fenêtre reste : l'appel ne s'annule pas, le compte serait
   // connecté après une « annulation ». Une connexion OAuth, elle, s'abandonne.
+  // Code OAuth affiché : Échap revient au formulaire (comme « Retour »), sans tout fermer.
   const cancel = useCallback(() => {
     if (busy) return;
-    stopDevice();
+    if (device) return stopDevice();
     onClose(null);
-  }, [busy, onClose, stopDevice]);
+  }, [busy, device, onClose, stopDevice]);
   useDismiss(ref, true, cancel);
+  useRestoreFocus();
+  const openRef = useRef<HTMLButtonElement>(null);
+  const oauthRef = useRef<HTMLButtonElement>(null);
+  // Le bouton cliqué disparaît en passant au code (ou en revenant) : le focus va au bouton
+  // qui le remplace, pas sur la page.
+  const hadDevice = useRef(false);
+  useEffect(() => {
+    if (device) openRef.current?.focus();
+    else if (hadDevice.current) oauthRef.current?.focus();
+    hadDevice.current = !!device;
+  }, [device]);
 
   const inst = instance(kind, url);
   const host = inst ? instanceLabel(inst.url) : DEFAULT_HOSTS[kind];
@@ -163,16 +176,16 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
         <h2 id="acc-title">{t("profiles.accountDialogTitle", { profile: profile.name })}</h2>
 
         {device ? (
-          <div className="oauth-device" role="status">
+          <div className="oauth-device">
             <p>{t("profiles.accountOAuthCode")}</p>
             <strong className="mono oauth-code">
               {device.userCode}
             </strong>
-            <button type="button" className="btn primary" onClick={openGithub}>
+            <button ref={openRef} type="button" className="btn primary" onClick={openGithub}>
               <Icon name="github" size={15} />
               {t("profiles.accountOAuthOpen")}
             </button>
-            <p className="account-hint">
+            <p className="account-hint" role="status">
               {copied ? `${t("profiles.accountOAuthCopied")} ` : ""}
               {t("profiles.accountOAuthWaiting")}
             </p>
@@ -232,7 +245,7 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
 
             {oauth && (
               <div className="oauth-start">
-                <button type="button" className="btn primary" disabled={busy} onClick={startDevice}>
+                <button ref={oauthRef} type="button" className="btn primary" disabled={busy} onClick={startDevice}>
                   <Icon name="github" size={15} />
                   {t("profiles.accountOAuth")}
                 </button>
@@ -254,7 +267,7 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
                 spellCheck={false}
                 autoComplete="off"
                 aria-invalid={!!error}
-                aria-describedby={error ? "acc-error" : "acc-token-hint"}
+                aria-describedby={error ? "acc-token-hint acc-error" : "acc-token-hint"}
               />
             </label>
             <p id="acc-token-hint" className="account-hint">
@@ -272,12 +285,18 @@ export function AccountDialog({ profile, initial, onClose }: Props) {
           </p>
         )}
 
+        {busy && (
+          <p className="visually-hidden" role="status">
+            {t("profiles.accountConnecting")}
+          </p>
+        )}
         {!device && (
           <div className="dialog-actions">
             <button type="button" className="btn" disabled={busy} onClick={cancel}>
               {t("confirm.cancel")}
             </button>
-            <button type="submit" className="btn primary" disabled={!inst || !token.trim() || busy}>
+            {/* Un seul bouton plein : « Se connecter avec GitHub » quand il est proposé. */}
+            <button type="submit" className={oauth ? "btn" : "btn primary"} disabled={!inst || !token.trim() || busy}>
               {busy ? t("profiles.accountConnecting") : t("profiles.accountSubmit")}
             </button>
           </div>
