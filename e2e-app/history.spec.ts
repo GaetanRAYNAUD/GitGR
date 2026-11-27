@@ -350,3 +350,28 @@ test("détails d'un commit : committer différent affiché, parent au clavier pu
     await app.close();
   }
 });
+
+test("annoter les modifications en cours, fichier entier : la marge dit qui a écrit chaque ligne", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const lines = Array.from({ length: 20 }, (_, i) => `ligne ${i + 1}`);
+  sandbox.commit(mine, "a.txt", lines.join("\n") + "\n", "vingt lignes");
+  writeFileSync(join(mine, "a.txt"), [...lines.slice(0, 19), "modifiée"].join("\n") + "\n");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const staging = page.getByRole("complementary", { name: "Modifications en cours" });
+    await staging.locator(".file-row", { hasText: "a.txt" }).first().click();
+    const diff = page.getByRole("region", { name: "Diff de a.txt" });
+    // Bloc seul : la dernière ligne et 3 lignes de contexte ; fichier entier : les 20 lignes.
+    await expect(diff.locator("td.code")).toHaveCount(5);
+    await diff.getByRole("button", { name: "Fichier entier" }).click();
+    await expect(diff.locator("td.code")).toHaveCount(21);
+    // Annoter : la marge porte l'auteur du commit, puis « Pas encore commité » sur la ligne modifiée.
+    await diff.getByRole("button", { name: "Annoter (blame)" }).click();
+    await expect(diff.locator(".ann.start").first()).toContainText("·");
+    await expect(diff.locator(".ann.start").last()).toHaveText("Pas encore commité");
+  } finally {
+    await app.close();
+  }
+});

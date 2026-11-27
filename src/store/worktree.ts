@@ -6,7 +6,7 @@ import { useUndo } from "./undo";
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import type { DiffArea, FileDiff, LineRef, StatusFile, WorkStatus } from "../lib/types";
-import { useApp } from "./app";
+import { diffOpts, useApp } from "./app";
 import { useGraph } from "./graph";
 
 export interface CommitDraft {
@@ -157,7 +157,7 @@ export const useWork = create<WorkStore>((set, get) => {
       patch(path, { diff: open });
       let next: WorkDiff;
       try {
-        next = { file, area, data: await api.workDiff(path, file.path, file.oldPath, area, !!useApp.getState().settings.diffIgnoreWs) };
+        next = { file, area, data: await api.workDiff(path, file.path, file.oldPath, area, diffOpts()) };
       } catch (e) {
         next = { file, area, error: errorCode(e) };
       }

@@ -445,3 +445,28 @@ test("ligne « en cours » : clic droit pour tout indexer, stasher ou tout annul
   await menu.getByRole("menuitem", { name: "Tout abandonner…" }).click();
   await expect(page.getByRole("alertdialog").or(page.getByRole("dialog"))).toContainText("Abandonner toutes les modifications ?");
 });
+
+test("annoter un diff : marge de blame (Ctrl+Alt+B), clic = détails, B au clavier, clic droit sur les numéros", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  await panel(page).locator(".file-row").first().dblclick();
+  const diff = page.getByRole("region", { name: /^Diff de / });
+  await expect(diff.locator(".ann")).toHaveCount(0);
+  await page.keyboard.press("Control+Alt+b");
+  await expect(diff.getByRole("button", { name: "Annoter (blame)" })).toHaveAttribute("aria-pressed", "true");
+  const starts = diff.locator(".ann.start");
+  await expect(starts.first()).toContainText("·");
+  // Clic sur la marge : le commit de la ligne dans le panneau des détails.
+  const summary = (await starts.first().getAttribute("title"))!.split("\n")[0];
+  await starts.first().click();
+  await expect(panel(page).getByRole("heading", { name: summary })).toBeVisible();
+  // Au clavier : B sur la ligne active donne aussi ses détails, Maj+B ses actions.
+  const grid = diff.getByRole("grid");
+  await grid.focus();
+  await page.keyboard.press("Shift+b");
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Blame avant ce commit" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Clic droit sur un numéro : masquer les annotations.
+  await diff.locator("td.ln").first().click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Masquer les annotations" }).click();
+  await expect(diff.locator(".ann")).toHaveCount(0);
+});

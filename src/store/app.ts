@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import { colorCss } from "../lib/colors";
-import type { ColorValue, GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
+import type { ColorValue, DiffOpts, GitInfo, RepoEntry, RepoSummary, RepoUi, Settings } from "../lib/types";
 import { useGraph } from "./graph";
 import { useProfiles } from "./profiles";
 import { useWork } from "./worktree";
@@ -333,6 +333,12 @@ function patchRepo(
 }
 
 /** Nom affiché d'un dépôt : celui choisi dans l'app, sinon le nom du dossier. */
+/** Options des diffs lues dans les réglages (« Ignorer les espaces », « Fichier entier »). */
+export function diffOpts(): DiffOpts {
+  const s = useApp.getState().settings;
+  return { ignoreWs: !!s.diffIgnoreWs, full: !!s.diffFull };
+}
+
 export function repoName(r: RepoEntry): string {
   return r.alias || r.name;
 }

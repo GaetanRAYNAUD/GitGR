@@ -29,6 +29,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
   useEscape(back);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const running = useOps((s) => s.running[path]);
   const [data, setData] = useState<StashChanges | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,14 +67,14 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
     let live = true;
     setDiff(null);
     const [base, tip] = file.untracked ? [EMPTY_TREE, data.untracked!] : [data.base, data.tip];
-    api.rangeDiff(path, base, tip, file.path, file.oldPath, ignoreWs).then(
+    api.rangeDiff(path, base, tip, file.path, file.oldPath, { ignoreWs, full }).then(
       (d) => live && setDiff({ data: d, error: null }),
       (e) => live && setDiff({ data: null, error: errorCode(e) }),
     );
     return () => {
       live = false;
     };
-  }, [path, data, file, ignoreWs]);
+  }, [path, data, file, ignoreWs, full]);
 
   const ops = useOps.getState();
   const { text } = stashLabel(entry.message);
@@ -126,7 +127,12 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
                   <DiffViewToggle />
                 </header>
                 <div className="diff-body">
-                  <DiffBody data={diff?.data ?? undefined} error={diff?.error ?? undefined} resetKey={file.path} />
+                  <DiffBody
+                    data={diff?.data ?? undefined}
+                    error={diff?.error ?? undefined}
+                    resetKey={file.path}
+                    blame={file.status === "D" ? undefined : { path, file: file.path, rev: file.untracked ? data.untracked! : data.tip }}
+                  />
                 </div>
               </>
             ) : (
