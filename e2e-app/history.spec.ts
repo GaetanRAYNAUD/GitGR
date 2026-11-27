@@ -323,3 +323,30 @@ test("squash de deux commits au milieu de la branche : le suivant rejoué, un co
     await app.close();
   }
 });
+
+test("détails d'un commit : committer différent affiché, parent au clavier puis Alt+← pour revenir", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "a.txt", "un\n", "premier");
+  sandbox.commit(mine, "b.txt", "deux\n", "second");
+  // Le dernier commit repris par quelqu'un d'autre : auteur gardé, committer changé.
+  git(mine, "-c", "user.name=Robot", "-c", "user.email=robot@exemple.fr", "commit", "--amend", "--no-edit", "-q");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option").first().click();
+    const panel = page.getByRole("complementary", { name: "Détails du commit" });
+    await expect(panel.getByRole("heading", { name: "second" })).toBeVisible();
+    await expect(panel.locator(".person-email")).toHaveText("mine@exemple.fr");
+    await expect(panel.locator(".person-committer")).toHaveText(/^Commité par Robot <robot@exemple\.fr> le /);
+
+    await panel.getByRole("button", { name: /^Parent [0-9a-f]{7} : sélectionner ce commit$/ }).press("Enter");
+    const first = panel.getByRole("heading", { name: "premier" });
+    await expect(first).toBeFocused();
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect(panel.getByRole("heading", { name: "second" })).toBeFocused();
+  } finally {
+    await app.close();
+  }
+});

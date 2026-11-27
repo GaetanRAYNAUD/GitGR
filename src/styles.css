@@ -1633,8 +1633,15 @@ h2 {
 /* « +N » : étiquettes qui ne tiennent pas, listées dans l'infobulle. */
 /* Liens d'un message de commit (CommitText). */
 .commit-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   color: var(--link);
   text-decoration: none;
+  cursor: pointer;
+  /* Copiés avec le reste du message. */
+  user-select: text;
 }
 
 .commit-link:hover {
@@ -1699,16 +1706,43 @@ h2 {
   margin: 24px 16px;
 }
 
+.panel-empty p {
+  margin: 0 0 4px;
+}
+
+.panel-empty .faint {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* Bloc du message et de l'auteur : borné tant que sa hauteur n'a pas été choisie, pour
+   qu'un long message ne repousse pas la liste des fichiers hors de l'écran. */
+.details-top:not(.sized) {
+  max-height: min(45vh, 360px);
+  overflow-y: auto;
+}
+
 .details-head {
   padding: 16px 16px 12px;
   border-bottom: 1px solid var(--border);
 }
 
+/* Titre du panneau : la graisse, pas la taille (Weight-Not-Size). */
 .details-subject {
-  font-size: 14.5px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.details-subject:focus {
+  outline: none;
+}
+
+.details-subject:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .details-body {
@@ -1722,6 +1756,25 @@ h2 {
 .details-note {
   margin: 4px 16px 8px;
   font-size: 12px;
+  text-wrap: pretty;
+}
+
+.details-error {
+  margin: 16px;
+  font-size: 12.5px;
+}
+
+.details-error p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.details-error .ico {
+  flex: none;
+  margin-top: 2px;
+  color: var(--del);
 }
 
 .details-meta {
@@ -1730,38 +1783,48 @@ h2 {
   font-size: 12.5px;
 }
 
-/* Auteur et date sur une ligne : l'info est déjà dans le graphe (e-mail, committer en infobulle). */
+/* Auteur : nom et e-mail, puis la date ; committer en plus quand il diffère. */
 .person {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   min-width: 0;
-  margin-bottom: 6px;
-  white-space: nowrap;
+  margin-bottom: 8px;
 }
 
-.avatar {
+.author-avatar.details-avatar {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  background: color-mix(in srgb, var(--g2) 30%, transparent);
+  margin-top: 1px;
+}
+
+.author-avatar.details-avatar.initials {
   font-size: 9px;
-  font-weight: 700;
+}
+
+.person-text {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.person-id {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .person-name {
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.person-date {
-  flex: none;
+.person-email,
+.person-date,
+.person-committer {
   color: var(--faint);
+}
+
+.person-committer {
+  overflow-wrap: anywhere;
 }
 
 .meta-line {
@@ -1780,11 +1843,13 @@ h2 {
   align-items: center;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .sha-line .mono {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11.5px;
 }
 
@@ -1792,10 +1857,12 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .parents .link {
+  min-height: 24px;
+  padding: 0 2px;
   font-size: 12px;
 }
 
@@ -3030,6 +3097,13 @@ body.resizing-y * {
   font: 600 11px "JetBrains Mono", ui-monospace, monospace;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.section-h-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .section-h > .change-counts {

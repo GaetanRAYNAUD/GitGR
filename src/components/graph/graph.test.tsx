@@ -147,9 +147,9 @@ describe("<CommitPanel />", () => {
     g().select(REPO_A, c.sha);
     rerender(<CommitPanel path={REPO_A} />);
     expect(await screen.findByRole("heading", { name: c.subject })).toBeInTheDocument();
-    expect(screen.getByText(c.sha.slice(0, 10))).toBeInTheDocument();
-    // Auteur sur une ligne, e-mail en infobulle.
-    expect(screen.getByTitle(new RegExp(`^${c.author} <`))).toBeInTheDocument();
+    expect(screen.getByText(c.sha)).toBeInTheDocument();
+    // Auteur et e-mail visibles (pas seulement en infobulle).
+    expect(screen.getByText(c.email)).toBeInTheDocument();
 
     const files = screen.getAllByRole("option");
     await userEvent.click(files[0]);
@@ -161,8 +161,53 @@ describe("<CommitPanel />", () => {
     const c = history().commits[0];
     g().select(REPO_A, c.sha);
     render(<CommitPanel path={REPO_A} />);
-    await userEvent.click(await screen.findByRole("button", { name: c.parents[0].slice(0, 7) }));
+    await userEvent.click(await screen.findByRole("button", { name: `Parent ${c.parents[0].slice(0, 7)} : sélectionner ce commit` }));
     expect(g().graphs[REPO_A].selected).toBe(c.parents[0]);
+  });
+
+  it("parent au clavier : focus sur le titre du nouveau commit, Alt+← revient", async () => {
+    await loaded();
+    const [c] = history().commits;
+    const parent = history().commits.find((x) => x.sha === c.parents[0])!;
+    g().select(REPO_A, c.sha);
+    render(<CommitPanel path={REPO_A} />);
+    await userEvent.click(await screen.findByRole("button", { name: new RegExp(`^Parent ${parent.sha.slice(0, 7)}`) }));
+    const heading = await screen.findByRole("heading", { name: parent.subject });
+    await waitFor(() => expect(heading).toHaveFocus());
+
+    await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+    await waitFor(() => expect(g().graphs[REPO_A].selected).toBe(c.sha));
+    const back = await screen.findByRole("heading", { name: c.subject });
+    await waitFor(() => expect(back).toHaveFocus());
+    // Plus rien à remonter : Alt+← ne fait rien.
+    await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+    expect(g().graphs[REPO_A].selected).toBe(c.sha);
+  });
+
+  it("committer différent ou autre date de commit : affichés sous l'auteur", async () => {
+    await loaded();
+    const c = history().commits[0];
+    const real = api.commitDetails;
+    vi.spyOn(api, "commitDetails").mockImplementation(async (p, sha) => {
+      const d = await real(p, sha);
+      return { ...d, committer: "Robot", committerEmail: "robot@example.com", commitTime: d.time + 3600 };
+    });
+    g().select(REPO_A, c.sha);
+    render(<CommitPanel path={REPO_A} />);
+    expect(await screen.findByText(/^Commité par Robot <robot@example.com> le /)).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it("erreur de chargement : message et Réessayer", async () => {
+    await loaded();
+    const c = history().commits[1];
+    vi.spyOn(api, "commitDetails").mockRejectedValueOnce("git_failed");
+    g().select(REPO_A, c.sha);
+    render(<CommitPanel path={REPO_A} />);
+    const alert = await screen.findByRole("alert");
+    await userEvent.click(within(alert).getByRole("button", { name: "Réessayer" }));
+    expect(await screen.findByRole("heading", { name: c.subject })).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 
   it("bascule la liste des fichiers en arborescence (réglage mémorisé) et replie un dossier", async () => {
