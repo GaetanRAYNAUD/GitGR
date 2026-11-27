@@ -9,7 +9,19 @@ import { ColorChoice } from "./ColorChoice";
 
 const MARGIN = 6;
 
-export function TabColorPopover({ anchor, repo, onClose }: { anchor: HTMLElement | null; repo: RepoEntry; onClose: () => void }) {
+/** `name` : nom affiché de l'onglet (titre de la fenêtre). À la fermeture, le parent rend le
+ *  focus à l'onglet. */
+export function TabColorPopover({
+  anchor,
+  repo,
+  name,
+  onClose,
+}: {
+  anchor: HTMLElement | null;
+  repo: RepoEntry;
+  name: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: MARGIN, top: 40 });
@@ -25,11 +37,16 @@ export function TabColorPopover({ anchor, repo, onClose }: { anchor: HTMLElement
     setPos({ left: Math.max(MARGIN, Math.min(a.left, window.innerWidth - w - MARGIN)), top: a.bottom + 4 });
   }, [anchor]);
 
+  // Focus sur le choix en cours (l'arrêt de tabulation du groupe) à l'ouverture.
+  useLayoutEffect(() => {
+    ref.current?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')?.focus();
+  }, []);
+
   return (
-    <div className="color-popover" role="dialog" aria-label={t("tabs.color")} ref={ref} style={pos}>
+    <div className="color-popover" role="dialog" aria-label={t("tabs.colorOf", { name })} ref={ref} style={pos}>
       <ColorChoice
         value={repo.color}
-        label={t("tabs.color")}
+        label={t("tabs.colorOf", { name })}
         auto={t("tabs.colorAuto")}
         onChange={(c) => useApp.getState().setRepoColor(repo.path, c ?? null)}
       />

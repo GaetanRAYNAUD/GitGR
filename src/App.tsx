@@ -80,7 +80,8 @@ function useShortcuts() {
       } else if (ctrl && e.key.toLowerCase() === "o") {
         s.pickAndOpen(t("welcome.pickTitle"));
       } else if (ctrl && /^[1-9]$/.test(e.key)) {
-        const path = s.tabs[Number(e.key) - 1];
+        // Ctrl+9 : le dernier onglet, comme dans les navigateurs.
+        const path = e.key === "9" ? s.tabs[s.tabs.length - 1] : s.tabs[Number(e.key) - 1];
         if (path) s.activate(path);
       } else if (ctrl && !e.altKey && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
         // Pas dans un champ, ni sous une fenêtre (dialogue de saisie ou de confirmation).

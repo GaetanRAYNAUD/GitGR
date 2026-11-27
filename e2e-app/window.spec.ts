@@ -23,6 +23,8 @@ test("fenêtre agrandie : toujours agrandie après redémarrage", async ({ sandb
     expect(await isMaximized(app.page)).toBe(false);
     await app.page.getByRole("button", { name: "Agrandir" }).click();
     await expect.poll(() => isMaximized(app.page)).toBe(true);
+    // Fenêtre agrandie : le bouton propose de la restaurer.
+    await expect(app.page.getByRole("button", { name: "Restaurer" })).toBeVisible();
     // Fermeture par le bouton de l'app (pas un arrêt du processus) : l'état est écrit.
     await app.page.getByRole("button", { name: "Fermer", exact: true }).click();
     await app.exited;
@@ -34,6 +36,7 @@ test("fenêtre agrandie : toujours agrandie après redémarrage", async ({ sandb
   app = await launchApp(sandbox, [repo]);
   try {
     await expect.poll(() => isMaximized(app.page)).toBe(true);
+    await expect(app.page.getByRole("button", { name: "Restaurer" })).toBeVisible();
   } finally {
     await app.close();
   }

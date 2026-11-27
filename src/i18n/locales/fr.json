@@ -7,7 +7,7 @@
     "new": "Nouvel onglet",
     "close": "Fermer l’onglet {{name}}",
     "rename": "Renommer l’onglet",
-    "renameHint": "Double-clic pour renommer ; vide = nom du dossier",
+    "renameHint": "Double-clic ou F2 pour renommer ; vide = nom du dossier",
     "originalName": "Nom d’origine",
     "colorAuto": "Automatique",
     "pending_one": "{{count}} fichier pas encore commité",
@@ -28,12 +28,19 @@
       "6": "Jaune",
       "7": "Cyan"
     },
-    "color": "Couleur…"
+    "color": "Couleur…",
+    "list": "Dépôts ouverts",
+    "all": "Tous les onglets",
+    "colorOf": "Couleur de l’onglet {{name}}",
+    "originalNameNone": "L’onglet porte déjà le nom du dossier",
+    "closeOthers": "Fermer les autres onglets",
+    "closeRight": "Fermer les onglets à droite"
   },
   "window": {
     "minimize": "Réduire",
     "maximize": "Agrandir",
-    "close": "Fermer"
+    "close": "Fermer",
+    "restore": "Restaurer"
   },
   "settings": {
     "version": "GitGR {{version}}",
