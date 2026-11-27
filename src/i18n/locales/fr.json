@@ -363,9 +363,17 @@
     "renamedFrom": "renommé depuis {{path}}",
     "showDiff": "Voir le diff du fichier",
     "of": "Historique de",
-    "keys": "↑ ↓ détails · Entrée diff du fichier · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "keys": "↑ ↓ commit · Espace comparer · Entrée aller au diff · Maj+Entrée dans le graphe · Maj+F10 actions",
     "resultsMore": "{{count}}+ commits (les plus récents)",
-    "blameGone": "Le fichier n’existe plus dans la copie de travail : ouvrez le blame d’un commit (clic droit)."
+    "blameGone": "Le fichier n’existe plus dans la copie de travail : ouvrez le blame d’un commit (clic droit).",
+    "inGraph": "Voir dans le graphe",
+    "inGraphHint": "Met ces commits en avant dans le graphe, les autres estompés (F3 de l’un à l’autre, Échap pour sortir).",
+    "compare": "Comparer avec le commit choisi",
+    "uncompare": "Ne plus comparer",
+    "compareSelf": "C’est le commit choisi : marquez-en un autre.",
+    "compared": "marqué pour la comparaison",
+    "comparing": "Comparaison",
+    "stopCompare": "Arrêter la comparaison"
   },
   "blame": {
     "label": "Blame",

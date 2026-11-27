@@ -363,9 +363,17 @@
     "renamedFrom": "renamed from {{path}}",
     "showDiff": "Show the file's diff",
     "of": "History:",
-    "keys": "↑ ↓ details · Enter file diff · Shift+Enter in the graph · Shift+F10 actions",
+    "keys": "↑ ↓ commit · Space compare · Enter go to diff · Shift+Enter in the graph · Shift+F10 actions",
     "resultsMore": "{{count}}+ commits (most recent)",
-    "blameGone": "The file no longer exists in the working copy: open the blame of a commit (right-click)."
+    "blameGone": "The file no longer exists in the working copy: open the blame of a commit (right-click).",
+    "inGraph": "Show in the graph",
+    "inGraphHint": "Highlights these commits in the graph and dims the others (F3 from one to the next, Esc to leave).",
+    "compare": "Compare with the chosen commit",
+    "uncompare": "Stop comparing",
+    "compareSelf": "This is the chosen commit: mark another one.",
+    "compared": "marked for comparison",
+    "comparing": "Comparing",
+    "stopCompare": "Stop comparing"
   },
   "blame": {
     "label": "Blame",
