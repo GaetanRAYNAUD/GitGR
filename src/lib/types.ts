@@ -51,6 +51,10 @@ export interface Settings {
   diffView?: DiffViewSetting;
   /** Diffs sans les changements d'espaces (`git diff -w`). */
   diffIgnoreWs?: boolean;
+  /** Diffs avec tout le fichier en contexte (« Fichier entier »). */
+  diffFull?: boolean;
+  /** Marge de blame dans les diffs et les conflits (« Annoter »). */
+  diffBlame?: boolean;
   /** Tailles choisies à la souris, par clé (cf. lib/layout.ts) ; absente = par défaut. */
   layout?: Record<string, number>;
   /** Colonnes masquées dans le graphe. */
@@ -712,4 +716,10 @@ export interface ConflictVersions {
   ours: string;
   theirs: string;
   working: string;
+}
+
+/** Options d'affichage d'un diff (réglages « Ignorer les espaces », « Fichier entier »). */
+export interface DiffOpts {
+  ignoreWs?: boolean;
+  full?: boolean;
 }

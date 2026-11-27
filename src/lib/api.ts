@@ -61,6 +61,7 @@ import { joinPath, validFolderName } from "./clone";
 import { instance, withAccount } from "./providers";
 import { validRepoName } from "./publish";
 import type {
+  DiffOpts,
   Account,
   ReflogEntry,
   FileHistoryEntry,
@@ -134,7 +135,7 @@ export interface Api {
   commitDetails(path: string, sha: string): Promise<CommitDetails>;
   /** Diff d'un fichier d'un commit par rapport à son premier parent. */
   /** `ignoreWs` : sans les changements d'espaces (`git diff -w`). */
-  commitDiff(path: string, sha: string, file: string, oldFile: string | null, ignoreWs?: boolean): Promise<FileDiff>;
+  commitDiff(path: string, sha: string, file: string, oldFile: string | null, opts?: DiffOpts): Promise<FileDiff>;
   /** Commits et fichiers qui partent au push ou arrivent au pull (branche suivie). */
   rangeChanges(path: string, direction: RangeDirection): Promise<RangeChanges>;
   /** Commits qui ajoutent ou retirent `text` (`git log -S`, ou `-G` si `regex`), toutes branches. */
@@ -156,10 +157,10 @@ export interface Api {
   /** Cherry-pick des commits donnés, du plus ancien au plus récent, sur la branche courante. */
   cherryPick(path: string, shas: string[], autoStash: boolean): Promise<OpResult>;
   /** Diff cumulé d'un fichier entre `base` et `tip`. */
-  rangeDiff(path: string, base: string, tip: string, file: string, oldFile: string | null, ignoreWs?: boolean): Promise<FileDiff>;
+  rangeDiff(path: string, base: string, tip: string, file: string, oldFile: string | null, opts?: DiffOpts): Promise<FileDiff>;
   // Copie de travail
   workStatus(path: string): Promise<WorkStatus>;
-  workDiff(path: string, file: string, oldFile: string | null, area: DiffArea, ignoreWs?: boolean): Promise<FileDiff>;
+  workDiff(path: string, file: string, oldFile: string | null, area: DiffArea, opts?: DiffOpts): Promise<FileDiff>;
   stageFiles(path: string, files: string[]): Promise<void>;
   /** Les trois versions d'un fichier en conflit (commune, nôtre, autre) et le fichier tel
    *  qu'il est sur le disque, avec les marqueurs de git. */
@@ -316,7 +317,7 @@ export interface Api {
   ensurePullHead(path: string, remote: string, kind: ProviderKind, number: number, sha: string): Promise<void>;
   /** Fichiers modifiés par la PR / MR : de l'ancêtre commun avec `target` (origin/main) à head. */
   pullFiles(path: string, target: string, head: string): Promise<FileChange[]>;
-  pullFileDiff(path: string, target: string, head: string, file: string, oldFile: string | null, ignoreWs?: boolean): Promise<FileDiff>;
+  pullFileDiff(path: string, target: string, head: string, file: string, oldFile: string | null, opts?: DiffOpts): Promise<FileDiff>;
   /** Passe sur la branche de la PR / MR (fork : pr/<n> / mr/<n>) ; renvoie aussi son nom. */
   checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean, autoStash: boolean): Promise<[OpResult, string]>;
   /** Images des personnes (adresses de l'API → data URL, ou `null`). */
@@ -418,9 +419,9 @@ const tauriApi: Api = {
   repoLog: (path, skip, limit) => invoke("repo_log", { path, skip, limit }),
   repoRefs: (path) => invoke("repo_refs", { path }),
   commitDetails: (path, sha) => invoke("commit_details", { path, sha }),
-  commitDiff: (path, sha, file, oldFile, ignoreWs) => invoke("commit_diff", { path, sha, file, oldFile, ignoreWs: !!ignoreWs }),
+  commitDiff: (path, sha, file, oldFile, opts) => invoke("commit_diff", { path, sha, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   rangeChanges: (path, direction) => invoke("range_changes", { path, direction }),
-  rangeDiff: (path, base, tip, file, oldFile, ignoreWs) => invoke("range_diff", { path, base, tip, file, oldFile, ignoreWs: !!ignoreWs }),
+  rangeDiff: (path, base, tip, file, oldFile, opts) => invoke("range_diff", { path, base, tip, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
@@ -431,7 +432,7 @@ const tauriApi: Api = {
   revert: (path, shas, autoStash) => invoke("revert", { path, shas, autoStash }),
   squash: (path, shas, message, allowPushed, autoStash) => invoke("squash", { path, shas, message, allowPushed, autoStash }),
   workStatus: (path) => invoke("work_status", { path }),
-  workDiff: (path, file, oldFile, area, ignoreWs) => invoke("work_diff", { path, file, oldFile, area, ignoreWs: !!ignoreWs }),
+  workDiff: (path, file, oldFile, area, opts) => invoke("work_diff", { path, file, oldFile, area, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   stageFiles: (path, files) => invoke("stage_files", { path, files }),
   conflictVersions: (path, file) => invoke("conflict_versions", { path, file }),
   commitIdentity: (path) => invoke("commit_identity", { path }),
@@ -519,7 +520,7 @@ const tauriApi: Api = {
   pullAct: (kind, url, repo, number, account, action) => invoke("pull_act", { kind, url, repo, number, account, action }),
   ensurePullHead: (path, remote, kind, number, sha) => invoke("ensure_pull_head", { path, remote, kind, number, sha }),
   pullFiles: (path, target, head) => invoke("pull_files", { path, target, head }),
-  pullFileDiff: (path, target, head, file, oldFile, ignoreWs) => invoke("pull_file_diff", { path, target, head, file, oldFile, ignoreWs: !!ignoreWs }),
+  pullFileDiff: (path, target, head, file, oldFile, opts) => invoke("pull_file_diff", { path, target, head, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   checkoutPull: (path, remote, kind, number, branch, fork, autoStash) => invoke("checkout_pull", { path, remote, kind, number, branch, fork, autoStash }),
   personAvatars: (kind, url, account, urls) => invoke("person_avatars", { kind, url, account, urls }),
   pollNotifications: (account) => invoke("poll_notifications", { account }),
@@ -799,9 +800,9 @@ const mockApi: Api = {
     await mockDelay();
     return mockDetails(path, sha);
   },
-  async commitDiff(_path, sha, file, _oldFile, ignoreWs) {
+  async commitDiff(_path, sha, file, _oldFile, opts) {
     await mockDelay();
-    return mockIgnoreWs(mockDiff(sha, file), ignoreWs);
+    return mockIgnoreWs(mockDiff(sha, file), opts?.ignoreWs);
   },
   async rangeChanges(path, direction) {
     await mockDelay();
@@ -892,16 +893,16 @@ const mockApi: Api = {
     return mockReflog(path, refname);
   },
   resetTo: async (path, sha, mode) => mockResetTo(path, sha, mode),
-  async rangeDiff(_path, _base, tip, file, _oldFile, ignoreWs) {
+  async rangeDiff(_path, _base, tip, file, _oldFile, opts) {
     await mockDelay();
-    return mockIgnoreWs(mockDiff(tip, file), ignoreWs);
+    return mockIgnoreWs(mockDiff(tip, file), opts?.ignoreWs);
   },
   async workStatus(path) {
     return mockStatus(path);
   },
-  async workDiff(path, file, _oldFile, area, ignoreWs) {
+  async workDiff(path, file, _oldFile, area, opts) {
     await mockDelay();
-    return mockIgnoreWs(mockWorkDiff(path, file, area), ignoreWs);
+    return mockIgnoreWs(mockWorkDiff(path, file, area), opts?.ignoreWs);
   },
   async stageFiles(path, files) {
     mockStage(path, files, false);
@@ -1325,8 +1326,8 @@ const mockApi: Api = {
   async pullFiles(path, _target, head) {
     return mockPullFiles(path, head);
   },
-  async pullFileDiff(_path, _target, head, file, _oldFile, ignoreWs) {
-    return mockIgnoreWs(mockPullFileDiff(head, file), ignoreWs);
+  async pullFileDiff(_path, _target, head, file, _oldFile, opts) {
+    return mockIgnoreWs(mockPullFileDiff(head, file), opts?.ignoreWs);
   },
   async checkoutPull(path, remote, kind, number, branch, fork, autoStash) {
     if (!fork) return this.checkoutRemote(path, `${remote}/${branch}`, autoStash);

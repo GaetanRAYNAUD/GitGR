@@ -32,6 +32,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
   const busy = useWork((s) => !!s.repos[path]?.busy);
   const closeDiff = useWork((s) => s.closeDiff);
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
+  const full = useApp((s) => !!s.settings.diffFull);
   const update = useApp((s) => s.updateSettings);
   const sectionRef = useRef<HTMLElement>(null);
   const returnFocus = useReturnFocus(sectionRef);
@@ -39,7 +40,8 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
   const { file, area, data } = diff;
   // Espaces ignorés : le diff affiché n'est pas celui que git appliquerait, pas de découpage.
   const splittable = area === "unstaged" || area === "staged";
-  const lineMode = splittable && !ignoreWs;
+  // Fichier entier : idem (le diff relu pour indexer n'a que 3 lignes de contexte).
+  const lineMode = splittable && !ignoreWs && !full;
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const anchor = useRef<LineRef | null>(null);
   const count = selected.size;
@@ -58,14 +60,15 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
     anchor.current = null;
   }, [file.path, area, data?.fingerprint]);
 
-  // « Ignorer les espaces » changé : le diff est relu.
-  const shownWs = useRef(ignoreWs);
+  // « Ignorer les espaces » ou « Fichier entier » changé : le diff est relu.
+  const opts = `${ignoreWs}|${full}`;
+  const shownOpts = useRef(opts);
   useEffect(() => {
-    if (shownWs.current === ignoreWs) return;
-    shownWs.current = ignoreWs;
+    if (shownOpts.current === opts) return;
+    shownOpts.current = opts;
     const d = useWork.getState().repos[path]?.diff;
     if (d) void useWork.getState().openDiff(path, d.file, d.area);
-  }, [ignoreWs, path]);
+  }, [opts, path]);
 
   const all = useMemo(() => changedLines(data), [data]);
 
@@ -163,6 +166,17 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           </span>
         </div>
       );
+    if (splittable && full)
+      return (
+        <div className="line-bar">
+          <span className="muted">{t("diff.fullHidden")}</span>
+          <span className="line-bar-actions">
+            <button className="mini" onClick={() => update({ diffFull: false })}>
+              {t("diff.showHunks")}
+            </button>
+          </span>
+        </div>
+      );
     if (area === "untracked")
       return (
         <div className="line-bar">
@@ -242,6 +256,12 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           onKeyAction={lineMode ? onKeyAction : undefined}
           onRetry={() => void useWork.getState().openDiff(path, file, area)}
           resetKey={`${file.path}\n${area}`}
+          // Marge de blame sur la copie de travail ; la version indexée n'en a pas.
+          blame={
+            file.status === "D"
+              ? undefined
+              : { path, file: file.path, rev: null, unavailable: area === "staged" ? t("diff.blameStaged") : undefined, beforeReveal: () => closeDiff(path) }
+          }
         />
       </div>
     </section>

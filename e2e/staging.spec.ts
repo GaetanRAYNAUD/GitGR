@@ -53,6 +53,22 @@ test("ignorer les espaces : bascule mémorisée, découpage indisponible", async
   await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toBeVisible();
 });
 
+test("fichier entier : bascule mémorisée, découpage indisponible ; pas d'annotations sur l'indexé", async ({ page }) => {
+  await unstaged(page).getByText("render.ts").click();
+  const diff = page.getByRole("region", { name: "Diff de src/graph/render.ts" });
+  await diff.getByRole("button", { name: "Fichier entier" }).click();
+  await expect(diff.getByRole("button", { name: "Fichier entier" })).toHaveAttribute("aria-pressed", "true");
+  await expect(diff).toContainText("Fichier entier : l’indexation par bloc ou par ligne n’est pas possible");
+  await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toHaveCount(0);
+  await diff.getByRole("button", { name: "Afficher les blocs seuls" }).click();
+  await expect(diff.getByRole("button", { name: "Indexer le bloc" })).toBeVisible();
+
+  // Côté indexé : la marge de blame n'est pas possible, et le diff le dit.
+  await page.keyboard.press("Control+Alt+b");
+  await staged(page).getByRole("option").first().click();
+  await expect(page.locator(".diff-note")).toContainText("Pas d’annotations sur la version indexée");
+});
+
 test("la ligne « en cours » est sélectionnée d'office et liste les fichiers", async ({ page }) => {
   await expect(graph(page).getByRole("option", { selected: true })).toContainText("Modifications en cours — 4 fichiers");
   await expect(panel(page)).toContainText("sur main · 4 fichiers");

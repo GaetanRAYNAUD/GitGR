@@ -47,12 +47,12 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
     if (d) void useGraph.getState().openDiff(path, d.sha, d.file, d.base);
   };
 
-  // « Ignorer les espaces » changé : le diff est relu.
-  const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
-  const shownWs = useRef(ignoreWs);
+  // « Ignorer les espaces » ou « Fichier entier » changé : le diff est relu.
+  const opts = useApp((s) => `${!!s.settings.diffIgnoreWs}|${!!s.settings.diffFull}`);
+  const shownOpts = useRef(opts);
   useEffect(() => {
-    if (shownWs.current === ignoreWs) return;
-    shownWs.current = ignoreWs;
+    if (shownOpts.current === opts) return;
+    shownOpts.current = opts;
     reopen();
   });
 
@@ -69,7 +69,13 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
         <DiffViewToggle />
       </header>
       <div className="diff-body">
-        <DiffBody data={diff.data} error={diff.error} onRetry={reopen} resetKey={`${diff.sha}\n${file.path}`} />
+        <DiffBody
+          data={diff.data}
+          error={diff.error}
+          onRetry={reopen}
+          resetKey={`${diff.sha}\n${file.path}`}
+          blame={file.status === "D" ? undefined : { path, file: file.path, rev: diff.sha, beforeReveal: () => closeDiff(path) }}
+        />
       </div>
     </section>
   );

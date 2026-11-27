@@ -41,9 +41,12 @@ import { wordDiff, type Segment as WordSegment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
 import { useDialogs } from "../../store/dialogs";
 import { useConflictView } from "../../store/range";
+import { useGraph } from "../../store/graph";
+import { openContextMenu, useContextMenu } from "../ContextMenu";
+import { useBlameMargin } from "./BlameMargin";
 import { useWork } from "../../store/worktree";
 import { Icon } from "../Icon";
-import { useEscape } from "./DiffBody";
+import { AnnotateToggle, useEscape } from "./DiffBody";
 import { BackButton } from "./DiffView";
 
 type Change = Extract<Chunk, { kind: "change" }>;
@@ -112,6 +115,10 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const close = useConflictView((s) => s.close);
   const show = useConflictView((s) => s.show);
   const back = useCallback(() => close(path), [close, path]);
+  // Marge de blame (« Annoter ») sur « notre version » : le fichier à HEAD.
+  const head = useGraph((s) => s.graphs[path]?.refs?.head ?? null);
+  const blameSrc = useMemo(() => (head ? { path, file, rev: head, beforeReveal: () => close(path) } : undefined), [head, path, file, close]);
+  const margin = useBlameMargin(blameSrc);
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [states, setStates] = useState<ChangeState[]>([]);
@@ -310,6 +317,30 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
         {n}
       </span>
     );
+    // Marge de blame de « notre version » : nom et date sur la première ligne d'un bloc.
+    let prevAnn: string | null = null;
+    const ann = (n: number | null) => {
+      if (!margin) return null;
+      const c = n === null ? undefined : margin.at(n);
+      const start = !!c && c.sha !== prevAnn;
+      prevAnn = c?.sha ?? null;
+      return (
+        <span
+          className={c ? "mann" : "mann empty"}
+          aria-hidden="true"
+          style={c ? ({ "--age": margin.age(c).toFixed(2) } as React.CSSProperties) : undefined}
+          title={c ? margin.title(c) : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (c) margin.pick(c);
+          }}
+          onDoubleClick={() => c && margin.reveal(c)}
+          onContextMenu={(e) => c && openContextMenu(e, margin.menu(c))}
+        >
+          {start && c ? margin.label(c) : ""}
+        </span>
+      );
+    };
     // Rang de chaque modification parmi celles de son genre (« Conflit 1 / 2 »).
     const ofType = new Map<number, { index: number; count: number }>();
     changes.forEach((c, j) => {
@@ -338,6 +369,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                       </button>
                     ) : (
                       <div key={j} className="ml">
+                        {col === "ours" && ann(o + e[1])}
                         {num((col === "ours" ? o : col === "theirs" ? r : m) + e[1])}
                         <span className="mt">{e[0] || " "}</span>
                       </div>
@@ -387,6 +419,16 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                       if (e.key === " " || e.key === "Enter") {
                         e.preventDefault();
                         set(n, (x) => togglePickLine(c, x, side, j));
+                      } else if (margin && side === "ours" && e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey) {
+                        // B : détails du commit de la ligne (marge de blame) ; Maj+B : ses actions.
+                        const commit = margin.at(start + j);
+                        if (!commit) return;
+                        e.preventDefault();
+                        if (!e.shiftKey) margin.pick(commit);
+                        else {
+                          const box = e.currentTarget.getBoundingClientRect();
+                          useContextMenu.getState().open(box.left, box.bottom, margin.menu(commit));
+                        }
                       } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                         // Une seule tabulation par colonne : les flèches passent d'une ligne à l'autre.
                         e.preventDefault();
@@ -398,6 +440,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
                 : {};
               return (
                 <div key={j} className={`ml${l.changed ? (l.words ? " mchg" : " mchg mwhole") : ""}${order !== undefined ? " picked" : ""}${pickable ? " pickable" : ""}`} {...props}>
+                  {side === "ours" && ann(start + j)}
                   {num(start + j)}
                   <span className="mt">
                     <Words text={l.text} words={l.words} />
@@ -542,6 +585,9 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
             </button>
           </span>
         )}
+        <span className="view-toggle">
+          <AnnotateToggle />
+        </span>
         {data && (
           <span className={conflictsLeft ? "conflict-status conflict-left" : changesLeft ? "conflict-status muted" : "conflict-status conflict-done"} role="status" title={status}>
             {!conflictsLeft && !changesLeft && <Icon name="check" size={13} />}
