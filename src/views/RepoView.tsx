@@ -478,7 +478,12 @@ export function RepoView({ path }: { path: string }) {
   const [pullSel, setPullSel] = useState<{ key: string | null; sel: string | null }>({ key: pullKey, sel: selected });
   if (pullSel.key !== pullKey) setPullSel({ key: pullKey, sel: selected });
   // (La ligne « Modifications en cours » choisie d'office quand des fichiers changent ne compte pas.)
-  const hidePanel = pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP);
+  // Plage ↑ / ↓ et contenu d'un stash : leurs commits et fichiers sont dans la vue, le
+  // panneau des détails (un autre commit) n'a rien à y ajouter.
+  // Recherche dans les modifications : chaque résultat a son diff dans la vue.
+  const above = !!openConflict || !!diff || !!workDiff || !!openBlame || !!openFileHistory;
+  const ownPanel = !above && (!!openSearch || (!openReflog && (!!openStash || !!openRange)));
+  const hidePanel = ownPanel || (pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP));
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);

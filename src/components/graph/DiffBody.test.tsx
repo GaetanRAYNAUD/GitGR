@@ -5,6 +5,7 @@ import type { DiffLine, FileDiff } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { DiffBody, DiffViewToggle, hunkJump, lineOrder, splitRows } from "./DiffBody";
 import { mockIgnoreWs } from "../../lib/mockHistory";
+import { searchMark } from "./SearchView";
 
 const ctx = (n: number, text: string): DiffLine => ({ kind: " ", old: n, new: n, text });
 const add = (n: number, text: string): DiffLine => ({ kind: "+", old: null, new: n, text });
@@ -210,5 +211,25 @@ describe("countKind", () => {
       "deleted",
       "conflicted",
     ]);
+  });
+});
+
+describe("<DiffBody mark />", () => {
+  it("surligne le texte cherché, littéral ou en expression, dans les mots modifiés aussi", () => {
+    const d: FileDiff = { ...data, hunks: [{ header: "@@ -1 +1 @@", lines: [del(1, "une aiguille ici"), add(1, "deux aiguilles là"), ctx(2, "rien")] }] };
+    const { container } = render(<DiffBody data={d} mark={searchMark({ text: "aiguille", regex: false, file: "" })} />);
+    expect([...container.querySelectorAll("mark.diff-find")].map((m) => m.textContent)).toEqual(["aiguille", "aiguille"]);
+  });
+
+  it("marque aussi un texte à cheval sur un mot modifié", () => {
+    const d: FileDiff = { ...data, hunks: [{ header: "@@ -1 +1 @@", lines: [del(1, "const row = lanes"), add(1, "const col = lanes")] }] };
+    const { container } = render(<DiffBody data={d} mark={searchMark({ text: "col = lanes", regex: false, file: "" })} />);
+    expect([...container.querySelectorAll("mark.diff-find")].map((m) => m.textContent).join("")).toBe("col = lanes");
+  });
+
+  it("échappe le texte littéral ; une expression invalide ne surligne rien", () => {
+    expect(searchMark({ text: "a.b(", regex: false, file: "" })?.test("xa.b(y")).toBe(true);
+    expect(searchMark({ text: "a(", regex: true, file: "" })).toBeNull();
+    expect(searchMark({ text: "", regex: false, file: "" })).toBeNull();
   });
 });

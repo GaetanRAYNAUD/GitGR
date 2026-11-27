@@ -158,15 +158,19 @@ test("badges ↑ / ↓ : ce qui part au push et ce qui arrive au pull, avec le d
     await page.getByRole("button", { name: "Voir le commit qui arrive au pull" }).click();
     const pull = page.getByRole("region", { name: "Ce qui arrive au pull" });
     await expect(pull.locator(".pull-view-title")).toHaveText("1 commit à tirer de origin/main");
-    await expect(pull.locator(".range-commit")).toContainText("distant: b");
+    await expect(pull.locator(".range-commit:not(.range-all)")).toContainText("distant: b");
     await expect(pull.locator(".file-row")).toHaveText([/b\.txt/]);
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "Voir le commit qui part au push" }).click();
     const push = page.getByRole("region", { name: "Ce qui part au push" });
-    await expect(push.locator(".range-commit")).toContainText("local: c");
+    await expect(push.locator(".range-commit:not(.range-all)")).toContainText("local: c");
     await expect(push.locator(".file-row")).toHaveText([/c\.txt/]);
     await push.locator(".file-row").click();
+    await expect(push.locator(".diff-body tr.add")).toHaveCount(1);
+    // Le commit choisi : ses propres fichiers et son diff.
+    await push.locator(".range-commit:not(.range-all)").click();
+    await expect(push.locator(".section-h").nth(1)).toContainText(/1 fichier dans [0-9a-f]{7}/);
     await expect(push.locator(".diff-body tr.add")).toHaveCount(1);
   } finally {
     await app.close();

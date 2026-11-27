@@ -190,6 +190,11 @@ pub async fn search_changes(path: String, text: String, regex: bool, file: Optio
 }
 
 #[tauri::command]
+pub async fn search_files(path: String, sha: String, text: String, regex: bool, file: Option<String>) -> Result<Vec<FileChange>, String> {
+    history::search_files(Path::new(&path), &sha, &text, regex, file.as_deref()).map_err(classify)
+}
+
+#[tauri::command]
 pub async fn file_history(path: String, file: String) -> Result<Vec<history::FileHistoryEntry>, String> {
     history::file_history(Path::new(&path), &file).map_err(classify)
 }

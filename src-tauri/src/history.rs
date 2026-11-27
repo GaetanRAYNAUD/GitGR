@@ -109,6 +109,26 @@ pub fn search_changes(path: &Path, text: &str, regex: bool, file: Option<&str>) 
     }
 }
 
+/// Fichiers d'un commit où `text` apparaît ou disparaît (même règle que [`search_changes`],
+/// par rapport au premier parent), pour montrer le diff de la recherche à côté des résultats.
+pub fn search_files(path: &Path, sha: &str, text: &str, regex: bool, file: Option<&str>) -> Result<Vec<FileChange>, String> {
+    check_dir(path)?;
+    check_sha(sha)?;
+    if text.is_empty() {
+        return Err("search_empty".into());
+    }
+    let pickaxe = format!("{}{text}", if regex { "-G" } else { "-S" });
+    let mut args = vec!["--literal-pathspecs", "diff-tree", "-r", "-M", "-z", "--root", "--no-commit-id", "--name-status", "--no-ext-diff", &pickaxe, sha, "--"];
+    if let Some(f) = file.filter(|f| !f.is_empty()) {
+        args.push(f);
+    }
+    match run_raw(Some(path), &args) {
+        Ok(out) => Ok(parse_name_status(&out)),
+        Err(e) if regex && (e.contains("Invalid regular expression") || e.contains("invalid regex") || e.contains("regcomp")) => Err("search_bad_regex".into()),
+        Err(e) => Err(e),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Historique d'un fichier
 // ---------------------------------------------------------------------------
@@ -861,6 +881,28 @@ mod tests {
         assert!(search_changes(p, "-aiguille", false, None).unwrap().is_empty());
         assert_eq!(search_changes(p, "", false, None).unwrap_err(), "search_empty");
         assert_eq!(search_changes(p, "a(", true, None).unwrap_err(), "search_bad_regex");
+    }
+
+    #[test]
+    fn search_files_keeps_only_files_where_text_changed() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "rien\n");
+        std::fs::write(p.join("a.txt"), "rien\naiguille\n").unwrap();
+        std::fs::write(p.join("b.txt"), "autre\n").unwrap();
+        run(Some(p), &["add", "."]).unwrap();
+        run(Some(p), &["commit", "-qm", "deux fichiers"]).unwrap();
+        let sha = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        let paths = |v: Vec<FileChange>| v.into_iter().map(|f| f.path).collect::<Vec<_>>();
+        assert_eq!(paths(search_files(p, &sha, "aiguille", false, None).unwrap()), ["a.txt"]);
+        assert_eq!(paths(search_files(p, &sha, "aig.ille", true, None).unwrap()), ["a.txt"]);
+        assert!(search_files(p, &sha, "aiguille", false, Some("b.txt")).unwrap().is_empty());
+        // Premier commit : comparé à l'arbre vide.
+        let root = run(Some(p), &["rev-list", "--max-parents=0", "HEAD"]).unwrap();
+        assert_eq!(paths(search_files(p, &root, "rien", false, None).unwrap()), ["a.txt"]);
+        assert_eq!(search_files(p, &sha, "", false, None).unwrap_err(), "search_empty");
+        assert_eq!(search_files(p, &sha, "a(", true, None).unwrap_err(), "search_bad_regex");
+        assert!(search_files(p, "-x", "a", false, None).is_err());
     }
     use super::*;
     use crate::git::tests::{commit_file, temp_repo};
