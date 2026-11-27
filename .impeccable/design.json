@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-27T16:40:57.272Z",
+  "generatedAt": "2026-11-27T17:43:49.000Z",
   "title": "Design System: GitGR",
   "extensions": {
     "source": "src/styles.css (:root = sombre, :root[data-theme=\"light\"] = clair)",
@@ -330,6 +330,23 @@
           "oklch(95% 0.025 22.4)"
         ]
       },
+      "merged": {
+        "role": "semantic",
+        "displayName": "Fusionnée",
+        "canonical": "#b48cf2",
+        "cssVar": "--merged",
+        "lightTheme": "#7a3fd1",
+        "tonalRamp": [
+          "oklch(15% 0.03 300.5)",
+          "oklch(26.4% 0.07 300.5)",
+          "oklch(37.9% 0.11 300.5)",
+          "oklch(49.3% 0.15 300.5)",
+          "oklch(60.7% 0.15 300.5)",
+          "oklch(72.1% 0.11 300.5)",
+          "oklch(83.6% 0.07 300.5)",
+          "oklch(95% 0.03 300.5)"
+        ]
+      },
       "lane-0": {
         "role": "tertiary",
         "displayName": "Voie Bleu",
@@ -614,6 +631,22 @@
       "description": "Pilules de la barre d'outils : modifications en cours (fond mod 12 %) et opération en cours (fond transparent, icône alerte mod).",
       "html": "<button class=\"ds-pill\"><i></i>4 modifications</button> <button class=\"ds-pill ds-op\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3 2 20h20L12 3zM12 10v4M12 17h.01\"/></svg>Merge en cours</button>",
       "css": ".ds-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid color-mix(in srgb, var(--mod) 45%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--mod) 12%, transparent); color: var(--text); font: 600 12px \"Inter Variable\", Inter, system-ui, sans-serif; white-space: nowrap; cursor: pointer; } .ds-pill:hover { background: color-mix(in srgb, var(--mod) 22%, transparent); } .ds-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--mod); } .ds-op { gap: 6px; background: transparent; } .ds-op svg { color: var(--mod); } .ds-op:hover { background: color-mix(in srgb, var(--mod) 12%, transparent); } .ds-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }"
+    },
+    {
+      "name": "Pastille d'état PR / MR",
+      "kind": "chip",
+      "refersTo": "pull-state",
+      "description": "État d'une PR / MR en tête de sa vue de suivi : pilule teintée (fond 16 %, contour interne 45 %), texte text, seule l'icône à la couleur d'état (ouverte add, fusionnée merged, brouillon et fermée faint).",
+      "html": "<span class=\"ds-pull-state\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"6\" cy=\"6\" r=\"2.5\"/><circle cx=\"6\" cy=\"18\" r=\"2.5\"/><circle cx=\"18\" cy=\"18\" r=\"2.5\"/><path d=\"M6 8.5v7M15.5 18H12a6 6 0 0 1-6-6\"/></svg>Ouverte</span> <span class=\"ds-pull-state ds-merged\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"6\" cy=\"6\" r=\"2.5\"/><circle cx=\"6\" cy=\"18\" r=\"2.5\"/><circle cx=\"18\" cy=\"12\" r=\"2.5\"/><path d=\"M6 8.5v7M6 8.5a6 6 0 0 0 6 3.5h3.5\"/></svg>Fusionnée</span> <span class=\"ds-pull-state ds-closed\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 6l12 12M18 6 6 18\"/></svg>Fermée</span>",
+      "css": ".ds-pull-state { --state: var(--add); display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font: 600 12px \"Inter Variable\", Inter, system-ui, sans-serif; color: var(--text); background: color-mix(in srgb, var(--state) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state) 45%, transparent); } .ds-pull-state svg { color: var(--state); } .ds-merged { --state: var(--merged); } .ds-closed { --state: var(--faint); }"
+    },
+    {
+      "name": "Section de discussion PR / MR",
+      "kind": "card",
+      "refersTo": "pull-card",
+      "description": "Section pleine largeur de la discussion d'une PR / MR : filet bas de 1px, padding 12px 16px, pas de carte arrondie ; texte borné à 110ch, aligné à gauche.",
+      "html": "<div class=\"ds-pull-conv\"><section class=\"ds-pull-card\"><p class=\"ds-pull-text\">Ajoute la vue de suivi des PR avec la discussion et les checks.</p></section><section class=\"ds-pull-card\"><p class=\"ds-pull-text\">Relu : deux remarques sur le diff, le reste est bon.</p></section></div>",
+      "css": ".ds-pull-conv { display: flex; flex-direction: column; background: var(--panel); color: var(--text); font: 400 13px \"Inter Variable\", Inter, system-ui, sans-serif; } .ds-pull-card { border-bottom: 1px solid var(--border); padding: 12px 16px; } .ds-pull-text { margin: 0; max-width: 110ch; overflow-wrap: anywhere; line-height: 1.5; }"
     },
     {
       "name": "Onglets de dépôt",

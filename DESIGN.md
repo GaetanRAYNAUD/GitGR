@@ -21,6 +21,7 @@ colors:
   add: "#4cc38a"
   mod: "#e8b84a"
   del: "#f06a6a"
+  merged: "#b48cf2"
   lane-0: "#5b95ff"
   lane-1: "#f0913f"
   lane-2: "#2bbcae"
@@ -215,7 +216,7 @@ Deux thèmes complets, sombre (par défaut) et clair, plus « suivre le système
 
 ## Colors
 
-Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois couleurs sémantiques de diff et huit couleurs de voies pour le graphe. Les valeurs du frontmatter sont celles du thème sombre (`:root`) ; le thème clair redéfinit chaque jeton avec un contraste renforcé (accent `#2f6fe0`, texte `#191c22`, voies et sémantiques assombries pour rester lisibles sur blanc).
+Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois couleurs sémantiques de diff, le violet des PR / MR fusionnées et huit couleurs de voies pour le graphe. Les valeurs du frontmatter sont celles du thème sombre (`:root`) ; le thème clair redéfinit chaque jeton avec un contraste renforcé (accent `#2f6fe0`, texte `#191c22`, voies et sémantiques assombries pour rester lisibles sur blanc).
 
 ### Primary
 - **Bleu Établi** (accent) : sélection active, anneau de focus (`outline: 2px solid`), liseré gauche de l'élément actif (`inset 3px 0`), compteur de notifications.
@@ -234,6 +235,7 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 
 ### Sémantiques
 - **Ajout** (add), **Modification** (mod), **Suppression** (del) : diff, statut des fichiers, état des checks (succès, en attente, échec), toasts d'erreur. Les fonds teintés se font par `color-mix(in srgb, var(--add) N%, transparent)`, jamais par une nouvelle couleur.
+- **Fusionnée** (merged) : le violet des forges pour une PR / MR fusionnée — icône et contour de sa pastille d'état, mention « fusionnée » en tête de la discussion. En clair, `#7a3fd1`. Jamais ailleurs : ce n'est pas un quatrième accent.
 
 ### Voies du graphe
 - **lane-0 à lane-7** (`--g0` à `--g7`) : bleu, orange, sarcelle, violet, rose, vert, jaune, cyan. Colorent les voies et nœuds du graphe, les puces de branches (`--chip`), les avatars. Les branches principales (`main`, `develop`, `release/*`…) ont des couleurs fixes, modifiables dans les réglages. La résolution de conflits réutilise accent, add et del (`--m-ours`, `--m-both`, `--m-conflict`).
@@ -352,6 +354,14 @@ Table mono 12px (interligne 1.6), lignes teintées `color-mix(--add / --del 14 %
 
 ### Zone de commit
 Résumé (compteur relié au champ), description (une ligne tant qu'elle est vide), Amend / Pousser après, puis **l'identité du commit** — « Commit en tant que Nom ‹e-mail› », lue par git (profil actif, sinon config git), teinte `mod` si aucune — avec le profil à droite ; dessous, la raison du bouton grisé, sinon le raccourci. Commiter est le seul plein ; Stash est secondaire, sans fond (icône seule quand le panneau est étroit).
+
+### Suivi PR / MR
+Vue d'une PR / MR dans le panneau central, bord à bord comme le reste de l'app.
+- **En-tête:** titre en 600 (une ligne, coupé), pastille d'état, puis une ligne de méta en 12.5px `muted` (branches source → cible, puce « fork » de 4px en `border-strong`, étiquettes de la forge en pilule teintée à 22 % de leur couleur, contour à 60 %, texte `text`), filet bas de 1px.
+- **Pastille d'état:** pilule de 10px de rayon, padding 2px 8px, 12px 600. Teintée, jamais pleine : fond `color-mix(--state 16 %)`, contour interne `inset 0 0 0 1px` à 45 %, texte `text` ; seule l'icône prend la couleur d'état (`--state`) — ouverte `add`, fusionnée `merged`, brouillon et fermée `faint`.
+- **Onglets internes:** boutons à plat `muted`, l'actif en `text` souligné de 2px d'accent ; compteur dans un badge.
+- **Discussion:** une pile de sections pleine largeur séparées d'un filet bas de 1px (padding 12px 16px), pas de cartes arrondies centrées. Seule la mesure du texte est bornée (110ch, interligne 1.5), alignée à gauche. Les commentaires d'un fil sont séparés par un filet `border` ; un fil résolu passe à 0.75 d'opacité, marqué « résolu » en `add` 11px. Le texte est sélectionnable.
+- **Lecteurs d'écran:** un badge ou compteur purement visuel est doublé d'un texte masqué (`.visually-hidden`) qui dit ce qu'il compte.
 
 ### Commit row (signature)
 La ligne du graphe : 28px, grille à colonnes (refs, graphe, message, auteur, date, SHA). Survol `hover`, sélection `sel`. Message en 13px ; auteur avec avatar rond ; date et SHA en `muted`, SHA en mono. Le nœud du graphe prend la couleur de sa voie, avec l'initiale ou l'avatar de l'auteur.
