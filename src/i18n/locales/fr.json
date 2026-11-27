@@ -1464,7 +1464,8 @@
       "threads": "Des fils de discussion ne sont pas résolus.",
       "checking": "Vérification par le serveur en cours…",
       "forbidden": "Votre compte ne peut pas fusionner sur ce dépôt.",
-      "blocked": "Bloquée par les règles du dépôt."
+      "blocked": "Bloquée par les règles du dépôt.",
+      "draftOther": "C’est un brouillon : son auteur doit la marquer comme prête."
     },
     "methodLabel": "Mode de fusion",
     "method": {
@@ -1520,7 +1521,22 @@
     },
     "retryFailed": "Relancer les jobs en échec",
     "retrying": "Relance…",
-    "noAccountShort": "Connectez un compte {{provider}} pour les voir ici."
+    "noAccountShort": "Connectez un compte {{provider}} pour les voir ici.",
+    "leaveEditTitle": "Abandonner les modifications ?",
+    "leaveEditBody": "Le titre, la description ou les personnes modifiés n’ont pas été enregistrés.",
+    "leaveEditOk": "Abandonner",
+    "unresolvedCount_one": "{{count}} fil non résolu",
+    "unresolvedCount_other": "{{count}} fils non résolus",
+    "assigneesLabel": "Assignés :",
+    "commentHint": "Ctrl+Entrée pour envoyer",
+    "as": "En tant que {{login}}",
+    "mergeBodyDelete": "La branche {{branch}} sera ensuite supprimée du serveur.",
+    "methodName": {
+      "merge": "Commit de merge",
+      "squash": "Squash",
+      "rebase": "Rebase"
+    },
+    "showInDiff": "Voir dans le diff"
   },
   "notif": {
     "title": "Notifications",

@@ -1464,7 +1464,8 @@
       "threads": "Some discussion threads are unresolved.",
       "checking": "The server is checking…",
       "forbidden": "Your account cannot merge in this repository.",
-      "blocked": "Blocked by the repository's rules."
+      "blocked": "Blocked by the repository's rules.",
+      "draftOther": "It is a draft: its author must mark it as ready."
     },
     "methodLabel": "Merge method",
     "method": {
@@ -1520,7 +1521,22 @@
     },
     "retryFailed": "Re-run failed jobs",
     "retrying": "Re-running…",
-    "noAccountShort": "Connect a {{provider}} account to see them here."
+    "noAccountShort": "Connect a {{provider}} account to see them here.",
+    "leaveEditTitle": "Discard changes?",
+    "leaveEditBody": "The edited title, description or people have not been saved.",
+    "leaveEditOk": "Discard",
+    "unresolvedCount_one": "{{count}} unresolved thread",
+    "unresolvedCount_other": "{{count}} unresolved threads",
+    "assigneesLabel": "Assignees:",
+    "commentHint": "Ctrl+Enter to send",
+    "as": "As {{login}}",
+    "mergeBodyDelete": "The {{branch}} branch will then be deleted from the server.",
+    "methodName": {
+      "merge": "Merge commit",
+      "squash": "Squash",
+      "rebase": "Rebase"
+    },
+    "showInDiff": "Show in diff"
   },
   "notif": {
     "title": "Notifications",

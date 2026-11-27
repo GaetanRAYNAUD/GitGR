@@ -11,7 +11,8 @@ import { PersonAvatar } from "../PersonAvatar";
 
 const key = (x: Person) => x.login.toLowerCase();
 
-export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; onDone: () => void }) {
+/** `onDirty` : des changements pas encore enregistrés (la vue demande confirmation avant de les jeter). */
+export function PullEdit({ ctx, d, onDone, onDirty }: { ctx: PullContext; d: PullDetail; onDone: () => void; onDirty?: (dirty: boolean) => void }) {
   const { t } = useTranslation();
   const act = usePullList((s) => s.act);
   const busy = usePullList((s) => detailEntry(s, ctx, d.number)?.busy ?? null);
@@ -26,6 +27,15 @@ export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; 
   const [reviewers, setReviewers] = useState(() => d.reviewers.map(key));
   const [assignees, setAssignees] = useState(() => d.assignees.map(key));
   const [labels, setLabels] = useState(() => d.labels.map((l) => l.name));
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+  const dirty =
+    title !== d.title ||
+    body !== d.body ||
+    !same(reviewers, d.reviewers.map(key)) ||
+    !same(assignees, d.assignees.map(key)) ||
+    !same(labels, d.labels.map((l) => l.name));
+  useEffect(() => onDirty?.(dirty), [onDirty, dirty]);
+  useEffect(() => () => onDirty?.(false), [onDirty]);
 
   /** Personnes connues : la liste du dépôt, plus celles déjà sur la PR / MR. */
   const people = useMemo(() => {
@@ -76,6 +86,10 @@ export function PullEdit({ ctx, d, onDone }: { ctx: PullContext; d: PullDetail; 
     <form
       className="pull-card pull-edit"
       ref={formRef}
+      // Échap dans le formulaire (relecteur, étiquette…) ne ferme pas toute la vue : « Annuler » est là pour ça.
+      onKeyDown={(e) => {
+        if (e.key === "Escape") e.stopPropagation();
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         void save();
