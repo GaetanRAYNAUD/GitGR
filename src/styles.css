@@ -324,21 +324,50 @@ h2 {
   flex: none;
 }
 
+/* Rangée d'onglets : ils rétrécissent jusqu'à `min-width`, puis la rangée défile (molette,
+   onglet actif ramené dans le champ) sans barre visible ; un bord coupé passe en fondu. */
 .tabs {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   min-width: 0;
-  overflow: hidden;
+  align-self: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs.cut-end {
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+}
+
+.tabs.cut-start {
+  mask-image: linear-gradient(to left, black calc(100% - 28px), transparent);
+}
+
+.tabs.cut-start.cut-end {
+  mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
 }
 
 .tab {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
+  min-width: 120px;
   height: 32px;
   max-width: 220px;
   border-radius: 8px 8px 0 0;
   color: var(--muted);
+}
+
+/* Anneau de focus à l'intérieur de l'onglet : la rangée qui défile rognerait l'anneau commun. */
+.tab-main:focus-visible {
+  outline-offset: -2px;
+  border-radius: 8px 8px 0 0;
 }
 
 .tab:hover {
@@ -365,6 +394,7 @@ h2 {
 
 .tab-main {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 8px;
   height: 100%;
@@ -395,6 +425,7 @@ h2 {
 }
 
 .tab-close {
+  flex: none;
   width: 22px;
   height: 22px;
   margin-right: 6px;
@@ -413,6 +444,7 @@ h2 {
 }
 
 .tab-new {
+  flex: none;
   width: 34px;
   height: 32px;
   display: inline-flex;
@@ -462,8 +494,8 @@ h2 {
 }
 
 .wc-close:hover {
-  background: #d93c3c;
-  color: #fff;
+  background: var(--del-fill);
+  color: var(--accent-text);
 }
 
 /* Réglages ------------------------------------------------------------ */

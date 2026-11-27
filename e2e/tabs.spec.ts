@@ -134,3 +134,72 @@ test("les onglets et l'onglet actif sont restaurés au redémarrage", async ({ p
   await expect(page.getByRole("tab")).toHaveText(["GitGR", "api-backend", "dotfiles"]);
   await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
 });
+
+test("clavier dans la rangée : une tabulation, flèches, Entrée, F2, Suppr", async ({ page }) => {
+  // dotfiles est actif : c'est le seul onglet dans l'ordre de tabulation.
+  const tabsList = page.getByRole("tablist", { name: "Dépôts ouverts" });
+  await expect(tabsList.locator('[tabindex="0"]')).toHaveCount(1);
+  await tab(page, "dotfiles").focus();
+
+  // ← / Début déplacent le focus sans changer d'onglet ; Entrée active.
+  await page.keyboard.press("ArrowLeft");
+  await expect(tab(page, "api-backend")).toBeFocused();
+  await expect(tab(page, "dotfiles")).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Home");
+  await expect(tab(page, "GitGR")).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(tab(page, "dotfiles")).toBeFocused();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(tab(page, "GitGR")).toHaveAttribute("aria-selected", "true");
+
+  // F2 renomme, Entrée valide et rend le focus à l'onglet.
+  await page.keyboard.press("F2");
+  const field = page.getByRole("textbox", { name: "Renommer l’onglet" });
+  await field.fill("app");
+  await field.press("Enter");
+  await expect(tab(page, "app")).toBeFocused();
+
+  // Suppr ferme l'onglet qui a le focus ; le focus passe au suivant.
+  await page.keyboard.press("Delete");
+  await expect(page.getByRole("tab")).toHaveText(["api-backend", "dotfiles"]);
+  await expect(tab(page, "api-backend")).toBeFocused();
+});
+
+test("Ctrl+9 va au dernier onglet ; fermer les autres, à droite", async ({ page }) => {
+  await page.keyboard.press("Control+1");
+  await page.keyboard.press("Control+9");
+  await expect(page.getByRole("tab", { selected: true })).toHaveText("dotfiles");
+
+  await tab(page, "api-backend").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Fermer les onglets à droite" }).click();
+  await expect(page.getByRole("tab")).toHaveText(["GitGR", "api-backend"]);
+  await expect(tab(page, "api-backend")).toHaveAttribute("aria-selected", "true");
+
+  await tab(page, "api-backend").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Fermer les autres onglets" }).click();
+  await expect(page.getByRole("tab")).toHaveText(["api-backend"]);
+});
+
+test("couleur de l'onglet : focus dans la fenêtre, rendu à l'onglet à la fermeture", async ({ page }) => {
+  await tab(page, "api-backend").focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Couleur…" }).click();
+  const popover = page.getByRole("dialog", { name: "Couleur de l’onglet api-backend" });
+  await expect(popover.getByRole("radio", { name: "Automatique" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(popover).toHaveCount(0);
+  await expect(tab(page, "api-backend")).toBeFocused();
+});
+
+test("onglets trop nombreux : défilement, onglet actif visible, menu de tous les onglets", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 700 });
+  await expect(page.getByRole("button", { name: "Tous les onglets" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nouvel onglet" })).toBeInViewport();
+  await page.keyboard.press("Control+1");
+  await expect(tab(page, "GitGR")).toBeInViewport();
+  await page.getByRole("button", { name: "Tous les onglets" }).click();
+  await page.getByRole("menuitemradio", { name: "dotfiles" }).click();
+  await expect(tab(page, "dotfiles")).toHaveAttribute("aria-selected", "true");
+  await expect(tab(page, "dotfiles")).toBeInViewport();
+});

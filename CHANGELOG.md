@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Onglets nombreux : ils se resserrent, puis la rangée défile (molette comprise) ; l'onglet actif reste toujours visible, les bords coupés s'estompent, « + » reste à sa place et un bouton ⌄ liste tous les onglets. Fini les onglets et le « + » qui disparaissaient sans prévenir.
+- Onglets au clavier : une seule tabulation, puis ← / → / Début / Fin d'un onglet à l'autre, Entrée pour l'ouvrir, F2 pour le renommer, Suppr pour le fermer, Maj+F10 pour son menu. Ctrl+9 va au dernier onglet. Le menu d'un onglet propose aussi « Fermer les autres onglets » et « Fermer les onglets à droite ».
+- Onglets : l'infobulle montre toujours le chemin et le travail en attente (elle était remplacée par l'astuce de renommage au survol du nom) ; la fenêtre Couleur prend le focus et le rend à l'onglet ; le bouton du milieu de la fenêtre devient « Restaurer » quand elle est agrandie.
 - Détails d'un commit : l'e-mail de l'auteur est affiché à côté de son nom, avec son avatar, et « Commité par … » apparaît sous l'auteur quand quelqu'un d'autre a commité (ou à une autre date, après un rebase ou un amend). Le SHA est complet ; les parents s'affichent sur 7 caractères comme dans le graphe.
 - Détails d'un commit au clavier : en passant à un parent ou à un SHA cité dans le message, le focus arrive sur le titre du nouveau commit, et Alt+← revient au commit précédent. La copie du SHA est annoncée (ou son échec).
 - Détails d'un commit : un message très long ne repousse plus la liste des fichiers hors de l'écran (il défile dans son bloc) ; « Chargement… » ne clignote plus en parcourant le graphe ; « Réessayer » si les détails ne se chargent pas ; un SHA cité mais absent de l'historique chargé le dit en infobulle.
