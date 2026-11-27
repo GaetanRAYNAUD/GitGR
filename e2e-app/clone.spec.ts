@@ -71,7 +71,8 @@ test("cloner par ssh avec la clé du profil proposé par les règles", async ({ 
   const { page } = app;
   try {
     await cloneByUrl(page, `ssh://serveur-clone${msys(sandbox.remote)}`, "par-ssh");
-    const profilePicker = dialog(page).getByRole("button", { name: "Profil", exact: true });
+    // Nom lu : le libellé puis le profil choisi.
+    const profilePicker = dialog(page).getByRole("button", { name: /^Profil / });
     const choose = async (option: string) => {
       await profilePicker.click();
       await page.getByRole("menu").getByRole("menuitemradio", { name: option }).click();
