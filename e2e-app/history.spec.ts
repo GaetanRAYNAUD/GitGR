@@ -36,7 +36,7 @@ test("plage de commits : fichiers cumulés, diff de la plage, puis cherry-pick s
     await graph.getByRole("option", { name: /ajout de c/ }).click();
     await graph.getByRole("option", { name: /suite de b/ }).click({ modifiers: ["Control"] });
     await graph.getByRole("option", { name: /ajout de b/ }).last().click({ modifiers: ["Control"] });
-    await panel.getByRole("button", { name: "Cherry-pick des 3 commits sur main" }).click();
+    await panel.getByRole("button", { name: "Cherry-pick (3)" }).click();
     await expect(page.getByText("Cherry-pick de 3 commits sur main terminé.")).toBeVisible();
     expect(git(mine, "log", "--format=%s", "-n", "3", "main").split("\n")).toEqual(["ajout de c", "suite de b", "ajout de b"]);
     expect(readFileSync(join(mine, "b.txt"), "utf8")).toBe("b\nb2\n");
@@ -61,11 +61,11 @@ test("reset hard, puis le reflog retrouve le commit perdu et une branche le réc
     expect(git(mine, "status", "--porcelain")).toBe("");
 
     await page.getByRole("button", { name: "Reflog" }).click();
-    const list = page.getByRole("region", { name: "Reflog" }).getByRole("list", { name: "Reflog" });
-    await expect(list.getByRole("listitem").first()).toContainText("reset");
-    const entry = list.getByRole("listitem").filter({ hasText: "commit à retrouver" }).first();
+    const list = page.getByRole("region", { name: "Reflog" }).getByRole("listbox", { name: "Où était HEAD" });
+    await expect(list.getByRole("option").first()).toContainText("reset");
+    const entry = list.getByRole("option").filter({ hasText: "commit à retrouver" }).first();
     await expect(entry).toContainText("hors des branches");
-    await entry.getByRole("button").click({ button: "right" });
+    await entry.click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Nouvelle branche ici…" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
     await dialog.getByLabel("Nom de la branche").fill("retrouvee");
@@ -92,12 +92,12 @@ test("chercher quand un texte a été ajouté puis retiré, limité à un fichie
     await view.getByLabel("Texte cherché").fill("aiguille");
     await view.getByLabel("Fichier ou dossier (facultatif)").fill("a.txt");
     await view.getByRole("button", { name: "Chercher" }).click();
-    const results = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+    const results = view.getByRole("listbox", { name: /commits?/ }).getByRole("option");
     await expect(results).toHaveText([/retrait de l'aiguille/, /ajout de l'aiguille/]);
     await view.getByLabel("Fichier ou dossier (facultatif)").fill("");
     await view.getByRole("button", { name: "Chercher" }).click();
     await expect(results).toHaveCount(3);
-    await results.nth(1).getByRole("button").dblclick();
+    await results.nth(1).dblclick();
     await expect(view).toHaveCount(0);
     await expect(page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { selected: true })).toContainText("aiguille dans b");
   } finally {

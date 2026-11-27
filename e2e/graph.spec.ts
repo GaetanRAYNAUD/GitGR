@@ -323,7 +323,7 @@ test.describe("sélection de plusieurs commits", () => {
     await rows.nth(6).click({ modifiers: ["Shift"] });
     await expect(graph(page).getByRole("option", { selected: true })).toHaveCount(3);
     await expect(picked(page)).toContainText("3 commits sélectionnés");
-    await expect(picked(page).getByRole("list", { name: "Commits choisis" }).getByRole("listitem")).toHaveCount(3);
+    await expect(picked(page).getByRole("listbox", { name: "Commits choisis" }).getByRole("option")).toHaveCount(3);
     // Maj+↓ étend la plage d'un commit.
     await page.keyboard.press("Shift+ArrowDown");
     await expect(picked(page)).toContainText("4 commits sélectionnés");
@@ -343,7 +343,7 @@ test.describe("sélection de plusieurs commits", () => {
     await rows.nth(idx[1]).click({ modifiers: ["Control"] });
     await rows.nth(idx[2]).click({ modifiers: ["Control"] });
     await expect(picked(page)).toContainText("Sélectionnez une plage contiguë");
-    await picked(page).getByRole("button", { name: /^Cherry-pick des 3 commits sur main/ }).click();
+    await picked(page).getByRole("button", { name: "Cherry-pick (3)" }).click();
     await expect(page.getByText("Cherry-pick de 3 commits sur main terminé.")).toBeVisible();
     // Les trois nouveaux commits en haut, le plus récent d'abord (appliqués du plus ancien au plus récent).
     await expect(rows.nth(0)).toContainText(subjects[0]);
@@ -362,13 +362,18 @@ test("reset de main sur un commit plus ancien, puis le reflog retrouve l'ancienn
 
   await page.getByRole("button", { name: "Reflog" }).click();
   const view = page.getByRole("region", { name: "Reflog" });
-  const entries = view.getByRole("list", { name: "Reflog" }).getByRole("listitem");
+  const entries = view.getByRole("listbox", { name: "Où était HEAD" }).getByRole("option");
   await expect(entries.first()).toContainText("reset");
   // L'ancienne position de HEAD : clic, ses détails à droite.
-  await entries.nth(1).getByRole("button").click();
+  await entries.nth(1).click();
   await expect(panel(page)).toContainText(lost);
   // Clic droit : ses actions (nouvelle branche…).
-  await entries.nth(1).getByRole("button").click({ button: "right" });
+  await entries.nth(1).click({ button: "right" });
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Nouvelle branche ici…" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Au clavier : la liste a le focus, Maj+F10 ouvre aussi les actions de la position.
+  await view.getByRole("listbox").focus();
+  await page.keyboard.press("Shift+F10");
   await expect(page.getByRole("menu").getByRole("menuitem", { name: "Nouvelle branche ici…" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
@@ -380,15 +385,20 @@ test("chercher dans les modifications : résultats, détails au clic, erreur d'e
   const view = page.getByRole("region", { name: "Recherche dans les modifications" });
   await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
   await view.getByRole("button", { name: "Chercher" }).click();
-  const results = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+  const results = view.getByRole("listbox", { name: /commits?/ }).getByRole("option");
   await expect(results.first()).toContainText("perf: rendu virtualisé des lignes");
-  await results.first().getByRole("button").click();
+  // Après la recherche, la liste a le focus.
+  await expect(view.getByRole("listbox")).toBeFocused();
+  await results.first().click();
   await expect(panel(page)).toContainText("perf: rendu virtualisé des lignes");
 
-  await view.getByLabel(/Expression régulière/).check();
+  await view.getByLabel("Regex").check();
   await view.getByLabel("Texte cherché").fill("perf(");
   await view.getByRole("button", { name: "Chercher" }).click();
-  await expect(view.getByRole("alert")).toHaveText("Expression régulière invalide.");
+  await expect(view.getByRole("alert")).toContainText("Expression régulière invalide.");
+  // Les résultats précédents restent affichés sous l'erreur.
+  await expect(results.first()).toBeVisible();
+  await view.getByLabel("Texte cherché").focus();
 
   await page.keyboard.press("Escape");
   await expect(view).toHaveCount(0);
@@ -400,7 +410,7 @@ test("résultats de la recherche dans les modifications mis en évidence dans le
   const view = page.getByRole("region", { name: "Recherche dans les modifications" });
   await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
   await view.getByRole("button", { name: "Chercher" }).click();
-  await expect(view.getByRole("list", { name: /commits?$/ }).getByRole("listitem").first()).toBeVisible();
+  await expect(view.getByRole("listbox", { name: /commits?/ }).getByRole("option").first()).toBeVisible();
   await view.getByRole("button", { name: "Voir dans le graphe" }).click();
 
   await expect(view).toHaveCount(0);
@@ -432,7 +442,7 @@ test("squash des deux derniers commits de main : un seul commit, avec le message
   await rows.nth(0).click();
   const parent = (await panel(page).locator(".parents .link").first().innerText()).trim();
   await graph(page).getByRole("option").filter({ has: page.locator(".commit-sha", { hasText: parent }) }).click({ modifiers: ["Control"] });
-  await page.getByRole("complementary", { name: "Commits sélectionnés" }).getByRole("button", { name: "Squash des 2 commits…" }).click();
+  await page.getByRole("complementary", { name: "Commits sélectionnés" }).getByRole("button", { name: "Squash (2)…" }).click();
   const dialog = page.getByRole("dialog", { name: "Squash de 2 commits" });
   await dialog.getByRole("textbox").fill("deux en un");
   await dialog.getByRole("button", { name: "Réunir" }).click();

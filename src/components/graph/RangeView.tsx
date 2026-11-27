@@ -2,30 +2,44 @@
 // leurs fichiers cumulés avec le diff de chacun, avant de pousser ou de tirer. Ouverte à la
 // place du graphe par les badges ↑ / ↓ de la barre d'outils. Pour ↓, d'après la branche
 // suivie telle qu'au dernier fetch (bouton Fetch pour la relire).
+//
+// Commits : liste à une tabulation (↑ / ↓ = ses détails à droite, Entrée = détails, Maj+Entrée
+// ou double-clic = le montrer dans le graphe, Maj+F10 = actions). Le premier fichier s'ouvre
+// d'office.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import { errorMessage } from "../../lib/errors";
-import { relativeTime } from "../../lib/format";
 import type { FileChange, FileDiff, RangeChanges, RangeDirection } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useRangeView } from "../../store/range";
-import { openContextMenu } from "../ContextMenu";
+import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
-import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
+import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
-import { fileMenu } from "./menus";
+import { commitMenu, fileMenu } from "./menus";
+import { listKeys, RetryNotice, scrollRow, useCommitWhen } from "./viewKit";
 
 export function RangeView({ path, direction }: { path: string; direction: RangeDirection }) {
   const { t } = useTranslation();
+  const sectionRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const returnFocus = useReturnFocus(sectionRef);
   const close = useRangeView((s) => s.close);
-  const back = useCallback(() => close(path), [close, path]);
+  const back = useCallback(() => {
+    returnFocus();
+    close(path);
+  }, [close, path, returnFocus]);
   useEscape(back);
+  const selected = useGraph((s) => s.graphs[path]?.selected ?? null);
+  const refs = useGraph((s) => s.graphs[path]?.refs ?? null);
+  const [reload, setReload] = useState(0);
+  const [diffReload, setDiffReload] = useState(0);
+  const { when, full: fullDate } = useCommitWhen();
   const summary = useApp((s) => s.summaries[path]?.data);
   const fileView = useApp((s) => s.settings.fileView ?? "list");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
@@ -39,22 +53,32 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
 
   // Relu quand HEAD, la branche suivie ou l'écart changent (après un push, un pull, un fetch).
   const stamp = `${summary?.head}|${summary?.upstream}|${summary?.ahead}|${summary?.behind}`;
+  // Une relecture qui échoue garde ce qui est affiché (erreur en bandeau, « Réessayer »).
   useEffect(() => {
     let live = true;
-    setError(null);
     api.rangeChanges(path, direction).then(
       (r) => {
         if (!live) return;
         setData(r);
-        // Le fichier choisi reste ouvert s'il fait encore partie de la plage.
-        setFile((f) => (f && r.files.some((x) => x.path === f.path) ? f : null));
+        setError(null);
+        // Le fichier choisi reste ouvert s'il fait encore partie de la plage ; sinon le premier.
+        setFile((f) => (f && r.files.some((x) => x.path === f.path) ? f : (r.files[0] ?? null)));
       },
       (e) => live && setError(errorCode(e)),
     );
     return () => {
       live = false;
     };
-  }, [path, direction, stamp]);
+  }, [path, direction, stamp, reload]);
+
+  // Focus sur les commits dès qu'ils sont là.
+  const focused = useRef(false);
+  useEffect(() => {
+    if (data?.commits.length && !focused.current) {
+      focused.current = true;
+      listRef.current?.focus({ preventScroll: true });
+    }
+  }, [data]);
 
   useEffect(() => {
     if (!file || !data) return;
@@ -67,49 +91,93 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
     return () => {
       live = false;
     };
-  }, [path, data, file, ignoreWs, full]);
+  }, [path, data, file, ignoreWs, full, diffReload]);
 
   const ops = useOps.getState();
   const upstream = summary?.upstream ?? "";
   const count = data?.commits.length ?? 0;
-  const title = data ? t(`range.${direction}Title`, { count, upstream }) : error ? errorMessage(t, error) : t("prv.loading");
-  const ago = (seconds: number) => {
-    const rt = relativeTime(seconds * 1000);
-    return t(`time.${rt.key}`, { count: rt.count });
+  const title = data ? t(`range.${direction}Title`, { count, upstream }) : t(`range.${direction}Label`);
+  const commits = data?.commits ?? [];
+  const at = Math.max(
+    0,
+    commits.findIndex((c) => c.sha === selected),
+  );
+  const showInGraph = (sha: string) => void reveal(path, sha).then((ok) => ok && close(path));
+  const choose = (i: number) => {
+    const c = commits[i];
+    if (!c) return;
+    useGraph.getState().select(path, c.sha);
+    scrollRow(`rg-${c.sha}`);
   };
+  const items = (sha: string): MenuItem[] => [{ label: t("reflog.showInGraph"), onClick: () => showInGraph(sha) }, "sep", ...commitMenu(t, path, sha, refs)];
+  const onKeyDown = listKeys(commits.length, at, {
+    go: choose,
+    enter: (shift) => (shift ? showInGraph(commits[at].sha) : choose(at)),
+    menu: () => {
+      useGraph.getState().select(path, commits[at].sha);
+      const box = document.getElementById(`rg-${commits[at].sha}`)?.getBoundingClientRect();
+      if (box) useContextMenu.getState().open(box.left + 12, box.bottom, items(commits[at].sha));
+    },
+  });
 
   return (
-    <section className="pull-view range-view" aria-label={t(`range.${direction}Label`)}>
+    <section ref={sectionRef} className="pull-view range-view" aria-label={t(`range.${direction}Label`)}>
       <header className="diff-head">
         <BackButton onClick={back} />
         <Icon name={direction} size={15} />
         <span className="pull-view-title">{title}</span>
         {direction === "pull" && (
-          <button className="mini" disabled={!!running} onClick={() => void ops.fetch(path)} title={t("range.fetchHint")}>
+          <button className="btn sm" disabled={!!running} onClick={() => void ops.fetch(path)} title={t("range.fetchHint")}>
             {t("repo.fetch")}
           </button>
         )}
-        <button className="mini primary" disabled={!!running || count === 0} onClick={() => void (direction === "push" ? ops.push(path) : ops.pull(path))}>
+        <button className="btn sm primary" disabled={!!running || count === 0} onClick={() => void (direction === "push" ? ops.push(path) : ops.pull(path))}>
           {t(`repo.${direction}`)}
         </button>
       </header>
+      {error && <RetryNotice error={error} onRetry={() => setReload((n) => n + 1)} />}
+      {!data && !error && <p className="muted pull-pad">{t("prv.loading")}</p>}
       {data && count === 0 ? (
         <p className="muted pull-pad">{t(`range.${direction}Empty`, { upstream })}</p>
       ) : data ? (
-        <div className="pull-files">
+        <div className="pull-files range-files">
           <div className="pull-file-list">
             <div className="section-h">
               <span>{t("range.commits", { count })}</span>
             </div>
-            <ul className="range-commits" aria-label={t("range.commits", { count })}>
-              {data.commits.map((c) => (
-                <li key={c.sha}>
-                  <button className="range-commit" title={t("range.showInGraph")} onClick={() => void reveal(path, c.sha).then((ok) => ok && back())}>
-                    <span className="range-subject">{c.subject}</span>
-                    <span className="range-meta muted">
-                      <span className="mono">{c.sha.slice(0, 7)}</span> · {c.author} · {ago(c.time)}
-                    </span>
-                  </button>
+            <ul
+              ref={listRef}
+              className="range-commits"
+              role="listbox"
+              tabIndex={0}
+              aria-label={t("range.commits", { count })}
+              aria-description={t("range.keys")}
+              title={t("range.keys")}
+              aria-activedescendant={commits[at] ? `rg-${commits[at].sha}` : undefined}
+              onKeyDown={onKeyDown}
+            >
+              {data.commits.map((c, i) => (
+                <li
+                  key={c.sha}
+                  id={`rg-${c.sha}`}
+                  role="option"
+                  aria-selected={selected === c.sha}
+                  aria-label={c.subject}
+                  aria-description={[c.author, when(c.time), c.sha.slice(0, 7)].join(", ")}
+                  className={["range-commit", selected === c.sha && "on", i === at && "active"].filter(Boolean).join(" ")}
+                  onClick={() => choose(i)}
+                  onDoubleClick={() => showInGraph(c.sha)}
+                  onContextMenu={(ev) => {
+                    useGraph.getState().select(path, c.sha);
+                    openContextMenu(ev, items(c.sha));
+                  }}
+                >
+                  <span className="range-subject">{c.subject}</span>
+                  <span className="range-meta muted">
+                    <span className="mono">{c.sha.slice(0, 7)}</span>
+                    <span>{c.author}</span>
+                    <span title={fullDate(c.time)}>{when(c.time)}</span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -140,6 +208,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
                   <DiffBody
                     data={diff?.data ?? undefined}
                     error={diff?.error ?? undefined}
+                    onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: data.tip }}
                   />

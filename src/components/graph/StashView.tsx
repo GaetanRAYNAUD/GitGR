@@ -2,31 +2,40 @@
 // (suivis, puis non suivis mis de côté avec lui) et le diff de chacun, avec de quoi
 // l'appliquer, le pop ou le supprimer.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
-import { errorMessage } from "../../lib/errors";
 import { EMPTY_TREE, stashLabel } from "../../lib/stashes";
 import type { FileChange, FileDiff, StashChanges, StashEntry } from "../../lib/types";
 import { useApp } from "../../store/app";
+import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useStashView } from "../../store/range";
 import { useStashList } from "../../store/stashes";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
-import { DiffBody, DiffViewToggle, useEscape } from "./DiffBody";
+import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
 import { ChangeCounts, FileList, FileViewToggle, StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
+import { RetryNotice, useCommitWhen } from "./viewKit";
 
 type StashFile = FileChange & { untracked?: boolean };
 
 export function StashView({ path, entry }: { path: string; entry: StashEntry }) {
   const { t } = useTranslation();
+  const sectionRef = useRef<HTMLElement>(null);
+  const returnFocus = useReturnFocus(sectionRef);
   const close = useStashView((s) => s.close);
-  const back = useCallback(() => close(path), [close, path]);
+  const back = useCallback(() => {
+    returnFocus();
+    close(path);
+  }, [close, path, returnFocus]);
   useEscape(back);
+  const [reload, setReload] = useState(0);
+  const [diffReload, setDiffReload] = useState(0);
+  const { when, full: fullDate } = useCommitWhen();
   const fileView = useApp((s) => s.settings.fileView ?? "list");
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const full = useApp((s) => !!s.settings.diffFull);
@@ -39,13 +48,28 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
   useEffect(() => {
     let live = true;
     api.stashChanges(path, entry.sha).then(
-      (c) => live && setData(c),
+      (c) => {
+        if (!live) return;
+        setData(c);
+        setError(null);
+        // Le premier fichier s'ouvre d'office.
+        setFile((f) => f ?? c.files[0] ?? (c.untrackedFiles[0] ? { ...c.untrackedFiles[0], untracked: true } : null));
+      },
       (e) => live && setError(errorCode(e)),
     );
     return () => {
       live = false;
     };
-  }, [path, entry.sha]);
+  }, [path, entry.sha, reload]);
+
+  // Focus sur la liste des fichiers dès qu'elle est là.
+  const focused = useRef(false);
+  useEffect(() => {
+    if (data && !focused.current) {
+      focused.current = true;
+      sectionRef.current?.querySelector<HTMLElement>('.pull-file-list [tabindex="0"]')?.focus({ preventScroll: true });
+    }
+  }, [data]);
 
   // La pile a changé (pop, suppression, renommage, d'ici ou d'ailleurs) : la vue suit son stash,
   // et se ferme s'il n'y est plus.
@@ -74,33 +98,50 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
     return () => {
       live = false;
     };
-  }, [path, data, file, ignoreWs, full]);
+  }, [path, data, file, ignoreWs, full, diffReload]);
 
   const ops = useOps.getState();
-  const { text } = stashLabel(entry.message);
+  const { text, branch } = stashLabel(entry.message);
+  const untrackedCount = data?.untrackedFiles.length ?? 0;
   // Appliqué et retiré, ou supprimé : la vue n'a plus d'objet.
   const after = (drop: boolean) => (ok: boolean) => ok && drop && back();
 
   return (
-    <section className="pull-view stash-view" aria-label={t("stashes.viewLabel", { name: text })}>
+    <section ref={sectionRef} className="pull-view stash-view" aria-label={t("stashes.viewLabel", { name: text })}>
       <header className="diff-head">
         <BackButton onClick={back} />
         <Icon name="stash" size={15} />
         <span className="pull-view-title" title={entry.message}>
-          {error ? errorMessage(t, error) : text}
+          {text}
         </span>
-        <button className="mini" disabled={!!running} onClick={() => void ops.applyStash(path, entry.sha, false)}>
+        <button className="btn sm" disabled={!!running} onClick={() => void ops.applyStash(path, entry.sha, false)}>
           {t("stashes.applyShort")}
         </button>
-        <button className="mini primary" disabled={!!running} onClick={() => void ops.applyStash(path, entry.sha, true).then(after(true))}>
+        <button className="btn sm primary" disabled={!!running} onClick={() => void ops.applyStash(path, entry.sha, true).then(after(true))}>
           {t("stashes.popShort")}
         </button>
-        <button className="mini danger-text" disabled={!!running} onClick={() => void ops.dropStash(path, entry.sha, text).then(after(true))}>
+        <button className="btn sm danger-text" disabled={!!running} onClick={() => void ops.dropStash(path, entry.sha, text).then(after(true))}>
           {t("stashes.drop")}
         </button>
       </header>
-      {data && (
-        <div className="pull-files">
+      {/* D'où vient le stash : sa branche, sa date, le commit de départ (cliquable). */}
+      <div className="pull-view-meta stash-meta">
+        {branch && <span>{t("stashes.onBranch", { branch })}</span>}
+        <span title={fullDate(entry.time)}>{when(entry.time)}</span>
+        <button
+          className="link mono"
+          title={t("stashes.showBase")}
+          onClick={() => void useGraph.getState().reveal(path, entry.base).then((ok) => ok && close(path))}
+        >
+          {entry.base.slice(0, 7)}
+        </button>
+        {untrackedCount > 0 && <span>{t("stashes.untrackedCount", { count: untrackedCount })}</span>}
+      </div>
+      {error && <RetryNotice error={error} onRetry={() => setReload((n) => n + 1)} />}
+      {!data && !error && <p className="muted pull-pad">{t("prv.loading")}</p>}
+      {data && files.length === 0 && <p className="muted pull-pad">{t("stashes.noFiles")}</p>}
+      {data && files.length > 0 && (
+        <div className="pull-files range-files">
           <div className="pull-file-list">
             <div className="section-h">
               <span>{t("details.files", { count: files.length })}</span>
@@ -130,6 +171,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
                   <DiffBody
                     data={diff?.data ?? undefined}
                     error={diff?.error ?? undefined}
+                    onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: file.untracked ? data.untracked! : data.tip }}
                   />
