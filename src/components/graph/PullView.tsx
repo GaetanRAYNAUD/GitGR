@@ -5,7 +5,7 @@
 // Toute action visible des autres (commentaire, relecture, merge, fermeture) part d'un clic
 // explicite ; merge et fermeture demandent en plus une confirmation.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
@@ -32,6 +32,49 @@ import { fileMenu } from "./menus";
 import { openContextMenu } from "../ContextMenu";
 
 type Tab = "conversation" | "files" | "checks";
+const TABS: Tab[] = ["conversation", "files", "checks"];
+
+/** Brouillons (commentaire, réponses) par PR / MR : gardés en changeant d'onglet, en fermant la
+ *  vue ou en passant à une autre PR, jusqu'à l'envoi. Rien ne part sans clic. */
+const drafts = new Map<string, string>();
+const draftKey = (path: string, ctx: PullContext, number: number, what: string) => `${path}|${ctx.remote}#${number}|${what}`;
+
+/** Brouillon gardé dans `drafts` : comme `useState`, mais retrouvé au remontage. */
+function useDraft(key: string): [string, (v: string) => void] {
+  const [value, setValue] = useState(() => drafts.get(key) ?? "");
+  const set = useCallback(
+    (v: string) => {
+      if (v) drafts.set(key, v);
+      else drafts.delete(key);
+      setValue(v);
+    },
+    [key],
+  );
+  return [value, set];
+}
+
+/** Édition de la description en cours avec des changements (quitter la vue demande confirmation). */
+const pullEditing = { dirty: false };
+
+const onEditDirty = (dirty: boolean) => {
+  pullEditing.dirty = dirty;
+};
+
+/** Confirmation (fenêtre de l'app) ; le focus revient ensuite à l'élément qui l'avait. */
+async function confirmAction(title: string, body: string, label: string, danger = false) {
+  const prev = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const ok = (await useDialogs.getState().choose({ title, body, choices: [{ id: "ok", label, danger }] })) === "ok";
+  if (prev?.isConnected) prev.focus();
+  return ok;
+}
+
+/** Ctrl+Entrée dans un champ de texte : `send`. */
+const ctrlEnter = (send: () => void) => (e: React.KeyboardEvent) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    send();
+  }
+};
 
 function useAgo() {
   const { t } = useTranslation();
@@ -47,9 +90,45 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
   const entry = usePullList((s) => detailEntry(s, ctx, number));
   const close = usePullList((s) => s.close);
   const load = usePullList((s) => s.loadDetail);
-  const back = useCallback(() => close(path), [close, path]);
-  useEscape(back);
+  const back = useCallback(async () => {
+    if (pullEditing.dirty && !(await confirmAction(t("prv.leaveEditTitle"), t("prv.leaveEditBody"), t("prv.leaveEditOk"), true))) return;
+    pullEditing.dirty = false;
+    close(path);
+  }, [close, path, t]);
+  const onBack = useCallback(() => void back(), [back]);
+  useEscape(onBack);
   const [tab, setTab] = useState<Tab>("conversation");
+  /** Onglets déjà ouverts : gardés montés (masqués), pour ne rien perdre en passant de l'un à l'autre. */
+  const [seen, setSeen] = useState<Set<Tab>>(() => new Set<Tab>(["conversation"]));
+  const tabsRef = useRef<HTMLDivElement>(null);
+  /** Fichier à ouvrir dans l'onglet Fichiers (« Voir dans le diff » d'un fil) ; `n` relance le même. */
+  const [want, setWant] = useState<{ file: string; n: number } | null>(null);
+  const showFile = (file: string) => {
+    setWant((w) => ({ file, n: (w?.n ?? 0) + 1 }));
+    pick("files");
+  };
+  const pick = (x: Tab, focus = false) => {
+    setTab(x);
+    setSeen((prev) => (prev.has(x) ? prev : new Set(prev).add(x)));
+    if (focus) tabsRef.current?.querySelector<HTMLElement>(`#pull-tab-${x}`)?.focus();
+  };
+  /** Onglets au clavier : ← / → / Début / Fin. */
+  const onTabsKey = (e: React.KeyboardEvent) => {
+    const i = TABS.indexOf(tab);
+    const to =
+      e.key === "ArrowRight"
+        ? TABS[(i + 1) % TABS.length]
+        : e.key === "ArrowLeft"
+          ? TABS[(i + TABS.length - 1) % TABS.length]
+          : e.key === "Home"
+            ? TABS[0]
+            : e.key === "End"
+              ? TABS[TABS.length - 1]
+              : null;
+    if (!to) return;
+    e.preventDefault();
+    pick(to, true);
+  };
   const ago = useAgo();
   const d = entry?.detail ?? null;
   const term = ctx.kind === "gitlab" ? "mr" : "pr";
@@ -60,7 +139,7 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
     return (
       <section className="pull-view" aria-label={number_}>
         <header className="diff-head">
-          <BackButton onClick={back} />
+          <BackButton onClick={onBack} />
           <span className="mono">{number_}</span>
           <span className="pull-view-title">{entry?.error ? errorMessage(t, entry.error) : t("prv.loading")}</span>
           {entry?.error && (
@@ -78,7 +157,7 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
   return (
     <section className="pull-view" aria-label={`${number_} ${d.title}`}>
       <header className="diff-head pull-view-head">
-        <BackButton onClick={back} />
+        <BackButton onClick={onBack} />
         <span className={`pull-state ${d.state}`}>
           <Icon name={d.state === "merged" ? "merge" : "pr"} size={13} />
           {t(`prv.state.${d.state}`)}
@@ -116,11 +195,25 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
           </span>
         ))}
       </div>
-      <div className="pull-tabs" role="tablist">
-        {(["conversation", "files", "checks"] as Tab[]).map((x) => (
-          <button key={x} role="tab" aria-selected={tab === x} className={tab === x ? "on" : undefined} onClick={() => setTab(x)}>
+      <div className="pull-tabs" role="tablist" aria-label={number_} ref={tabsRef} onKeyDown={onTabsKey}>
+        {TABS.map((x) => (
+          <button
+            key={x}
+            id={`pull-tab-${x}`}
+            role="tab"
+            aria-selected={tab === x}
+            aria-controls={`pull-panel-${x}`}
+            tabIndex={tab === x ? 0 : -1}
+            className={tab === x ? "on" : undefined}
+            onClick={() => pick(x)}
+          >
             {t(`prv.tab.${x}`)}
-            {x === "conversation" && unresolved > 0 && <span className="badge">{unresolved}</span>}
+            {x === "conversation" && unresolved > 0 && (
+              <span className="badge" title={t("prv.unresolvedCount", { count: unresolved })}>
+                <span aria-hidden="true">{unresolved}</span>
+                <span className="visually-hidden">{t("prv.unresolvedCount", { count: unresolved })}</span>
+              </span>
+            )}
             {x === "checks" && d.checks && <span className={`checks-dot ${d.checks}`} />}
             {x === "checks" && d.checksList.length > 0 && (
               <span className="tab-count mono" title={t("prv.checksCount", { ok: passed, total: d.checksList.length })}>
@@ -130,11 +223,13 @@ export function PullView({ path, ctx, number }: { path: string; ctx: PullContext
           </button>
         ))}
       </div>
-      <div className="pull-view-body">
-        {tab === "conversation" && <Conversation path={path} ctx={ctx} d={d} people={people} term={term} />}
-        {tab === "files" && <Files path={path} ctx={ctx} d={d} />}
-        {tab === "checks" && <Checks ctx={ctx} d={d} />}
-      </div>
+      {TABS.filter((x) => seen.has(x)).map((x) => (
+        <div key={x} id={`pull-panel-${x}`} role="tabpanel" aria-labelledby={`pull-tab-${x}`} className="pull-view-body" hidden={tab !== x}>
+          {x === "conversation" && <Conversation path={path} ctx={ctx} d={d} people={people} term={term} onShowFile={showFile} />}
+          {x === "files" && <Files path={path} ctx={ctx} d={d} want={want} />}
+          {x === "checks" && <Checks ctx={ctx} d={d} />}
+        </div>
+      ))}
     </section>
   );
 }
@@ -145,14 +240,31 @@ function Body({ path, text, empty }: { path: string; text: string; empty?: React
   return <Markdown text={text} className="pull-text" empty={empty} renderText={(v, k) => <CommitText key={k} path={path} text={v} />} />;
 }
 
-function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullContext; d: PullDetail; people: PersonContext; term: "pr" | "mr" }) {
+function Conversation({
+  path,
+  ctx,
+  d,
+  people,
+  term,
+  onShowFile,
+}: {
+  path: string;
+  ctx: PullContext;
+  d: PullDetail;
+  people: PersonContext;
+  term: "pr" | "mr";
+  onShowFile: (file: string) => void;
+}) {
   const { t } = useTranslation();
   const ago = useAgo();
   const entry = usePullList((s) => detailEntry(s, ctx, d.number));
   const act = usePullList((s) => s.act);
   const busy = entry?.busy ?? null;
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(draftKey(path, ctx, d.number, "comment"));
   const [editing, setEditing] = useState(false);
+  const login = ctx.account?.split("|").pop() ?? null;
+  // GitHub refuse qu'on relise sa propre PR : pas de bouton qui échouerait.
+  const own = ctx.kind === "github" && !!login && d.author?.login.toLowerCase() === login.toLowerCase();
   const run = async (action: PullAction) => {
     const ok = await act(ctx, d.number, action);
     if (ok && (action.type === "comment" || action.type === "review")) setText("");
@@ -163,7 +275,12 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
   return (
     <div className="pull-conv">
       {editing ? (
-        <PullEdit ctx={ctx} d={d} onDone={() => setEditing(false)} />
+        <PullEdit
+          ctx={ctx}
+          d={d}
+          onDone={() => setEditing(false)}
+          onDirty={onEditDirty}
+        />
       ) : (
         <div className="pull-card pull-desc">
           {d.canUpdate && (
@@ -174,7 +291,7 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
           <Body path={path} text={d.body} empty={<p className="muted">{t("prv.noBody")}</p>} />
           {d.assignees.length > 0 && (
             <p className="pull-assignees muted">
-              {t("pr.assignees")} :
+              {t("prv.assigneesLabel")}
               {d.assignees.map((a) => (
                 <span key={a.login} className="pull-person">
                   <PersonAvatar ctx={people} person={a} size={16} />
@@ -203,31 +320,40 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
       )}
 
       {d.threads.map((th) => (
-        <ThreadCard path={path} key={th.id} ctx={ctx} d={d} th={th} people={people} />
+        <ThreadCard path={path} key={th.id} ctx={ctx} d={d} th={th} people={people} onShowFile={onShowFile} />
       ))}
-
-      {entry?.actionError && (
-        <p className="input-error" role="alert">
-          {errorMessage(t, entry.actionError)}
-        </p>
-      )}
 
       {open && (
         <div className="pull-card pull-compose">
-          <textarea className="pf-input" rows={4} value={text} placeholder={t("prv.commentPlaceholder")} onChange={(e) => setText(e.target.value)} disabled={!!busy} aria-label={t("prv.comment")} />
+          <textarea
+            className="pf-input"
+            rows={4}
+            value={text}
+            placeholder={t("prv.commentPlaceholder")}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={ctrlEnter(() => {
+              if (!busy && text.trim()) void run({ type: "comment", body: text });
+            })}
+            disabled={!!busy}
+            aria-label={t("prv.comment")}
+            title={t("prv.commentHint")}
+          />
           <div className="pull-compose-actions">
+            {login && <span className="muted pull-as">{t("prv.as", { login })}</span>}
             <button className="btn" disabled={!!busy || !text.trim()} onClick={() => void run({ type: "comment", body: text })}>
               {busy === "comment" ? t("prv.sending") : t("prv.comment")}
             </button>
             <span className="status-spacer" />
-            {ctx.kind === "github" && (
+            {ctx.kind === "github" && !own && (
               <button className="btn" disabled={!!busy || !text.trim()} title={t("prv.changesHint")} onClick={() => void run({ type: "review", event: "changes", body: text })}>
                 {t("prv.requestChanges")}
               </button>
             )}
-            <button className="btn primary" disabled={!!busy} onClick={() => void run({ type: "review", event: "approve", body: text })}>
-              {busy === "review" ? t("prv.sending") : t("prv.approve")}
-            </button>
+            {!own && (
+              <button className="btn primary" disabled={!!busy} onClick={() => void run({ type: "review", event: "approve", body: text })}>
+                {busy === "review" ? t("prv.sending") : t("prv.approve")}
+              </button>
+            )}
             {ctx.kind === "gitlab" && d.reviews.some((r) => r.state === "approved" && r.author.login.toLowerCase() === ctx.account?.split("|").pop()?.toLowerCase()) && (
               <button className="btn" disabled={!!busy} onClick={() => void run({ type: "unapprove" })}>
                 {t("prv.unapprove")}
@@ -237,27 +363,69 @@ function Conversation({ path, ctx, d, people, term }: { path: string; ctx: PullC
         </div>
       )}
 
+      {/* Erreur de la dernière action : entre la zone de commentaire et le merge, d'où partent
+          les actions, plutôt qu'en haut de la discussion. */}
+      {entry?.actionError && (
+        <p className="input-error" role="alert">
+          {errorMessage(t, entry.actionError)}
+        </p>
+      )}
+
       <MergeBox path={path} ctx={ctx} d={d} term={term} />
     </div>
   );
 }
 
-function ThreadCard({ path, ctx, d, th, people }: { path: string; ctx: PullContext; d: PullDetail; th: PullThread; people: PersonContext }) {
+function ThreadCard({
+  path,
+  ctx,
+  d,
+  th,
+  people,
+  onShowFile,
+}: {
+  path: string;
+  ctx: PullContext;
+  d: PullDetail;
+  th: PullThread;
+  people: PersonContext;
+  onShowFile: (file: string) => void;
+}) {
   const { t } = useTranslation();
   const ago = useAgo();
   const act = usePullList((s) => s.act);
   const busy = usePullList((s) => detailEntry(s, ctx, d.number)?.busy ?? null);
-  const [reply, setReply] = useState<string | null>(null);
-  const [folded, setFolded] = useState(th.resolved);
+  // Réponse en cours (null = fermée) : le texte survit au changement d'onglet et à la fermeture.
+  const key = draftKey(path, ctx, d.number, `reply:${th.id}`);
+  const [reply, setReplyState] = useState<string | null>(() => drafts.get(key) ?? null);
+  const setReply = (v: string | null) => {
+    if (v) drafts.set(key, v);
+    else drafts.delete(key);
+    setReplyState(v);
+  };
+  const sendReply = async () => {
+    if (reply === null || !reply.trim() || busy) return;
+    if (await act(ctx, d.number, { type: "reply", thread: th.id, body: reply })) setReply(null);
+  };
+  // Un fil général (sans fichier) n'a pas d'en-tête pour se déplier : jamais replié.
+  const [folded, setFolded] = useState(th.resolved && !!th.path);
   return (
     <div className={th.resolved ? "pull-card pull-thread resolved" : "pull-card pull-thread"}>
       {th.path && (
-        <button className="pull-thread-path mono" onClick={() => setFolded((f) => !f)} aria-expanded={!folded}>
-          <Icon name="file" size={13} />
-          {th.path}
-          {th.line != null && `:${th.line}`}
-          {th.resolved && <span className="pull-resolved">{t("prv.resolved")}</span>}
-        </button>
+        <div className="pull-thread-head">
+          <button className="pull-thread-path mono" onClick={() => setFolded((f) => !f)} aria-expanded={!folded}>
+            <Icon name="chevron" size={12} className={folded ? "chev closed" : "chev"} />
+            <Icon name="file" size={13} />
+            <span className="pull-thread-file">
+              {th.path}
+              {th.line != null && `:${th.line}`}
+            </span>
+            {th.resolved && <span className="pull-resolved">{t("prv.resolved")}</span>}
+          </button>
+          <button className="mini" onClick={() => onShowFile(th.path!)}>
+            {t("prv.showInDiff")}
+          </button>
+        </div>
       )}
       {!folded &&
         th.comments.map((c) => (
@@ -280,18 +448,22 @@ function ThreadCard({ path, ctx, d, th, people }: { path: string; ctx: PullConte
             )
           ) : (
             <div className="pull-reply">
-              <textarea className="pf-input" rows={3} autoFocus value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t("prv.reply")} disabled={!!busy} />
+              <textarea
+                className="pf-input"
+                rows={3}
+                autoFocus
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={ctrlEnter(() => void sendReply())}
+                aria-label={t("prv.reply")}
+                title={t("prv.commentHint")}
+                disabled={!!busy}
+              />
               <div className="pull-compose-actions">
                 <button className="btn" onClick={() => setReply(null)} disabled={!!busy}>
                   {t("confirm.cancel")}
                 </button>
-                <button
-                  className="btn primary"
-                  disabled={!!busy || !reply.trim()}
-                  onClick={async () => {
-                    if (await act(ctx, d.number, { type: "reply", thread: th.id, body: reply })) setReply(null);
-                  }}
-                >
+                <button className="btn primary" disabled={!!busy || !reply.trim()} onClick={() => void sendReply()}>
                   {t("prv.reply")}
                 </button>
               </div>
@@ -308,6 +480,9 @@ function ThreadCard({ path, ctx, d, th, people }: { path: string; ctx: PullConte
   );
 }
 
+/** Brouillon : « marquez-la comme prête » seulement pour qui peut le faire. */
+const blockerKey = (b: string, canUpdate: boolean) => (b === "draft" && !canUpdate ? "prv.blocker.draftOther" : `prv.blocker.${b}`);
+
 function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: PullDetail; term: "pr" | "mr" }) {
   const { t } = useTranslation();
   const act = usePullList((s) => s.act);
@@ -321,18 +496,23 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
   // Merge automatique : il ne reste que des checks en cours (ou une relecture attendue chez GitHub).
   const waitable = m.blockers.length > 0 && m.blockers.every((b) => b === "checks_pending" || (ctx.kind === "github" && (b === "approvals" || b === "checks")));
 
-  const confirm = async (title: string, body: string, label: string, danger = false) =>
-    (await useDialogs.getState().choose({ title, body, choices: [{ id: "ok", label, danger }] })) === "ok";
+  const confirm = confirmAction;
 
   const merge = async (auto: boolean) => {
     const label = auto ? t("prv.autoMerge") : t(`prv.method.${chosen}`);
+    const deleting = del && !d.fork;
     const ok = await confirm(
       t(`prv.mergeConfirm_${term}`, { ref: pullRef(ctx.kind, d.number) }),
-      t(auto ? "prv.autoMergeBody" : "prv.mergeBody", { source: d.sourceBranch, target: d.targetBranch, method: t(`prv.method.${chosen}`) }),
+      [
+        t(auto ? "prv.autoMergeBody" : "prv.mergeBody", { source: d.sourceBranch, target: d.targetBranch, method: t(`prv.methodName.${chosen}`) }),
+        deleting ? t("prv.mergeBodyDelete", { branch: d.sourceBranch }) : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
       label,
     );
     if (!ok) return;
-    if (!(await act(ctx, d.number, { type: "merge", method: chosen, deleteBranch: del && !d.fork, auto })) || auto) return;
+    if (!(await act(ctx, d.number, { type: "merge", method: chosen, deleteBranch: deleting, auto })) || auto) return;
     // Fusionnée : récupérer la cible, et proposer d'y revenir si on était sur la branche de la PR.
     const ops = useOps.getState();
     await ops.fetch(path, true);
@@ -362,7 +542,7 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
               ) : (
                 <ul className="pull-blockers">
                   {m.blockers.map((b) => (
-                    <li key={b}>{t(`prv.blocker.${b}`)}</li>
+                    <li key={b}>{t(blockerKey(b, d.canUpdate))}</li>
                   ))}
                 </ul>
               )}
@@ -373,7 +553,7 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
               <select className="pf-input" value={chosen} onChange={(e) => setMethod(e.target.value as MergeMethod)} aria-label={t("prv.methodLabel")} disabled={!!busy}>
                 {m.methods.map((x) => (
                   <option key={x} value={x}>
-                    {t(`prv.method.${x}`)}
+                    {t(`prv.methodName.${x}`)}
                   </option>
                 ))}
               </select>
@@ -400,7 +580,7 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
                 </button>
               )
             )}
-            <button className="btn primary" disabled={!!busy || !m.canMerge} title={m.canMerge ? undefined : m.blockers.map((b) => t(`prv.blocker.${b}`)).join("\n")} onClick={() => void merge(false)}>
+            <button className="btn primary" disabled={!!busy || !m.canMerge} title={m.canMerge ? undefined : m.blockers.map((b) => t(blockerKey(b, d.canUpdate))).join("\n")} onClick={() => void merge(false)}>
               <Icon name="merge" size={14} />
               {busy === "merge" ? t("prv.merging") : t(`prv.method.${chosen}`)}
             </button>
@@ -420,7 +600,7 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
             </button>
           )}
           {d.state !== "merged" && (
-            <button className="link" disabled={!!busy} onClick={() => void setOpen(!open)}>
+            <button className={open ? "link danger-text" : "link"} disabled={!!busy} onClick={() => void setOpen(!open)}>
               {open ? t(`prv.close_${term}`) : t(`prv.reopen_${term}`)}
             </button>
           )}
@@ -430,7 +610,7 @@ function MergeBox({ path, ctx, d, term }: { path: string; ctx: PullContext; d: P
   );
 }
 
-function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail }) {
+function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: PullDetail; want: { file: string; n: number } | null }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState<FileChange[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -475,6 +655,13 @@ function Files({ path, ctx, d }: { path: string; ctx: PullContext; d: PullDetail
       live = false;
     };
   }, [path, target, head, file, ignoreWs]);
+
+  // Fichier demandé depuis un fil (« Voir dans le diff ») : ouvert dès que la liste est là.
+  useEffect(() => {
+    if (!want || !files) return;
+    const f = files.find((x) => x.path === want.file);
+    if (f) setFile(f);
+  }, [want, files]);
 
   /** Fils sur le code, par fichier. */
   const comments = useMemo(() => {
@@ -562,7 +749,7 @@ function Checks({ ctx, d }: { ctx: PullContext; d: PullDetail }) {
         )}
       </div>
       <div className="checks-bar" role="img" aria-label={t("prv.checksCount", { ok: count("success"), total })}>
-        {(["success", "pending", "neutral", "failure"] as const).map((s) => count(s) > 0 && <span key={s} className={`checks-seg ${s}`} style={{ flex: count(s) }} />)}
+        {CHECK_GROUPS.map((s) => count(s) > 0 && <span key={s} className={`checks-seg ${s}`} style={{ flex: count(s) }} />)}
       </div>
       {CHECK_GROUPS.filter((s) => count(s) > 0).map((s) => {
         const shown = open.has(s);
