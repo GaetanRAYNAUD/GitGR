@@ -2,11 +2,17 @@
 // branche courante vers une branche d'un remote. La branche est poussée d'abord si besoin ; le
 // titre et la description sont pré-remplis d'après ses commits et le modèle du dépôt ; relecteurs,
 // assignés et étiquettes sont choisis dans les listes du dépôt (en cache, cf. store/pullOptions).
+//
+// Ce qui empêche la création s'affiche en tête, sous la route. Une saisie en cours n'est pas
+// perdue par mégarde : un clic à côté ne ferme plus, Échap demande d'abord confirmation.
+// Ctrl+Entrée crée, Tab reste dans la fenêtre.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
+import { trapTab } from "../lib/focusTrap";
+import { useRestoreFocus } from "../lib/useRestoreFocus";
 import { PROVIDER_NAMES } from "../lib/providers";
 import { draftText, pullRef, pullSource, type PullTarget } from "../lib/pulls";
 import { relativeTime } from "../lib/format";
@@ -65,10 +71,31 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const [reviewers, setReviewers] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
 
+  /** Saisie en cours (texte modifié, personnes ou étiquettes choisies) : rien ne la jette sans
+   *  confirmation. */
+  const dirty = textTouched || assignees.length > 0 || reviewers.length > 0 || labels.length > 0;
+  /** Confirmation « Abandonner ? » affichée à la place des boutons. */
+  const [leaving, setLeaving] = useState(false);
   const cancel = useCallback(() => {
-    if (!busy) close();
-  }, [busy, close]);
-  useDismiss(ref, true, cancel);
+    if (busy) return;
+    if (!dirty) return close();
+    // Échap une seconde fois : retour à la saisie.
+    setLeaving((v) => !v);
+  }, [busy, close, dirty]);
+  const outside = useCallback(() => {
+    if (!busy && !dirty) close();
+  }, [busy, close, dirty]);
+  useDismiss(ref, true, cancel, outside);
+  useRestoreFocus();
+  const leaveRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+  // La confirmation prend le focus ; refermée, elle le rend au bouton « Retour ».
+  const wasLeaving = useRef(false);
+  useEffect(() => {
+    if (leaving) leaveRef.current?.focus();
+    else if (wasLeaving.current) backRef.current?.focus();
+    wasLeaving.current = leaving;
+  }, [leaving]);
 
   /** Provider, instance, dépôt et compte d'un remote. */
   const side = useCallback(
@@ -214,6 +241,8 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
               ? t("pr.sameBranch")
               : null;
   const ready = !blocker && !!targetBranch.trim() && !!title.trim() && !busy;
+  // Ce qui manque encore (hors `blocker`, dit en tête), à côté du bouton grisé.
+  const why = busy || blocker ? null : !targetBranch.trim() ? t("pr.whyTarget") : !title.trim() ? t("pr.whyTitle") : null;
 
   /** Fenêtre fermée ; la PR / MR annoncée dans un message, avec de quoi l'ouvrir (dans GitGR ou
    *  dans le navigateur) et copier son lien. */
@@ -274,6 +303,14 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         aria-modal="true"
         aria-labelledby="pull-title"
         ref={ref}
+        onKeyDown={(e) => {
+          trapTab(e, ref.current);
+          // Ctrl+Entrée crée, depuis n'importe quel champ (la description comprise).
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.defaultPrevented) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -284,8 +321,27 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
           <p className="pull-route mono">
             <span title={t("pr.sourceHint")}>{source.branch}</span>
             <Icon name="arrow" size={13} />
-            <span>{targetBranch ? `${targetRemote}/${targetBranch}` : targetRemote}</span>
+            <span className="visually-hidden">{t("pr.into")}</span>
+            <span title={targetBranch ? `${targetRemote}/${targetBranch}` : targetRemote}>{targetBranch ? `${targetRemote}/${targetBranch}` : targetRemote}</span>
           </p>
+        )}
+        {/* Ce qui bloque, en tête : à régler avant de remplir le reste. */}
+        {blocker && (
+          <div className="pull-blocker" role="status">
+            <p>{blocker}</p>
+            {tgt && !tgt.account && (
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  close();
+                  useProfiles.getState().openPage();
+                }}
+              >
+                {t("pr.manageAccounts")}
+              </button>
+            )}
+          </div>
         )}
 
         <div className="pf-row pull-target">
@@ -365,6 +421,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         {ctx && (
           <div className="pull-people">
             <div className="pull-people-head">
+              <span className="eyebrow pull-people-title">{t("pr.people")}</span>
               <span className="pull-people-status" role="status">
                 {entry?.loading
                   ? options
@@ -403,37 +460,44 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         )}
 
         {source?.needsPush && !blocker && <p className="account-hint">{t("pr.willPush", { branch: source.branch, remote: source.remote })}</p>}
-        {blocker && (
-          <div className="pull-blocker" role="alert">
-            <p>{blocker}</p>
-            {tgt && !tgt.account && (
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  close();
-                  useProfiles.getState().openPage();
-                }}
-              >
-                {t("pr.manageAccounts")}
-              </button>
-            )}
-          </div>
-        )}
         {error && (
           <p className="input-error" role="alert">
             {errorMessage(t, error)}
           </p>
         )}
 
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={cancel} disabled={!!busy}>
-            {t("confirm.cancel")}
-          </button>
-          <button type="submit" className="btn primary" disabled={!ready}>
-            {busy === "push" ? t("pr.pushing") : busy === "create" ? t("pr.creating") : t(`pr.submit_${term}`)}
-          </button>
-        </div>
+        {busy && (
+          <p className="visually-hidden" role="status">
+            {busy === "push" ? t("pr.pushing") : t("pr.creating")}
+          </p>
+        )}
+        {leaving ? (
+          <div className="dialog-actions pull-leave" role="group" aria-labelledby="pull-leave">
+            <span id="pull-leave" className="dialog-why">
+              {t(`pr.leave_${term}`)}
+            </span>
+            <button ref={leaveRef} type="button" className="btn" onClick={() => setLeaving(false)}>
+              {t("pr.keepEditing")}
+            </button>
+            <button type="button" className="btn danger" onClick={close}>
+              {t("pr.discard")}
+            </button>
+          </div>
+        ) : (
+          <div className="dialog-actions">
+            {why && (
+              <span id="pull-why" className="dialog-why">
+                {why}
+              </span>
+            )}
+            <button ref={backRef} type="button" className="btn" onClick={cancel} disabled={!!busy}>
+              {t("confirm.cancel")}
+            </button>
+            <button type="submit" className="btn primary" disabled={!ready} aria-describedby={why ? "pull-why" : undefined} title={t("pr.submitKeys")}>
+              {busy === "push" ? t("pr.pushing") : busy === "create" ? t("pr.creating") : t(`pr.submit_${term}`)}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

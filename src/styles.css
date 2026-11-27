@@ -54,6 +54,8 @@
   /* PR / MR fusionnée (pastille d'état, mention « fusionnée ») : le violet des forges. */
   --merged: #b48cf2;
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  /* Voile derrière une fenêtre modale. */
+  --scrim: rgba(8, 10, 14, 0.55);
 }
 
 :root[data-theme="light"] {
@@ -97,6 +99,7 @@
   --del: #c62f2f;
   --merged: #7a3fd1;
   --shadow: 0 12px 32px rgba(20, 24, 32, 0.14);
+  --scrim: rgba(8, 10, 14, 0.55);
 }
 
 /* ------------------------------------------------------------------ */
@@ -711,6 +714,12 @@ h2 {
   outline: 0;
   background: transparent;
   color: var(--text);
+}
+
+/* Le champ n'a pas d'anneau à lui : c'est la boîte qui le porte. */
+.search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .repo-list {
@@ -3025,7 +3034,7 @@ h2 {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(8, 10, 14, 0.55);
+  background: var(--scrim);
 }
 
 .dialog {
@@ -3041,6 +3050,8 @@ h2 {
 .dialog h2 {
   font-size: 18px;
   margin-top: 12px;
+  /* Nom de profil ou de dépôt long : à la ligne plutôt que hors de la fenêtre. */
+  overflow-wrap: anywhere;
 }
 
 .dialog p {
@@ -3065,6 +3076,15 @@ h2 {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* Pourquoi le bouton principal est grisé : à gauche des boutons. */
+.dialog-why {
+  flex: 1 1 160px;
+  align-self: center;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* Fenêtre étroite : les outils gardent une seule ligne, libellés masqués (toujours lus par les
@@ -3399,6 +3419,9 @@ body.resizing-y * {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Petite fenêtre d'app : la fenêtre défile au lieu de couper ses boutons. */
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
 }
 
 .input-dialog h2 {
@@ -3426,7 +3449,17 @@ body.resizing-y * {
   background: var(--panel2);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+/* Git-Is-Mono : URL, chemins, branches gardent la chasse fixe malgré la règle ci-dessus. */
+.input-field input.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.input-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .input-field input[aria-invalid="true"] {
@@ -4260,7 +4293,8 @@ p.pf-account-keys.bad,
   color: var(--del);
 }
 
-.account-dialog .account-hint {
+/* Aide sous un champ, dans toutes les fenêtres de saisie. */
+.input-dialog .account-hint {
   margin: -6px 0 0;
   font-size: 12.5px;
   color: var(--muted);
@@ -4342,12 +4376,6 @@ p.pf-account-keys.bad,
   width: 560px;
 }
 
-.clone-dialog .account-hint {
-  margin: -6px 0 0;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
 .clone-dialog .pf-row input {
   flex: 1;
   min-width: 0;
@@ -4358,6 +4386,33 @@ p.pf-account-keys.bad,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Chemin coupé au début : la fin (le dossier, le dépôt) reste lisible. */
+.path-tail {
+  direction: rtl;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* « Sera cloné dans » puis le chemin, coupé au début s'il est trop long. */
+.dest-line {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.dest-line > span:first-child {
+  flex: none;
+}
+
+.path-tail > bdi {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .clone-empty {
@@ -4399,6 +4454,8 @@ p.pf-account-keys.bad,
 
 .publish-protocol {
   flex: 1;
+  /* Sur la ligne du champ, pas au niveau de son libellé. */
+  align-self: flex-end;
 }
 
 .clone-account-row {
@@ -4423,7 +4480,7 @@ p.pf-account-keys.bad,
 
 .picker:disabled {
   cursor: default;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .picker > .ico {
@@ -4482,11 +4539,25 @@ p.pf-account-keys.bad,
 .clone-repos {
   display: flex;
   flex-direction: column;
-  height: 240px;
+  /* Petite fenêtre d'app : la liste cède sa place aux champs et aux boutons. */
+  height: min(240px, 32vh);
+  min-height: 120px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel2);
+}
+
+.clone-repos:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.clone-repos-status {
+  margin: auto;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
 }
 
 .clone-repos .empty {
@@ -4514,10 +4585,18 @@ p.pf-account-keys.bad,
   background: var(--panel);
   text-align: left;
   font: inherit;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   color: var(--muted);
+}
+
+.clone-owner {
+  cursor: pointer;
+}
+
+.clone-repos:focus-visible .clone-group.active > .clone-owner {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .clone-owner:hover {
@@ -4568,8 +4647,17 @@ p.pf-account-keys.bad,
 }
 
 .clone-repo.on {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--sel);
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Ligne active au clavier (liste à une tabulation). */
+.clone-repos:focus-visible .clone-repo.active {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.clone-repo {
+  cursor: pointer;
 }
 
 .clone-repo-name {
@@ -4603,7 +4691,7 @@ p.pf-account-keys.bad,
 .clone-tag {
   padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 5px;
   font-size: 11px;
   font-weight: 500;
   color: var(--muted);
@@ -5046,6 +5134,11 @@ p.pf-account-keys.bad,
   width: 600px;
 }
 
+/* Les champs de la fenêtre à la même taille (titre, description, branche). */
+.pull-dialog .pf-input {
+  font-size: 13px;
+}
+
 .pull-route {
   display: flex;
   align-items: center;
@@ -5083,12 +5176,6 @@ p.pf-account-keys.bad,
   line-height: 1.45;
 }
 
-.pull-dialog .account-hint {
-  margin: -4px 0 0;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
 .pull-blocker {
   display: flex;
   flex-wrap: wrap;
@@ -5105,23 +5192,7 @@ p.pf-account-keys.bad,
   margin: 0;
 }
 
-.pull-done-title {
-  margin: -4px 0 0;
-  font-size: 14px;
-}
-
-.pull-url {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Relecteurs, assignés et étiquettes d'une PR / MR (MultiPicker). */
-.pull-dialog {
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-}
-
 .pull-people {
   display: flex;
   flex-direction: column;
@@ -5166,10 +5237,12 @@ p.pf-account-keys.bad,
 
 .mpick:focus-within {
   border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .mpick.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .mpick input {
@@ -5190,6 +5263,7 @@ p.pf-account-keys.bad,
   align-items: center;
   gap: 5px;
   max-width: 100%;
+  min-width: 0;
   padding: 2px 4px 2px 8px;
   border-radius: 6px;
   background: var(--panel);
@@ -5197,13 +5271,26 @@ p.pf-account-keys.bad,
   font-size: 12.5px;
 }
 
+.mpick-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mpick-remove {
-  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
 }
@@ -5233,7 +5320,7 @@ p.pf-account-keys.bad,
   z-index: 5;
   max-height: 200px;
   margin: 4px 0 0;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  box-shadow: var(--shadow);
   padding: 4px;
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -5272,7 +5359,11 @@ p.pf-account-keys.bad,
 }
 
 .mpick-label {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mpick-detail {
@@ -5303,7 +5394,7 @@ p.pf-account-keys.bad,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--accent-text);
   font-weight: 600;
   line-height: 1;
 }

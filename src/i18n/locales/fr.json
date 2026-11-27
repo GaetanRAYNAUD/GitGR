@@ -172,7 +172,16 @@
     "phase_checkout": "Extraction des fichiers…",
     "stop": "Arrêter",
     "cloning": "Clonage…",
-    "submit": "Cloner"
+    "submit": "Cloner",
+    "urlPlaceholder": "https://github.com/… · git@gitlab.com:…",
+    "destLabel": "Sera cloné dans",
+    "whyUrl": "Saisissez l’URL du dépôt.",
+    "whyRepo": "Choisissez un dépôt dans la liste.",
+    "whyParent": "Choisissez le dossier de destination.",
+    "whyName": "Donnez un nom au dossier.",
+    "repoCount_one": "{{count}} dépôt",
+    "repoCount_other": "{{count}} dépôts",
+    "treeKeys": "↑ ↓ dépôt · ← → replier, déplier un propriétaire · Début, Fin"
   },
   "publish": {
     "title": "Publier sur GitHub / GitLab",
@@ -198,7 +207,11 @@
     "publishing": "Publication…",
     "submit": "Publier",
     "done": "Dépôt {{repo}} publié.",
-    "createdButFailed": "Dépôt {{repo}} créé ({{url}}), mais la suite a échoué : {{error}}"
+    "createdButFailed": "Dépôt {{repo}} créé ({{url}}), mais la suite a échoué : {{error}}",
+    "noOwner": "Ce compte ne peut créer de dépôt nulle part (aucun propriétaire disponible).",
+    "destLabel": "Sera créé sur {{provider}} :",
+    "whyLoading": "Lecture des propriétaires…",
+    "whyName": "Donnez un nom au dépôt."
   },
   "repo": {
     "pull": "Pull",
@@ -1422,7 +1435,16 @@
     "noMatch": "Aucun résultat.",
     "noOptions": "Liste vide.",
     "truncated": "liste coupée (trop longue) : une personne peut manquer",
-    "view": "Voir"
+    "view": "Voir",
+    "into": "vers",
+    "people": "Relecteurs, assignés, étiquettes",
+    "whyTarget": "Indiquez la branche cible.",
+    "whyTitle": "Donnez un titre.",
+    "leave_pr": "Abandonner cette pull request ? Le texte saisi sera perdu.",
+    "leave_mr": "Abandonner cette merge request ? Le texte saisi sera perdu.",
+    "keepEditing": "Continuer la saisie",
+    "discard": "Abandonner",
+    "submitKeys": "Ctrl+Entrée"
   },
   "prv": {
     "section_pr": "Pull requests",

@@ -412,7 +412,9 @@ test("se connecter avec GitHub (OAuth) : code à saisir, puis compte connecté ;
   await dialog.getByLabel("Instance").fill("");
 
   await dialog.getByRole("button", { name: "Se connecter avec GitHub" }).click();
-  await expect(dialog.getByRole("status")).toContainText("WDJB-MJHT");
+  await expect(dialog.locator(".oauth-code")).toHaveText("WDJB-MJHT");
+  // Le focus passe au bouton qui remplace celui cliqué.
+  await expect(dialog.getByRole("button", { name: /ouvrir GitHub/i })).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Copier le code et ouvrir GitHub" })).toBeVisible();
   // Validé sur GitHub (backend simulé : à la 4e demande) : la fenêtre se ferme, compte lié.
   await expect(dialog).toBeHidden();
@@ -424,9 +426,9 @@ test("se connecter avec GitHub (OAuth) : code à saisir, puis compte connecté ;
   // Annuler une connexion en cours : retour au formulaire.
   await accounts.getByRole("button", { name: "Connecter un compte…" }).click();
   await dialog.getByRole("button", { name: "Se connecter avec GitHub" }).click();
-  await expect(dialog.getByRole("status")).toContainText("WDJB-MJHT");
+  await expect(dialog.locator(".oauth-code")).toHaveText("WDJB-MJHT");
   await dialog.getByRole("button", { name: "Retour" }).click();
-  await expect(dialog.getByRole("button", { name: "Se connecter avec GitHub" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Se connecter avec GitHub" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 

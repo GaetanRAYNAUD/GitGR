@@ -5,6 +5,9 @@
 // Le dépôt distant est créé d'abord : si l'ajout du remote ou le push échoue ensuite, la fenêtre
 // est déjà fermée (recommencer buterait sur « nom déjà pris ») et l'erreur s'affiche comme pour
 // un push ordinaire.
+//
+// Clavier : Tab reste dans la fenêtre, Visibilité et Protocole se choisissent aux flèches ; un
+// nom déjà pris remet le focus sur le nom, l'erreur sous le champ.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,6 +15,9 @@ import { api, errorCode } from "../lib/api";
 import { validRemoteName } from "../lib/branchName";
 import { repoUrl } from "../lib/clone";
 import { errorMessage } from "../lib/errors";
+import { trapTab } from "../lib/focusTrap";
+import { onRadioGroupKeyDown } from "../lib/radioKeys";
+import { useRestoreFocus } from "../lib/useRestoreFocus";
 import { profileColor } from "../lib/profiles";
 import { accountLabel, linkedAccounts, PROVIDER_NAMES } from "../lib/providers";
 import { freeRemoteName, repoNameFromFolder, validRepoName } from "../lib/publish";
@@ -71,6 +77,8 @@ function PublishDialog({ path }: { path: string }) {
     if (!busy) close();
   }, [busy, close]);
   useDismiss(ref, true, cancel);
+  useRestoreFocus();
+  const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!accountId) return;
@@ -89,7 +97,8 @@ function PublishDialog({ path }: { path: string }) {
     };
   }, [accountId, reload]);
 
-  const nameError = name && !validRepoName(name) ? t("publish.invalidName") : null;
+  // « Nom déjà pris » (réponse du serveur) : dit sous le nom, comme une erreur de saisie.
+  const nameError = name && !validRepoName(name) ? t("publish.invalidName") : error === "repo_exists" ? errorMessage(t, error) : null;
   const remoteError = !validRemoteName(remote) ? t("remotes.invalidName") : taken.includes(remote) ? t("remotes.exists") : null;
   const owner = namespaces.status === "ready" ? namespaces.list.find((n) => n.id === namespace) : undefined;
   const ownerPaths = useMemo(() => (namespaces.status === "ready" ? namespaces.list.map((n) => n.path) : []), [namespaces]);
@@ -106,6 +115,8 @@ function PublishDialog({ path }: { path: string }) {
     } catch (e) {
       setError(errorCode(e));
       setBusy(false);
+      // Les champs, grisés pendant l'envoi, ont perdu le focus : retour au nom.
+      requestAnimationFrame(() => nameRef.current?.focus());
       return;
     }
     close();
@@ -125,6 +136,9 @@ function PublishDialog({ path }: { path: string }) {
   };
 
   const provider = linked ? PROVIDER_NAMES[linked.account.kind] : "";
+  const noOwner = namespaces.status === "ready" && namespaces.list.length === 0;
+  // Ce qui manque encore pour publier, dit à côté du bouton grisé.
+  const why = busy || !linked ? null : namespaces.status === "loading" ? t("publish.whyLoading") : !owner ? null : !name ? t("publish.whyName") : null;
 
   return (
     <div className="overlay">
@@ -134,6 +148,7 @@ function PublishDialog({ path }: { path: string }) {
         aria-modal="true"
         aria-labelledby="publish-title"
         ref={ref}
+        onKeyDown={(e) => trapTab(e, ref.current)}
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -226,20 +241,39 @@ function PublishDialog({ path }: { path: string }) {
                 <label className="input-field publish-name">
                   <span>{t("publish.name")}</span>
                   <input
+                    ref={nameRef}
                     autoFocus
                     type="text"
                     value={name}
                     onChange={(e) => {
-                      setName(e.target.value.trim());
+                      // Espaces changés en « - », comme le font GitHub et GitLab.
+                      setName(e.target.value.replace(/\s/g, "-"));
+                      setError(null);
+                    }}
+                    onPaste={(e) => {
+                      // Un nom collé perd ses blancs de début et de fin (retour à la ligne copié).
+                      const text = e.clipboardData.getData("text");
+                      if (text.trim() === text) return;
+                      e.preventDefault();
+                      const el = e.currentTarget;
+                      const start = el.selectionStart ?? el.value.length;
+                      const end = el.selectionEnd ?? start;
+                      setName((el.value.slice(0, start) + text.trim() + el.value.slice(end)).replace(/\s/g, "-"));
                       setError(null);
                     }}
                     disabled={busy}
                     spellCheck={false}
                     autoComplete="off"
                     aria-invalid={!!nameError}
+                    aria-describedby={nameError ? "publish-name-error" : undefined}
                   />
                 </label>
               </div>
+              {noOwner && (
+                <p className="input-error" role="alert">
+                  {t("publish.noOwner")}
+                </p>
+              )}
               {namespaces.status === "error" && (
                 <p className="input-error" role="alert">
                   {errorMessage(t, namespaces.error)}{" "}
@@ -249,7 +283,7 @@ function PublishDialog({ path }: { path: string }) {
                 </p>
               )}
               {nameError && (
-                <p className="input-error" role="alert">
+                <p id="publish-name-error" className="input-error" role="alert">
                   {nameError}
                 </p>
               )}
@@ -259,13 +293,25 @@ function PublishDialog({ path }: { path: string }) {
                 <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} disabled={busy} placeholder={t("publish.optional")} />
               </label>
 
-              <div className="segmented" role="radiogroup" aria-label={t("publish.visibility")}>
-                {[true, false].map((v) => (
-                  <button key={String(v)} type="button" role="radio" aria-checked={isPrivate === v} className={isPrivate === v ? "seg on" : "seg"} disabled={busy} onClick={() => setPrivate(v)}>
-                    <Icon name={v ? "lock" : "globe"} size={15} />
-                    {t(v ? "publish.private" : "publish.public")}
-                  </button>
-                ))}
+              <div className="input-field">
+                <span id="publish-visibility">{t("publish.visibility")}</span>
+                <div className="segmented" role="radiogroup" aria-labelledby="publish-visibility" onKeyDown={onRadioGroupKeyDown}>
+                  {[true, false].map((v) => (
+                    <button
+                      key={String(v)}
+                      type="button"
+                      role="radio"
+                      aria-checked={isPrivate === v}
+                      tabIndex={isPrivate === v ? 0 : -1}
+                      className={isPrivate === v ? "seg on" : "seg"}
+                      disabled={busy}
+                      onClick={() => setPrivate(v)}
+                    >
+                      <Icon name={v ? "lock" : "globe"} size={15} />
+                      {t(v ? "publish.private" : "publish.public")}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="publish-row">
@@ -275,52 +321,78 @@ function PublishDialog({ path }: { path: string }) {
                     type="text"
                     value={remote}
                     onChange={(e) => {
-                      setRemote(e.target.value.trim());
+                      setRemote(e.target.value.replace(/\s/g, "-"));
                       setRemoteTouched(true);
                     }}
                     disabled={busy}
                     spellCheck={false}
                     autoComplete="off"
                     aria-invalid={!!remoteError}
+                    aria-describedby={remoteError ? "publish-remote-error" : undefined}
                   />
                 </label>
-                <div className="segmented clone-protocol publish-protocol" role="radiogroup" aria-label={t("clone.protocol")}>
+                <div className="segmented clone-protocol publish-protocol" role="radiogroup" aria-label={t("clone.protocol")} onKeyDown={onRadioGroupKeyDown}>
                   {[true, false].map((v) => (
-                    <button key={String(v)} type="button" role="radio" aria-checked={ssh === v} className={ssh === v ? "seg on" : "seg"} disabled={busy} onClick={() => setSsh(v)}>
+                    <button
+                      key={String(v)}
+                      type="button"
+                      role="radio"
+                      aria-checked={ssh === v}
+                      tabIndex={ssh === v ? 0 : -1}
+                      className={ssh === v ? "seg on" : "seg"}
+                      disabled={busy}
+                      onClick={() => setSsh(v)}
+                    >
                       {v ? "SSH" : "HTTPS"}
                     </button>
                   ))}
                 </div>
               </div>
               {remoteError && (
-                <p className="input-error" role="alert">
+                <p id="publish-remote-error" className="input-error" role="alert">
                   {remoteError}
                 </p>
               )}
 
-              <label className="menu-check" title={canPush ? undefined : t(branch ? "publish.nothingToPush" : "errors.detached_head")}>
+              <label className="menu-check">
                 <input type="checkbox" checked={push} disabled={busy || !canPush} onChange={(e) => setNoPush(!e.target.checked)} />
                 {branch ? t("publish.push", { branch, remote: remote || "origin" }) : t("publish.pushNone")}
               </label>
+              {/* Case grisée : la raison lisible, pas seulement en infobulle. */}
+              {!canPush && <p className="account-hint">{t(branch ? "publish.nothingToPush" : "errors.detached_head")}</p>}
               {owner && name && !nameError && (
-                <p className="account-hint mono clone-dest">{t("publish.dest", { provider, repo: `${owner.path}/${name}` })}</p>
+                <p className="account-hint dest-line" title={`${owner.path}/${name}`}>
+                  <span>{t("publish.destLabel", { provider })}</span>{" "}
+                  <span className="mono path-tail">
+                    <bdi>{`${owner.path}/${name}`}</bdi>
+                  </span>
+                </p>
               )}
             </>
           )
         )}
 
-        {error && (
+        {error && error !== "repo_exists" && (
           <p className="input-error" role="alert">
             {errorMessage(t, error)}
           </p>
         )}
-
+        {busy && (
+          <p className="visually-hidden" role="status">
+            {t("publish.publishing")}
+          </p>
+        )}
         <div className="dialog-actions">
+          {why && (
+            <span id="publish-why" className="dialog-why">
+              {why}
+            </span>
+          )}
           <button type="button" className="btn" onClick={cancel} disabled={busy}>
             {t("confirm.cancel")}
           </button>
           {accounts.length > 0 && (
-            <button type="submit" className="btn primary" disabled={!ready}>
+            <button type="submit" className="btn primary" disabled={!ready} aria-describedby={why ? "publish-why" : undefined}>
               {busy ? t("publish.publishing") : t("publish.submit")}
             </button>
           )}

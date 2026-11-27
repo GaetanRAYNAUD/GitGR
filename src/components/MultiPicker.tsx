@@ -150,7 +150,9 @@ export function MultiPicker({
             <span key={sid} className="mpick-chip">
               {swatch(o?.color) && <span className="mpick-dot" style={{ background: swatch(o?.color) }} />}
               {o?.icon}
-              {text}
+              <span className="mpick-chip-text" title={text}>
+                {text}
+              </span>
               <button type="button" className="mpick-remove" disabled={disabled} aria-label={t("pr.remove", { name: text })} onClick={() => onChange(selected.filter((x) => x !== sid))}>
                 ×
               </button>
@@ -163,6 +165,7 @@ export function MultiPicker({
           aria-expanded={open}
           aria-controls={`${id}-list`}
           aria-autocomplete="list"
+          aria-activedescendant={open && shown[active] ? `${id}-o${active}` : undefined}
           value={query}
           placeholder={selected.length ? undefined : placeholder}
           disabled={disabled}
@@ -184,6 +187,7 @@ export function MultiPicker({
           {shown.map((o, i) => (
             <li
               key={o.id}
+              id={`${id}-o${i}`}
               role="option"
               aria-selected={selected.includes(o.id)}
               className={i === active ? "mpick-option active" : "mpick-option"}
@@ -199,7 +203,9 @@ export function MultiPicker({
               </span>
               {swatch(o.color) && <span className="mpick-dot" style={{ background: swatch(o.color) }} />}
               {o.icon}
-              <span className="mpick-label">{o.label}</span>
+              <span className="mpick-label" title={o.label}>
+                {o.label}
+              </span>
               {o.detail && <span className="mpick-detail">{o.detail}</span>}
             </li>
           ))}
