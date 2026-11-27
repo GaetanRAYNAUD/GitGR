@@ -317,23 +317,27 @@
     "pushBadge_one": "See the commit the push sends",
     "pushBadge_other": "See the {{count}} commits the push sends",
     "pullBadge_one": "See the commit the pull brings",
-    "pullBadge_other": "See the {{count}} commits the pull brings"
+    "pullBadge_other": "See the {{count}} commits the pull brings",
+    "keys": "↑ ↓ commit · Enter details · Shift+Enter in the graph · Shift+F10 actions"
   },
   "contentSearch": {
     "label": "Search in changes",
     "title": "When was this text added or removed?",
     "text": "Text to find",
-    "regex": "Regular expression (changed lines that match)",
+    "regex": "Regex",
     "file": "File or folder (optional)",
     "submit": "Search",
     "results_one": "{{count}} commit",
     "results_other": "{{count}} commits",
-    "limit": "Only the 200 most recent.",
     "none": "No commit adds or removes this text.",
-    "hint": "Commits on all branches where this text appears or disappears. Click: details; double-click: show in the graph.",
     "highlight": "Highlight in graph",
     "toolbar": "Search",
-    "toolbarHint": "Search in changes: when a text was added or removed"
+    "toolbarHint": "Search in changes: when a text was added or removed",
+    "regexHint": "Regular expression: the changed lines that match",
+    "resultsMore": "{{count}}+ commits (most recent)",
+    "searching": "Searching…",
+    "keys": "↓ results · ↑ ↓ commit · Enter details · Shift+Enter in the graph · Shift+F10 actions",
+    "highlightHint": "Highlights these commits in the graph and dims the others (F3 from one to the next, Esc to leave)."
   },
   "squash": {
     "title": "Squash {{count}} commits",
@@ -526,12 +530,12 @@
     "ref": "Reference",
     "head": "HEAD",
     "empty": "No recorded position.",
-    "hint": "Click: details on the right; double-click: show in the graph; right-click: branch, checkout, reset.",
     "notInGraph": "This commit is no longer in the branches' history: create a branch on it to keep it.",
     "lost": "off branches",
     "showInGraph": "Show in graph",
     "toolbar": "Reflog",
-    "toolbarHint": "Where HEAD was: recover a lost commit (reset, rebase, deleted branch)"
+    "toolbarHint": "Where HEAD was: recover a lost commit (reset, rebase, deleted branch)",
+    "keys": "↑ ↓ position · Enter details · Shift+Enter in the graph · Shift+F10 branch, checkout, reset"
   },
   "multi": {
     "label": "Selected commits",
@@ -559,7 +563,13 @@
     "squashHint": "Combines these commits into one; later commits on the branch are replayed on top (history is rewritten)",
     "squashNot": "Squash only works on consecutive commits of one branch, without merges",
     "copyShas": "Copy SHAs",
-    "diffRange": "Combined diff of the selection"
+    "diffRange": "Combined diff of the selection",
+    "cherryPickShort_one": "Cherry-pick",
+    "cherryPickShort_other": "Cherry-pick ({{count}})",
+    "squashShort_one": "Squash…",
+    "squashShort_other": "Squash ({{count}})…",
+    "cherryPickOn": "Cherry-pick onto {{branch}}, oldest first.",
+    "keys": "↑ ↓ commit · Enter keep only this one · Shift+F10 batch actions"
   },
   "details": {
     "selectCommit": "Select this commit",
@@ -652,7 +662,7 @@
     "renameTitle": "Rename stash",
     "renameLabel": "Message",
     "renameHint": "It will move to the top of the stack.",
-    "showBase": "Show base commit in graph",
+    "showBase": "Base commit: show it in the graph",
     "viewLabel": "Stash “{{name}}”",
     "applyShort": "Apply",
     "popShort": "Pop",
@@ -667,7 +677,11 @@
     "dropTitle": "Delete this stash?",
     "dropBody": "“{{name}}” will be removed from the stack, with its changes.",
     "copy": "Copy message",
-    "hint": "Click: its content. Right-click: apply, pop, branch, delete."
+    "hint": "Click: its content. Right-click: apply, pop, branch, delete.",
+    "onBranch": "on {{branch}}",
+    "untrackedCount_one": "{{count}} untracked file",
+    "untrackedCount_other": "{{count}} untracked files",
+    "noFiles": "This stash contains no files."
   },
   "sidebar": {
     "label": "Branches and tags",

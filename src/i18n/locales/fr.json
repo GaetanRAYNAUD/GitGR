@@ -317,23 +317,27 @@
     "pushBadge_one": "Voir le commit qui part au push",
     "pushBadge_other": "Voir les {{count}} commits qui partent au push",
     "pullBadge_one": "Voir le commit qui arrive au pull",
-    "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull"
+    "pullBadge_other": "Voir les {{count}} commits qui arrivent au pull",
+    "keys": "↑ ↓ commit · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 actions"
   },
   "contentSearch": {
     "label": "Recherche dans les modifications",
     "title": "Quand ce texte a-t-il été ajouté ou retiré ?",
     "text": "Texte cherché",
-    "regex": "Expression régulière (lignes modifiées qui correspondent)",
+    "regex": "Regex",
     "file": "Fichier ou dossier (facultatif)",
     "submit": "Chercher",
     "results_one": "{{count}} commit",
     "results_other": "{{count}} commits",
-    "limit": "Les 200 plus récents seulement.",
     "none": "Aucun commit n’ajoute ni ne retire ce texte.",
-    "hint": "Commits de toutes les branches où ce texte apparaît ou disparaît. Clic : ses détails ; double-clic : le montrer dans le graphe.",
     "highlight": "Voir dans le graphe",
     "toolbar": "Chercher",
-    "toolbarHint": "Chercher dans les modifications : quand un texte a été ajouté ou retiré"
+    "toolbarHint": "Chercher dans les modifications : quand un texte a été ajouté ou retiré",
+    "regexHint": "Expression régulière : les lignes modifiées qui correspondent",
+    "resultsMore": "{{count}}+ commits (les plus récents)",
+    "searching": "Recherche…",
+    "keys": "↓ résultats · ↑ ↓ commit · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 actions",
+    "highlightHint": "Met ces commits en avant dans le graphe, les autres estompés (F3 de l’un à l’autre, Échap pour sortir)."
   },
   "squash": {
     "title": "Squash de {{count}} commits",
@@ -526,12 +530,12 @@
     "ref": "Référence",
     "head": "HEAD",
     "empty": "Aucune position enregistrée.",
-    "hint": "Clic : ses détails à droite ; double-clic : le montrer dans le graphe ; clic droit : branche, checkout, reset.",
     "notInGraph": "Ce commit n’est plus dans l’historique des branches : créez une branche dessus pour le retrouver.",
     "lost": "hors des branches",
     "showInGraph": "Montrer dans le graphe",
     "toolbar": "Reflog",
-    "toolbarHint": "Où était HEAD : retrouver un commit perdu (reset, rebase, branche supprimée)"
+    "toolbarHint": "Où était HEAD : retrouver un commit perdu (reset, rebase, branche supprimée)",
+    "keys": "↑ ↓ position · Entrée détails · Maj+Entrée dans le graphe · Maj+F10 branche, checkout, reset"
   },
   "multi": {
     "label": "Commits sélectionnés",
@@ -559,7 +563,13 @@
     "squashHint": "Réunit ces commits en un seul ; les commits qui suivent sur la branche sont rejoués dessus (l'historique est réécrit)",
     "squashNot": "Squash possible seulement pour une suite de commits qui se suivent sur une même branche, sans fusion",
     "copyShas": "Copier les SHA",
-    "diffRange": "Diff cumulé de la sélection"
+    "diffRange": "Diff cumulé de la sélection",
+    "cherryPickShort_one": "Cherry-pick",
+    "cherryPickShort_other": "Cherry-pick ({{count}})",
+    "squashShort_one": "Squash…",
+    "squashShort_other": "Squash ({{count}})…",
+    "cherryPickOn": "Cherry-pick sur {{branch}}, du plus ancien au plus récent.",
+    "keys": "↑ ↓ commit · Entrée ne garder que celui-ci · Maj+F10 actions du lot"
   },
   "details": {
     "selectCommit": "Sélectionner ce commit",
@@ -652,7 +662,7 @@
     "renameTitle": "Renommer le stash",
     "renameLabel": "Message",
     "renameHint": "Il passera en haut de la pile.",
-    "showBase": "Voir le commit de départ dans le graphe",
+    "showBase": "Commit de départ : le montrer dans le graphe",
     "viewLabel": "Stash « {{name}} »",
     "applyShort": "Appliquer",
     "popShort": "Pop",
@@ -667,7 +677,11 @@
     "dropTitle": "Supprimer ce stash ?",
     "dropBody": "« {{name}} » sera retiré de la pile, avec ses modifications.",
     "copy": "Copier le message",
-    "hint": "Clic : son contenu. Clic droit : appliquer, pop, branche, supprimer."
+    "hint": "Clic : son contenu. Clic droit : appliquer, pop, branche, supprimer.",
+    "onBranch": "sur {{branch}}",
+    "untrackedCount_one": "{{count}} fichier non suivi",
+    "untrackedCount_other": "{{count}} fichiers non suivis",
+    "noFiles": "Ce stash ne contient aucun fichier."
   },
   "sidebar": {
     "label": "Branches et tags",
