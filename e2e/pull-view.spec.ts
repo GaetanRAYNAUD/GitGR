@@ -143,7 +143,7 @@ test("fermer une MR demande confirmation ; brouillon d'un fork sans droits", asy
 
   await item(page, "!14").click();
   await expect(view(page).locator(".pull-view-meta")).toContainText("fork");
-  await expect(view(page).getByText("C’est un brouillon : marquez-la comme prête d’abord.")).toBeVisible();
+  await expect(view(page).getByText("C’est un brouillon : son auteur doit la marquer comme prête.")).toBeVisible();
   // Pas de droits : ni brouillon ni fermeture proposés.
   await expect(view(page).getByRole("button", { name: "Marquer comme prête" })).toHaveCount(0);
 });
@@ -209,4 +209,56 @@ test("liens d'un message de commit : !12 ouvre la MR dans GitGR, un SHA sélecti
   // Même chose dans la description d'une MR : !13 ouvre l'autre MR.
   await view(page).locator(".pull-text .commit-link", { hasText: "!13" }).click();
   await expect(view(page).locator(".pull-view-title")).toHaveText("Corriger la phrase de passe de l'agent SSH");
+});
+
+test("brouillon gardé (onglets, fermeture), Ctrl+Entrée, onglets au clavier, panneau des détails masqué", async ({ page }) => {
+  await seed(page);
+  await item(page, "!12").click();
+  // La vue prend la place du panneau des détails du commit.
+  await expect(page.locator("aside.commit-panel")).toHaveCount(0);
+  await expect(view(page).getByText("En tant que camille.dupont")).toBeVisible();
+
+  const box = view(page).getByRole("textbox", { name: "Commenter" });
+  await box.fill("Brouillon en cours");
+  // Onglets au clavier : une tabulation, flèches ; le brouillon survit au passage par Fichiers.
+  const tabs = view(page).getByRole("tablist");
+  await expect(tabs.locator('[tabindex="0"]')).toHaveCount(1);
+  await view(page).getByRole("tab", { name: "Discussion" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(view(page).getByRole("tab", { name: "Fichiers" })).toBeFocused();
+  await expect(view(page).getByRole("tab", { name: "Fichiers" })).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Home");
+  await expect(box).toHaveValue("Brouillon en cours");
+
+  // Fermer la vue puis la rouvrir : le brouillon est toujours là.
+  await page.keyboard.press("Escape");
+  await expect(view(page)).toHaveCount(0);
+  await item(page, "!12").click();
+  await expect(view(page).getByRole("textbox", { name: "Commenter" })).toHaveValue("Brouillon en cours");
+
+  // Ctrl+Entrée envoie ; le champ se vide.
+  await view(page).getByRole("textbox", { name: "Commenter" }).press("Control+Enter");
+  await expect(view(page).getByRole("textbox", { name: "Commenter" })).toHaveValue("");
+  expect((await actions(page)).map((a) => a.action.type)).toEqual(["comment"]);
+});
+
+test("confirmation du merge : suppression de la branche annoncée, focus rendu au bouton", async ({ page }) => {
+  await seed(page);
+  await item(page, "!13").click();
+  const mergeBtn = view(page).getByRole("button", { name: /^Merger$/ }).last();
+  await mergeBtn.click();
+  const confirm = page.getByRole("alertdialog", { name: "Fusionner la merge request !13 ?" });
+  await expect(confirm).toContainText("sera ensuite supprimée du serveur");
+  await confirm.getByRole("button", { name: "Retour" }).click();
+  await expect(mergeBtn).toBeFocused();
+});
+
+test("un fil sur le code mène à son fichier dans l'onglet Fichiers", async ({ page }) => {
+  await seed(page);
+  await item(page, "!12").click();
+  const thread = view(page).locator(".pull-thread").filter({ has: page.locator(".pull-thread-path") }).first();
+  const file = (await thread.locator(".pull-thread-file").innerText()).split(":")[0];
+  await thread.getByRole("button", { name: "Voir dans le diff" }).click();
+  await expect(view(page).getByRole("tab", { name: "Fichiers" })).toHaveAttribute("aria-selected", "true");
+  await expect(view(page).locator(".pull-file-diff .diff-path")).toContainText(file.split("/").pop()!);
 });

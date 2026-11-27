@@ -51,6 +51,8 @@
   --add: #4cc38a;
   --mod: #e8b84a;
   --del: #f06a6a;
+  /* PR / MR fusionnée (pastille d'état, mention « fusionnée ») : le violet des forges. */
+  --merged: #b48cf2;
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
@@ -93,6 +95,7 @@
   --add: #16794a;
   --mod: #946200;
   --del: #c62f2f;
+  --merged: #7a3fd1;
   --shadow: 0 12px 32px rgba(20, 24, 32, 0.14);
 }
 
@@ -5384,7 +5387,7 @@ p.pf-account-keys.bad,
 }
 
 .pull-view-title {
-  flex: 1;
+  flex: 1 1 200px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5401,17 +5404,24 @@ p.pf-account-keys.bad,
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
-  color: #fff;
-  background: var(--add);
+  /* Pastille teintée (pas de plein vif dans le chrome) : l'état colore l'icône et le contour. */
+  --state: var(--add);
+  color: var(--text);
+  background: color-mix(in srgb, var(--state) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state) 45%, transparent);
+}
+
+.pull-state .ico {
+  color: var(--state);
 }
 
 .pull-state.draft,
 .pull-state.closed {
-  background: var(--faint);
+  --state: var(--faint);
 }
 
 .pull-state.merged {
-  background: #8250df;
+  --state: var(--merged);
 }
 
 .pull-view-meta {
@@ -5433,7 +5443,7 @@ p.pf-account-keys.bad,
 }
 
 .pull-fork {
-  font-size: 10px;
+  font-size: 11px;
   padding: 0 4px;
   border: 1px solid var(--border-strong);
   border-radius: 4px;
@@ -5488,13 +5498,17 @@ p.pf-account-keys.bad,
   margin: 24px;
 }
 
+/* Discussion : des sections bord à bord séparées d'un filet, comme les autres panneaux
+   (Edge-To-Edge) ; seule la mesure du texte est bornée, à gauche. */
 .pull-conv {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  max-width: 920px;
-  margin: 0 auto;
+}
+
+.pull-conv > .input-error {
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab-count {
@@ -5508,13 +5522,12 @@ p.pf-account-keys.bad,
 }
 
 .pull-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
 }
 
 .pull-text {
+  max-width: 110ch;
   overflow-wrap: anywhere;
   line-height: 1.5;
 }
@@ -5626,8 +5639,9 @@ p.pf-account-keys.bad,
   color: var(--link);
 }
 
-.md a.md-image::before {
-  content: "🖼 ";
+.md a.md-image .ico {
+  margin-right: 4px;
+  vertical-align: -2px;
 }
 
 .md .md-table {
@@ -5680,12 +5694,21 @@ p.pf-account-keys.bad,
   opacity: 0.75;
 }
 
-.pull-thread-path {
+/* En-tête d'un fil sur le code : replier (tout le chemin) et « Voir dans le diff ». */
+.pull-thread-head {
   display: flex;
   align-items: center;
+  gap: 8px;
+  margin: -4px 0 6px;
+}
+
+.pull-thread-path {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: 6px;
-  width: 100%;
-  margin: -2px 0 6px;
+  min-width: 0;
+  min-height: 24px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -5713,11 +5736,23 @@ p.pf-account-keys.bad,
   margin-bottom: 4px;
 }
 
+.pull-thread-file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pull-thread-actions {
   display: flex;
   align-items: flex-start;
   gap: 14px;
   margin-top: 8px;
+}
+
+/* Liens-boutons de la vue (Répondre, Résoudre, Modifier…) : une cible d'au moins 24 px. */
+.pull-view .link {
+  min-height: 24px;
 }
 
 .pull-reply {
@@ -5784,7 +5819,7 @@ p.pf-account-keys.bad,
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: #8250df;
+  color: var(--merged);
   font-weight: 600;
 }
 
@@ -5796,7 +5831,7 @@ p.pf-account-keys.bad,
 
 .pull-file-list {
   flex: none;
-  width: 280px;
+  width: clamp(180px, 30%, 280px);
   margin: 0;
   padding: 6px 0;
   list-style: none;
@@ -5971,9 +6006,7 @@ p.pf-account-keys.bad,
 }
 
 .pull-checks {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 16px 12px;
+  padding: 12px 16px;
 }
 
 .checks-summary {
@@ -5991,7 +6024,7 @@ p.pf-account-keys.bad,
 }
 
 .checks-total {
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 600;
 }
 
