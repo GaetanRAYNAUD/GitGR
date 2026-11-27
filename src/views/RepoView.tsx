@@ -471,6 +471,14 @@ export function RepoView({ path }: { path: string }) {
   const openFileHistory = useFileHistoryView((s) => s.open[path]);
   const openBlame = useBlameView((s) => s.open[path]);
   const openConflict = useConflictView((s) => s.open[path]);
+  // Vue d'une PR / MR au centre : le panneau des détails, sans rapport, lui laisse la place ;
+  // il revient dès qu'un commit est choisi depuis la PR (SHA cité, lien d'un commit).
+  const pullShown = !!openPull && !openConflict && !diff && !workDiff && !openBlame && !openFileHistory && !openSearch && !openReflog && !openStash && !openRange;
+  const pullKey = openPull ? `${openPull.ctx.remote}#${openPull.number}` : null;
+  const [pullSel, setPullSel] = useState<{ key: string | null; sel: string | null }>({ key: pullKey, sel: selected });
+  if (pullSel.key !== pullKey) setPullSel({ key: pullKey, sel: selected });
+  // (La ligne « Modifications en cours » choisie d'office quand des fichiers changent ne compte pas.)
+  const hidePanel = pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP);
   useEffect(() => {
     if (!pullsShown) return;
     for (const ctx of pullContexts) void ensurePulls(ctx);
@@ -608,15 +616,17 @@ export function RepoView({ path }: { path: string }) {
             <CommitGraph path={path} changes={changes} />
           )}
         </div>
-        <Splitter
-          dir="x"
-          label={t("layout.panel")}
-          measure="next"
-          sign={-1}
-          onChange={(v, final) => setLayout({ [LAYOUT.panel]: clamp(v, LIMITS.panel) }, final)}
-          onReset={() => setLayout({ [LAYOUT.panel]: null })}
-        />
-        <CommitPanel path={path} />
+        {!hidePanel && (
+          <Splitter
+            dir="x"
+            label={t("layout.panel")}
+            measure="next"
+            sign={-1}
+            onChange={(v, final) => setLayout({ [LAYOUT.panel]: clamp(v, LIMITS.panel) }, final)}
+            onReset={() => setLayout({ [LAYOUT.panel]: null })}
+          />
+        )}
+        {!hidePanel && <CommitPanel path={path} />}
       </div>
 
       <footer className="statusbar" role="region" aria-label={t("repo.statusbar")}>

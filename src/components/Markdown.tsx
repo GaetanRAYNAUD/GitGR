@@ -4,6 +4,7 @@
 
 import { type ReactNode, useMemo } from "react";
 import { api } from "../lib/api";
+import { Icon } from "./Icon";
 import { type Block, type Inline, parseMarkdown } from "../lib/markdown";
 
 /** Rendu d'un morceau de texte brut (hors code et hors lien), ex. pour y repérer `#12`. */
@@ -37,6 +38,7 @@ function inlines(nodes: Inline[], rt?: RenderText): ReactNode[] {
               void api.openUrl(n.href!).catch(() => {});
             }}
           >
+            {n.image && <Icon name="image" size={13} />}
             {inlines(n.c)}
           </a>
         );
