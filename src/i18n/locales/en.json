@@ -355,19 +355,20 @@
   },
   "fileHistory": {
     "label": "File history",
-    "title": "History of {{file}}",
     "menu": "File history",
     "results_one": "{{count}} commit",
     "results_other": "{{count}} commits",
     "limit": "Only the 500 most recent.",
     "none": "No commit of the current branch changes this file.",
-    "hint": "Commits of the current branch that change this file, following renames. Click: details; double-click: the file's diff; right-click: its actions.",
     "renamedFrom": "renamed from {{path}}",
-    "showDiff": "Show the file's diff"
+    "showDiff": "Show the file's diff",
+    "of": "History:",
+    "keys": "↑ ↓ details · Enter file diff · Shift+Enter in the graph · Shift+F10 actions",
+    "resultsMore": "{{count}}+ commits (most recent)",
+    "blameGone": "The file no longer exists in the working copy: open the blame of a commit (right-click)."
   },
   "blame": {
     "label": "Blame",
-    "title": "Blame of {{file}}",
     "menu": "Blame",
     "atCommit": "Blame at this commit",
     "before": "Blame before this commit",
@@ -377,7 +378,15 @@
     "uncommitted": "Not committed yet",
     "empty": "Empty file.",
     "deleted": "The file no longer exists at this commit.",
-    "truncated": "File truncated: too long to be shown in full."
+    "truncated": "File truncated: too long to be shown in full.",
+    "of": "Blame:",
+    "keys": "↑ ↓ lines · F7 next block · Enter details · Shift+Enter in the graph · Shift+F10 actions",
+    "atCommitSame": "Already shown at this commit.",
+    "gridLabel": "Blame of {{file}}",
+    "row": "Line {{n}}, {{summary}}, {{who}}",
+    "rowUncommitted": "Line {{n}}, not committed yet",
+    "uncommittedHint": "Changed in the working copy, not committed yet.",
+    "ageHint": "Margin mark: the darker, the more recent the line."
   },
   "tag": {
     "newTitle": "New tag",

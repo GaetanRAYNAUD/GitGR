@@ -122,9 +122,9 @@ test("historique d'un fichier renommé : ses commits avant et après le renommag
     await panel.locator(".file-row", { hasText: "c.txt" }).click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Historique du fichier" }).click();
     const view = page.getByRole("region", { name: "Historique du fichier" });
-    const rows = view.getByRole("list", { name: /commits?$/ }).getByRole("listitem");
+    const rows = view.getByRole("listbox", { name: /commits?/ }).getByRole("option");
     await expect(rows).toHaveText([/a renommé en c.*renommé depuis a\.txt/, /a modifié/, /création de a/, /init/]);
-    await rows.nth(1).getByRole("button").dblclick();
+    await rows.nth(1).dblclick();
     const diff = page.getByRole("region", { name: /^Diff de / });
     await expect(diff.locator("tr.add")).toContainText("cinq");
   } finally {

@@ -87,16 +87,45 @@ export const useSearchView = create<SearchViewState>((set) => ({
   setQuery: (path, q) => set((s) => ({ queries: { ...s.queries, [path]: q } })),
 }));
 
+/** Vue de fichier (historique ou blame) d'où l'on vient : Retour / Échap y ramènent. */
+export type FileViewBack = { kind: "history"; file: string } | { kind: "blame"; target: BlameTarget };
+
+/** Pile de retour entre historique et blame, par dépôt. Ouvrir une de ces vues d'ailleurs (menu
+ *  d'un fichier) repart d'une pile vide. */
+const fileViewBack = new Map<string, FileViewBack[]>();
+
+function openFileView(path: string, view: FileViewBack) {
+  if (view.kind === "history") useFileHistoryView.setState((s) => ({ open: { ...s.open, [path]: view.file } }));
+  else useBlameView.setState((s) => ({ open: { ...s.open, [path]: view.target } }));
+}
+
+/** Retour depuis l'historique ou le blame : la vue d'avant, sinon le graphe. Renvoie `true`
+ *  si une vue d'avant a été rouverte. */
+export function fileViewGoBack(path: string): boolean {
+  const stack = fileViewBack.get(path) ?? [];
+  const prev = stack.pop();
+  closeCenterViews(path);
+  if (!prev) return false;
+  fileViewBack.set(path, stack);
+  openFileView(path, prev);
+  return true;
+}
+
+/** La vue d'avant, s'il y en a une (infobulle du bouton Retour). */
+export const fileViewPrev = (path: string): FileViewBack | undefined => fileViewBack.get(path)?.slice(-1)[0];
+
 /** Historique d'un fichier ouvert à la place du graphe (chemin relatif au dépôt), un par dépôt. */
 interface FileHistoryViewState {
   open: Record<string, string | undefined>;
-  show(path: string, file: string): void;
+  /** `from` : la vue qu'on quitte (Retour y ramène) ; sans, la pile de retour repart à zéro. */
+  show(path: string, file: string, from?: FileViewBack): void;
   close(path: string): void;
 }
 
 export const useFileHistoryView = create<FileHistoryViewState>((set) => ({
   open: {},
-  show: (path, file) => {
+  show: (path, file, from) => {
+    fileViewBack.set(path, from ? [...(fileViewBack.get(path) ?? []), from] : []);
     closeCenterViews(path);
     set((s) => ({ open: { ...s.open, [path]: file } }));
   },
@@ -114,13 +143,15 @@ export interface BlameTarget {
 /** Blame ouvert à la place du graphe, un par dépôt. */
 interface BlameViewState {
   open: Record<string, BlameTarget | undefined>;
-  show(path: string, target: BlameTarget): void;
+  /** `from` : la vue qu'on quitte (Retour y ramène) ; sans, la pile de retour repart à zéro. */
+  show(path: string, target: BlameTarget, from?: FileViewBack): void;
   close(path: string): void;
 }
 
 export const useBlameView = create<BlameViewState>((set) => ({
   open: {},
-  show: (path, target) => {
+  show: (path, target, from) => {
+    fileViewBack.set(path, from ? [...(fileViewBack.get(path) ?? []), from] : []);
     closeCenterViews(path);
     set((s) => ({ open: { ...s.open, [path]: target } }));
   },

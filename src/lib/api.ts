@@ -864,7 +864,7 @@ const mockApi: Api = {
     return commits.flatMap((commit) => {
       const change = mockDetails(path, commit.sha).files.find((f) => f.path === file);
       return change ? [{ commit, change }] : [];
-    });
+    }).slice(0, 500);
   },
   async blame(path, file, rev) {
     await mockDelay();
