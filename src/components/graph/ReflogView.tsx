@@ -4,11 +4,13 @@
 //
 // Souris : clic = ses détails à droite ; double-clic = le montrer dans le graphe ; clic droit =
 // branche, checkout, reset. Clavier : une seule tabulation, ↑ / ↓ (les détails suivent),
-// Entrée = détails, Maj+Entrée = dans le graphe, Maj+F10 / touche Menu = actions.
+// Entrée = détails, Maj+Entrée = dans le graphe, Maj+F10 / touche Menu = actions. La ref suivie
+// se choisit dans le titre ; opérations et messages fixes de Git sont traduits (lib/reflog).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
+import { reflogMessage, reflogOp } from "../../lib/reflog";
 import type { ReflogEntry } from "../../lib/types";
 import { useGraph } from "../../store/graph";
 import { useReflogView } from "../../store/range";
@@ -72,6 +74,14 @@ export function ReflogView({ path, refname }: { path: string; refname: string })
   const locals = (refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short);
   const list = entries ?? [];
   const at = Math.min(row, Math.max(0, list.length - 1));
+  const opLabel = (action: string) => {
+    const op = reflogOp(action);
+    return op ? t(`reflog.op.${op}`) : action;
+  };
+  const msgLabel = (e: ReflogEntry) => {
+    const m = reflogMessage(e.message);
+    return m ? t(`reflog.msg.${m.key}`, m.vars) : e.message || e.subject;
+  };
 
   const reveal = (i: number, sha: string) =>
     void useGraph.getState().reveal(path, sha).then((ok) => {
@@ -101,15 +111,18 @@ export function ReflogView({ path, refname }: { path: string; refname: string })
     <section ref={sectionRef} className="pull-view reflog-view" aria-label={t("reflog.label")}>
       <header className="diff-head">
         <BackButton onClick={back} />
-        <span className="pull-view-title">{t("reflog.title", { ref: refname })}</span>
-        <select className="pf-input reflog-ref" value={refname} onChange={(e) => show(path, e.target.value)} aria-label={t("reflog.ref")}>
-          <option value="HEAD">{t("reflog.head")}</option>
-          {locals.map((b) => (
-            <option key={b} value={b}>
-              {b}
-            </option>
-          ))}
-        </select>
+        {/* « Où était [ref ▾] » : la ref se choisit dans le titre. */}
+        <span className="pull-view-title reflog-title">
+          <label htmlFor="reflog-ref">{t("reflog.where")}</label>
+          <select id="reflog-ref" className="pf-input reflog-ref mono" value={refname} onChange={(e) => show(path, e.target.value)} title={t("reflog.ref")}>
+            <option value="HEAD">{t("reflog.head")}</option>
+            {locals.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </span>
       </header>
       <p className="muted reflog-hint" title={t("reflog.keys")}>
         {t("reflog.keys")}
@@ -136,7 +149,8 @@ export function ReflogView({ path, refname }: { path: string; refname: string })
         >
           {entries.map((e, i) => {
             const lost = done && !known.has(e.sha);
-            const message = e.message || e.subject;
+            const message = msgLabel(e);
+            const action = opLabel(e.action);
             return (
               <li
                 key={`${i}:${e.sha}`}
@@ -144,7 +158,7 @@ export function ReflogView({ path, refname }: { path: string; refname: string })
                 role="option"
                 aria-selected={i === at}
                 aria-label={message}
-                aria-description={[e.action, lost ? t("reflog.lost") : null, e.sha.slice(0, 7), when(e.time), `@{${i}}`].filter(Boolean).join(", ")}
+                aria-description={[action, lost ? t("reflog.lost") : null, e.sha.slice(0, 7), when(e.time), `@{${i}}`].filter(Boolean).join(", ")}
                 className={["reflog-row", i === at && "on active"].filter(Boolean).join(" ")}
                 onClick={() => choose(i)}
                 onDoubleClick={() => reveal(i, e.sha)}
@@ -155,8 +169,12 @@ export function ReflogView({ path, refname }: { path: string; refname: string })
                 }}
               >
                 <span className="mono reflog-index">@{`{${i}}`}</span>
-                <span className="reflog-action">{e.action}</span>
-                <span className="reflog-message">{message}</span>
+                <span className="reflog-action" title={e.action}>
+                  {action}
+                </span>
+                <span className="reflog-message" title={e.message || e.subject}>
+                  {message}
+                </span>
                 {lost && <span className="reflog-lost">{t("reflog.lost")}</span>}
                 <span className="mono muted reflog-sha">{e.sha.slice(0, 7)}</span>
                 <span className="muted reflog-time" title={full(e.time)}>

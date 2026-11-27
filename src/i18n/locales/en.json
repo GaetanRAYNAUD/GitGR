@@ -318,7 +318,13 @@
     "pushBadge_other": "See the {{count}} commits the push sends",
     "pullBadge_one": "See the commit the pull brings",
     "pullBadge_other": "See the {{count}} commits the pull brings",
-    "keys": "↑ ↓ commit · Enter details · Shift+Enter in the graph · Shift+F10 actions"
+    "keys": "↑ ↓ commit or whole range · Shift+Enter in the graph · Shift+F10 actions",
+    "all": "Whole range",
+    "allHint_one": "combined changes of the commit",
+    "allHint_other": "combined changes of the {{count}} commits",
+    "commitFiles_one": "{{count}} file in {{sha}}",
+    "commitFiles_other": "{{count}} files in {{sha}}",
+    "noFiles": "This commit changes no files."
   },
   "contentSearch": {
     "label": "Search in changes",
@@ -336,8 +342,11 @@
     "regexHint": "Regular expression: the changed lines that match",
     "resultsMore": "{{count}}+ commits (most recent)",
     "searching": "Searching…",
-    "keys": "↓ results · ↑ ↓ commit · Enter details · Shift+Enter in the graph · Shift+F10 actions",
-    "highlightHint": "Highlights these commits in the graph and dims the others (F3 from one to the next, Esc to leave)."
+    "keys": "↓ results · ↑ ↓ commit · Enter its files · Shift+Enter in the graph · Shift+F10 actions",
+    "highlightHint": "Highlights these commits in the graph and dims the others (F3 from one to the next, Esc to leave).",
+    "files_one": "{{count}} file where the text changes in {{sha}}",
+    "files_other": "{{count}} files where the text changes in {{sha}}",
+    "noFiles": "The text changes in no file of this commit (merge, or file outside the filter)."
   },
   "squash": {
     "title": "Squash {{count}} commits",
@@ -535,7 +544,36 @@
     "showInGraph": "Show in graph",
     "toolbar": "Reflog",
     "toolbarHint": "Where HEAD was: recover a lost commit (reset, rebase, deleted branch)",
-    "keys": "↑ ↓ position · Enter details · Shift+Enter in the graph · Shift+F10 branch, checkout, reset"
+    "keys": "↑ ↓ position · Enter details · Shift+Enter in the graph · Shift+F10 branch, checkout, reset",
+    "where": "Where was",
+    "op": {
+      "commit": "Commit",
+      "amend": "Amended commit",
+      "initial": "First commit",
+      "commitMerge": "Merge commit",
+      "checkout": "Checkout",
+      "reset": "Reset",
+      "rebase": "Rebase",
+      "rebaseEnd": "Rebase done",
+      "merge": "Merge",
+      "pull": "Pull",
+      "cherryPick": "Cherry-pick",
+      "revert": "Revert",
+      "branch": "Branch created",
+      "clone": "Clone",
+      "push": "Push",
+      "fetch": "Fetch",
+      "rename": "Rename"
+    },
+    "msg": {
+      "moving": "from {{from}} to {{to}}",
+      "movingTo": "to {{to}}",
+      "returning": "back on {{to}}",
+      "created": "from {{from}}",
+      "renamed": "{{from}} renamed to {{to}}",
+      "fastForward": "fast-forward",
+      "mergeMade": "merge commit created"
+    }
   },
   "multi": {
     "label": "Selected commits",
