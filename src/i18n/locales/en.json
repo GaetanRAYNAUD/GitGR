@@ -7,7 +7,7 @@
     "new": "New tab",
     "close": "Close tab {{name}}",
     "rename": "Rename tab",
-    "renameHint": "Double-click to rename; empty = folder name",
+    "renameHint": "Double-click or F2 to rename; empty = folder name",
     "originalName": "Original name",
     "colorAuto": "Automatic",
     "pending_one": "{{count}} uncommitted file",
@@ -28,12 +28,19 @@
       "6": "Yellow",
       "7": "Cyan"
     },
-    "color": "Color…"
+    "color": "Color…",
+    "list": "Open repositories",
+    "all": "All tabs",
+    "colorOf": "Color of tab {{name}}",
+    "originalNameNone": "The tab already has the folder name",
+    "closeOthers": "Close other tabs",
+    "closeRight": "Close tabs to the right"
   },
   "window": {
     "minimize": "Minimize",
     "maximize": "Maximize",
-    "close": "Close"
+    "close": "Close",
+    "restore": "Restore"
   },
   "settings": {
     "version": "GitGR {{version}}",

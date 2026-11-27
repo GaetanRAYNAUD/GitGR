@@ -363,6 +363,8 @@ export interface Api {
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;
+    /** Fenêtre agrandie : `cb` à chaque changement (et une fois au départ). Renvoie le désabonnement. */
+    onMaximizedChange(cb: (maximized: boolean) => void): Promise<() => void>;
     startDragging(): Promise<void>;
     close(): Promise<void>;
     hide(): Promise<void>;
@@ -583,6 +585,12 @@ const tauriApi: Api = {
   window: {
     minimize: async () => (await currentWindow()).minimize(),
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
+    onMaximizedChange: async (cb) => {
+      const w = await currentWindow();
+      const check = async () => cb(await w.isMaximized());
+      await check();
+      return w.onResized(() => void check());
+    },
     startDragging: async () => (await currentWindow()).startDragging(),
     close: async () => (await currentWindow()).close(),
     hide: async () => (await currentWindow()).hide(),
@@ -1429,6 +1437,10 @@ const mockApi: Api = {
   window: {
     minimize: async () => {},
     toggleMaximize: async () => {},
+    onMaximizedChange: async (cb) => {
+      cb(false);
+      return () => {};
+    },
     startDragging: async () => {},
     close: async () => {},
     hide: async () => {},

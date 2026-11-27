@@ -6,6 +6,9 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Onglets nombreux : ils se resserrent, puis la rangée défile (molette comprise) ; l'onglet actif reste toujours visible, les bords coupés s'estompent, « + » reste à sa place et un bouton ⌄ liste tous les onglets. Fini les onglets et le « + » qui disparaissaient sans prévenir.
+- Onglets au clavier : une seule tabulation, puis ← / → / Début / Fin d'un onglet à l'autre, Entrée pour l'ouvrir, F2 pour le renommer, Suppr pour le fermer, Maj+F10 pour son menu. Ctrl+9 va au dernier onglet. Le menu d'un onglet propose aussi « Fermer les autres onglets » et « Fermer les onglets à droite ».
+- Onglets : l'infobulle montre toujours le chemin et le travail en attente (elle était remplacée par l'astuce de renommage au survol du nom) ; la fenêtre Couleur prend le focus et le rend à l'onglet ; le bouton du milieu de la fenêtre devient « Restaurer » quand elle est agrandie.
 - Suivi d'une PR / MR : un commentaire ou une réponse en cours n'est plus perdu en changeant d'onglet ou en fermant la vue — il vous attend jusqu'à l'envoi. Ctrl+Entrée envoie. Quitter une description en cours de modification demande confirmation, et Échap dans le formulaire ne ferme plus toute la vue.
 - Suivi d'une PR / MR : la vue prend toute la largeur (le panneau des détails d'un commit revient dès qu'on ouvre un commit cité) ; le titre passe à la ligne quand la place manque et la liste des fichiers se resserre. « En tant que … » rappelle le compte avec lequel on commente, approuve ou fusionne.
 - Suivi d'une PR / MR au clavier : les onglets Discussion / Fichiers / Checks se parcourent avec ← / →, en une seule tabulation ; après une confirmation, le focus revient au bouton d'origine.
