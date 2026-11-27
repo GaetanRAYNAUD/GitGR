@@ -148,6 +148,17 @@ components:
   tab-active:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.text}"
+  window-control:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    width: "46px"
+    height: "40px"
+  window-control-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.text}"
+  window-close-hover:
+    backgroundColor: "{colors.del-fill}"
+    textColor: "{colors.accent-text}"
   commit-row:
     textColor: "{colors.text}"
     typography: "{typography.body}"
@@ -230,7 +241,7 @@ Une base neutre gris bleuté en cinq paliers, un accent bleu unique, trois coule
 ### Named Rules
 **The Variable-Only Rule.** Aucune couleur en dur dans un composant : toujours `var(--jeton)` ou un `color-mix()` d'un jeton. Une couleur en dur casse le thème clair.
 
-**The Filled-Accent Rule.** Un fond plein bleu sous du texte prend `--accent-fill`, jamais `--accent` : l'accent seul reste pour le focus, la sélection et les liserés, où aucun texte blanc ne se pose dessus. Même chose pour le rouge des actions destructives (bouton de confirmation) : `--del-fill` (en sombre `color-mix(del 62%, bg)`, en clair `--del`).
+**The Filled-Accent Rule.** Un fond plein bleu sous du texte prend `--accent-fill`, jamais `--accent` : l'accent seul reste pour le focus, la sélection et les liserés, où aucun texte blanc ne se pose dessus. Même chose pour le rouge des actions destructives (bouton de confirmation, survol de Fermer dans les contrôles de fenêtre) : `--del-fill` (en sombre `color-mix(del 62%, bg)`, en clair `--del`).
 
 **The Content-Owns-Color Rule.** Le chrome (barres, panneaux, boutons) reste neutre. Les couleurs vives sont réservées à ce qui vient du dépôt : voies, branches, diff, état des checks. L'accent bleu est la seule exception, et il marque une action ou une sélection.
 
@@ -297,7 +308,7 @@ Précis et discrets.
 - **Primary:** fond et bordure `accent-fill`, texte `accent-text`. Un seul par zone. Survol : `color-mix(in srgb, var(--accent-fill) 88%, var(--text))`, fond et bordure — jamais le survol neutre `hover`, qui mettrait du blanc sur du gris clair.
 - **Disabled:** opacité 0.5, curseur par défaut ; une action impossible est grisée, et son infobulle dit pourquoi. Dans la barre d'outils, elle reste focalisable (voir Tool buttons).
 - **Icon button:** 32×32px, sans fond ni bordure, icône `faint` ; survol `hover` + icône `text`.
-- **Focus:** anneau `2px solid accent`, décalé de 1px, sur tous les contrôles (`:focus-visible`).
+- **Focus:** anneau `2px solid accent`, décalé de 1px, sur tous les contrôles (`:focus-visible`). Dans un conteneur qui rogne son contenu (rangée d'onglets qui défile), l'anneau passe à l'intérieur (décalé de -2px).
 
 ### Tool buttons (barre d'outils)
 Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), sans fond au repos : 44px de haut, 52px de large au moins, coins 8px, libellé 11px 500 `muted` ; survol `hover` + `text`. Fetch a l'icône nuage-flèche (`cloudDown`) ; la flèche circulaire reste à Actualiser.
@@ -323,7 +334,10 @@ Icône au-dessus d'un libellé court (Pull, Push, Fetch, Branche, Stash…), san
 - **Segmented control:** rangée de boutons dans un conteneur `panel2` de 3px de padding, l'option active sur `sel`, à plat. Un seul arrêt de tabulation par groupe ; les flèches, Début et Fin changent l'option. L'aide de l'option choisie s'affiche dessous, jamais seulement en infobulle.
 
 ### Navigation (onglets)
-- **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille.
+- **Onglets de dépôt:** 32px, coins arrondis en haut seulement, texte `muted` sur fond transparent ; survol `hover` ; actif `panel` + `text`, il se fond dans le panneau en dessous. Couleur d'onglet au choix ; point d'état (travail en attente, à pousser / tirer) sur la pastille. Glissé pour réordonner, l'onglet déplacé passe sur `panel` avec un contour de 1px `border-strong`.
+- **Rangée qui défile:** chaque onglet rétrécit de 220px à 120px au plus, puis la rangée défile horizontalement sans barre visible (molette ; l'onglet actif est ramené dans le champ). Un bord où des onglets sont coupés passe en fondu sur 28px (masque en dégradé, d'un côté ou des deux), jamais en flèches de défilement. Le bouton « + » et les fermetures ne rétrécissent pas.
+- **Focus des onglets:** l'anneau d'accent passe à l'intérieur de l'onglet (décalé de -2px, coins arrondis en haut) : la rangée qui défile rognerait l'anneau commun.
+- **Contrôles de fenêtre:** 46×40px sans fond, icône `muted` ; survol `hover` + `text` ; Fermer au survol prend `del-fill` et `accent-text`.
 - **Logo = onglet Accueil:** même forme, sans bouton de fermeture.
 - **Barre latérale des refs:** éléments de 28px, coins 6px, indentation de 14px par niveau ; sections repliables avec en-tête en capitales `faint` et compteur. Au clavier, un arbre (`role="tree"`) à une seule tabulation : ↑ / ↓, → / ← (déplier, replier, parent), recherche à la frappe, Entrée (le commit), Maj+Entrée (checkout, comme le double-clic), Maj+F10 (menu, aussi sur les dossiers et en-têtes), Alt+↑ / ↓ sur un en-tête pour sa hauteur ; Ctrl+Maj+E y amène. Le libellé passe avant la méta (↑ ↓, date) ; un nom trop long se raccourcit, jamais de défilement horizontal. Filtre : focus marqué sur son cadre, × et Échap pour le vider, une ligne quand rien ne correspond. Section des PR / MR sans compte : une seule ligne d'invitation.
 
