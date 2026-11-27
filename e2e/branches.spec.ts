@@ -65,8 +65,24 @@ test.describe("dépôt propre", () => {
     // Pas de merge / rebase d'une branche sur elle-même.
     await expect(menu(page).getByRole("menuitem", { name: /^Merge de/ })).toHaveCount(0);
     await expect(menu(page).getByRole("menuitem", { name: "Push" })).toBeEnabled();
-    await page.keyboard.press("Escape");
+    // Au clavier : l'élément grisé reste atteignable, sa raison lue avec lui ; Début / Fin, une
+    // lettre va à l'élément qui commence par elle, Tab ferme le menu.
+    const del = menu(page).getByRole("menuitem", { name: "Supprimer main…" });
+    await expect(del).toHaveAttribute("aria-disabled", "true");
+    await expect(del).toHaveAttribute("aria-description", "Impossible de supprimer la branche courante.");
+    await page.keyboard.press("End");
+    await expect(menu(page).locator(":scope > button").last()).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(menu(page).locator(":scope > button").first()).toBeFocused();
+    await page.keyboard.press("s");
+    const initial = () => page.evaluate(() => document.activeElement?.querySelector(".menu-label")?.textContent?.[0]?.toLowerCase());
+    expect(await initial()).toBe("s");
+    await del.focus();
+    await page.keyboard.press("Enter");
+    await expect(menu(page)).toBeVisible();
+    await page.keyboard.press("Tab");
     await expect(menu(page)).toBeHidden();
+    await expect(branch(page, "main")).toBeFocused();
   });
 
   test("push : le compteur de commits à pousser disparaît", async ({ page }) => {
@@ -75,6 +91,14 @@ test.describe("dépôt propre", () => {
     await expect(page.getByRole("status").filter({ hasText: "main poussée." })).toBeVisible();
     await expect(tool(page, "Push").locator(".badge")).toHaveCount(0);
     await expect(page.locator(".statusbar").getByRole("button", { name: "0 commit à pousser" })).toHaveText("↑0");
+    // F6 va au message ; tant qu'il a le focus il reste, Échap le ferme.
+    const toast = page.locator(".toast", { hasText: "main poussée." });
+    await page.keyboard.press("F6");
+    await expect(toast.getByRole("button", { name: "Fermer" })).toBeFocused();
+    await page.waitForTimeout(4500);
+    await expect(toast).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(toast).toHaveCount(0);
   });
 
   test("barre d'état : date du dernier fetch", async ({ page }) => {

@@ -137,7 +137,7 @@ function upstreamSub(t: TFunction, path: string, r: GitRef, refs: RefsInfo | nul
     onClick: () => void ops.setUpstream(path, r.short, x.short),
   }));
   if (r.upstream && !candidates.some((x) => x.short === r.upstream)) {
-    items.push({ label: r.upstream, checked: true, onClick: () => {} });
+    items.push({ label: r.upstream, checked: true, disabled: true, title: t("menu.why.upstreamGone"), onClick: () => {} });
   }
   items.push(
     { label: t("menu.upstreamOther"), onClick: () => void ops.chooseUpstream(path, r.short) },

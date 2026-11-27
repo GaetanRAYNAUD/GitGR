@@ -40,8 +40,33 @@ test("Ctrl+E : sélecteur rapide, recherche floue puis Entrée revient à l'ongl
   await page.keyboard.press("Control+e");
   await picker.getByRole("combobox").fill("zzz");
   await expect(picker).toContainText("Aucun dépôt ne correspond.");
+  await expect(picker.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
+  // Tab reste dans la fenêtre ; sous elle, Ctrl+W ne ferme pas l'onglet.
+  await page.keyboard.press("Tab");
+  await expect(picker.getByRole("button", { name: /Ouvrir un dépôt/ })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(picker.getByRole("combobox")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(picker).toHaveCount(0);
+});
+
+test("fenêtre de saisie : un clic à côté garde le texte, la raison du bouton grisé, focus rendu", async ({ page }) => {
+  const toolbar = page.locator(".tools");
+  const open = toolbar.getByRole("button", { name: /^Branche/ });
+  await open.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });
+  const name = dialog.getByLabel("Nom de la branche");
+  await expect(name).toHaveClass(/mono/);
+  await name.fill("");
+  await expect(dialog.locator(".dialog-why")).toHaveText("Remplissez « Nom de la branche ».");
+  await name.fill("essai");
+  await page.mouse.click(5, 400);
+  await expect(dialog).toBeVisible();
+  await expect(name).toHaveValue("essai");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(open).toBeFocused();
 });
 
 test("auto-stash propre à un dépôt, choisi au clic droit sur son onglet", async ({ page }) => {

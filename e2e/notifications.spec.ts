@@ -48,9 +48,28 @@ test("cloche : badge, panneau par dépôt, ouverture de la MR dans GitGR, vu et 
   await bell(page).click();
   await panel(page).getByRole("button", { name: "Marquer comme lu sur GitLab" }).first().click();
   await expect(panel(page).locator(".notif-item")).toHaveCount(1);
-  await panel(page).getByRole("button", { name: "Tout marquer comme vu" }).click();
+  await panel(page).getByRole("button", { name: "Masquer les pastilles" }).click();
   await expect(bell(page)).toHaveAccessibleName("Notifications");
   await expect(page.locator(".notif-badge")).toHaveCount(0);
+});
+
+test("cloche au clavier : Ctrl+Maj+N, une tabulation pour la liste, Échap rend le focus", async ({ page }) => {
+  await seed(page);
+  await openNextRepo(page, "GitGR");
+  await page.keyboard.press("Control+Shift+N");
+  const items = panel(page).locator(".notif-main");
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(items.nth(1)).toBeFocused();
+  await expect(items.nth(0)).toHaveAttribute("tabindex", "-1");
+  await page.keyboard.press("Home");
+  await expect(items.first()).toBeFocused();
+  // Suppr : marquée comme lue sur le serveur.
+  await page.keyboard.press("Delete");
+  await expect(panel(page).locator(".notif-item")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  await expect(bell(page)).toBeFocused();
 });
 
 test("nouvelle notification : annoncée par le système ; réglages pour la couper", async ({ page }) => {

@@ -133,7 +133,9 @@
     "none": "No repository matches.",
     "open": "open tab",
     "current": "current tab",
-    "hint": "↑ ↓ to choose · Enter to open · Esc to close"
+    "hint": "↑ ↓ to choose · Enter to open · Esc to close",
+    "noOther": "No other recent repository.",
+    "openOther": "Open a repository… (Ctrl+O)"
   },
   "clone": {
     "title": "Clone a repository",
@@ -850,11 +852,14 @@
   },
   "gitMissing": {
     "title": "Git was not found",
-    "body": "GitGR relies on Git for every operation. Install it, or use the bundled version.",
+    "body": "GitGR relies on Git for every operation. Install it, then click Retry.",
     "download": "Download Git",
     "embedded": "Use bundled Git",
-    "linuxHint": "On Linux: install the “git” package with your package manager (e.g. sudo apt install git).",
-    "retry": "Retry"
+    "linuxHint": "On Linux: install the “git” package with your package manager, for example",
+    "retry": "Retry",
+    "checking": "Looking for Git…",
+    "stillMissing": "Git is still not found in the PATH. After installing it, you may need to reopen GitGR.",
+    "checkFailed": "Looking for Git failed. Try again."
   },
   "time": {
     "justNow": "just now",
@@ -970,7 +975,8 @@
       "noUpstream": "This branch does not track a remote branch.",
       "ffOnly": "Without checkout: only when a fast-forward is possible.",
       "current": "This is the current branch.",
-      "deleteCurrent": "The current branch cannot be deleted."
+      "deleteCurrent": "The current branch cannot be deleted.",
+      "upstreamGone": "This remote branch no longer exists (deleted, or not fetched yet)."
     },
     "cherryPickOnto": "Cherry-pick {{sha}} onto {{branch}}",
     "cherryPickOntoOther": "Cherry-pick {{sha}} onto {{branch}} (checkout {{branch}} first)",
@@ -1611,7 +1617,7 @@
     "button_one": "Notifications ({{count}} new)",
     "button_other": "Notifications ({{count}} new)",
     "refresh": "Refresh",
-    "allSeen": "Mark all as seen",
+    "allSeen": "Clear badges",
     "markRead": "Mark as read on {{provider}}",
     "allRead": "Mark all as read on {{provider}}",
     "empty": "Nothing new.",
@@ -1628,7 +1634,9 @@
       "author": "Activity on your request",
       "state": "State change",
       "other": "Activity"
-    }
+    },
+    "accountError": "{{account}}: {{message}}",
+    "keys": "↑ ↓ notification · Enter open · Delete mark as read"
   },
   "upstream": {
     "title": "Upstream of {{branch}}",
@@ -1677,6 +1685,11 @@
     "shiftEnter": "Shift+Enter",
     "escape": "Esc",
     "ctrlShift": "Ctrl+Shift+{{key}}",
-    "delete": "Delete"
+    "delete": "Delete",
+    "space": "Space"
+  },
+  "dialog": {
+    "fill": "Fill in “{{label}}”.",
+    "pickOne": "Tick at least one item."
   }
 }

@@ -303,6 +303,7 @@ export const useOps = create<OpsStore>((set, get) => {
         title: t("branch.newTitle"),
         subtitle: t("branch.newFrom", { start: startLabel }),
         label: t("branch.name"),
+        mono: true,
         initial: "",
         submit: t("branch.create"),
         checkbox: { label: t("branch.checkout"), checked: true },
@@ -325,6 +326,7 @@ export const useOps = create<OpsStore>((set, get) => {
         title: t("tag.newTitle"),
         subtitle: t("tag.newOn", { target: targetLabel }),
         label: t("tag.name"),
+        mono: true,
         initial: "",
         submit: t("tag.create"),
         second: { label: t("tag.message"), initial: "", placeholder: t("tag.messageHint"), optional: true },
@@ -375,6 +377,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const answer = await useDialogs.getState().input({
         title: t("branch.renameTitle", { branch }),
         label: t("branch.name"),
+        mono: true,
         initial: branch,
         submit: t("branch.rename"),
         validate: nameError,
@@ -477,6 +480,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const answer = await useDialogs.getState().input({
         title: t("upstream.title", { branch }),
         label: t("upstream.label"),
+        mono: true,
         initial: current,
         submit: t("upstream.submit"),
         validate: (v) => (remote.has(v) ? null : t("upstream.unknown")),
@@ -674,6 +678,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const answer = await useDialogs.getState().input({
         title: t("remotes.addTitle"),
         label: t("remotes.name"),
+        mono: true,
         // Le premier remote d'un dépôt s'appelle « origin » par convention.
         initial: taken.size === 0 ? "origin" : "",
         submit: t("remotes.add"),
@@ -707,6 +712,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const answer = await useDialogs.getState().input({
         title: t("remotes.renameTitle", { remote }),
         label: t("remotes.name"),
+        mono: true,
         initial: remote,
         submit: t("branch.rename"),
         validate: (v) => remoteNameError(v) ?? (v !== remote && taken.has(v) ? t("remotes.exists") : null),
@@ -725,6 +731,7 @@ export const useOps = create<OpsStore>((set, get) => {
       const answer = await useDialogs.getState().input({
         title: t("remotes.urlTitle", { remote }),
         label: t("remotes.url"),
+        mono: true,
         initial: current,
         submit: t("remotes.save"),
       });
@@ -837,6 +844,7 @@ export const useOps = create<OpsStore>((set, get) => {
         title: t("branch.newTitle"),
         subtitle: t("stashes.branchFrom", { name: label }),
         label: t("branch.name"),
+        mono: true,
         initial: "",
         submit: t("branch.create"),
         validate: (v) => nameError(v) ?? (existing.has(v) ? t("branch.exists") : null),

@@ -1031,10 +1031,10 @@ h2 {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--accent-fill);
   color: var(--accent-text);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 16px;
 }
@@ -3000,30 +3000,47 @@ h2 {
 /* Superpositions                                                      */
 /* ------------------------------------------------------------------ */
 
-.toast {
+/* Messages en bas de la fenêtre, empilés (erreur au-dessus). Sous le voile d'une fenêtre
+   ouverte : au-dessus, ils couvriraient ses boutons. */
+.toast-stack {
   position: fixed;
   left: 50%;
   bottom: 40px;
   transform: translateX(-50%);
   z-index: 30;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
   align-items: center;
   gap: 12px;
-  max-width: calc(100% - 32px);
+  max-width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--panel2);
+  background: var(--panel);
   box-shadow: var(--shadow);
+  pointer-events: auto;
 }
 
 .toast.error .ico {
   color: var(--del);
 }
 
-/* Une ligne par remote en échec (« Pousser vers tous les remotes »). */
+/* Une ligne par remote en échec (« Pousser vers tous les remotes ») ; un chemin long passe à
+   la ligne, un message très long défile. */
 .toast.error span {
   white-space: pre-line;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow: auto;
 }
 
 .overlay {
@@ -3057,6 +3074,8 @@ h2 {
 .dialog p {
   margin: 8px 0 0;
   color: var(--muted);
+  /* Nom de branche ou chemin long dans le texte : à la ligne, pas hors de la fenêtre. */
+  overflow-wrap: anywhere;
 }
 
 .dialog-icon {
@@ -3341,15 +3360,17 @@ body.resizing-y * {
   text-overflow: ellipsis;
 }
 
-.menu-item:hover:not(:disabled),
-.menu-item:focus-visible {
+/* Le survol déplace le focus : un seul élément mis en avant. */
+.menu-item:focus {
   background: var(--hover);
   outline: none;
 }
 
-.menu-item:disabled {
+/* Grisé mais atteignable aux flèches (sa raison est lue avec lui). */
+.menu-item[aria-disabled="true"] {
   color: var(--muted);
   opacity: 0.6;
+  cursor: default;
 }
 
 .menu-item.danger {
@@ -3362,8 +3383,17 @@ body.resizing-y * {
 
 .menu-label {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Raccourci de l'action, à droite. */
+.menu-key {
+  flex: none;
+  margin-left: 16px;
+  font-size: 11.5px;
+  color: var(--faint);
 }
 
 .menu-arrow {
@@ -3520,16 +3550,17 @@ body.resizing-y * {
 }
 
 /* Messages d'information */
-.toast.notice .ico {
+.toast.info .ico {
   color: var(--add);
 }
 
-.toast.notice.warn .ico {
+.toast.info.warn .ico {
   color: var(--mod);
 }
 
-.toast.notice span {
+.toast.info span {
   max-width: 560px;
+  overflow-wrap: anywhere;
 }
 
 /* Auto-stash pas encore réappliqué */
@@ -7020,8 +7051,8 @@ body.commit-dragging * {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -7030,7 +7061,13 @@ body.commit-dragging * {
   background: var(--sel);
 }
 
+/* Nom court en premier, chemin dans le reste : un alias long se coupe au lieu de déborder. */
 .quick-name {
+  flex: 0 1 auto;
+  max-width: 45%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
 }
 
@@ -7052,6 +7089,20 @@ body.commit-dragging * {
 .quick-hint {
   margin: 10px 4px 2px;
   font-size: 12px;
+}
+
+.quick-empty {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.quick-empty p {
+  margin: 0;
+}
+
+.notif-empty p {
+  margin: 0 0 6px;
 }
 
 .graph-find-set {

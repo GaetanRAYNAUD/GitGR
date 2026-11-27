@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { startNotifications } from "./store/notifications";
+import { useEffect, useState } from "react";
+import { startNotifications, useNotifications } from "./store/notifications";
 import { useTranslation } from "react-i18next";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BranchColorPopoverHost } from "./components/BranchColorPopover";
@@ -52,18 +52,29 @@ function typing(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
 }
 
+/** Fenêtre modale ouverte (confirmation, saisie, sélecteur rapide…) : les raccourcis qui
+ *  agissent derrière elle (onglets, annuler, graphe) attendent qu'elle soit fermée. Le panneau
+ *  des notifications, non modal, ne compte pas. */
+const modalOpen = () => !!document.querySelector('[aria-modal="true"]');
+
 /** Raccourcis globaux : Ctrl+Tab, Ctrl+W, Ctrl+T, Ctrl+O, Ctrl+1..9, F5,
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
  *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
- *  rapide de dépôts, Ctrl+G pour revenir au graphe. */
+ *  rapide de dépôts, Ctrl+G pour revenir au graphe, Ctrl+Maj+N pour les notifications, F6
+ *  pour aller au message affiché en bas (et à ses boutons). */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useApp.getState();
       const ctrl = e.ctrlKey || e.metaKey;
+      // Sous une fenêtre modale, rien ne change derrière elle (onglet, dépôt) : le sélecteur
+      // rapide seul répond encore à Ctrl+E (pour se fermer).
+      const modal = modalOpen() && !useQuickOpen.getState().open;
+      const tabKeys = ctrl && (e.key === "Tab" || e.key === "PageUp" || e.key === "PageDown" || /^[1-9wWtT]$/.test(e.key));
+      if (modal && (tabKeys || e.key === "F5")) return;
       // Changer d'onglet ferme le sélecteur rapide (ses repères « onglet actif » seraient faux).
-      if (ctrl && (e.key === "Tab" || e.key === "PageUp" || e.key === "PageDown" || /^[1-9wWtT]$/.test(e.key))) useQuickOpen.getState().hide();
+      if (tabKeys) useQuickOpen.getState().hide();
       if (ctrl && e.shiftKey && (e.key === "PageUp" || e.key === "PageDown")) {
         if (s.active) s.moveTab(s.active, s.tabs.indexOf(s.active) + (e.key === "PageUp" ? -1 : 1));
       } else if (ctrl && e.key === "Tab") {
@@ -73,11 +84,12 @@ function useShortcuts() {
       } else if (ctrl && e.key.toLowerCase() === "t") {
         s.activate(null);
       } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === "e") {
-        if (document.querySelector('[role="dialog"], [role="alertdialog"]') && !useQuickOpen.getState().open) return;
+        if (modal) return;
         const q = useQuickOpen.getState();
         if (q.open) q.hide();
         else q.show();
       } else if (ctrl && e.key.toLowerCase() === "o") {
+        if (modal) return;
         s.pickAndOpen(t("welcome.pickTitle"));
       } else if (ctrl && /^[1-9]$/.test(e.key)) {
         // Ctrl+9 : le dernier onglet, comme dans les navigateurs.
@@ -85,13 +97,25 @@ function useShortcuts() {
         if (path) s.activate(path);
       } else if (ctrl && !e.altKey && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
         // Pas dans un champ, ni sous une fenêtre (dialogue de saisie ou de confirmation).
-        if (!s.active || typing(e.target) || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        if (!s.active || typing(e.target) || modalOpen()) return;
         void useOps.getState().replay(s.active, e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo");
       } else if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "g") {
         // Revient au graphe (l'écran principal) depuis n'importe quel panneau.
         const graph = document.querySelector<HTMLElement>(".graph-scroll");
-        if (!graph || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        if (!graph || modalOpen()) return;
         graph.focus();
+      } else if (ctrl && e.shiftKey && !e.altKey && e.key.toLowerCase() === "n") {
+        if (modal) return;
+        const n = useNotifications.getState();
+        // Refermé depuis le panneau : le focus revient à la cloche.
+        const inPanel = !!document.activeElement?.closest(".notif-panel");
+        n.setPanel(!n.panelOpen);
+        if (inPanel) requestAnimationFrame(() => document.querySelector<HTMLElement>(".notif-wrap > button")?.focus());
+      } else if (e.key === "F6" && !ctrl && !e.altKey) {
+        // Le message affiché en bas (« Annuler » après une suppression…) : son premier bouton.
+        const toast = document.querySelector<HTMLElement>(".toast button");
+        if (!toast || modal) return;
+        toast.focus();
       } else if (e.key === "F5") {
         if (s.active) s.refreshRepo(s.active);
       } else {
@@ -180,20 +204,36 @@ function useNoBrowserMenu() {
   }, []);
 }
 
-/** Message d'information ; ceux qui ne sont pas `sticky` disparaissent seuls. */
+/** Message d'information ; ceux qui ne sont pas `sticky` disparaissent seuls, sauf tant que
+ *  la souris est dessus ou qu'un de ses boutons a le focus (le temps d'y aller : F6). */
 function Notice() {
   const { t } = useTranslation();
   const notice = useApp((s) => s.notice);
   const dismiss = useApp((s) => s.dismissNotice);
+  const [held, setHeld] = useState(false);
+  // Nouveau message : le précédent, retiré sous la souris ou avec le focus, ne le retient plus.
+  useEffect(() => setHeld(false), [notice?.id]);
   useEffect(() => {
-    if (!notice || notice.sticky) return;
+    if (!notice || notice.sticky || held) return;
     // Avec des boutons : le temps de les lire et d'y aller.
     const id = setTimeout(dismiss, notice.actions?.length ? 10000 : 4000);
     return () => clearTimeout(id);
-  }, [notice, dismiss]);
+  }, [notice, dismiss, held]);
   if (!notice) return null;
   return (
-    <div className={notice.sticky ? "toast notice warn" : "toast notice"} role="status">
+    <div
+      className={notice.sticky ? "toast info warn" : "toast info"}
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setHeld(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.nativeEvent.stopPropagation();
+          dismiss();
+        }
+      }}
+    >
       <Icon name={notice.sticky ? "alert" : "check"} />
       <span>{notice.text}</span>
       {notice.actions?.map((a) => (
@@ -263,16 +303,24 @@ export default function App() {
         {ready && (settingsOpen ? <SettingsPage /> : profilesOpen ? <ProfilesPage /> : active ? <RepoView key={active} path={active} /> : <Welcome />)}
       </main>
 
-      {!error && <Notice />}
-      {error && (
-        <div className="toast error" role="alert">
-          <Icon name="alert" />
-          <span>{errorMessage(t, error)}</span>
-          <button className="link" onClick={dismissError}>
-            {t("errors.dismiss")}
-          </button>
+      {/* Messages en bas, empilés (une erreur ne cache pas un « Annuler » en cours). La zone
+          reste dans la page : les lecteurs d'écran annoncent ce qui y apparaît. */}
+      <div className="toast-stack">
+        <div>
+          {error && (
+            <div className="toast error" role="alert">
+              <Icon name="alert" />
+              <span>{errorMessage(t, error)}</span>
+              <button className="link" onClick={dismissError}>
+                {t("errors.dismiss")}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+        <div role="status" aria-live="polite">
+          <Notice />
+        </div>
+      </div>
 
       <PullDialogHost />
       <PublishDialogHost />
