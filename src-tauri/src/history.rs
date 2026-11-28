@@ -810,6 +810,78 @@ pub(crate) fn parse_hunk_header(rest: &str) -> (u32, u32) {
     (old, new)
 }
 
+// ---------------------------------------------------------------------------
+// Aperçu d'un fichier binaire (images dans le diff)
+// ---------------------------------------------------------------------------
+
+/// Une version d'un fichier binaire : sa taille, et son contenu en data URL si c'est une image
+/// que la WebView sait afficher (et pas trop lourde).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlobPreview {
+    pub size: u64,
+    /// Type MIME d'image reconnu à l'extension ; `None` pour les autres binaires.
+    pub mime: Option<String>,
+    /// `data:<mime>;base64,…` ; `None` si ce n'est pas une image ou si elle dépasse la limite.
+    pub data: Option<String>,
+}
+
+/// Au-delà, l'image n'est pas envoyée à l'interface (seulement sa taille).
+const PREVIEW_LIMIT: u64 = 16 * 1024 * 1024;
+
+pub fn image_mime(file: &str) -> Option<&'static str> {
+    let ext = file.rsplit_once('.')?.1.to_ascii_lowercase();
+    Some(match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "avif" => "image/avif",
+        "svg" => "image/svg+xml",
+        _ => return None,
+    })
+}
+
+/// Version d'un fichier : `rev = None` la copie de travail, `Some("")` l'index, sinon un commit.
+/// `None` si le fichier n'existe pas dans cette version (ajouté ou supprimé).
+pub fn blob_preview(path: &Path, rev: Option<&str>, file: &str) -> Result<Option<BlobPreview>, String> {
+    check_dir(path)?;
+    crate::worktree::check_relative(file)?;
+    let mime = image_mime(file);
+    let (size, bytes) = match rev {
+        None => {
+            let full = path.join(file);
+            let meta = match std::fs::metadata(&full) {
+                Ok(m) if m.is_file() => m,
+                Ok(_) => return Ok(None),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(e) => return Err(e.to_string()),
+            };
+            let size = meta.len();
+            let bytes = if mime.is_some() && size <= PREVIEW_LIMIT { Some(std::fs::read(&full).map_err(|e| e.to_string())?) } else { None };
+            (size, bytes)
+        }
+        Some(rev) => {
+            if rev.starts_with('-') {
+                return Err("invalid_start_point".into());
+            }
+            let spec = format!("{rev}:{file}");
+            let Ok(size) = run(Some(path), &["cat-file", "-s", &spec]) else { return Ok(None) };
+            let size: u64 = size.trim().parse().map_err(|_| "unexpected size".to_string())?;
+            let bytes = if mime.is_some() && size <= PREVIEW_LIMIT { Some(crate::git::run_bytes(Some(path), &["cat-file", "blob", &spec])?) } else { None };
+            (size, bytes)
+        }
+    };
+    use base64::Engine;
+    let data = match (mime, bytes) {
+        (Some(m), Some(b)) => Some(format!("data:{m};base64,{}", base64::engine::general_purpose::STANDARD.encode(b))),
+        _ => None,
+    };
+    Ok(Some(BlobPreview { size, mime: mime.map(str::to_string), data }))
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -1011,6 +1083,29 @@ mod tests {
         // « \ No newline » marque la ligne d'avant, et elle seule.
         assert!(l[3].no_eol);
         assert!(!l[2].no_eol && !d.hunks[1].lines[1].no_eol);
+    }
+
+    #[test]
+    fn previews_binary_versions() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        std::fs::write(p.join("a.png"), [0x89u8, b'P', b'N', b'G', 0, 1]).unwrap();
+        run(Some(p), &["add", "a.png"]).unwrap();
+        run(Some(p), &["commit", "-qm", "img"]).unwrap();
+        std::fs::write(p.join("a.png"), [0x89u8, b'P', b'N', b'G', 0, 1, 2, 3]).unwrap();
+        let head = blob_preview(p, Some("HEAD"), "a.png").unwrap().unwrap();
+        assert_eq!(head.size, 6);
+        assert_eq!(head.data.as_deref(), Some("data:image/png;base64,iVBORwAB"));
+        assert_eq!(blob_preview(p, Some(""), "a.png").unwrap().unwrap().size, 6);
+        assert_eq!(blob_preview(p, None, "a.png").unwrap().unwrap().size, 8);
+        // Absent de cette version : rien (fichier ajouté ou supprimé).
+        assert_eq!(blob_preview(p, Some("HEAD"), "b.png").unwrap(), None);
+        assert_eq!(blob_preview(p, None, "b.png").unwrap(), None);
+        // Autre binaire : la taille seulement.
+        std::fs::write(p.join("x.bin"), [0u8, 1, 2]).unwrap();
+        let bin = blob_preview(p, None, "x.bin").unwrap().unwrap();
+        assert_eq!((bin.size, bin.mime, bin.data), (3, None, None));
+        assert!(blob_preview(p, None, "../x").is_err());
     }
 
     #[test]

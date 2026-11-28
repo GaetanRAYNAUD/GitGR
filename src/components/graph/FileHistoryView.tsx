@@ -21,6 +21,7 @@ import { useGraphFind } from "../../store/graphFind";
 import { fileViewGoBack, useBlameView, useFileHistoryView } from "../../store/range";
 import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
+import { commitSides } from "./BinaryPreview";
 import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { BackButton } from "./DiffView";
 import { DiffStats } from "./DiffStats";
@@ -322,6 +323,11 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
                 error={shownDiff?.error}
                 onRetry={() => setDiffReload((n) => n + 1)}
                 resetKey={diffKey}
+                binarySides={
+                  other && older && newer
+                    ? { path, old: { rev: older.commit.sha, file: older.change.path }, new: newer.change.status === "D" ? null : { rev: newer.commit.sha, file: newer.change.path } }
+                    : active && commitSides(path, { status: active.change.status, path: active.change.path, oldPath: active.change.oldPath ?? null }, active.commit.sha)
+                }
                 blame={
                   diffFile && diffFile.status !== "D"
                     ? { path, file: diffFile.path, rev: (other ? newer : active)!.commit.sha, beforeReveal: () => useFileHistoryView.getState().close(path) }
