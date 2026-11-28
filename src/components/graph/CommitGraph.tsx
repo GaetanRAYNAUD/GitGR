@@ -580,7 +580,7 @@ export function CommitGraph({ path, changes }: Props) {
   }, [commits, query, findSet]);
   const matchSet = useMemo(() => new Set(matches), [matches]);
   const bisect = useBisect((s) => s.states[path]);
-  const bisectSet = useMemo(() => (bisect?.candidates.length && !bisect.firstBad ? new Set(bisect.candidates) : null), [bisect]);
+  const bisectSet = useMemo(() => (bisect?.candidates.length && !bisect.firstBad ? new Set(bisect.possible.length ? bisect.possible : bisect.candidates) : null), [bisect]);
   /** Marque de bisect d'un commit : à tester, bon, mauvais, passé, premier mauvais. */
   const bisectMark = (sha: string): string | null => {
     if (!bisect) return null;

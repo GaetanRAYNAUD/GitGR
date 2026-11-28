@@ -319,6 +319,7 @@
     "pick": "Pick one or more authors."
   },
   "bisect": {
+    "ambiguous": "Bisect ended without certainty: only skipped commits are left. The first bad commit is one of: {{list}}.",
     "markBad": "Bisect: mark as bad",
     "markGood": "Bisect: mark as good",
     "markSkip": "Bisect: skip this commit",
@@ -1178,6 +1179,9 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "bisect_inconsistent": "Bisect impossible: a commit marked good is not older than the bad one (or their common ancestor is already bad).",
+    "bisect_not_started": "No bisect in progress: mark a commit bad or good first.",
+    "invalid_verdict": "Unknown bisect verdict.",
     "file_missing": "This file does not exist (or no longer exists) in the working copy.",
     "outside_repo": "This path is outside the repository.",
     "not_a_repo": "This folder is not a Git repository.",

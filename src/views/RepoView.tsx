@@ -49,11 +49,15 @@ function BisectBanner({ path }: { path: string }) {
   const ops = useOps.getState();
   const busy = running ? t("repo.busy") : undefined;
   const short = (sha: string | null) => sha?.slice(0, 7) ?? "";
+  // Fini : un premier mauvais commit, ou seulement des commits passés pour candidats.
+  const done = !!state.firstBad || state.possible.length > 0;
   const text = state.firstBad
     ? t("bisect.foundBanner", { sha: short(state.firstBad) })
-    : state.remaining === null
-      ? t(state.bad ? "bisect.needGood" : "bisect.needBad")
-      : t("bisect.testing", { sha: short(state.current), count: state.steps ?? 0 });
+    : state.possible.length
+      ? t("bisect.ambiguous", { list: state.possible.map(short).join(", ") })
+      : state.remaining === null
+        ? t(state.bad ? "bisect.needGood" : "bisect.needBad")
+        : t("bisect.testing", { sha: short(state.current), count: Math.max(1, state.steps ?? 1) });
   return (
     <div className="autostash-banner bisect-banner" role="status">
       <Icon name="search" size={16} />
@@ -63,7 +67,8 @@ function BisectBanner({ path }: { path: string }) {
           {t("bisect.show")}
         </button>
       ) : (
-        state.remaining !== null && (
+        state.remaining !== null &&
+        !done && (
           <>
             <button className="mini" disabled={running} title={busy} onClick={() => void ops.bisect(path, "good", null)}>
               {t("bisect.good")}
@@ -77,8 +82,8 @@ function BisectBanner({ path }: { path: string }) {
           </>
         )
       )}
-      <button className={state.firstBad ? "mini primary" : "mini"} disabled={running} title={busy ?? t("bisect.stopHint")} onClick={() => void ops.bisectReset(path)}>
-        {t(state.firstBad ? "bisect.finish" : "bisect.stop")}
+      <button className={done ? "mini primary" : "mini"} disabled={running} title={busy ?? t("bisect.stopHint")} onClick={() => void ops.bisectReset(path)}>
+        {t(done ? "bisect.finish" : "bisect.stop")}
       </button>
     </div>
   );

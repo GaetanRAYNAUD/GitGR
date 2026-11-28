@@ -296,7 +296,8 @@ export const useOps = create<OpsStore>((set, get) => {
       if (state.firstBad) {
         notify(t("bisect.found", { sha: state.firstBad.slice(0, 7) }), true);
         await useGraph.getState().reveal(path, state.firstBad);
-      } else await selectHead(path);
+      } else if (state.possible.length) notify(t("bisect.ambiguous", { list: state.possible.map((x) => x.slice(0, 7)).join(", ") }), true);
+      else await selectHead(path);
       return true;
     },
 

@@ -391,6 +391,8 @@ export interface BisectState {
   remaining: number | null;
   steps: number | null;
   firstBad: string | null;
+  /** Plus que des commits passés à tester : le premier mauvais est l'un de ceux-là. */
+  possible: string[];
   /** Plage encore en jeu (mauvais compris), du plus récent au plus ancien. */
   candidates: string[];
 }

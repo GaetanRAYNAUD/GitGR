@@ -28,6 +28,9 @@ pub struct BisectState {
     pub steps: Option<u32>,
     /// Trouvé : le premier mauvais commit.
     pub first_bad: Option<String>,
+    /// Plus rien à tester mais des commits passés restent : le premier mauvais est l'un d'eux
+    /// ou le mauvais connu (du plus récent au plus ancien).
+    pub possible: Vec<String>,
     /// Commits de la plage encore en jeu (mauvais compris), du plus récent au plus ancien.
     pub candidates: Vec<String>,
 }
@@ -78,9 +81,13 @@ pub fn state(path: &Path) -> Result<Option<BisectState>, String> {
         let a: Vec<&str> = args.iter().map(String::as_str).collect();
         let all: Vec<String> = run(Some(path), &a)?.lines().map(str::to_string).filter(|l| !l.is_empty()).collect();
         let open: Vec<&String> = all.iter().filter(|c| !s.skipped.contains(c)).collect();
-        // Plus rien que le mauvais lui-même (les commits passés mis à part) : trouvé.
+        // Plus rien que le mauvais lui-même : trouvé, ou ambigu s'il reste des commits passés.
         if open.len() == 1 && open[0] == bad {
-            s.first_bad = Some(bad.clone());
+            if all.len() == 1 {
+                s.first_bad = Some(bad.clone());
+            } else {
+                s.possible = all.clone();
+            }
         }
         let left = open.len().saturating_sub(1) as u32;
         s.remaining = Some(left);
@@ -101,7 +108,8 @@ pub fn mark(path: &Path, verdict: &str, sha: Option<&str>, auto_stash: bool) -> 
     if let Some(s) = sha {
         check_sha(s)?;
     }
-    if !in_progress(path) {
+    let started = !in_progress(path);
+    if started {
         if verb == "skip" {
             return Err("bisect_not_started".into());
         }
@@ -109,7 +117,13 @@ pub fn mark(path: &Path, verdict: &str, sha: Option<&str>, auto_stash: bool) -> 
     }
     let target = sha.unwrap_or("HEAD").to_string();
     let res = with_autostash(path, auto_stash, "bisect", || {
-        run(Some(path), &["bisect", verb, &target]).map(|_| OpResult::default()).map_err(|e| {
+        match run(Some(path), &["bisect", verb, &target]) {
+            // Plus que des commits passés : git s'arrête (en erreur), l'état le dit (`possible`).
+            Err(e) if e.contains("only 'skip'ped commits left") => return Ok(OpResult::default()),
+            other => other,
+        }
+        .map(|_| OpResult::default())
+        .map_err(|e| {
             // Un bon plus récent que le mauvais : git refuse de continuer.
             if e.contains("merge base") || e.contains("was both good and bad") || e.contains("Some good revs are not ancestors") {
                 "bisect_inconsistent".to_string()
@@ -117,7 +131,12 @@ pub fn mark(path: &Path, verdict: &str, sha: Option<&str>, auto_stash: bool) -> 
                 classify(&e)
             }
         })
-    })?;
+    });
+    // Première marque refusée : pas de bisect à moitié commencé.
+    if res.is_err() && started {
+        let _ = run(Some(path), &["bisect", "reset"]);
+    }
+    let res = res?;
     let st = state(path)?.unwrap_or_default();
     Ok((res, st))
 }
@@ -183,6 +202,33 @@ mod tests {
         reset(p, true).unwrap();
         assert_eq!(state(p).unwrap(), None);
         assert_eq!(run(Some(p), &["branch", "--show-current"]).unwrap(), "main");
+    }
+
+    #[test]
+    fn only_skipped_commits_left_is_ambiguous() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let mut shas = vec![];
+        for i in 0..3 {
+            commit_file(p, "a.txt", &format!("{i}\n"));
+            shas.push(head(p));
+        }
+        mark(p, "bad", Some(&shas[2]), true).unwrap();
+        let (_, st) = mark(p, "good", Some(&shas[0]), true).unwrap();
+        assert_eq!(st.current.as_deref(), Some(shas[1].as_str()));
+        let (_, st) = mark(p, "skip", None, true).unwrap();
+        assert_eq!(st.first_bad, None);
+        assert_eq!(st.possible, vec![shas[2].clone(), shas[1].clone()]);
+        reset(p, true).unwrap();
+    }
+
+    #[test]
+    fn a_refused_first_mark_leaves_no_bisect() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1");
+        assert!(mark(p, "bad", Some("0123456789abcdef0123456789abcdef01234567"), true).is_err());
+        assert!(!in_progress(p));
     }
 
     #[test]

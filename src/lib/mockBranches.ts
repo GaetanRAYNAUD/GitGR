@@ -560,7 +560,7 @@ const bisects = new Map<string, MockBisect>();
 
 function bisectView(path: string, b: MockBisect): BisectState {
   const commits = mockHistory(path).commits;
-  const base: BisectState = { bad: b.bad, good: b.good, skipped: b.skipped, current: mockHistory(path).refs.head, remaining: null, steps: null, firstBad: null, candidates: [] };
+  const base: BisectState = { bad: b.bad, good: b.good, skipped: b.skipped, current: mockHistory(path).refs.head, remaining: null, steps: null, firstBad: null, possible: [], candidates: [] };
   if (!b.bad || !b.good.length) return base;
   const reach = ancestors(path, b.bad);
   const out = new Set<string>();

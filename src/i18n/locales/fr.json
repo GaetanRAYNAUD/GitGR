@@ -319,6 +319,7 @@
     "pick": "Choisissez un ou plusieurs auteurs."
   },
   "bisect": {
+    "ambiguous": "Bisect terminé sans certitude : il ne reste que des commits passés. Le premier mauvais commit est l’un de : {{list}}.",
     "markBad": "Bisect : marquer comme mauvais",
     "markGood": "Bisect : marquer comme bon",
     "markSkip": "Bisect : passer ce commit",
@@ -1178,6 +1179,9 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "bisect_inconsistent": "Bisect impossible : un commit marqué bon n’est pas plus ancien que le mauvais (ou leur ancêtre commun est déjà mauvais).",
+    "bisect_not_started": "Aucun bisect en cours : marquez d’abord un commit mauvais ou bon.",
+    "invalid_verdict": "Verdict de bisect inconnu.",
     "file_missing": "Ce fichier n’existe pas (ou plus) dans la copie de travail.",
     "outside_repo": "Ce chemin sort du dépôt.",
     "not_a_repo": "Ce dossier n’est pas un dépôt Git.",
