@@ -474,3 +474,27 @@ test("blame avant un commit : la même ligne, dans la version d'avant", async ({
     await app.close();
   }
 });
+
+test("commits d'un fichier mis en avant dans le graphe, toutes branches", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "f.txt", "1\n", "f : un");
+  sandbox.commit(mine, "g.txt", "1\n", "g : un");
+  git(mine, "switch", "-q", "-c", "autre");
+  sandbox.commit(mine, "f.txt", "2\n", "f : sur autre");
+  git(mine, "switch", "-q", "main");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option", { name: /^f : un/ }).click();
+    await page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row", { hasText: "f.txt" }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Mettre en avant ses commits dans le graphe" }).click();
+    const found = graph.locator(".commit-row.found");
+    await expect(found).toHaveCount(2);
+    await expect(found.filter({ hasText: "f : sur autre" })).toHaveCount(1);
+    await expect(graph.locator(".commit-row.dim", { hasText: "g : un" })).toHaveCount(1);
+  } finally {
+    await app.close();
+  }
+});

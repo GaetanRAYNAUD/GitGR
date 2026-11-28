@@ -603,3 +603,15 @@ test("détails : signature du commit vérifiée, rien pour un commit non signé"
   await expect(panel(page).getByRole("heading", { name: "feat(graph): rendu canvas virtualisé" })).toBeVisible();
   await expect(panel(page).locator(".signature-line")).toHaveCount(0);
 });
+
+test("commits d'un fichier mis en avant dans le graphe, depuis son clic droit", async ({ page }) => {
+  await graph(page).getByRole("option").nth(1).click();
+  const file = panel(page).locator(".file-row").first();
+  const name = (await file.getAttribute("title"))!.split(" → ").pop()!.split("\n")[0];
+  await file.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Mettre en avant ses commits dans le graphe" }).click();
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  await expect(bar).toContainText(`Changements de « ${name} »`);
+  await expect(graph(page).locator(".commit-row.found").first()).toBeVisible();
+  await expect(graph(page).locator(".commit-row.dim").first()).toBeVisible();
+});

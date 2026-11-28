@@ -222,6 +222,22 @@ pub fn file_history(path: &Path, file: &str) -> Result<Vec<FileHistoryEntry>, St
     }
 }
 
+/// SHA des commits (toutes branches) qui touchent `file` (un fichier ou un dossier), pour les
+/// mettre en avant dans le graphe, au-delà des commits chargés.
+pub fn file_commits(path: &Path, file: &str) -> Result<Vec<String>, String> {
+    check_dir(path)?;
+    if file.is_empty() || file.starts_with('-') {
+        return Err("path_not_found".into());
+    }
+    let limit = format!("--max-count={}", 50_000);
+    let args = ["--literal-pathspecs", "log", "--exclude=refs/stash", "--exclude=refs/notes/*", "--all", "--format=%H", &limit, "--", file];
+    match run(Some(path), &args) {
+        Ok(out) => Ok(out.lines().map(str::to_string).filter(|l| !l.is_empty()).collect()),
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") => Ok(vec![]),
+        Err(e) => Err(e),
+    }
+}
+
 /// Sortie de `log -z --name-status` avec un `\x1e` en tête de chaque commit : l'en-tête
 /// (champs de `LOG_FORMAT`) jusqu'au premier `\0`, puis ses fichiers.
 fn parse_file_history(out: &str) -> Vec<FileHistoryEntry> {
@@ -1195,6 +1211,23 @@ mod tests {
         assert_eq!(got, want);
         assert_eq!(author_commits(p, &["al@x.fr".into()]).unwrap().len(), 1);
         assert!(author_commits(p, &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn commits_touching_a_file_on_every_branch() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        std::fs::create_dir(p.join("d")).unwrap();
+        crate::git::tests::commit_file(p, "d/a.txt", "1");
+        let first = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        crate::git::tests::commit_file(p, "b.txt", "1");
+        run(Some(p), &["switch", "-q", "-c", "autre"]).unwrap();
+        crate::git::tests::commit_file(p, "d/a.txt", "2");
+        let other = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        run(Some(p), &["switch", "-q", "main"]).unwrap();
+        assert_eq!(file_commits(p, "d/a.txt").unwrap(), [other.clone(), first.clone()]);
+        assert_eq!(file_commits(p, "d").unwrap(), [other, first]);
+        assert!(file_commits(p, "absent.txt").unwrap().is_empty());
     }
 
     #[test]

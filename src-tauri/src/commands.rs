@@ -499,6 +499,12 @@ pub async fn cherry_pick_to_branch(path: String, branch: String, shas: Vec<Strin
     branches::cherry_pick_to_branch(Path::new(&path), &branch, &shas)
 }
 
+/// Commits (toutes branches) qui touchent un fichier ou un dossier.
+#[tauri::command]
+pub async fn file_commits(path: String, file: String) -> Result<Vec<String>, String> {
+    history::file_commits(Path::new(&path), &file).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

@@ -595,6 +595,8 @@
     }
   },
   "graphFind": {
+    "fileMenu": "Highlight its commits in the graph",
+    "fileMenuHint": "Commits on every branch that change it; the others are dimmed",
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",
     "count_one": "{{count}} commit found",
