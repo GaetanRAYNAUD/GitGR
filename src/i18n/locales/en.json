@@ -621,6 +621,8 @@
     }
   },
   "ci": {
+    "workflow": "Workflow",
+    "allWorkflows": "All workflows",
     "label": "CI runs",
     "title": "CI runs (Actions, pipelines)",
     "forge": "Forge",
