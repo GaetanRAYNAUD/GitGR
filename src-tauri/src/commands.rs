@@ -475,6 +475,18 @@ pub async fn resolve_conflict_with(path: String, file: String, choice: String) -
     worktree::resolve_conflict_with(Path::new(&path), &file, &choice)
 }
 
+/// Commits de la branche courante après `base` (rebase interactif).
+#[tauri::command]
+pub async fn rebase_plan(path: String, base: Option<String>) -> Result<crate::rebase::RebasePlan, String> {
+    crate::rebase::plan(Path::new(&path), base.as_deref())
+}
+
+/// Rebase interactif : rejoue les commits après `base` selon les étapes.
+#[tauri::command]
+pub async fn interactive_rebase(path: String, base: Option<String>, steps: Vec<crate::rebase::Step>, auto_stash: bool) -> Result<OpResult, String> {
+    crate::rebase::run_rebase(Path::new(&path), base.as_deref(), &steps, auto_stash)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

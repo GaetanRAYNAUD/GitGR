@@ -530,6 +530,49 @@
       "release_prerelease_unsupported": "GitLab n’a pas de pré-version : la release est marquée comme les autres."
     }
   },
+  "rebase": {
+    "label": "Rebase interactif",
+    "title": "Rebase interactif de {{branch}} depuis {{base}}",
+    "list": "Commits à rejouer, du plus ancien au plus récent",
+    "keys": "↑ ↓ choisir · Alt+↑ ↓ ou glisser : déplacer · P garder · R renommer · S réunir · F réunir sans son message · D (Suppr) retirer · Entrée : écrire le message",
+    "actions": {
+      "pick": "Garder",
+      "reword": "Renommer",
+      "squash": "Réunir",
+      "fixup": "Réunir sans message",
+      "drop": "Retirer"
+    },
+    "actionHint": "Que faire de ce commit (P, R, S, F, D)",
+    "newMessage": "Nouveau message de « {{subject}} »",
+    "pushed": "poussé",
+    "pushedHint": "Déjà sur une branche distante : le réécrire demandera un push forcé.",
+    "count_one": "{{count}} commit",
+    "count_other": "{{count}} commits",
+    "moved_one": "{{count}} déplacé",
+    "moved_other": "{{count}} déplacés",
+    "reworded_one": "{{count}} renommé",
+    "reworded_other": "{{count}} renommés",
+    "squashed_one": "{{count}} réuni",
+    "squashed_other": "{{count}} réunis",
+    "dropped_one": "{{count}} retiré",
+    "dropped_other": "{{count}} retirés",
+    "pushedWarn": "Des commits déjà poussés seront réécrits.",
+    "start": "Lancer le rebase",
+    "done": "Rebase de {{branch}} terminé.",
+    "pushedTitle": "Réécrire des commits déjà poussés ?",
+    "pushedBody": "Ils ont déjà été partagés : il faudra un push forcé, et ceux qui les ont récupérés devront s’adapter.",
+    "pushedGo": "Réécrire quand même",
+    "fromHere": "Rebase interactif à partir d’ici…",
+    "fromHereHint": "Réordonner, renommer, réunir ou retirer les commits de {{branch}} depuis celui-ci (compris)",
+    "ontoMenu": "Rebase interactif de {{branch}} ici…",
+    "ontoHint": "Rejouer les commits de {{branch}} sur {{onto}}, en choisissant leur sort",
+    "why": {
+      "allDropped": "Tous les commits sont retirés.",
+      "squashFirst": "Le premier commit gardé ne peut pas être réuni à un précédent.",
+      "emptyMessage": "Un commit à renommer n’a pas de message.",
+      "nothing": "Rien n’a changé."
+    }
+  },
   "graphFind": {
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",
@@ -1371,6 +1414,13 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "invalid_action": "Action de rebase inconnue.",
+    "rebase_all_dropped": "Tous les commits sont retirés.",
+    "rebase_squash_first": "Le premier commit gardé ne peut pas être réuni à un précédent.",
+    "rebase_plan_changed": "La branche a changé : rouvrez le rebase interactif.",
+    "rebase_too_many": "Trop de commits (plus de 500) pour un rebase interactif.",
+    "rebase_nothing": "Aucun commit à réécrire.",
+    "rebase_merges": "La plage contient des merges : le rebase interactif les aplatirait.",
     "release_tag_missing": "Le tag n’est pas sur le dépôt distant : poussez-le d’abord.",
     "release_exists": "Une release existe déjà pour ce tag.",
     "not_conflicted": "Ce fichier n’est plus en conflit.",

@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Rebase interactif visuel : « Rebase interactif à partir d'ici… » au clic droit d'un commit (ou « Rebase interactif de main ici… » sur une autre branche) liste les commits à rejouer. On les réordonne par glisser-déposer ou Alt+↑ / Alt+↓, et pour chacun : garder, renommer (nouveau message saisi sur place), réunir au précédent, réunir sans son message ou retirer (touches P, R, S, F, D). GitGR prévient avant de réécrire des commits déjà poussés ; un conflit ouvre sa résolution.
 - Releases : « Créer la release… » au clic droit d'un tag crée la release GitHub ou GitLab avec le compte du remote. Les notes sont préparées à partir des commits depuis le tag précédent (regroupées en nouveautés, corrections… si les messages suivent les conventional commits) et restent modifiables ; brouillon et pré-version sur GitHub ; le tag est poussé d'abord.
 - Nouveau tag : le nom proposé est la version suivante du dernier tag numéroté (v0.3.1 → v0.3.2).
 - Conflits : un fichier binaire en conflit (une image : les deux versions côte à côte) ou supprimé d'un côté se règle dans GitGR, en gardant une version ou en supprimant le fichier, puis le conflit suivant s'ouvre. Un merge, un rebase ou un cherry-pick qui s'arrête sur des conflits ouvre tout de suite la résolution du premier fichier.

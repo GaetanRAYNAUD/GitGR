@@ -8,7 +8,7 @@ import type { RangeDirection, StashEntry } from "../lib/types";
 
 /** Ferme toutes les vues ouvertes à la place du graphe pour ce dépôt. */
 export function closeCenterViews(path: string) {
-  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView]) {
+  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView]) {
     view.getState().close(path);
   }
 }
@@ -170,6 +170,23 @@ export const useConflictView = create<ConflictViewState>((set) => ({
   show: (path, file) => {
     closeCenterViews(path);
     set((s) => ({ open: { ...s.open, [path]: file } }));
+  },
+  close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
+}));
+
+/** Rebase interactif ouvert à la place du graphe : commits après `base` (`null` : depuis le
+ *  premier commit), `label` pour le titre. */
+interface RebaseViewState {
+  open: Record<string, { base: string | null; label: string } | undefined>;
+  show(path: string, base: string | null, label: string): void;
+  close(path: string): void;
+}
+
+export const useRebaseView = create<RebaseViewState>((set) => ({
+  open: {},
+  show: (path, base, label) => {
+    closeCenterViews(path);
+    set((s) => ({ open: { ...s.open, [path]: { base, label } } }));
   },
   close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
 }));

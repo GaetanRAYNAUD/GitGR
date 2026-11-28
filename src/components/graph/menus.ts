@@ -11,7 +11,7 @@ import { useGraph } from "../../store/graph";
 import { changedCount, useWork } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
 import { usePullList } from "../../store/pullList";
-import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
+import { useBlameView, useConflictView, useFileHistoryView, useRebaseView } from "../../store/range";
 import { defaultRemote, useOps } from "../../store/ops";
 import { useBisect } from "../../store/bisect";
 import { useWorktrees } from "../../store/worktrees";
@@ -100,6 +100,11 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
       onClick: () =>
         void useWorktrees.getState().create(path, r.kind === "local" ? { branch: r.short } : { start: r.name, startLabel: r.short }),
     },
+    ...(isHead || !refs?.headBranch ? [] : [{
+      label: t("rebase.ontoMenu", { branch: head }),
+      title: t("rebase.ontoHint", { branch: head, onto: r.short }),
+      onClick: () => useRebaseView.getState().show(path, r.name, r.short),
+    }]),
     ...(isHead ? [] : [{
       label: t("menu.short.cherryPick", { branch: head }),
       disabled: noHead || r.target === refs?.head || merge,
@@ -540,6 +545,12 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
     { label: t("worktrees.newMenu"), title: t("worktrees.newHint"), onClick: () => void useWorktrees.getState().create(path, { start: sha, startLabel: sha.slice(0, 7) }) },
+    {
+      label: t("rebase.fromHere"),
+      title: refs?.headBranch ? t("rebase.fromHereHint", { branch: refs.headBranch }) : t("errors.detached_head"),
+      disabled: !refs?.headBranch,
+      onClick: () => openRebaseFrom(path, sha),
+    },
     { label: t("tag.newHere"), onClick: () => void ops.newTag(path, sha, sha.slice(0, 7)) },
     "sep",
     {
@@ -653,4 +664,12 @@ export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: s
     { label: t("menu.copyPath"), onClick: () => copy(file) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },
   ];
+}
+
+/** Rebase interactif depuis un commit (compris) : base = son parent, ou tout l'historique pour
+ *  le premier commit. */
+export function openRebaseFrom(path: string, sha: string) {
+  const c = useGraph.getState().graphs[path]?.commits.find((x) => x.sha === sha);
+  const parent = c?.parents[0] ?? null;
+  useRebaseView.getState().show(path, c ? parent : `${sha}^`, sha.slice(0, 7));
 }
