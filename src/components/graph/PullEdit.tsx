@@ -3,6 +3,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isTeam } from "../../lib/pulls";
 import type { Label, Person, PullDetail } from "../../lib/types";
 import { optionsKey, usePullOptions } from "../../store/pullOptions";
 import { detailEntry, usePullList, type PullContext } from "../../store/pullList";
@@ -40,7 +41,8 @@ export function PullEdit({ ctx, d, onDone, onDirty }: { ctx: PullContext; d: Pul
   /** Personnes connues : la liste du dépôt, plus celles déjà sur la PR / MR. */
   const people = useMemo(() => {
     const m = new Map<string, Person>();
-    for (const x of [...d.reviewers, ...d.assignees, ...(options?.people ?? [])]) if (!m.has(key(x))) m.set(key(x), x);
+    // Les équipes (`@org/équipe`) ne sont proposées qu'à la création.
+    for (const x of [...d.reviewers, ...d.assignees, ...(options?.people ?? [])]) if (!m.has(key(x)) && !isTeam(x.login)) m.set(key(x), x);
     return m;
   }, [d.reviewers, d.assignees, options]);
   const avatarCtx = { kind: ctx.kind, url: ctx.url, account: ctx.account };

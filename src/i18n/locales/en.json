@@ -1893,6 +1893,7 @@
     "custom": "Custom color…"
   },
   "pr": {
+    "team": "Team",
     "template": "Template",
     "templateNone": "None",
     "templateReplaceTitle": "Replace the description?",

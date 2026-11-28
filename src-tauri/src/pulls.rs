@@ -291,7 +291,7 @@ fn github_meta(api: &str, token: &str, repo: &str, number: u64, p: &NewPull) -> 
     if !p.assignees.is_empty() || !p.labels.is_empty() {
         let mut meta = json!({});
         if !p.assignees.is_empty() {
-            meta["assignees"] = logins(&p.assignees).into();
+            meta["assignees"] = logins(&p.assignees).into_iter().filter(|l| !is_team(l)).collect::<Vec<_>>().into();
         }
         if !p.labels.is_empty() {
             meta["labels"] = p.labels.clone().into();
@@ -301,12 +301,22 @@ fn github_meta(api: &str, token: &str, repo: &str, number: u64, p: &NewPull) -> 
         }
     }
     if !p.reviewers.is_empty() {
-        let body = json!({ "reviewers": logins(&p.reviewers) });
+        // Équipes (`@org/équipe`) à part : `team_reviewers`, par leur nom court.
+        let (teams, users): (Vec<&Person>, Vec<&Person>) = p.reviewers.iter().partition(|x| is_team(&x.login));
+        let mut body = json!({ "reviewers": users.iter().map(|x| x.login.clone()).collect::<Vec<_>>() });
+        if !teams.is_empty() {
+            body["team_reviewers"] = teams.iter().map(|x| x.login.rsplit('/').next().unwrap_or("").to_string()).collect::<Vec<_>>().into();
+        }
         if !ok(request(kind, api, &format!("{}/pulls/{number}/requested_reviewers", project(kind, repo)), token, Method::Post(&body))) {
             warnings.push("pull_reviewers_failed".into());
         }
     }
     warnings
+}
+
+/// Relecteur qui est une équipe GitHub (`@org/équipe`), pas une personne.
+pub(crate) fn is_team(login: &str) -> bool {
+    login.starts_with('@') && login.contains('/')
 }
 
 /// Identifiant numérique d'un projet GitLab.
@@ -451,6 +461,19 @@ pub fn fetch_options(kind: Kind, api: &str, repo: &str, token: &str) -> Result<P
     let mut seen = std::collections::HashSet::new();
     people.retain(|x| seen.insert(x.id));
     people.sort_by_key(|x| x.login.to_lowercase());
+    // GitHub : les équipes qui ont accès au dépôt, relectrices possibles (`@org/équipe`). Sans
+    // droit de les lister (403 / 404) : aucune, sans erreur.
+    if kind == Kind::GitHub {
+        let owner = repo.split('/').next().unwrap_or("");
+        if let Ok((teams, _)) = get_all(kind, api, &format!("{base}/teams"), token) {
+            let mut teams: Vec<Person> = teams
+                .iter()
+                .filter_map(|t| Some(Person { id: t["id"].as_u64()?, login: format!("@{owner}/{}", text(t, "slug")?), name: text(t, "name"), avatar: None }))
+                .collect();
+            teams.sort_by_key(|x| x.login.to_lowercase());
+            people.extend(teams);
+        }
+    }
     let mut labels: Vec<Label> = labels.iter().filter_map(parse_label).collect();
     labels.sort_by_key(|l| l.name.to_lowercase());
     Ok(PullOptions { people, labels, fetched_at: now(), from_owner: false, truncated: cut_people || cut_labels })
@@ -739,6 +762,29 @@ mod tests {
     }
 
     #[test]
+    fn github_teams_are_offered_and_requested_as_team_reviewers() {
+        let (url, requests) = serve(vec![
+            (200, r#"[{"id":7,"login":"camille"}]"#),
+            (200, "[]"),
+            (200, r#"[{"id":3,"slug":"devs","name":"Développeurs"}]"#),
+        ]);
+        let o = fetch_options(Kind::GitHub, &url, "org/r", "t").unwrap();
+        for _ in 0..2 {
+            requests.recv().unwrap();
+        }
+        assert!(requests.recv().unwrap().starts_with("GET /repos/org/r/teams?"));
+        assert_eq!(o.people.iter().map(|p| p.login.as_str()).collect::<Vec<_>>(), ["camille", "@org/devs"]);
+
+        let (url, requests) = serve(vec![(201, r#"{"number":4,"html_url":"h","title":"t"}"#), (201, "{}")]);
+        let mut p = new_pull("org/r", "org/r", false);
+        p.reviewers = vec![person(7, "max"), Person { id: 3, login: "@org/devs".into(), name: None, avatar: None }];
+        create(Kind::GitHub, &url, "t", &p).unwrap();
+        requests.recv().unwrap();
+        let r = requests.recv().unwrap();
+        assert!(r.contains(r#""reviewers":["max"]"#) && r.contains(r#""team_reviewers":["devs"]"#), "{r}");
+    }
+
+    #[test]
     fn named_templates_are_listed() {
         let repo = crate::git::tests::temp_repo();
         let p = repo.path();
@@ -777,7 +823,8 @@ mod tests {
             Label { name: "Docs".into(), color: Some("0075ca".into()), description: None },
         ]);
         assert!(!o.from_owner && !o.truncated && o.fetched_at > 0);
-        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 4);
+        // Plus une pour les équipes (404 ici : aucune).
+        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 5);
     }
 
     #[test]

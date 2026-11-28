@@ -29,6 +29,7 @@ import { optionsKey, ownerKey, usePullOptions, type OptionsContext } from "../st
 import { ComboField } from "./ComboField";
 import { Icon } from "./Icon";
 import { Picker } from "./Picker";
+import { isTeam } from "../lib/pulls";
 import { MultiPicker, type PickOption } from "./MultiPicker";
 import { PersonAvatar } from "./PersonAvatar";
 import { remoteMarkOf } from "./RemoteMark";
@@ -225,13 +226,15 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
       [...people.values()].map((x) => ({
         id: x.login.toLowerCase(),
         label: x.login,
-        detail: x.name && x.name !== x.login ? x.name : null,
-        icon: <PersonAvatar ctx={avatarCtx} person={x} size={18} />,
+        detail: isTeam(x.login) ? [t("pr.team"), x.name].filter(Boolean).join(" · ") : x.name && x.name !== x.login ? x.name : null,
+        icon: isTeam(x.login) ? <Icon name="user" size={16} /> : <PersonAvatar ctx={avatarCtx} person={x} size={18} />,
       })),
     // `avatarCtx` est rendu par `ctxKey`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [people, ctxKey],
   );
+  // Une équipe relit, mais ne s'assigne pas.
+  const assigneeOptions = useMemo(() => personOptions.filter((o) => !isTeam(o.id)), [personOptions]);
   const reviewerOptions = useMemo(() => (kind === "github" && me ? personOptions.filter((o) => o.id !== me.toLowerCase()) : personOptions), [personOptions, kind, me]);
   const labelOptions = useMemo(
     (): PickOption[] => (options?.labels ?? []).map((l) => ({ id: l.name, label: l.name, detail: l.description, color: l.color })),
@@ -519,7 +522,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
                 </div>
                 <MultiPicker label={t("pr.reviewers")} options={reviewerOptions} selected={reviewers} onChange={pick(setReviewers)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
                 <div className="pull-assign-field">
-                  <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
+                  <MultiPicker label={t("pr.assignees")} options={assigneeOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
                   {/* Seulement si le compte est dans la liste (GitLab a besoin de son identifiant). */}
                   {me && people.has(me.toLowerCase()) && !assignees.includes(me.toLowerCase()) && (
                     <button type="button" className="link pull-assign-me" disabled={!!busy} onClick={() => pick(setAssignees)([...assignees, me.toLowerCase()])}>

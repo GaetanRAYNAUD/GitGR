@@ -65,3 +65,6 @@ export function draftText(commits: DraftCommit[], branch: string, template: stri
 
 /** Numéro tel que le provider l'affiche : `#12` (GitHub), `!12` (GitLab). */
 export const pullRef = (kind: ProviderKind | null, n: number) => (kind === "gitlab" ? `!${n}` : `#${n}`);
+
+/** Relecteur qui est une équipe GitHub (`@org/équipe`), pas une personne. */
+export const isTeam = (login: string) => login.startsWith("@") && login.includes("/");
