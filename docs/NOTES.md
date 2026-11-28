@@ -247,6 +247,7 @@ Compléments et retours d'utilisation, par thème.
 - **Filtre du graphe par auteur** (étape 8) : `repo_authors` (toutes branches, regroupés par e-mail sans casse, nom le plus fréquent) et `author_commits` (`git log --all -F -i --author=<e-mail>`, 50 000 au plus) ; dans la barre de recherche du graphe, bouton Auteur et `MultiPicker` des auteurs (identité du dépôt en tête), « Commits de … » au clic droit d'un commit ; même mise en avant, estompage, compte « hors des commits chargés » et flèches que la recherche.
 - **Bisect visuel** (étape 8) : `bisect.rs` (état lu dans `refs/bisect/*` et `BISECT_START`, plage `rev-list bad --not good…`, étapes ≈ log2, premier mauvais quand il ne reste que lui ; `mark` commence le bisect au besoin, checkout par `with_autostash` ; `reset`), store `bisect`, actions `ops.bisect` / `bisectReset`, bandeau (Bon / Mauvais / Passer / Arrêter, Voir / Terminer), marques dans le message et l'étiquette lue, plage estompée dans le graphe, entrées au clic droit d'un commit.
 - **Worktrees** (étape 9) : `worktrees.rs` (`worktree list --porcelain`, dossier proposé `<dépôt>-<branche>` à côté du principal, `add` sur une branche / nouvelle branche / détaché, `remove` avec `worktree_dirty` puis force, `prune`), `branch_in_worktree` reconnu au checkout (action « Ouvrir le worktree dans un onglet »), store `worktrees`, section de la barre latérale (dès qu'il y en a un en plus), « Créer un worktree… » au clic droit d'une branche (grisé sur la courante) et d'un commit.
+- **Liste des raccourcis clavier** (étape 12) : table `lib/shortcuts.ts` (zone, combinaisons canoniques `Ctrl+Shift+K`, libellés traduits, noms des touches par langue), sous-page des réglages avec recherche (libellé ou touche, sans accents), F1 pour l'ouvrir ; test qui vérifie que chaque entrée a ses libellés FR / EN.
 
 ## Reste à faire
 
@@ -337,7 +338,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 12 — prise en main
 
 - [ ] **Tour guidé** : au premier lancement (et relançable depuis les réglages ou l'aide), une visite courte des zones de l'app : onglets et accueil, graphe, barre latérale, panneau des modifications et commit, barre d'outils (pull / push / fetch), profils et comptes. Bulles ancrées sur chaque zone, « Suivant » / « Passer », sans bloquer l'app ; FR / EN.
-- [ ] **Liste des raccourcis clavier** : une page (ou une section des réglages) qui liste tous les raccourcis, groupés par zone (onglets, graphe, modifications et commit, diff…), avec une recherche. Idéalement **modifiables** : clic sur un raccourci, nouvelle combinaison saisie, conflit signalé, « rétablir par défaut » (par raccourci et global) ; gardés dans les réglages. À prévoir : une table unique des raccourcis (action, combinaison par défaut, zone) dont se servent à la fois les écouteurs et la page, au lieu des combinaisons écrites en dur dans chaque composant ; les infobulles (« Accueil (Ctrl T) »…) lues dans cette table.
+- [ ] **Liste des raccourcis clavier** (la page est faite, cf. « Fait ») ; reste : raccourcis **modifiables** (nouvelle combinaison saisie, conflit signalé, « rétablir par défaut ») ; pour cela, que les écouteurs lisent la table `lib/shortcuts.ts` au lieu des combinaisons écrites en dur dans chaque composant, et les infobulles aussi.
 
 
 ### Étape 13 — revue de design (Impeccable)

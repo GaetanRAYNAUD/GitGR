@@ -11,6 +11,7 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 ## Ouvrir et cloner
 
 - **Accueil** (logo en haut à gauche) : vos dépôts récents, avec une recherche.
+- **Raccourcis clavier** : F1 en affiche la liste, avec une recherche.
 - **Ouvrir un dépôt** (Ctrl+O) : choisissez un dossier qui contient déjà un dépôt Git.
 - **Cloner** : collez une URL (https ou ssh), ou choisissez un dépôt dans la liste d'un compte GitHub / GitLab connecté. Les dépôts y sont rangés par propriétaire. GitGR propose le dossier de destination et le profil à utiliser, puis ouvre le dépôt dans un nouvel onglet.
 - **Onglets** : un dépôt par onglet. Ctrl+Tab passe d'un onglet à l'autre, Ctrl+1…9 va directement à un onglet, Ctrl+W ferme l'onglet. Double-cliquez sur un onglet pour le renommer ; un clic droit permet de lui donner une couleur.

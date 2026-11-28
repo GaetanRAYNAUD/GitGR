@@ -61,7 +61,7 @@ const modalOpen = () => !!document.querySelector('[aria-modal="true"]');
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
  *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
  *  rapide de dépôts, Ctrl+G pour revenir au graphe, Ctrl+Maj+N pour les notifications, F6
- *  pour aller au message affiché en bas (et à ses boutons). */
+ *  pour aller au message affiché en bas (et à ses boutons), F1 pour la liste des raccourcis. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -116,6 +116,12 @@ function useShortcuts() {
         const toast = document.querySelector<HTMLElement>(".toast button");
         if (!toast || modal) return;
         toast.focus();
+      } else if (e.key === "F1" && !ctrl && !e.altKey && !e.shiftKey) {
+        // Liste des raccourcis clavier (réglages).
+        if (modal) return;
+        useApp.setState({ settingsSection: "keys" });
+        if (s.settingsOpen) useApp.setState({ settingsOpen: false });
+        requestAnimationFrame(() => useApp.getState().openSettings());
       } else if (e.key === "F5") {
         if (s.active) s.refreshRepo(s.active);
       } else {

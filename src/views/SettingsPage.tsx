@@ -13,6 +13,7 @@ import type { LanguageSetting, PullStrategy, ThemeSetting } from "../lib/types";
 import { RELEASES_URL, releaseUrl, updateMode } from "../lib/updates";
 import { useApp } from "../store/app";
 import { useDialogs } from "../store/dialogs";
+import { ShortcutsList } from "../components/ShortcutsList";
 import { useUpdates } from "../store/updates";
 
 type IconName = Parameters<typeof Icon>[0]["name"];
@@ -23,6 +24,7 @@ const SECTIONS = [
   { id: "git", label: "settings.sectionGit", icon: "branch" },
   { id: "notif", label: "settings.sectionNotifications", icon: "bell" },
   { id: "graph", label: "settings.sectionGraph", icon: "commit" },
+  { id: "keys", label: "settings.sectionKeys", icon: "key" },
   { id: "about", label: "settings.sectionAbout", icon: "cloud" },
 ] as const satisfies readonly { id: string; label: string; icon: IconName }[];
 
@@ -174,6 +176,14 @@ export function SettingsPage() {
 
       <div className="st-main">
         <div className="st-form">
+          {active === "keys" && (
+            <section id="st-sec-keys" className="st-page" aria-labelledby="st-h-keys">
+              <h2 id="st-h-keys" className="st-page-title">
+                {t("settings.sectionKeys")}
+              </h2>
+              <ShortcutsList />
+            </section>
+          )}
           {active === "look" && (
           <section id="st-sec-look" className="st-page" aria-labelledby="st-h-look">
             <h2 id="st-h-look" className="st-page-title">

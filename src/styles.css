@@ -7889,3 +7889,54 @@ body.commit-dragging * {
   flex: 1;
   min-width: 0;
 }
+
+/* Liste des raccourcis clavier (réglages) : recherche, tableaux par zone, touches en <kbd>. */
+.shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shortcuts-search {
+  max-width: 360px;
+}
+
+.shortcuts-zone .eyebrow {
+  margin: 0 0 6px;
+}
+
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.shortcuts-table td {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.shortcuts-table td.shortcuts-keys {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 16px;
+}
+
+.kbd-combo {
+  display: inline-flex;
+  gap: 3px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--text);
+  font: 11px/16px "JetBrains Mono", ui-monospace, monospace;
+  text-align: center;
+}
