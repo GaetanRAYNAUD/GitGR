@@ -595,3 +595,11 @@ test("annoter un diff : marge de blame (Ctrl+Alt+B), clic = détails, B au clavi
   await page.getByRole("menu").getByRole("menuitem", { name: "Masquer les annotations" }).click();
   await expect(diff.locator(".ann")).toHaveCount(0);
 });
+
+test("détails : signature du commit vérifiée, rien pour un commit non signé", async ({ page }) => {
+  await graph(page).getByRole("option").first().click();
+  await expect(panel(page).locator(".signature-line")).toHaveText(/Signé \(SSH\), vérifié/);
+  await graph(page).getByRole("option").nth(1).click();
+  await expect(panel(page).getByRole("heading", { name: "feat(graph): rendu canvas virtualisé" })).toBeVisible();
+  await expect(panel(page).locator(".signature-line")).toHaveCount(0);
+});

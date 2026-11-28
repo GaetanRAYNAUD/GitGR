@@ -487,6 +487,12 @@ pub async fn interactive_rebase(path: String, base: Option<String>, onto: bool, 
     crate::rebase::run_rebase(Path::new(&path), base.as_deref(), onto, &steps, auto_stash)
 }
 
+/// Signature d'un commit (vérifiée par git).
+#[tauri::command]
+pub async fn commit_signature(path: String, sha: String) -> Result<crate::signing::CommitSignature, String> {
+    crate::signing::commit_signature(Path::new(&path), &sha)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

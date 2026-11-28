@@ -468,7 +468,9 @@ pub fn create_tag(path: &Path, name: &str, target: Option<&str>, message: Option
     match message.map(str::trim).filter(|m| !m.is_empty()) {
         // Message sur l'entrée standard : il peut contenir n'importe quoi, plusieurs lignes comprises.
         Some(m) => run_input(Some(path), &["tag", "-a", "-F", "-", "--", name, target], m),
-        None => run(Some(path), &["tag", "--", name, target]),
+        // Tag léger : sans objet à signer ; `tag.gpgSign` (signature du profil) en ferait un tag
+        // annoté et ouvrirait un éditeur.
+        None => run(Some(path), &["-c", "tag.gpgSign=false", "tag", "--", name, target]),
     }
     .map(|_| ())
     .map_err(|e| classify(&e))

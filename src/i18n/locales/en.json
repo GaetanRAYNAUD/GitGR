@@ -576,6 +576,24 @@
       "nothing": "Nothing changed."
     }
   },
+  "signature": {
+    "status": {
+      "good": "Signed ({{kind}}), verified",
+      "untrusted": "Signed ({{kind}}), untrusted key",
+      "bad": "Bad signature ({{kind}})",
+      "expired": "Signed ({{kind}}), signature or key expired",
+      "revoked": "Signed ({{kind}}), key revoked",
+      "unknown": "Signed ({{kind}}), can't be verified"
+    },
+    "hint": {
+      "good": "The signature matches a known key.",
+      "untrusted": "The signature is valid, but the key has no trust level in gpg.",
+      "bad": "The commit was changed after it was signed, or the signature is wrong.",
+      "expired": "The signature, or the key that made it, has expired.",
+      "revoked": "The key that signed has been revoked.",
+      "unknown": "Public key missing (GPG) or allowed signers not set up (SSH: gpg.ssh.allowedSignersFile)."
+    }
+  },
   "graphFind": {
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",

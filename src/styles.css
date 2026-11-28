@@ -8109,3 +8109,29 @@ kbd {
   color: var(--mod);
   font-size: 12px;
 }
+
+/* Signature d'un commit (détails) : discrète, verte si vérifiée, rouge si invalide. */
+.signature-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.signature-line.sig-good .ico,
+.signature-line.sig-untrusted .ico {
+  color: var(--add);
+}
+
+.signature-line.sig-bad,
+.signature-line.sig-revoked {
+  color: var(--del);
+}
+
+.signature-signer {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

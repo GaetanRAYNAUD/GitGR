@@ -87,6 +87,63 @@ pub fn is_transient_gpg_error(stderr: &str) -> bool {
             .any(|p| s.contains(p))
 }
 
+/// Signature d'un commit, vérifiée par git (`%G?`).
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitSignature {
+    /// `good` (valide), `untrusted` (valide, clé sans confiance), `bad`, `expired` (signature ou
+    /// clé expirée), `revoked`, `unknown` (impossible à vérifier : clé absente, signataires
+    /// autorisés non configurés), `none` (pas signé).
+    pub status: String,
+    /// `gpg` ou `ssh` (d'après la signature), `None` sans signature.
+    pub kind: Option<String>,
+    /// Signataire (`Nom <e-mail>` en GPG, principal en SSH) quand git le donne.
+    pub signer: Option<String>,
+    /// Clé (identifiant GPG ou empreinte SSH).
+    pub key: Option<String>,
+}
+
+/// `%G?` de git → état lisible.
+fn status_of(code: &str) -> &'static str {
+    match code.trim() {
+        "G" => "good",
+        "U" => "untrusted",
+        "B" => "bad",
+        "X" | "Y" => "expired",
+        "R" => "revoked",
+        "E" => "unknown",
+        _ => "none",
+    }
+}
+
+/// Signature du commit `sha` : lue dans l'objet (présente ou non, GPG ou SSH), puis vérifiée.
+pub fn commit_signature(path: &std::path::Path, sha: &str) -> Result<CommitSignature, String> {
+    crate::history::check_dir(path)?;
+    crate::history::check_sha(sha)?;
+    let raw = crate::git::run_raw(Some(path), &["cat-file", "commit", sha])?;
+    let header = raw.split("\n\n").next().unwrap_or("");
+    let kind = if header.contains("-----BEGIN SSH SIGNATURE-----") {
+        Some("ssh")
+    } else if header.contains("-----BEGIN PGP SIGNATURE-----") {
+        Some("gpg")
+    } else {
+        None
+    };
+    let Some(kind) = kind else {
+        return Ok(CommitSignature { status: "none".into(), kind: None, signer: None, key: None });
+    };
+    let out = crate::git::run(Some(path), &["log", "-1", "--format=%G?%x1f%GS%x1f%GK", sha, "--"]).unwrap_or_default();
+    let mut f = out.splitn(3, '\x1f');
+    let code = f.next().unwrap_or("");
+    let opt = |s: Option<&str>| s.map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    let status = match status_of(code) {
+        // Signé, mais git n'a rien pu en dire (gpg absent…) : impossible à vérifier.
+        "none" => "unknown",
+        s => s,
+    };
+    Ok(CommitSignature { status: status.into(), kind: Some(kind.into()), signer: opt(f.next()), key: opt(f.next()) })
+}
+
 /// Sortie de `gpg --list-secret-keys --with-colons` → clés (les sous-clés sont ignorées : git
 /// signe avec la clé principale ou la sous-clé de signature qu'elle désigne).
 fn parse_secret_keys(out: &str) -> Vec<GpgKey> {
@@ -332,6 +389,33 @@ pub(crate) mod tests {
         assert!(!raw_head(p).contains("SIGNATURE"));
         set_identity(p, None);
         stop_agent(home.path());
+    }
+
+    #[test]
+    fn reads_commit_signatures() {
+        let repo = temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "1");
+        let head = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        assert_eq!(super::commit_signature(p, &head).unwrap().status, "none");
+        // Signé en SSH : sans signataires autorisés configurés, git ne peut pas conclure.
+        let keys = tempfile::tempdir().unwrap();
+        let key = keys.path().join("sign_ed25519").to_string_lossy().to_string();
+        crate::profiles::generate_key(&key, "signe@exemple.fr", None).unwrap();
+        set_identity(p, identity(Signing::Ssh(key.clone())));
+        crate::git::tests::commit_file(p, "b.txt", "1");
+        let signed = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        let s = super::commit_signature(p, &signed).unwrap();
+        assert_eq!(s.kind.as_deref(), Some("ssh"));
+        assert_ne!(s.status, "none");
+        // Tags : annoté, signé comme les commits ; léger, sans signature ni éditeur.
+        crate::branches::create_tag(p, "v1", None, Some("version 1")).unwrap();
+        assert!(run(Some(p), &["cat-file", "tag", "v1"]).unwrap().contains("-----BEGIN SSH SIGNATURE-----"));
+        crate::branches::create_tag(p, "leger", None, None).unwrap();
+        assert_eq!(run(Some(p), &["cat-file", "-t", "leger"]).unwrap(), "commit");
+        set_identity(p, None);
+        assert_eq!(super::status_of("G"), "good");
+        assert_eq!(super::status_of("Y"), "expired");
     }
 
     #[test]

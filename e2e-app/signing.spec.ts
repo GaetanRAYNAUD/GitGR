@@ -104,6 +104,9 @@ test("signature SSH avec une clé protégée : phrase de passe fournie par GitGR
 
     await commitFromApp(page, sandbox, mine, "commit signé SSH");
     expect(git(mine, "cat-file", "commit", "HEAD")).toContain("-----BEGIN SSH SIGNATURE-----");
+    // Ses détails disent qu'il est signé (sans signataires autorisés : non vérifiable).
+    await page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { name: /^commit signé SSH/ }).click();
+    await expect(page.locator(".signature-line")).toContainText("Signé (SSH)");
   } finally {
     await app.close();
     try {
