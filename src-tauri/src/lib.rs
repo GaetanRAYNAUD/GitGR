@@ -25,6 +25,7 @@ mod ci;
 mod branches;
 mod clone;
 mod commands;
+mod editor;
 mod git;
 mod issues;
 mod history;
@@ -179,6 +180,7 @@ pub fn run() {
             commands::discard_files,
             commands::discard_all,
             commands::open_repo_file,
+            commands::open_in_editor,
             commands::add_to_gitignore,
             commands::untrack_file,
             commands::stash_all,

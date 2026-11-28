@@ -257,7 +257,13 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     const all = [...last.assignees, ...last.reviewers];
     setChosen((c) => Object.fromEntries([...Object.entries(c), ...all.map((x) => [x.login.toLowerCase(), x] as const)]));
     setAssignees(last.assignees.map((x) => x.login.toLowerCase()));
-    setReviewers(last.reviewers.map((x) => x.login.toLowerCase()).filter((id) => !(kind === "github" && id === me?.toLowerCase())));
+    // Une équipe n'a accès qu'à certains dépôts : reprise seulement si elle est proposée ici.
+    const teamsHere = new Set((options?.people ?? []).filter((x) => isTeam(x.login)).map((x) => x.login.toLowerCase()));
+    setReviewers(
+      last.reviewers
+        .map((x) => x.login.toLowerCase())
+        .filter((id) => !(kind === "github" && id === me?.toLowerCase()) && (!isTeam(id) || teamsHere.has(id))),
+    );
     setLabels(last.labels);
   };
   const age = options && !options.fromOwner ? relativeTime(options.fetchedAt * 1000) : null;

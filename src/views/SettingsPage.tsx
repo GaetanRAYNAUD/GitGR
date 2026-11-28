@@ -30,6 +30,52 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+/** Éditeur pour ouvrir les fichiers : une ligne de commande, enregistrée en quittant le champ
+ *  (ou Entrée) ; « Choisir… » prend un programme. */
+function EditorRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const save = (v: string) => v.trim() !== value.trim() && onChange(v);
+  return (
+    <Row id="st-editor" htmlFor="st-editor-input" title={t("settings.editor")} help={t("settings.editorHint")}>
+      <div className="st-editor">
+        <input
+          id="st-editor-input"
+          className="pf-input mono"
+          value={draft}
+          placeholder={t("settings.editorPlaceholder")}
+          spellCheck={false}
+          autoComplete="off"
+          aria-describedby="st-editor-help"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => save(draft)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save(draft);
+            if (e.key === "Escape" && draft !== value) {
+              e.stopPropagation();
+              setDraft(value);
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn sm"
+          onClick={async () => {
+            const file = await api.pickFile(t("settings.editorPick"));
+            if (!file) return;
+            const v = /\s/.test(file) ? `"${file}"` : file;
+            setDraft(v);
+            onChange(v);
+          }}
+        >
+          {t("settings.editorPick")}
+        </button>
+      </div>
+    </Row>
+  );
+}
+
 /** Section « À propos » : version installée, recherche et installation des mises à jour. */
 function AboutSection() {
   const { t } = useTranslation();
@@ -249,6 +295,7 @@ export function SettingsPage() {
               checked={settings.autoStash ?? true}
               onChange={(autoStash) => update({ autoStash })}
             />
+            <EditorRow value={settings.editor ?? ""} onChange={(editor) => update({ editor: editor.trim() || undefined })} />
           </section>
           )}
 

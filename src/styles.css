@@ -4183,6 +4183,18 @@ body.resizing-y * {
   transform: translateY(-50%);
 }
 
+/* Éditeur des fichiers : la commande prend la place, « Choisir… » à sa droite. */
+.st-editor {
+  display: flex;
+  gap: 8px;
+  width: min(420px, 100%);
+}
+
+.st-editor .pf-input {
+  flex: 1;
+  min-width: 0;
+}
+
 .st-row .input-error {
   font-size: 12px;
   color: var(--del);

@@ -43,6 +43,10 @@
     "restore": "Restaurer"
   },
   "settings": {
+    "editor": "Éditeur des fichiers",
+    "editorHint": "Commande qui ouvre un fichier du dépôt (« Ouvrir dans l’éditeur » au clic droit). {file} place le chemin, sinon il est ajouté à la fin. Vide : le programme associé du système.",
+    "editorPlaceholder": "code -r",
+    "editorPick": "Choisir…",
     "version": "GitGR {{version}}",
     "releaseNotes": "Notes de version",
     "title": "Réglages",
@@ -1399,6 +1403,7 @@
     "deleted": "Branche {{branch}} supprimée."
   },
   "menu": {
+    "openInEditor": "Ouvrir dans l’éditeur",
     "checkout": "Checkout",
     "checkoutBranch": "Checkout {{branch}}",
     "checkoutDetached": "Checkout de ce commit (HEAD détachée)",
@@ -1539,6 +1544,7 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "editor_not_found": "Éditeur introuvable : vérifiez la commande dans les réglages (Git, Éditeur des fichiers).",
     "issue_not_found": "Issue introuvable.",
     "issue_forbidden": "Le compte n’a pas le droit de faire cela sur cette issue.",
     "needs_checkout": "Impossible sans changer de branche.",

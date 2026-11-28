@@ -70,6 +70,9 @@ export interface Settings {
   branchColorsOff?: boolean;
   /** Avatars des auteurs masqués dans le graphe (nœuds, colonne Auteur, étiquettes). */
   graphAvatarsOff?: boolean;
+  /** Éditeur pour ouvrir les fichiers (ligne de commande, `{file}` pour placer le chemin) ;
+   *  vide : le programme associé du système. */
+  editor?: string;
   /** Dossier du dernier clone, proposé pour le suivant. */
   cloneDir?: string | null;
   /** Notifications des providers désactivées (aucune lecture). */

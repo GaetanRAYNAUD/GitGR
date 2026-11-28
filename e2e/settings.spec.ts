@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openNextRepo } from "./fixtures";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -213,4 +214,23 @@ test.describe("mises à jour", () => {
     await expect(settings.getByRole("button", { name: "Installer et redémarrer" })).toHaveCount(0);
     await expect(settings.getByRole("button", { name: "Nouveautés" })).toBeVisible();
   });
+});
+
+test("éditeur des fichiers : commande enregistrée, « Ouvrir dans l'éditeur » au clic droit d'un fichier", async ({ page }) => {
+  const settings = await openSettings(page, "Git");
+  const field = settings.getByLabel("Éditeur des fichiers");
+  await field.fill("code -r");
+  await field.press("Enter");
+  await page.getByRole("button", { name: /^Réglages$/ }).click();
+  await expect(settings).toHaveCount(0);
+
+  await openNextRepo(page, "GitGR");
+  await page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option").nth(1).click();
+  const file = page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row").first();
+  await file.click({ button: "right" });
+  const item = page.getByRole("menu").getByRole("menuitem", { name: "Ouvrir dans l’éditeur" });
+  await expect(item).toHaveAttribute("title", "code -r");
+  await item.click();
+  const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { how: string }[] }).__mockOpened);
+  expect(opened.map((o) => o.how)).toEqual(["editor:code -r"]);
 });

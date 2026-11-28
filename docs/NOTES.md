@@ -270,6 +270,7 @@ Compléments et retours d'utilisation, par thème.
 - **Signature GPG qui échoue au premier essai, opérations** (étape 5) : `run_signing` — merge, rebase (simple, interactif, squash), cherry-pick, revert et « Continuer » : si git s'arrête parce que gpg-agent n'était pas prêt, l'opération (restée en cours, sans conflit) est poursuivie par `--continue` deux fois au plus, une seconde d'écart.
 - **Nouveau tag : version suivante au choix** (étape 6) : sous le nom (patch proposé), « Correctif / Mineure / Majeure » d'un clic (`nextTagName(tags, level)`, `suggestions` des fenêtres de saisie).
 - **Copier le diff au clic droit, partout** (étape 8) : `fileMenu(…, { change, load })` — fichiers d'une plage (commit centré ou plage entière), d'un stash (non suivis compris), d'une PR / MR et des modifications en cours (non indexé / indexé, pas en conflit).
+- **Éditeur des fichiers** (étape 4) : réglage « Éditeur des fichiers » (page Git : ligne de commande, `{file}` pour placer le chemin, « Choisir… » un programme) ; « Ouvrir dans l'éditeur » en tête du clic droit d'un fichier (`editor.rs` : découpe avec guillemets, programme cherché avec `PATHEXT` sous Windows, sans console ; `editor_not_found`).
 
 ## Reste à faire
 
@@ -278,7 +279,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 4 — branches et réseau
 
 - [ ] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; reste : « Créer un worktree depuis » en sous-menu.
-- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
+- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (fait, cf. « Fait ») ; reste : ouvrir à la ligne (depuis le diff, le blame : `{line}` dans la commande).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
 
 ### Étape 5 — profils
@@ -388,7 +389,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Créer une release** (`ReleaseDialog`).
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
-- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`).
+- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git).
 
 Accueil et fenêtres :
 

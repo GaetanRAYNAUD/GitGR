@@ -683,7 +683,19 @@ export function fileMenu(
     : [];
   const run = (how: "open" | "reveal") => () =>
     void api.openRepoFile(repo, file, how).catch((e) => useApp.setState({ error: errorCode(e) }));
+  // Éditeur des réglages : en premier, le programme du système reste à côté.
+  const editor = useApp.getState().settings.editor?.trim();
+  const inEditor: MenuItem[] = editor
+    ? [
+        {
+          label: t("menu.openInEditor"),
+          title: editor,
+          onClick: () => void api.openInEditor(repo, file, editor).catch((e) => useApp.setState({ error: errorCode(e) })),
+        },
+      ]
+    : [];
   return [
+    ...inEditor,
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
     { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
