@@ -1503,7 +1503,9 @@
     "submitKeys": "Ctrl+Enter",
     "createdBy_pr": "Pull request created by",
     "createdBy_mr": "Merge request created by",
-    "createdByProfile": "on {{provider}}, account of profile {{profile}}"
+    "createdByProfile": "on {{provider}}, account of profile {{profile}}",
+    "useProfile": "Link {{remote}} to profile {{profile}} ({{login}})",
+    "useProfileHint": "This profile will also be used for pushes and pulls to {{remote}} (identity, SSH key)."
   },
   "prv": {
     "section_pr": "Pull requests",

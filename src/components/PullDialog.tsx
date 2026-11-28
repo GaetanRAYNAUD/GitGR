@@ -25,10 +25,21 @@ import { usePullDialog } from "../store/pulls";
 import { usePullList } from "../store/pullList";
 import { useApp } from "../store/app";
 import { optionsKey, ownerKey, usePullOptions, type OptionsContext } from "../store/pullOptions";
+import { ComboField } from "./ComboField";
 import { Icon } from "./Icon";
+import { Picker } from "./Picker";
 import { MultiPicker, type PickOption } from "./MultiPicker";
 import { PersonAvatar } from "./PersonAvatar";
 import { remoteMarkOf } from "./RemoteMark";
+
+/** Hôte d'une URL d'instance (`https://gitlab.exemple.fr` → `gitlab.exemple.fr`). */
+const urlHost = (url: string) => {
+  try {
+    return new URL(url).host.toLowerCase();
+  } catch {
+    return "";
+  }
+};
 
 /** « pr » (GitHub) ou « mr » (GitLab) : suffixe des libellés. */
 export const pullTerm = (kind: ProviderKind | null) => (kind === "gitlab" ? "mr" : "pr");
@@ -106,6 +117,15 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     [remotes, profiles, binding],
   );
   const tgt = side(targetRemote);
+  /** Pas de compte pour le remote cible, mais un autre profil en a un sur cette forge : de quoi
+   *  l'associer au remote d'un clic (au lieu d'aller dans les profils). */
+  const otherAccounts = useMemo(
+    () =>
+      tgt && !tgt.account
+        ? linkedAccounts(profiles).filter((l) => l.account.kind === tgt.provider && urlHost(l.account.url) === tgt.host.toLowerCase())
+        : [],
+    [profiles, tgt],
+  );
   /** Compte (et son profil) qui crée la PR / MR sur la forge. */
   const creator = useMemo(() => (tgt?.account ? (linkedAccounts(profiles).find((l) => l.account.id === tgt.account) ?? null) : null), [profiles, tgt?.account]);
   const src = side(source?.remote ?? null);
@@ -331,6 +351,17 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         {blocker && (
           <div className="pull-blocker" role="status">
             <p>{blocker}</p>
+            {otherAccounts.map((l) => (
+              <button
+                key={l.account.id}
+                type="button"
+                className="btn sm"
+                title={t("pr.useProfileHint", { remote: targetRemote })}
+                onClick={() => void useProfiles.getState().setRemoteProfile(path, targetRemote, l.profile.id)}
+              >
+                {t("pr.useProfile", { remote: targetRemote, profile: l.profile.name, login: l.account.login })}
+              </button>
+            ))}
             {tgt && !tgt.account && (
               <button
                 type="button"
@@ -382,46 +413,40 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
           </div>
           <div className="dialog-col">
             <div className="pf-row pull-target">
+              {/* Choix maison (thèmes de l'app) plutôt que <select> / <datalist> du système. */}
               {remotes.length > 1 && (
-                <label className="input-field pull-remote">
+                <div className="input-field pull-remote">
                   <span>{t("pr.remote")}</span>
-                  <select
-                    className="pf-input"
-                    value={targetRemote}
+                  <Picker
+                    label={t("pr.remote")}
                     disabled={!!busy}
-                    onChange={(e) => {
-                      setTargetRemote(e.target.value);
-                      setBranchTouched(false);
-                    }}
+                    items={() =>
+                      remotes.map((r) => ({
+                        label: r.name,
+                        checked: r.name === targetRemote,
+                        onClick: () => {
+                          setTargetRemote(r.name);
+                          setBranchTouched(false);
+                        },
+                      }))
+                    }
                   >
-                    {remotes.map((r) => (
-                      <option key={r.name} value={r.name}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <span className="picker-text mono">{targetRemote}</span>
+                  </Picker>
+                </div>
               )}
-              <label className="input-field pull-branch">
-                <span>{t("pr.target")}</span>
-                <input
-                  className="pf-input mono"
-                  list="pull-branches"
-                  value={targetBranch}
-                  disabled={!!busy}
-                  onChange={(e) => {
-                    setTargetBranch(e.target.value);
-                    setBranchTouched(true);
-                  }}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-                <datalist id="pull-branches">
-                  {branches.map((b) => (
-                    <option key={b} value={b} />
-                  ))}
-                </datalist>
-              </label>
+              <ComboField
+                className="pull-branch"
+                label={t("pr.target")}
+                value={targetBranch}
+                options={branches}
+                disabled={!!busy}
+                mono
+                onChange={(v) => {
+                  setTargetBranch(v);
+                  setBranchTouched(true);
+                }}
+              />
             </div>
             {creator && (
               <p className="account-hint dialog-as">
