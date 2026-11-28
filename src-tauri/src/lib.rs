@@ -26,6 +26,7 @@ mod branches;
 mod clone;
 mod commands;
 mod git;
+mod issues;
 mod history;
 mod profiles;
 mod notifications;
@@ -132,6 +133,10 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::list_issues,
+            commands::issue_detail,
+            commands::issue_action,
+            commands::issue_branch_name,
             commands::ci_runs,
             commands::ci_retry,
             commands::file_commits,

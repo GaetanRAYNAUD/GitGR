@@ -1097,6 +1097,33 @@ pub async fn ci_retry(kind: String, url: String, account: Option<String>, repo: 
     blocking(move || crate::ci::retry(k, &api, &token, &repo, id)).await
 }
 
+/// Issues ouvertes du dépôt (`assignee` : seulement celles de ce login).
+#[tauri::command]
+pub async fn list_issues(kind: String, url: String, account: Option<String>, repo: String, assignee: Option<String>, store: StoreState<'_>) -> Result<Vec<crate::issues::IssueSummary>, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::issues::list(k, &api, &token, &repo, assignee.as_deref())).await
+}
+
+/// Une issue, avec ses commentaires.
+#[tauri::command]
+pub async fn issue_detail(kind: String, url: String, account: Option<String>, repo: String, number: u64, store: StoreState<'_>) -> Result<crate::issues::IssueDetail, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::issues::detail(k, &api, &token, &repo, number)).await
+}
+
+/// Commenter, fermer, rouvrir, s'assigner.
+#[tauri::command]
+pub async fn issue_action(kind: String, url: String, account: Option<String>, repo: String, number: u64, action: crate::issues::IssueAction, store: StoreState<'_>) -> Result<(), String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::issues::act(k, &api, &token, &repo, number, &action)).await
+}
+
+/// Nom de branche proposé pour une issue.
+#[tauri::command]
+pub fn issue_branch_name(number: u64, title: String, prefix: String) -> String {
+    crate::issues::branch_name(number, &title, &prefix)
+}
+
 /// Branche par défaut du dépôt `repo` (`propriétaire/nom`) sur l'instance `url`.
 #[tauri::command]
 pub async fn remote_default_branch(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<String, String> {

@@ -124,6 +124,9 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  IssueSummary,
+  IssueDetail,
+  IssueAction,
   CiRun,
   CommitSignature,
   RebasePlan,
@@ -366,6 +369,12 @@ export interface Api {
   remoteDefaultBranch(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<string>;
   /** Crée la PR / MR, ou renvoie celle qui existe déjà pour ces branches (`existing`). */
   createPull(kind: ProviderKind, url: string, account: string | null, request: NewPull): Promise<Pull>;
+  /** Issues ouvertes (`assignee` : seulement celles de ce login). */
+  listIssues(kind: ProviderKind, url: string, account: string | null, repo: string, assignee: string | null): Promise<IssueSummary[]>;
+  issueDetail(kind: ProviderKind, url: string, account: string | null, repo: string, number: number): Promise<IssueDetail>;
+  issueAction(kind: ProviderKind, url: string, account: string | null, repo: string, number: number, action: IssueAction): Promise<void>;
+  /** Nom de branche proposé pour une issue (`12-titre-court`, préfixe éventuel). */
+  issueBranchName(number: number, title: string, prefix: string): Promise<string>;
   /** Dernières exécutions de CI du dépôt (`branch` : seulement celle-là). */
   ciRuns(kind: ProviderKind, url: string, account: string | null, repo: string, branch: string | null): Promise<CiRun[]>;
   /** Relance les jobs en échec d'une exécution. */
@@ -450,6 +459,12 @@ export interface Api {
 const mockLastFetch = new Map<string, number>();
 /** Releases créées par le backend simulé (lues par les tests e2e). */
 const mockReleases: (NewRelease & { kind: ProviderKind })[] = [];
+
+/** Issues du backend simulé (modifiées par les actions). */
+const mockIssues: IssueDetail[] = [
+  { number: 12, title: "Le graphe saute au rechargement", state: "open", author: { id: 8, login: "max", name: "Max", avatar: null }, assignees: [{ id: 7, login: "camille", name: "Camille", avatar: null }], labels: [{ name: "bug", color: "d73a4a", description: null }], comments: 1, url: "https://gitlab.exemple.fr/demo/gitgr/-/issues/12", updated: 1764300000, body: "Après un **fetch**, la sélection revient en haut.", created: 1764200000, milestone: "v0.4", commentsList: [{ id: "1", author: { id: 8, login: "max", name: "Max", avatar: null }, body: "Vu sous Windows.", at: 1764250000 }] },
+  { number: 9, title: "Thème sombre : contraste des étiquettes", state: "open", author: { id: 7, login: "camille", name: "Camille", avatar: null }, assignees: [], labels: [], comments: 0, url: "https://gitlab.exemple.fr/demo/gitgr/-/issues/9", updated: 1764100000, body: "", created: 1764000000, milestone: null, commentsList: [] },
+];
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -606,6 +621,10 @@ const tauriApi: Api = {
   pullDraft: (path, source, target, kind) => invoke("pull_draft", { path, source, target, kind }),
   remoteDefaultBranch: (kind, url, repo, account) => invoke("remote_default_branch", { kind, url, repo, account }),
   createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
+  listIssues: (kind, url, account, repo, assignee) => invoke("list_issues", { kind, url, account, repo, assignee }),
+  issueDetail: (kind, url, account, repo, number) => invoke("issue_detail", { kind, url, account, repo, number }),
+  issueAction: (kind, url, account, repo, number, action) => invoke("issue_action", { kind, url, account, repo, number, action }),
+  issueBranchName: (number, title, prefix) => invoke("issue_branch_name", { number, title, prefix }),
   ciRuns: (kind, url, account, repo, branch) => invoke("ci_runs", { kind, url, account, repo, branch }),
   ciRetry: (kind, url, account, repo, id) => invoke("ci_retry", { kind, url, account, repo, id }),
   releaseDraft: (path, tag) => invoke("release_draft", { path, tag }),
@@ -1441,6 +1460,32 @@ const mockApi: Api = {
   },
   async ciRetry() {
     await mockDelay();
+  },
+  async listIssues(_kind, _url, account, _repo, assignee) {
+    await mockDelay();
+    if (!account) throw "account_missing";
+    return mockIssues.filter((i) => i.state === "open" && (!assignee || i.assignees.some((a) => a.login === assignee)));
+  },
+  async issueDetail(_kind, _url, _account, _repo, number) {
+    await mockDelay();
+    const i = mockIssues.find((x) => x.number === number);
+    if (!i) throw "issue_not_found";
+    return i;
+  },
+  async issueAction(_kind, _url, _account, _repo, number, action) {
+    await mockDelay();
+    const i = mockIssues.find((x) => x.number === number);
+    if (!i) throw "issue_not_found";
+    if (action.type === "comment") {
+      i.commentsList = [...i.commentsList, { id: String(i.commentsList.length + 1), author: { id: 7, login: "camille", name: "Camille", avatar: null }, body: action.body, at: Math.floor(Date.now() / 1000) }];
+      i.comments = i.commentsList.length;
+    } else if (action.type === "close") i.state = "closed";
+    else if (action.type === "reopen") i.state = "open";
+    else i.assignees = [...i.assignees, { id: action.id, login: action.login, name: null, avatar: null }];
+  },
+  async issueBranchName(number, title, prefix) {
+    const slug = title.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).slice(0, 6).join("-");
+    return `${prefix}${slug ? `${number}-${slug}` : number}`;
   },
   async createPull(kind, url, account, request) {
     if (!account) throw "account_missing";

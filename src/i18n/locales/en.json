@@ -643,6 +643,42 @@
       "trigger": "trigger"
     }
   },
+  "issues": {
+    "section": "Issues",
+    "refresh": "Reload issues",
+    "filter": "Issue filter",
+    "filters": {
+      "all": "Open",
+      "mine": "Mine"
+    },
+    "loading": "Reading issues…",
+    "empty": {
+      "all": "No open issue.",
+      "mine": "No open issue is assigned to you."
+    },
+    "comments_one": "{{count}} comment",
+    "comments_other": "{{count}} comments",
+    "view": "View issue",
+    "openForge": "Open on the forge",
+    "label": "Issue #{{number}}",
+    "state": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "openedBy": "Opened by {{name}}, {{when}}",
+    "milestone": "Milestone: {{name}}",
+    "assignedTo": "Assigned to {{names}}",
+    "unassigned": "Nobody assigned",
+    "assignMe": "Assign me",
+    "branch": "Create a branch…",
+    "close": "Close issue",
+    "reopen": "Reopen issue",
+    "noBody": "No description.",
+    "commentsLabel_one": "{{count}} comment",
+    "commentsLabel_other": "{{count}} comments",
+    "comment": "Comment",
+    "commentPlaceholder": "Your comment (Markdown) — Ctrl+Enter to send"
+  },
   "graphFind": {
     "fileMenu": "Highlight its commits in the graph",
     "fileMenuHint": "Commits on every branch that change it; the others are dimmed",
@@ -1492,6 +1528,8 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "issue_not_found": "Issue not found.",
+    "issue_forbidden": "The account is not allowed to do that on this issue.",
     "needs_checkout": "Not possible without switching branch.",
     "rebase_not_ancestor": "This commit is not on the current branch: “from here” only applies to its commits.",
     "invalid_action": "Unknown rebase action.",

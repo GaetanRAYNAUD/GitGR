@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Issues GitHub / GitLab : une section Issues de la barre latérale liste les issues ouvertes (toutes, ou les vôtres) avec le compte du remote, et ne lit rien quand elle est masquée. Une issue s'ouvre à la place du graphe : description et commentaires, commenter (Ctrl+Entrée), fermer ou rouvrir, vous l'assigner, et « Créer une branche… » avec un nom proposé (12-titre-court).
 - Exécutions de CI : un écran liste toutes les exécutions GitHub Actions ou les pipelines GitLab du dépôt (pas seulement ceux des PR / MR), filtrés par branche et par état, relus tant qu'une exécution tourne. Entrée ouvre sur la forge, Maj+Entrée montre le commit dans le graphe, et les jobs en échec se relancent au clic droit. Ouvert depuis la palette (Ctrl+P) ou « Voir ses exécutions de CI » au clic droit d'une branche.
 - Glisser-déposer des branches distantes : une distante déposée sur une branche locale propose de la fusionner dedans ou de rebaser la locale dessus ; une locale déposée sur une distante propose le rebase, et la PR / MR vers elle pour la branche courante.
 - Diff très long (plus de 5 000 lignes) : il n'est plus affiché d'office, ce qui figeait la fenêtre ; « Afficher quand même » le montre.
