@@ -380,6 +380,20 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Une exécution de CI (src-tauri/src/ci.rs). */
+export interface CiRun {
+  id: number;
+  name: string;
+  title: string | null;
+  state: "success" | "failure" | "running" | "pending" | "canceled" | "skipped" | "manual" | "neutral";
+  branch: string | null;
+  sha: string;
+  event: string | null;
+  url: string | null;
+  created: number;
+  updated: number;
+}
+
 /** Signature d'un commit, vérifiée par git (src-tauri/src/signing.rs). */
 export interface CommitSignature {
   status: "good" | "untrusted" | "bad" | "expired" | "revoked" | "unknown" | "none";

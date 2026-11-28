@@ -594,6 +594,55 @@
       "unknown": "Public key missing (GPG) or allowed signers not set up (SSH: gpg.ssh.allowedSignersFile)."
     }
   },
+  "ci": {
+    "label": "CI runs",
+    "title": "CI runs (Actions, pipelines)",
+    "forge": "Forge",
+    "branch": "Branch",
+    "allBranches": "All branches",
+    "stateFilter": "State",
+    "filter": {
+      "all": "All",
+      "failure": "Failed",
+      "running": "Running"
+    },
+    "refresh": "Reload",
+    "keys": "↑ ↓ choose · Enter: open on the forge · Shift+Enter: the commit in the graph · Shift+F10: actions",
+    "noForge": "No GitHub or GitLab remote known for this repository.",
+    "noAccount": "No account for {{remote}}: connect one in the profiles.",
+    "empty": "No run.",
+    "emptyFilter": "No run in this state.",
+    "list": "Runs, most recent first",
+    "pipeline": "Pipeline #{{id}}",
+    "open": "Open on the forge",
+    "showCommit": "Show the commit in the graph",
+    "retry": "Re-run failed jobs",
+    "retryWhy": "Nothing to re-run: the run did not fail.",
+    "retried": "{{name}}: failed jobs re-run.",
+    "notInGraph": "This commit is not in the history of the local branches.",
+    "branchMenu": "Show its CI runs",
+    "branchMenuHint": "GitHub Actions or GitLab pipelines of this branch",
+    "state": {
+      "success": "Passed",
+      "failure": "Failed",
+      "running": "Running",
+      "pending": "Pending",
+      "canceled": "Canceled",
+      "skipped": "Skipped",
+      "manual": "Manual",
+      "neutral": "Neutral"
+    },
+    "events": {
+      "push": "push",
+      "pull_request": "PR",
+      "merge_request_event": "MR",
+      "schedule": "scheduled",
+      "workflow_dispatch": "manual",
+      "web": "manual",
+      "api": "API",
+      "trigger": "trigger"
+    }
+  },
   "graphFind": {
     "fileMenu": "Highlight its commits in the graph",
     "fileMenuHint": "Commits on every branch that change it; the others are dimmed",

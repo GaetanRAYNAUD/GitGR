@@ -8,7 +8,7 @@ import type { RangeDirection, StashEntry } from "../lib/types";
 
 /** Ferme toutes les vues ouvertes à la place du graphe pour ce dépôt. */
 export function closeCenterViews(path: string) {
-  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView]) {
+  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView, useCiView]) {
     view.getState().close(path);
   }
 }
@@ -189,6 +189,22 @@ export const useRebaseView = create<RebaseViewState>((set) => ({
   show: (path, base, label, onto = false) => {
     closeCenterViews(path);
     set((s) => ({ open: { ...s.open, [path]: { base, label, onto } } }));
+  },
+  close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
+}));
+
+/** Exécutions de CI du dépôt ouvertes à la place du graphe (`branch` : filtre de départ). */
+interface CiViewState {
+  open: Record<string, { branch: string | null } | undefined>;
+  show(path: string, branch?: string | null): void;
+  close(path: string): void;
+}
+
+export const useCiView = create<CiViewState>((set) => ({
+  open: {},
+  show: (path, branch = null) => {
+    closeCenterViews(path);
+    set((s) => ({ open: { ...s.open, [path]: { branch } } }));
   },
   close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
 }));

@@ -28,10 +28,11 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { closeCenterViews, useRebaseView, useConflictView, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
+import { closeCenterViews, useCiView, useRebaseView, useConflictView, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
 import { StashView } from "../components/graph/StashView";
 import { ReflogView } from "../components/graph/ReflogView";
 import { RebaseView } from "../components/graph/RebaseView";
+import { CiView } from "../components/graph/CiView";
 import { SearchView } from "../components/graph/SearchView";
 import { FileHistoryView } from "../components/graph/FileHistoryView";
 import { BlameView } from "../components/graph/BlameView";
@@ -525,6 +526,7 @@ export function RepoView({ path }: { path: string }) {
   const openPull = usePullList((s) => s.open[path]);
   const openRange = useRangeView((s) => s.open[path]);
   const openRebase = useRebaseView((s) => s.open[path]);
+  const openCi = useCiView((s) => s.open[path]);
   const openStash = useStashView((s) => s.open[path]);
   const openReflog = useReflogView((s) => s.open[path]);
   const openSearch = useSearchView((s) => s.open[path]);
@@ -542,7 +544,7 @@ export function RepoView({ path }: { path: string }) {
   // panneau des détails (un autre commit) n'a rien à y ajouter.
   // Recherche dans les modifications : chaque résultat a son diff dans la vue.
   const above = !!openConflict || !!diff || !!workDiff || !!openBlame || !!openFileHistory;
-  const ownPanel = !above && (!!openSearch || !!openRebase || (!openReflog && (!!openStash || !!openRange)));
+  const ownPanel = !above && (!!openSearch || !!openRebase || !!openCi || (!openReflog && (!!openStash || !!openRange)));
   const hidePanel = ownPanel || (pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP));
   useEffect(() => {
     if (!pullsShown) return;
@@ -732,6 +734,8 @@ export function RepoView({ path }: { path: string }) {
             <ReflogView key={openReflog} path={path} refname={openReflog} />
           ) : openStash ? (
             <StashView key={openStash.sha} path={path} entry={openStash} />
+          ) : openCi ? (
+            <CiView key={`${openCi.branch}`} path={path} branch={openCi.branch} />
           ) : openRebase ? (
             <RebaseView key={`${openRebase.base}|${openRebase.onto}`} path={path} base={openRebase.base} label={openRebase.label} onto={openRebase.onto} />
           ) : openRange ? (

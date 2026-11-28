@@ -1083,6 +1083,20 @@ pub async fn create_release(kind: String, url: String, account: Option<String>, 
     blocking(move || crate::releases::create(k, &api, &token, &request)).await
 }
 
+/// Dernières exécutions de CI du dépôt (`branch` : seulement celle-là).
+#[tauri::command]
+pub async fn ci_runs(kind: String, url: String, account: Option<String>, repo: String, branch: Option<String>, store: StoreState<'_>) -> Result<Vec<crate::ci::CiRun>, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::ci::runs(k, &api, &token, &repo, branch.as_deref())).await
+}
+
+/// Relance les jobs en échec d'une exécution.
+#[tauri::command]
+pub async fn ci_retry(kind: String, url: String, account: Option<String>, repo: String, id: u64, store: StoreState<'_>) -> Result<(), String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::ci::retry(k, &api, &token, &repo, id)).await
+}
+
 /// Branche par défaut du dépôt `repo` (`propriétaire/nom`) sur l'instance `url`.
 #[tauri::command]
 pub async fn remote_default_branch(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<String, String> {

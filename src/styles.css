@@ -8135,3 +8135,47 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Exécutions de CI : état en pastille teintée (comme celui d'une PR / MR), nom, branche. */
+.ci-view .diff-head .picker {
+  flex: 0 1 auto;
+  max-width: 220px;
+}
+
+.ci-filter button {
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ci-state {
+  min-width: 92px;
+}
+
+.ci-state.ci-failure {
+  --state: var(--del);
+}
+
+.ci-state.ci-running,
+.ci-state.ci-pending {
+  --state: var(--mod);
+}
+
+.ci-state.ci-canceled,
+.ci-state.ci-skipped,
+.ci-state.ci-neutral,
+.ci-state.ci-manual {
+  --state: var(--faint);
+}
+
+.ci-name {
+  flex: none;
+  font-weight: 600;
+}
+
+.ci-branch,
+.ci-event {
+  flex: none;
+  font-size: 11.5px;
+}
