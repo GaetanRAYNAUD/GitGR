@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Palette de commandes (Ctrl+P) : les actions du commit sélectionné dans le graphe (cherry-pick, revert, reset, branche, tag…) y sont, et les dernières commandes lancées apparaissent en tête.
 - Créer une PR / MR sur GitHub : les équipes qui ont accès au dépôt sont proposées comme relecteurs.
 - Créer une PR / MR : quand le dépôt a plusieurs modèles (`.github/PULL_REQUEST_TEMPLATE/`, `.gitlab/merge_request_templates/`), un menu « Modèle » permet d'en prendre un ; une description écrite à la main n'est remplacée qu'après confirmation.
 - PR / MR, onglet Fichiers : les fils de relecture d'un fichier apparaissent dans son diff, sous la ligne qu'ils commentent (résolus estompés).

@@ -32,3 +32,25 @@ test("palette de commandes : Ctrl+P, recherche floue, raccourci affiché, checko
   await page.keyboard.press("Control+p");
   await expect(palette).toHaveCount(0);
 });
+
+test("palette : actions du commit sélectionné, dernières commandes en tête", async ({ page }) => {
+  await page.goto("/");
+  await openNextRepo(page, "GitGR");
+  await page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option").nth(1).click();
+
+  await page.keyboard.press("Control+p");
+  const palette = page.getByRole("dialog", { name: "Palette de commandes" });
+  const input = palette.getByRole("combobox");
+  await input.fill("revert");
+  const revert = palette.getByRole("option").first();
+  await expect(revert).toContainText("Revert");
+  await expect(revert).toContainText(/Commit [0-9a-f]{7}/);
+
+  // Lancer « Réglages » : elle revient en tête à la prochaine ouverture, sans recherche.
+  await input.fill("réglages");
+  await input.press("Enter");
+  await expect(palette).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+p");
+  await expect(palette.getByRole("option").first()).toContainText("Réglages");
+});
