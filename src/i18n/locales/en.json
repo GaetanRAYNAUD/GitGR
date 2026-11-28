@@ -648,6 +648,7 @@
     "parents_other": "Parents",
     "copy": "Copy SHA",
     "copied": "SHA copied",
+    "nothing": "No text diff to copy (binary file or no content change).",
     "copyFailed": "Could not copy",
     "parentLabel": "Parent {{sha}}: select this commit",
     "shaNotLoaded": "Commit not in the loaded history",
@@ -683,6 +684,17 @@
       "deleted_other": "{{count}} deleted",
       "conflicted": "{{count}} conflicted"
     }
+  },
+  "patch": {
+    "copy": "Copy",
+    "copyHunk": "Copy the hunk as a patch",
+    "copyFile": "Copy diff",
+    "copyFileHint": "Copy the file diff as a patch",
+    "hunkCopied": "Hunk copied as a patch.",
+    "fileCopied": "Diff of {{file}} copied as a patch.",
+    "linesCopied_one": "{{count}} line copied.",
+    "linesCopied_other": "{{count}} lines copied.",
+    "copyFailed": "Copy failed: the clipboard is unavailable."
   },
   "binary": {
     "bytes": "B",

@@ -1,5 +1,6 @@
 // Menus contextuels des branches, tags et commits (barre latérale et graphe).
 
+import { copyPatch, filePatch, type PatchFile } from "../../lib/patch";
 import type { TFunction } from "i18next";
 import { remoteProfile } from "../../lib/profiles";
 import { pullSource, pullTargetOf } from "../../lib/pulls";
@@ -591,7 +592,24 @@ export function showBlame(repo: string, file: string, rev: string | null) {
 /** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). `at` : le
  *  commit où le fichier est montré (blame à ce commit ; sinon sur la copie de travail),
  *  `deleted` s'il n'y existe plus (pas de blame). */
-export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: string; deleted?: boolean }): MenuItem[] {
+export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: string; deleted?: boolean; change?: PatchFile }): MenuItem[] {
+  const change = at?.change;
+  const copyDiff: MenuItem[] = change
+    ? [
+        {
+          label: t("patch.copyFile"),
+          title: t("patch.copyFileHint"),
+          onClick: () =>
+            void api.commitDiff(repo, at!.rev, change.path, change.oldPath).then(
+              (d) =>
+                d.binary || !d.hunks.length
+                  ? useApp.getState().notify(t("patch.nothing"))
+                  : copyPatch(t, filePatch(change, d), t("patch.fileCopied", { file: change.path })),
+              (e) => useApp.setState({ error: errorCode(e) }),
+            ),
+        },
+      ]
+    : [];
   const run = (how: "open" | "reveal") => () =>
     void api.openRepoFile(repo, file, how).catch((e) => useApp.setState({ error: errorCode(e) }));
   return [
@@ -605,6 +623,7 @@ export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: s
       onClick: () => showBlame(repo, file, at?.rev ?? null),
     },
     "sep",
+    ...copyDiff,
     { label: t("menu.copyPath"), onClick: () => copy(file) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, file)) },
   ];

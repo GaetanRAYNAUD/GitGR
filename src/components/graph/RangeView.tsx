@@ -259,6 +259,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
                     error={diff?.error ?? undefined}
                     onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
+                    copyAs={file}
                     binarySides={commitSides(path, file, focus ?? data.tip, focus ? null : data.base)}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: focus ?? data.tip }}
                   />
