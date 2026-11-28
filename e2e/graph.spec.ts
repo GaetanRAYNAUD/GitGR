@@ -418,6 +418,16 @@ test.describe("sélection de plusieurs commits", () => {
     await expect(panel(page)).toBeVisible();
   });
 
+  test("plage : « Copier le diff » au clic droit d'un fichier cumulé", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const rows = graph(page).getByRole("option");
+    await rows.nth(4).click();
+    await rows.nth(6).click({ modifiers: ["Shift"] });
+    await picked(page).locator(".file-row").first().click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Copier le diff" }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(/^diff --git a\/\S+ b\/\S+\s/);
+  });
+
   test("Ctrl+clic sur des commits épars : liste seulement, puis cherry-pick du lot sur la branche courante", async ({ page }) => {
     const rows = graph(page).getByRole("option");
     // Trois commits espacés, aucun de fusion (refusés au cherry-pick).
@@ -515,6 +525,21 @@ test("résultats de la recherche dans les modifications mis en évidence dans le
   await page.keyboard.press("Escape");
   await expect(bar).toHaveCount(0);
   await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
+});
+
+test("recherche dans les modifications : « Copier le diff » au clic droit du fichier montré", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Chercher", exact: true }).click();
+  const view = page.getByRole("region", { name: "Recherche dans les modifications" });
+  await view.getByLabel("Texte cherché").fill("perf: rendu virtualisé");
+  await view.getByRole("button", { name: "Chercher" }).click();
+  await view.getByRole("listbox", { name: /commits?/ }).getByRole("option").first().click();
+  const path = view.locator(".diff-head .diff-path").first();
+  await expect(path).toBeVisible();
+  const name = (await path.innerText()).trim();
+  await path.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copier le diff" }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(`diff --git a/${name} b/${name}`);
 });
 
 test("clic droit sur un commit : revert, un nouveau commit l'annule en haut de main", async ({ page }) => {
