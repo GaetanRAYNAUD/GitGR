@@ -549,7 +549,19 @@ pub fn commit(path: &Path, message: &str, amend: bool) -> Result<String, String>
     if amend {
         args.push("--amend");
     }
-    run_input(Some(path), &args, message).map_err(|e| classify_commit_error(&e))?;
+    // gpg-agent qui démarre : le premier essai échoue souvent, le suivant passe. Deux nouveaux
+    // essais, une seconde d'écart, avant d'afficher l'erreur.
+    let mut retries = 2;
+    loop {
+        match run_input(Some(path), &args, message) {
+            Ok(_) => break,
+            Err(e) if retries > 0 && crate::signing::is_transient_gpg_error(&e) => {
+                retries -= 1;
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+            Err(e) => return Err(classify_commit_error(&e)),
+        }
+    }
     run(Some(path), &["rev-parse", "HEAD"])
 }
 
