@@ -111,6 +111,9 @@ test("raccourcis de la barre d'outils : Ctrl+Maj+S stashe, Ctrl+Maj+P réappliqu
     expect(git(mine, "stash", "list").split("\n")).toHaveLength(1);
     expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("a\n");
 
+    // Le compteur de Pop arrive avant la fin du stash (relecture) : Pop serait refusé
+    // (« une commande est en cours »).
+    await expect(page.locator(".tools > [role=status]")).toHaveText("");
     await page.keyboard.press("Control+Shift+P");
     await expect(page.locator(".changes-pill")).toBeVisible();
     expect(readFileSync(join(mine, "a.txt"), "utf8")).toBe("modifié\n");
