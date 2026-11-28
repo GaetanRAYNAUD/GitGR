@@ -142,12 +142,37 @@ pub fn remove(path: &Path, dir: &str, force: bool) -> Result<(), String> {
             "worktree_dirty".to_string()
         } else if e.contains("is a main working tree") {
             "worktree_main".to_string()
-        } else if e.contains("is locked") {
+        } else if e.contains("is locked") || e.contains("locked working tree") {
             "worktree_locked".to_string()
         } else {
             e
         }
     })
+}
+
+/// Verrouille le worktree `dir` (`reason` : pourquoi, facultatif) : ni supprimé ni nettoyé
+/// tant qu'il l'est — pour un dossier sur un disque amovible, par exemple.
+pub fn lock(path: &Path, dir: &str, reason: Option<&str>) -> Result<(), String> {
+    check_dir(path)?;
+    if dir.trim().is_empty() || dir.starts_with('-') {
+        return Err("invalid_path".into());
+    }
+    let mut args = vec!["worktree", "lock"];
+    let reason = reason.map(str::trim).filter(|r| !r.is_empty());
+    if let Some(r) = reason {
+        args.extend(["--reason", r]);
+    }
+    args.extend(["--", dir]);
+    run(Some(path), &args).map(|_| ())
+}
+
+/// Déverrouille le worktree `dir`.
+pub fn unlock(path: &Path, dir: &str) -> Result<(), String> {
+    check_dir(path)?;
+    if dir.trim().is_empty() || dir.starts_with('-') {
+        return Err("invalid_path".into());
+    }
+    run(Some(path), &["worktree", "unlock", "--", dir]).map(|_| ())
 }
 
 /// Oublie les worktrees dont le dossier a disparu (`git worktree prune`).
@@ -216,4 +241,23 @@ mod tests {
         std::fs::create_dir(&d).unwrap();
         assert!(suggest_dir(&main, "feature/x").unwrap().ends_with("/app-feature-x-2"));
     }
+
+    #[test]
+    fn lock_then_unlock() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1");
+        let dir = tempfile::tempdir().unwrap();
+        let wt = dir.path().join("x");
+        let wt = wt.to_str().unwrap();
+        add(p, wt, None, Some("x"), Some("HEAD")).unwrap();
+        lock(p, wt, Some("  disque USB ")).unwrap();
+        let l = list(p).unwrap();
+        assert_eq!(l.iter().find(|w| w.branch.as_deref() == Some("x")).unwrap().locked.as_deref(), Some("disque USB"));
+        assert_eq!(remove(p, wt, false), Err("worktree_locked".into()));
+        unlock(p, wt).unwrap();
+        assert_eq!(list(p).unwrap().iter().find(|w| w.branch.as_deref() == Some("x")).unwrap().locked, None);
+        remove(p, wt, false).unwrap();
+    }
+
 }

@@ -358,6 +358,16 @@
     }
   },
   "worktrees": {
+    "lockMenu": "Lock…",
+    "unlockMenu": "Unlock",
+    "lockHint": "Prevents removing or pruning it (folder on a removable drive, for example).",
+    "lockedBecause": "Locked: {{reason}}",
+    "lockTitle": "Lock worktree {{name}}",
+    "lockBody": "It can’t be removed or pruned while it is locked.",
+    "lockReason": "Reason (optional)",
+    "lock": "Lock",
+    "locked_done": "Worktree {{name}} locked.",
+    "unlocked": "Worktree {{name}} unlocked.",
     "chipTitle": "checked out in worktree {{dir}} (double-click to open it)",
     "section": "Worktrees",
     "newMenu": "Create worktree…",

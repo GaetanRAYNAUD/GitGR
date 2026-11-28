@@ -358,6 +358,16 @@
     }
   },
   "worktrees": {
+    "lockMenu": "Verrouiller…",
+    "unlockMenu": "Déverrouiller",
+    "lockHint": "Empêche de le supprimer ou de le nettoyer (dossier sur un disque amovible, par exemple).",
+    "lockedBecause": "Verrouillé : {{reason}}",
+    "lockTitle": "Verrouiller le worktree {{name}}",
+    "lockBody": "Il ne pourra plus être supprimé ni nettoyé tant qu’il est verrouillé.",
+    "lockReason": "Raison (facultative)",
+    "lock": "Verrouiller",
+    "locked_done": "Worktree {{name}} verrouillé.",
+    "unlocked": "Worktree {{name}} déverrouillé.",
     "chipTitle": "extraite dans le worktree {{dir}} (double-clic : l’ouvrir)",
     "section": "Worktrees",
     "newMenu": "Créer un worktree…",
