@@ -31,6 +31,8 @@ export interface ChoiceRequest {
   choices: Choice[];
   /** À la place de `choices` : un choix exclusif expliqué, puis un seul bouton d'action. */
   radio?: { label: string; options: RadioOption[]; initial: string };
+  /** Sortie d'une commande, en bloc à chasse fixe sous le texte (fin d'un bisect automatique…). */
+  output?: string;
 }
 
 export interface InputRequest {

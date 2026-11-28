@@ -330,6 +330,16 @@
     "pick": "Pick one or more authors."
   },
   "bisect": {
+    "run": "Automatic…",
+    "runHint": "Runs a test command on each commit to test, up to the first bad one.",
+    "runTitle": "Automatic bisect",
+    "runBody": "The command runs in Git’s shell on each commit to test. Exit code 0: good; 125: skip; 1 to 127: bad.",
+    "runCommand": "Test command",
+    "runSubmit": "Run",
+    "runEmpty": "Enter a command.",
+    "runFailedTitle": "Automatic bisect stopped",
+    "runFailedBody": "Git stopped while running “{{command}}” (command not found, or exit code 128 or more). Commits already marked stay marked.",
+    "runClose": "Close",
     "ambiguous": "Bisect ended without certainty: only skipped commits are left. The first bad commit is one of: {{list}}.",
     "markBad": "Bisect: mark as bad",
     "markGood": "Bisect: mark as good",

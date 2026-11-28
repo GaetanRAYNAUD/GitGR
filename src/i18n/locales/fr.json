@@ -330,6 +330,16 @@
     "pick": "Choisissez un ou plusieurs auteurs."
   },
   "bisect": {
+    "run": "Automatique…",
+    "runHint": "Lance une commande de test sur chaque commit à tester, jusqu’au premier mauvais.",
+    "runTitle": "Bisect automatique",
+    "runBody": "La commande est lancée par le shell de Git sur chaque commit à tester. Code de sortie 0 : bon ; 125 : à passer ; de 1 à 127 : mauvais.",
+    "runCommand": "Commande de test",
+    "runSubmit": "Lancer",
+    "runEmpty": "Indiquez une commande.",
+    "runFailedTitle": "Bisect automatique arrêté",
+    "runFailedBody": "Git s’est arrêté en lançant « {{command}} » (commande introuvable, ou code de sortie 128 ou plus). Les commits déjà marqués le restent.",
+    "runClose": "Fermer",
     "ambiguous": "Bisect terminé sans certitude : il ne reste que des commits passés. Le premier mauvais commit est l’un de : {{list}}.",
     "markBad": "Bisect : marquer comme mauvais",
     "markGood": "Bisect : marquer comme bon",
