@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../store/app";
 import { useGraph, type OpenDiff } from "../../store/graph";
 import { Icon } from "../Icon";
+import { commitSides } from "./BinaryPreview";
 import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
@@ -74,6 +75,7 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
           error={diff.error}
           onRetry={reopen}
           resetKey={`${diff.sha}\n${file.path}`}
+          binarySides={commitSides(path, file, diff.sha, diff.base)}
           blame={file.status === "D" ? undefined : { path, file: file.path, rev: diff.sha, beforeReveal: () => closeDiff(path) }}
         />
       </div>

@@ -381,3 +381,38 @@ test("annoter les modifications en cours, fichier entier : la marge dit qui a é
     await app.close();
   }
 });
+
+test("image modifiée : avant / après lus dans git, puis dans la copie de travail", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  // PNG 2×1 puis 1×1 (vrais fichiers, décodés par la WebView).
+  const png2 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DwHwQZGAAm8gP9CtIkSQAAAABJRU5ErkJggg==", "base64");
+  const png1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  writeFileSync(join(mine, "logo.png"), png2);
+  git(mine, "add", "logo.png");
+  git(mine, "commit", "-qm", "logo");
+  writeFileSync(join(mine, "logo.png"), png1);
+  git(mine, "commit", "-qam", "logo plus petit");
+  writeFileSync(join(mine, "logo.png"), png2);
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option", { name: /logo plus petit/ }).click();
+    await page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row", { hasText: "logo.png" }).click();
+    const diff = page.getByRole("region", { name: "Diff de logo.png" });
+    await expect(diff).toContainText("2 × 1 px");
+    await expect(diff).toContainText("1 × 1 px");
+    await page.keyboard.press("Escape");
+
+    // Copie de travail : index (1×1) → disque (2×1).
+    await graph.getByRole("option").first().click();
+    await page.locator(".file-row", { hasText: "logo.png" }).first().dblclick();
+    const work = page.getByRole("region", { name: /logo\.png/ });
+    await expect(work.getByRole("img", { name: "Image après la modification" })).toBeVisible();
+    await expect(work).toContainText("1 × 1 px");
+    await expect(work).toContainText("2 × 1 px");
+  } finally {
+    await app.close();
+  }
+});

@@ -20,6 +20,7 @@ import { useGraph } from "../../store/graph";
 import { useGraphFind } from "../../store/graphFind";
 import { useSearchView, type ContentQuery } from "../../store/range";
 import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
+import { commitSides } from "./BinaryPreview";
 import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
@@ -350,6 +351,7 @@ export function SearchView({ path }: { path: string }) {
                         error={diff?.error ?? undefined}
                         onRetry={() => setDiffReload((n) => n + 1)}
                         resetKey={`${focus}:${fileShown.path}`}
+                        binarySides={focus ? commitSides(path, fileShown, focus) : undefined}
                         blame={fileShown.status === "D" ? undefined : { path, file: fileShown.path, rev: focus }}
                         mark={mark}
                       />

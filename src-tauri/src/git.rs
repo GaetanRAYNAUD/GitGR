@@ -282,6 +282,21 @@ pub fn run_raw(cwd: Option<&Path>, args: &[&str]) -> Result<String, String> {
     run_with_input(cwd, args, None, &[])
 }
 
+/// Sortie brute (octets) d'une commande git locale : contenu d'un fichier binaire.
+pub fn run_bytes(cwd: Option<&Path>, args: &[&str]) -> Result<Vec<u8>, String> {
+    let mut cmd = git_command();
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    cmd.args(args).stdin(std::process::Stdio::null());
+    let out = cmd.output().map_err(|e| e.to_string())?;
+    if out.status.success() {
+        Ok(out.stdout)
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
+}
+
 /// Comme [`run`], avec des variables d'environnement en plus (`GIT_EDITOR`…).
 pub fn run_env(cwd: Option<&Path>, args: &[&str], env: &[(&str, &str)]) -> Result<String, String> {
     run_with_input(cwd, args, None, env).map(|s| s.trim_end().to_string())

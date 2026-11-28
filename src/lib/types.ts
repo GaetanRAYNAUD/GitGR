@@ -380,6 +380,21 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Une version d'un fichier binaire (aperçu du diff, src-tauri/src/history.rs). */
+export interface BlobPreview {
+  size: number;
+  /** Type d'image reconnu à l'extension ; `null` pour les autres binaires. */
+  mime: string | null;
+  /** Data URL de l'image ; `null` si ce n'en est pas une ou si elle est trop lourde. */
+  data: string | null;
+}
+
+/** Où lire une version : `rev` = commit, `""` = index, `null` = copie de travail. */
+export interface BlobSide {
+  rev: string | null;
+  file: string;
+}
+
 // --- Copie de travail (src-tauri/src/worktree.rs) ---------------------------
 
 /** Comme `FileStatus`, plus « ? » (non suivi) et « U » (conflit). */

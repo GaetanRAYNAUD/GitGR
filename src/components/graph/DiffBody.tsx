@@ -26,6 +26,7 @@ import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { Splitter } from "../Splitter";
 import { type BlameSource, MARGIN_W, useBlameMargin } from "./BlameMargin";
+import { BinaryPreview, type BinarySides } from "./BinaryPreview";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
@@ -188,6 +189,8 @@ interface Props {
   blame?: BlameSource;
   /** Texte cherché, surligné dans les lignes (recherche dans les modifications). */
   mark?: RegExp | null;
+  /** Versions à montrer pour un fichier binaire (aperçu des images, tailles). */
+  binarySides?: BinarySides;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -319,7 +322,7 @@ function LineText({ segments, text, mark }: { segments?: Segment[]; text: string
 
 const PAGE = 20;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, binarySides }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -408,7 +411,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
         <p className="muted">{t("diff.loading")}</p>
       </Delayed>
     );
-  if (data.binary) return <p className="muted">{t("diff.binary")}</p>;
+  if (data.binary) return binarySides ? <BinaryPreview sides={binarySides} /> : <p className="muted">{t("diff.binary")}</p>;
   if (data.hunks.length === 0) {
     if (data.truncated) return <p className="muted">{t("diff.tooBig")}</p>;
     if (ignoreWs)
