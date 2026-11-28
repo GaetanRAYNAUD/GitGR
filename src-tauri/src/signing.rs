@@ -50,6 +50,43 @@ fn run_gpg_with(args: &[&str], prepare: impl Fn(&mut std::process::Command)) -> 
     Err("gpg_not_found".into())
 }
 
+/// Démarre gpg-agent en avance (`gpgconf --launch gpg-agent`), une fois par lancement de l'app
+/// et en arrière-plan : un agent qui démarre pendant le premier commit le fait souvent échouer.
+/// Le `gpgconf` essayé d'abord est celui d'à côté du `gpg` que git utilise.
+pub fn launch_agent_once() {
+    static LAUNCHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if LAUNCHED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(|| {
+        let mut list: Vec<PathBuf> = gpg_candidates()
+            .iter()
+            .filter_map(|g| g.parent().filter(|d| !d.as_os_str().is_empty()).map(|d| d.join("gpgconf")))
+            .collect();
+        list.push(PathBuf::from("gpgconf"));
+        list.extend(crate::git::git_for_windows_tool("gpgconf"));
+        for program in list {
+            let mut cmd = quiet_command(&program);
+            cmd.args(["--launch", "gpg-agent"]).stdin(std::process::Stdio::null());
+            match cmd.output() {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                _ => return,
+            }
+        }
+    });
+}
+
+/// Échec de signature GPG qui vaut d'être réessayé tout seul : l'agent pas encore prêt
+/// (souvent au premier commit). Pas une clé introuvable, expirée, une phrase refusée ou une
+/// saisie annulée — ni une signature SSH, dont la phrase serait redemandée.
+pub fn is_transient_gpg_error(stderr: &str) -> bool {
+    let s = stderr.to_lowercase();
+    s.contains("gpg failed to sign")
+        && !["no secret key", "cancel", "bad passphrase", "expired", "revoked", "unusable", "not found", "ssh-keygen"]
+            .iter()
+            .any(|p| s.contains(p))
+}
+
 /// Sortie de `gpg --list-secret-keys --with-colons` → clés (les sous-clés sont ignorées : git
 /// signe avec la clé principale ou la sous-clé de signature qu'elle désigne).
 fn parse_secret_keys(out: &str) -> Vec<GpgKey> {
@@ -295,6 +332,22 @@ pub(crate) mod tests {
         assert!(!raw_head(p).contains("SIGNATURE"));
         set_identity(p, None);
         stop_agent(home.path());
+    }
+
+    #[test]
+    fn transient_gpg_errors() {
+        use super::is_transient_gpg_error as t;
+        assert!(t("error: gpg failed to sign the data
+fatal: failed to write commit object"));
+        assert!(t("gpg: signing failed: No agent running
+error: gpg failed to sign the data"));
+        assert!(!t("gpg: skipped \"x\": No secret key
+gpg: signing failed: No secret key
+error: gpg failed to sign the data"));
+        assert!(!t("gpg: signing failed: Operation cancelled
+error: gpg failed to sign the data"));
+        assert!(!t("error: Couldn't load public key /k/x
+fatal: failed to write commit object"));
     }
 
     #[test]
