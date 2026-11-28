@@ -479,6 +479,7 @@
     }
   },
   "palette": {
+    "unavailable": "Not possible here.",
     "title": "Command palette",
     "placeholder": "Type a command, a branch, a repository…",
     "none": "No command matches.",
@@ -494,6 +495,7 @@
     "noRemote": "The repository has no remote.",
     "noStash": "No stash to reapply.",
     "groups": {
+      "commit": "Commit {{sha}}",
       "app": "GitGR",
       "repo": "Repository",
       "branches": "Branches",

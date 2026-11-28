@@ -1,6 +1,6 @@
 // Palette de commandes (Ctrl+P) : toutes les actions de l'app au même endroit, recherche floue,
-// raccourci affiché à droite ; dépôt ouvert : ses actions, le checkout de ses branches, les
-// autres onglets. ↑ / ↓ (Début, Fin, Pg↑, Pg↓), Entrée pour lancer, Échap pour fermer.
+// raccourci affiché à droite ; dépôt ouvert : ses actions, celles du commit sélectionné, le
+// checkout de ses branches, les autres onglets. Sans recherche, les dernières lancées en tête. ↑ / ↓ (Début, Fin, Pg↑, Pg↓), Entrée pour lancer, Échap pour fermer.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,7 +13,7 @@ import { useDismiss } from "../lib/useDismiss";
 import { useRestoreFocus } from "../lib/useRestoreFocus";
 import { repoName, useApp } from "../store/app";
 import { useBisect } from "../store/bisect";
-import { useGraph } from "../store/graph";
+import { useGraph, WIP } from "../store/graph";
 import { useGraphFind } from "../store/graphFind";
 import { useNotifications } from "../store/notifications";
 import { useOps } from "../store/ops";
@@ -22,6 +22,8 @@ import { usePublishDialog } from "../store/publish";
 import { usePullDialog } from "../store/pulls";
 import { useCiView, useReflogView, useSearchView } from "../store/range";
 import { useWork } from "../store/worktree";
+import { commitMenu } from "./graph/menus";
+import { isHeader, isSub, type MenuItem } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { useQuickOpen } from "./QuickOpen";
 import { Keys } from "./ShortcutsList";
@@ -45,6 +47,45 @@ export interface Command {
 }
 
 const keysOf = (id: string) => SHORTCUTS.find((s) => s.id === id)?.keys[0];
+
+const RECENT_KEY = "gitgr.palette.recent";
+const RECENT_MAX = 5;
+
+/** Identifiants des dernières commandes lancées, la plus récente d'abord. */
+export function recentCommands(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, RECENT_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberCommand(id: string) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...recentCommands().filter((x) => x !== id)].slice(0, RECENT_MAX)));
+  } catch {
+    // Stockage indisponible : la palette marche sans.
+  }
+}
+
+/** Les commandes récentes d'abord (dans l'ordre où elles ont été lancées), puis les autres. */
+export function withRecentFirst(list: Command[], recent: string[]): Command[] {
+  const byId = new Map(list.map((c) => [c.id, c]));
+  const first = recent.map((id) => byId.get(id)).filter((c): c is Command => !!c);
+  const ids = new Set(first.map((c) => c.id));
+  return [...first, ...list.filter((c) => !ids.has(c.id))];
+}
+
+/** Éléments d'un menu en commandes (en-têtes, séparateurs et sous-menus laissés de côté). */
+function menuCommands(items: MenuItem[], prefix: string, group: string, unavailable: string): Command[] {
+  const out: Command[] = [];
+  items.forEach((item, i) => {
+    if (item === "sep" || isHeader(item) || isSub(item)) return;
+    out.push({ id: `${prefix}:${i}`, label: item.label, group, why: item.disabled ? (item.title ?? unavailable) : undefined, run: () => void item.onClick() });
+  });
+  return out;
+}
 
 /** Commandes possibles maintenant (onglet actif, branches, état du dépôt). */
 export function buildCommands(t: TFunction): Command[] {
@@ -103,6 +144,11 @@ export function buildCommands(t: TFunction): Command[] {
       cmd("createPull", t("palette.createPull"), r, () => usePullDialog.getState().show(path), noRemote ? t("palette.noRemote") : null),
     );
     if (useBisect.getState().states[path]) list.push(cmd("bisectStop", t("palette.bisectStop"), r, () => void ops.bisectReset(path), busy));
+    // Commit sélectionné dans le graphe : les actions de son clic droit.
+    const sha = useGraph.getState().graphs[path]?.selected;
+    if (sha && sha !== WIP) {
+      list.push(...menuCommands(commitMenu(t, path, sha, refs), `commit:${sha}`, t("palette.groups.commit", { sha: sha.slice(0, 7) }), t("palette.unavailable")));
+    }
     const b = t("palette.groups.branches");
     for (const ref of refs?.refs ?? []) {
       if (ref.kind !== "local" || ref.short === refs?.headBranch) continue;
@@ -136,7 +182,8 @@ function CommandPalette() {
   useRestoreFocus();
   // Lues à l'ouverture : la palette se ferme avant d'agir, rien ne change pendant qu'elle est là.
   const all = useMemo(() => buildCommands(t), [t]);
-  const results = useMemo(() => fuzzyFilter(all, q, (c) => c.label, (c) => c.group), [all, q]);
+  const recent = useMemo(() => recentCommands(), []);
+  const results = useMemo(() => (q.trim() ? fuzzyFilter(all, q, (c) => c.label, (c) => c.group) : withRecentFirst(all, recent)), [all, q, recent]);
   const at = Math.min(cursor, Math.max(0, results.length - 1));
   useEffect(() => {
     document.getElementById(`palette-${at}`)?.scrollIntoView({ block: "nearest" });
@@ -148,6 +195,7 @@ function CommandPalette() {
       return;
     }
     hide();
+    rememberCommand(c.id);
     // Après la fermeture (focus rendu) : une fenêtre ouverte par la commande garde le sien.
     requestAnimationFrame(() => c.run());
   };

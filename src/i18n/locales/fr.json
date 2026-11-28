@@ -479,6 +479,7 @@
     }
   },
   "palette": {
+    "unavailable": "Impossible ici.",
     "title": "Palette de commandes",
     "placeholder": "Tapez une commande, une branche, un dépôt…",
     "none": "Aucune commande ne correspond.",
@@ -494,6 +495,7 @@
     "noRemote": "Le dépôt n’a pas de remote.",
     "noStash": "Aucun stash à réappliquer.",
     "groups": {
+      "commit": "Commit {{sha}}",
       "app": "GitGR",
       "repo": "Dépôt",
       "branches": "Branches",
