@@ -239,6 +239,9 @@ Compléments et retours d'utilisation, par thème.
 - Releases v0.1.0 à v0.1.3 publiées ; mise à jour vérifiée sous Windows (avec annonce, puis silencieuse : téléchargement au démarrage, installation à la fermeture).
 - Linux : icône de la fenêtre en 512 px et `.desktop` avec `StartupWMClass` ; macOS : double-clic sur la barre de titre (agrandir / restaurer), déplacement après 5 px. **À vérifier par des testeurs** (cf. « Reste à faire », étape 7).
 - Décidé **non** : vérifier les mises à jour pendant que l'app reste ouverte (démarrage + bouton des Réglages suffisent) ; canal de pré-versions (les testeurs suivent `releases/latest`).
+
+**Suite de la feuille de route (après l'étape 13)**
+- **Branches récentes** (étape 4) : chevron à côté de la pastille de branche, clic droit sur elle ou Ctrl+Maj+O ; lues dans le reflog de HEAD (`checkout: moving from a to b`, `lib/refs.ts` `recentBranches`), sans la courante ni les branches supprimées ; checkout avec auto-stash.
 - **Aperçu des images dans le diff** (étape 8) : `blob_preview` (taille, data URL d'une image ≤ 16 Mo ; version d'un commit, de l'index ou du disque), `BinaryPreview` (avant / après côte à côte sur damier, dimensions, poids et écart, ou fondu au curseur), branché dans le diff d'un commit, de la copie de travail, d'une plage, d'un stash, de l'historique d'un fichier et de la recherche.
 - **Filtre du graphe par auteur** (étape 8) : `repo_authors` (toutes branches, regroupés par e-mail sans casse, nom le plus fréquent) et `author_commits` (`git log --all -F -i --author=<e-mail>`, 50 000 au plus) ; dans la barre de recherche du graphe, bouton Auteur et `MultiPicker` des auteurs (identité du dépôt en tête), « Commits de … » au clic droit d'un commit ; même mise en avant, estompage, compte « hors des commits chargés » et flèches que la recherche.
 
@@ -252,7 +255,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord). La sélection de plusieurs commits glissée d'un coup est faite.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande).
-- [ ] **Menu de la branche courante** (nom de la branche en haut à droite) : un sélecteur des **branches récentes** (dernières extraites), pour changer de branche sans passer par la barre latérale.
 
 ### Étape 5 — profils
 
@@ -293,6 +295,8 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
 - [ ] **Glisser-déposer d'une branche** (sur une branche locale : fait, cf. « Fait ») : sur une branche distante (PR / MR vers elle), depuis une branche distante (merge).
+- [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P). Attention : Ctrl+Maj+P est déjà Pop (barre d'outils).
+- [ ] **Aperçu des images dans le diff** : ancienne et nouvelle version côte à côte (ou en fondu / curseur), dimensions et poids avant / après ; aujourd'hui « Fichier binaire : pas d'aperçu ». Pour les autres binaires, au moins la taille et le type.
 - [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P).
 - [ ] **Aperçu des images dans le diff** (fait, cf. « Fait ») ; reste : dans la vue d'une PR / MR (versions à lire au merge-base de la cible), mode « curseur » (rideau glissé) en plus du fondu.
 - [ ] **Diff virtualisé** : un fichier de 20 000 lignes (`MAX_DIFF_LINES`) est rendu en entier ; virtualiser les lignes comme le graphe (en ligne et côte à côte, en gardant la grille au clavier, la sélection de lignes et les en-têtes de bloc figés), ou plafonner bien plus bas avec « Afficher quand même » / « Ouvrir dans l'éditeur ».

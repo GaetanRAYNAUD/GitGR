@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Branches récentes : le chevron à côté du nom de la branche courante (aussi un clic droit dessus, ou Ctrl+Maj+O) liste les dernières branches extraites, pour y revenir d'un clic sans passer par la barre latérale.
+- Ctrl+Maj+O n'ouvre plus la fenêtre « Ouvrir un dépôt » (Ctrl+O seul le fait).
 - Filtrer le graphe par auteur : « Commits de … » au clic droit d'un commit, ou le bouton Auteur de la barre de recherche (Ctrl+F). On choisit un ou plusieurs auteurs (vous en tête) ; leurs commits sont mis en avant sur toutes les branches, même au-delà des commits chargés, les autres estompés ; les flèches de la barre passent de l'un à l'autre.
 - Diff d'une image (PNG, JPEG, GIF, WebP, BMP, ICO, AVIF) : l'avant et l'après s'affichent côte à côte sur un damier, avec leurs dimensions et leur poids, ou superposés en fondu avec un curseur. Pour les autres fichiers binaires, la taille avant → après. Dans les commits, les plages, les stashes, l'historique d'un fichier, la recherche et les modifications en cours.
 - Signature GPG : un commit qui échoue parce que gpg-agent démarre encore est réessayé tout seul (deux fois, une seconde d'écart) au lieu d'afficher l'erreur ; l'agent est lancé dès qu'un profil signe en GPG.
