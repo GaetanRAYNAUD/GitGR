@@ -14,6 +14,7 @@ import { usePullList } from "../../store/pullList";
 import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
 import { defaultRemote, useOps } from "../../store/ops";
 import { useBisect } from "../../store/bisect";
+import { useWorktrees } from "../../store/worktrees";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
@@ -91,6 +92,13 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
   const isHead = r.kind === "local" && r.short === refs?.headBranch;
   return [
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
+    {
+      label: t("worktrees.newMenu"),
+      title: isHead ? t("worktrees.headWhy") : t("worktrees.newHint"),
+      disabled: isHead,
+      onClick: () =>
+        void useWorktrees.getState().create(path, r.kind === "local" ? { branch: r.short } : { start: r.name, startLabel: r.short }),
+    },
     ...(isHead ? [] : [{
       label: t("menu.short.cherryPick", { branch: head }),
       disabled: noHead || r.target === refs?.head || merge,
@@ -529,6 +537,7 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
     ...here.map((r): MenuItem => ({ label: t("menu.checkoutBranch", { branch: r.short }), onClick: () => ops.checkout(path, r.short) })),
     { label: t("menu.checkoutDetached"), disabled: sha === refs?.head && !refs?.headBranch, onClick: () => ops.checkoutDetached(path, sha) },
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, sha, sha.slice(0, 7)) },
+    { label: t("worktrees.newMenu"), title: t("worktrees.newHint"), onClick: () => void useWorktrees.getState().create(path, { start: sha, startLabel: sha.slice(0, 7) }) },
     { label: t("tag.newHere"), onClick: () => void ops.newTag(path, sha, sha.slice(0, 7)) },
     "sep",
     {

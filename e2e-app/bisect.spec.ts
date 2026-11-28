@@ -23,7 +23,11 @@ test("bisect : mauvais puis bon au clic droit, verdicts dans le bandeau, premier
     for (let i = 0; i < 6; i++) {
       if ((await banner.textContent())?.includes("terminé")) break;
       const bug = git(mine, "show", "HEAD:v.txt").startsWith("bug");
+      const before = (await banner.textContent()) ?? "";
       await banner.getByRole("button", { name: bug ? "Mauvais" : "Bon" }).click();
+      // Le bandeau change (commit suivant, ou trouvé) une fois le checkout fait : pas avant,
+      // sinon le fichier lu serait encore celui du commit précédent.
+      await expect(banner).not.toHaveText(before);
       await expect(banner.getByRole("button", { name: /^(Arrêter|Terminer)$/ })).toBeEnabled();
     }
     const c5 = git(mine, "rev-parse", "main~2");

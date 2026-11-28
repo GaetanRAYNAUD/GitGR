@@ -11,6 +11,8 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 ## Ouvrir et cloner
 
 - **Accueil** (logo en haut à gauche) : vos dépôts récents, avec une recherche.
+- **Raccourcis clavier** : F1 en affiche la liste, avec une recherche.
+- **Palette de commandes** (Ctrl+P) : tapez quelques lettres d'une action (« push », « checkout feat… », « reflog ») et Entrée.
 - **Ouvrir un dépôt** (Ctrl+O) : choisissez un dossier qui contient déjà un dépôt Git.
 - **Cloner** : collez une URL (https ou ssh), ou choisissez un dépôt dans la liste d'un compte GitHub / GitLab connecté. Les dépôts y sont rangés par propriétaire. GitGR propose le dossier de destination et le profil à utiliser, puis ouvre le dépôt dans un nouvel onglet.
 - **Onglets** : un dépôt par onglet. Ctrl+Tab passe d'un onglet à l'autre, Ctrl+1…9 va directement à un onglet, Ctrl+W ferme l'onglet. Double-cliquez sur un onglet pour le renommer ; un clic droit permet de lui donner une couleur.
@@ -24,6 +26,7 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 - Navigation au clavier : ↑ ↓, Page préc. / Page suiv., Début / Fin ; Maj+↑ / Maj+↓ étendent la sélection. Maj+F10 (ou la touche Menu) ouvre le menu du commit, Entrée passe au panneau de détails, Ctrl+G revient au graphe. Ctrl+F cherche un commit parmi ceux chargés.
 - **Filtrer par auteur** : clic droit sur un commit, « Commits de … », ou le bouton Auteur de la barre de recherche : choisissez un ou plusieurs auteurs ; leurs commits restent en avant, les autres sont estompés.
 - **Bisect** (trouver le commit qui a introduit un problème) : clic droit sur un commit qui a le problème, « Bisect : marquer comme mauvais », puis sur un plus ancien qui ne l'a pas, « … comme bon ». GitGR extrait les commits à tester ; répondez Bon ou Mauvais dans le bandeau jusqu'au premier mauvais commit, puis « Terminer ».
+- **Worktrees** (plusieurs copies de travail du même dépôt) : clic droit sur une branche ou un commit, « Créer un worktree… » ; il s'ouvre dans un onglet. La section Worktrees de la barre latérale les liste ; clic droit pour ouvrir le dossier ou supprimer.
 - Les colonnes s'affichent ou se masquent d'un clic droit sur l'en-tête, et se redimensionnent à la souris. Les branches principales (`main`, `develop`, `release/*`…) ont des couleurs fixes, modifiables dans les Réglages ou d'un clic droit sur une branche (« Couleur fixe pour ce nom… »).
 - Le graphe se rafraîchit tout seul quand le dépôt change ailleurs (terminal, éditeur). F5 force le rafraîchissement.
 

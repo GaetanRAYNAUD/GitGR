@@ -4,7 +4,7 @@
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockDiscardAll, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, BisectState, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
+import type { AutoStash, BisectState, Worktree, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -608,4 +608,42 @@ export function mockBisectReset(path: string, autoStash: boolean): OpResult {
   const res = stashResult(path, autoStash);
   if (b.start.head) moveHead(path, b.start.branch, b.start.branch ? (local(path, b.start.branch)?.target ?? b.start.head) : b.start.head);
   return res;
+}
+
+// --- Worktrees simulés ------------------------------------------------------------
+
+const worktrees = new Map<string, Worktree[]>();
+
+export function mockListWorktrees(path: string): Worktree[] {
+  const h = mockHistory(path);
+  const main: Worktree = { path, head: h.refs.head, branch: h.refs.headBranch, main: true, current: true, locked: null, prunable: null };
+  return [main, ...(worktrees.get(path) ?? [])];
+}
+
+export function mockSuggestWorktreeDir(path: string, branch: string): string {
+  return `${path}-${branch.replace(/[\\/\s]/g, "-")}`;
+}
+
+export function mockAddWorktree(path: string, dir: string, o: { branch?: string; newBranch?: string; start?: string }) {
+  const list = mockListWorktrees(path);
+  if (!dir.trim()) throw "invalid_path";
+  if (list.some((w) => w.path === dir)) throw "worktree_dir_exists";
+  if (o.branch && list.some((w) => w.branch === o.branch)) throw "branch_in_worktree";
+  if (o.newBranch && local(path, o.newBranch)) throw "branch_exists";
+  const h = mockHistory(path);
+  const target = o.branch ? local(path, o.branch)?.target ?? null : o.start ? (h.refs.refs.find((r) => r.short === o.start)?.target ?? o.start) : h.refs.head;
+  if (o.newBranch) setRefs(path, [...h.refs.refs, makeRef("local", o.newBranch, target!)], h.refs.head, h.refs.headBranch);
+  worktrees.set(path, [...(worktrees.get(path) ?? []), { path: dir, head: target, branch: o.branch ?? o.newBranch ?? null, main: false, current: false, locked: null, prunable: null }]);
+}
+
+export function mockRemoveWorktree(path: string, dir: string, force: boolean) {
+  const list = worktrees.get(path) ?? [];
+  const w = list.find((x) => x.path === dir);
+  if (!w) throw "invalid_path";
+  if (!force && w.branch?.includes("sale")) throw "worktree_dirty";
+  worktrees.set(path, list.filter((x) => x !== w));
+}
+
+export function mockPruneWorktrees(path: string) {
+  worktrees.set(path, (worktrees.get(path) ?? []).filter((w) => !w.prunable));
 }

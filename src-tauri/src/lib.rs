@@ -37,6 +37,7 @@ mod signing;
 mod store;
 mod watch;
 mod worktree;
+mod worktrees;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -128,6 +129,11 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::list_worktrees,
+            commands::suggest_worktree_dir,
+            commands::add_worktree,
+            commands::remove_worktree,
+            commands::prune_worktrees,
             commands::bisect_state,
             commands::bisect_mark,
             commands::bisect_reset,

@@ -24,6 +24,8 @@ import { RemoteMark } from "../RemoteMark";
 import { checkoutRef, refMenu, remoteMenu, startBranchDrag } from "./menus";
 import { PULLS_SECTION, PullsSection, termOf } from "./PullsSection";
 import { STASHES_SECTION, StashesSection } from "./StashesSection";
+import { WORKTREES_SECTION, WorktreesSection } from "./WorktreesSection";
+import { useWorktrees } from "../../store/worktrees";
 import { pullOfRef, usePullContexts, usePullList } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
 import { ResizableBlock } from "../Splitter";
@@ -79,8 +81,13 @@ export function RefsSidebar({ path }: { path: string }) {
   const title = (s: RefSection) => (s.kind === "local" ? t("sidebar.local") : s.kind === "tags" ? t("sidebar.tags") : s.remote!);
   const shown = sections.filter((s) => !ui.hidden.includes(s.key));
   const hasStashes = (refs?.stashes ?? 0) > 0;
+  const hasWorktrees = useWorktrees((s) => (s.lists[path]?.list.length ?? 0) > 1);
   const hiddenCount =
-    sections.length - shown.length + (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0) + (hasStashes && ui.hidden.includes(STASHES_SECTION) ? 1 : 0);
+    sections.length -
+    shown.length +
+    (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0) +
+    (hasStashes && ui.hidden.includes(STASHES_SECTION) ? 1 : 0) +
+    (hasWorktrees && ui.hidden.includes(WORKTREES_SECTION) ? 1 : 0);
   const q = filter.trim().toLowerCase();
   queryRef.current = q;
 
@@ -371,6 +378,12 @@ export function RefsSidebar({ path }: { path: string }) {
                 {t("stashes.section")}
               </label>
             )}
+            {hasWorktrees && (
+              <label className="menu-check">
+                <input type="checkbox" checked={!ui.hidden.includes(WORKTREES_SECTION)} onChange={() => setUi(path, { ...ui, hidden: toggle(ui.hidden, WORKTREES_SECTION) })} />
+                {t("worktrees.section")}
+              </label>
+            )}
             <div className="menu-hint">{t("sidebar.sectionsHint")}</div>
           </div>
         )}
@@ -389,6 +402,7 @@ export function RefsSidebar({ path }: { path: string }) {
         )}
         {showPulls && <PullsSection path={path} contexts={contexts} query={q} ui={ui} />}
         {!ui.hidden.includes(STASHES_SECTION) && <StashesSection path={path} query={q} ui={ui} />}
+        {!ui.hidden.includes(WORKTREES_SECTION) && <WorktreesSection path={path} query={q} ui={ui} />}
         {shown.filter((s) => s.kind === "tags").map(renderSection)}
       </div>
 

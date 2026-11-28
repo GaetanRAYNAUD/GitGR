@@ -1111,6 +1111,8 @@ pub fn classify(stderr: &str) -> String {
         || has("Please commit or stash them")
     {
         "local_changes_conflict"
+    } else if has("is already used by worktree") || has("is already checked out at") {
+        "branch_in_worktree"
     } else if has("not fully merged") {
         "branch_not_merged"
     } else if has("Not possible to fast-forward") || has("not possible to fast-forward") {

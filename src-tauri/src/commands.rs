@@ -432,6 +432,36 @@ pub async fn bisect_reset(path: String, auto_stash: bool) -> Result<OpResult, St
     crate::bisect::reset(Path::new(&path), auto_stash)
 }
 
+/// Worktrees du dépôt (principal compris).
+#[tauri::command]
+pub async fn list_worktrees(path: String) -> Result<Vec<crate::worktrees::Worktree>, String> {
+    crate::worktrees::list(Path::new(&path))
+}
+
+/// Dossier proposé pour un worktree de cette branche (à côté du dépôt principal).
+#[tauri::command]
+pub async fn suggest_worktree_dir(path: String, branch: String) -> Result<String, String> {
+    crate::worktrees::suggest_dir(Path::new(&path), &branch)
+}
+
+/// Crée un worktree : branche existante, nouvelle branche (depuis `start`) ou détaché.
+#[tauri::command]
+pub async fn add_worktree(path: String, dir: String, branch: Option<String>, new_branch: Option<String>, start: Option<String>) -> Result<(), String> {
+    crate::worktrees::add(Path::new(&path), &dir, branch.as_deref(), new_branch.as_deref(), start.as_deref())
+}
+
+/// Supprime un worktree (`force` : même avec des modifications).
+#[tauri::command]
+pub async fn remove_worktree(path: String, dir: String, force: bool) -> Result<(), String> {
+    crate::worktrees::remove(Path::new(&path), &dir, force)
+}
+
+/// Oublie les worktrees dont le dossier a disparu.
+#[tauri::command]
+pub async fn prune_worktrees(path: String) -> Result<(), String> {
+    crate::worktrees::prune(Path::new(&path))
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

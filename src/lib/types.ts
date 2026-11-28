@@ -380,6 +380,20 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Un worktree du dépôt (src-tauri/src/worktrees.rs). */
+export interface Worktree {
+  path: string;
+  head: string | null;
+  /** `null` : HEAD détachée. */
+  branch: string | null;
+  main: boolean;
+  /** Celui du dossier ouvert. */
+  current: boolean;
+  locked: string | null;
+  /** Dossier disparu : à nettoyer. */
+  prunable: string | null;
+}
+
 /** Bisect en cours (src-tauri/src/bisect.rs). */
 export interface BisectState {
   bad: string | null;
