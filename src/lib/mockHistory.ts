@@ -1,7 +1,7 @@
 // Historique factice pour le backend simulé (navigateur, tests E2E).
 // Déterministe : un même chemin de dépôt donne toujours le même historique.
 
-import type { BlobPreview, BlobSide, Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
+import type { Author, BlobPreview, BlobSide, Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
 import { hunkItems } from "./wordDiff";
 
 /** Petit générateur pseudo-aléatoire déterministe (mulberry32). */
@@ -169,6 +169,17 @@ export function mockBlobPreview(side: BlobSide): BlobPreview | null {
   const fill = parent ? "#3b82f6" : "#f97316";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="64"><rect x="8" y="8" width="${w - 16}" height="48" rx="8" fill="${fill}"/></svg>`;
   return { size: parent ? 1200 : 1850, mime: "image/png", data: `data:image/svg+xml;base64,${btoa(svg)}` };
+}
+
+/** Auteurs de l'historique simulé, du plus actif au moins actif. */
+export function mockAuthors(path: string): Author[] {
+  const by = new Map<string, Author>();
+  for (const c of mockHistory(path).commits) {
+    const a = by.get(c.email) ?? { name: c.author, email: c.email, count: 0 };
+    a.count++;
+    by.set(c.email, a);
+  }
+  return [...by.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 export function mockDiff(sha: string, file: string): FileDiff {

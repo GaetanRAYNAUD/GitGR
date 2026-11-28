@@ -184,6 +184,18 @@ pub async fn range_diff(
     history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref(), ignore_ws.unwrap_or(false), full.unwrap_or(false)).map_err(classify)
 }
 
+/// Auteurs de l'historique, du plus actif au moins actif.
+#[tauri::command]
+pub async fn repo_authors(path: String) -> Result<Vec<history::Author>, String> {
+    history::authors(Path::new(&path)).map_err(classify)
+}
+
+/// SHA des commits de ces auteurs (e-mails), toutes branches.
+#[tauri::command]
+pub async fn author_commits(path: String, emails: Vec<String>) -> Result<Vec<String>, String> {
+    history::author_commits(Path::new(&path), &emails).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn search_changes(path: String, text: String, regex: bool, file: Option<String>) -> Result<Vec<Commit>, String> {
     history::search_changes(Path::new(&path), &text, regex, file.as_deref()).map_err(classify)

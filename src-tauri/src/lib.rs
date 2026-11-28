@@ -127,6 +127,8 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::repo_authors,
+            commands::author_commits,
             commands::blob_preview,
             commands::search_changes,
             commands::search_files,

@@ -380,6 +380,13 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Un auteur de l'historique (filtre du graphe, src-tauri/src/history.rs). */
+export interface Author {
+  name: string;
+  email: string;
+  count: number;
+}
+
 /** Une version d'un fichier binaire (aperçu du diff, src-tauri/src/history.rs). */
 export interface BlobPreview {
   size: number;

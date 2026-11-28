@@ -304,6 +304,17 @@
     "rowStash": "Stash : {{message}}",
     "wipMark": "//"
   },
+  "authorFilter": {
+    "label": "Auteurs",
+    "placeholder": "Nom ou e-mail",
+    "loading": "Lecture des auteurs…",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "byAuthor": "Commits de {{name}}",
+    "byAuthorButton": "Filtrer par auteur",
+    "byText": "Chercher un texte",
+    "pick": "Choisissez un ou plusieurs auteurs."
+  },
   "graphFind": {
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",

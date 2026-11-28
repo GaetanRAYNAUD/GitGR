@@ -43,7 +43,7 @@ import {
   mockStashPop,
   mockStashPush,
 } from "./mockBranches";
-import { mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
+import { mockAuthors, mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
 import { mockAddConflict, mockConflictVersions, mockResolveConflict,
@@ -114,6 +114,7 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  Author,
   BlobPreview,
   BlobSide,
 } from "./types";
@@ -150,6 +151,10 @@ export interface Api {
   blame(path: string, file: string, rev: string | null): Promise<Blame>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
+  /** Auteurs de l'historique (toutes branches), du plus actif au moins actif. */
+  repoAuthors(path: string): Promise<Author[]>;
+  /** SHA des commits (toutes branches) de ces auteurs (e-mails, sans casse). */
+  authorCommits(path: string, emails: string[]): Promise<string[]>;
   /** Une version d'un fichier binaire pour l'aperçu du diff ; `null` si absente de cette version. */
   blobPreview(path: string, side: BlobSide): Promise<BlobPreview | null>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -430,6 +435,8 @@ const tauriApi: Api = {
   rangeDiff: (path, base, tip, file, oldFile, opts) => invoke("range_diff", { path, base, tip, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
+  repoAuthors: (path) => invoke("repo_authors", { path }),
+  authorCommits: (path, emails) => invoke("author_commits", { path, emails }),
   blobPreview: (path, side) => invoke("blob_preview", { path, rev: side.rev, file: side.file }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
   searchFiles: (path, sha, text, regex, file) => invoke("search_files", { path, sha, text, regex, file }),
@@ -905,6 +912,15 @@ const mockApi: Api = {
   async reflog(path, refname) {
     await mockDelay();
     return mockReflog(path, refname);
+  },
+  async repoAuthors(path) {
+    await mockDelay();
+    return mockAuthors(path);
+  },
+  async authorCommits(path, emails) {
+    await mockDelay();
+    const want = new Set(emails.map((e) => e.toLowerCase()));
+    return mockHistory(path).commits.filter((c) => want.has(c.email.toLowerCase())).map((c) => c.sha);
   },
   async blobPreview(_path, side) {
     await mockDelay();

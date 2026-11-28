@@ -194,6 +194,30 @@ test("historique d'un fichier : double-clic ouvre le diff en plein écran, Écha
   await expect(history).toBeVisible();
 });
 
+test("filtre par auteur : depuis un commit, puis un second auteur ; les autres commits estompés", async ({ page }) => {
+  const first = graph(page).getByRole("option").first();
+  await first.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Commits de Sam Leroy" }).click();
+  const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+  await expect(bar.getByRole("button", { name: "Filtrer par auteur" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.locator(".mpick-chip-text")).toHaveText(["Sam Leroy"]);
+  await expect(bar.getByRole("status")).toContainText(/commits? trouvés?|\d+ \/ \d+/);
+  await expect(graph(page).locator(".commit-row.dim").first()).toBeVisible();
+  for (const row of await graph(page).locator(".commit-row.found .commit-author").allTextContents()) expect(row).toContain("Sam Leroy");
+
+  // Un second auteur, choisi au clavier dans la liste.
+  const field = bar.getByRole("combobox");
+  await field.fill("Camille");
+  await field.press("Enter");
+  await expect(bar.locator(".mpick-chip-text")).toHaveText(["Sam Leroy", "Camille Dupont"]);
+  await expect(graph(page).locator(".commit-row.found .commit-author", { hasText: "Camille Dupont" }).first()).toBeVisible();
+
+  // Retour à la recherche par texte : le filtre disparaît.
+  await bar.getByRole("button", { name: "Filtrer par auteur" }).click();
+  await expect(bar.getByRole("textbox")).toBeVisible();
+  await expect(graph(page).locator(".commit-row.dim")).toHaveCount(0);
+});
+
 test("Ctrl+F : commits trouvés mis en avant, Entrée pour passer de l'un à l'autre, Échap ferme", async ({ page }) => {
   await graph(page).getByRole("option").first().click();
   await page.keyboard.press("Control+f");

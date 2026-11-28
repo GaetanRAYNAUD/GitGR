@@ -7804,3 +7804,19 @@ body.commit-dragging * {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* Filtre par auteurs dans la barre de recherche du graphe : libellé à gauche du champ. */
+.author-filter {
+  flex: 0 1 480px;
+  min-width: 200px;
+}
+
+.author-filter .mpick-field {
+  flex-direction: row;
+  align-items: center;
+}
+
+.graph-find .icon-btn.on {
+  background: var(--hover);
+  color: var(--text);
+}

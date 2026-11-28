@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { commitMatches, findQuery, nextMatch } from "../../lib/graphFind";
 import { useGraphFind } from "../../store/graphFind";
+import { AuthorFilter } from "./AuthorFilter";
+import { api, errorCode } from "../../lib/api";
 import { useTranslation } from "react-i18next";
 import { commitDate, initials } from "../../lib/format";
 import { layoutGraph, PALETTE_SIZE, SIDE_COLOR, type GraphLayout } from "../../lib/graph";
@@ -545,7 +547,24 @@ export function CommitGraph({ path, changes }: Props) {
   // autres estompées ; Entrée / Maj+Entrée passent au résultat suivant / précédent.
   const findText = useGraphFind((s) => s.queries[path]);
   const findInput = useRef<HTMLInputElement>(null);
-  const findSet = useGraphFind((s) => s.sets[path]);
+  const givenSet = useGraphFind((s) => s.sets[path]);
+  // Filtre par auteurs : leurs commits lus dans git (toutes branches, au-delà des pages chargées).
+  const authorEmails = useGraphFind((s) => s.authors[path]);
+  const authorKey = authorEmails?.length ? JSON.stringify(authorEmails) : null;
+  const [authorShas, setAuthorShas] = useState<{ key: string; shas: string[] } | null>(null);
+  const refsSeen = graph?.refs;
+  useEffect(() => {
+    if (!authorKey) return;
+    let live = true;
+    api.authorCommits(path, JSON.parse(authorKey) as string[]).then(
+      (shas) => live && setAuthorShas({ key: authorKey, shas }),
+      (e) => live && useApp.setState({ error: errorCode(e) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, authorKey, refsSeen]);
+  const findSet = givenSet ?? (authorKey && authorShas?.key === authorKey ? { label: authorKey, shas: authorShas.shas } : undefined);
   const query = findText === undefined ? null : findQuery(findText);
   const finding = !!query || !!findSet;
   const matches = useMemo(() => {
@@ -692,7 +711,11 @@ export function CommitGraph({ path, changes }: Props) {
     if (stash) return stashMenu(t, path, stash, () => {});
     if (pickedSet.has(c.sha)) return pickedMenu(t, path, orderPicked(graph.commits, picked ?? []), graph.refs);
     select(path, c.sha);
-    return commitMenu(t, path, c.sha, graph.refs);
+    return [
+      { label: t("authorFilter.byAuthor", { name: c.author || c.email }), onClick: () => useGraphFind.getState().showAuthors(path, [c.email]) },
+      "sep",
+      ...commitMenu(t, path, c.sha, graph.refs),
+    ];
   };
 
   /** Menu de la ligne active au clavier (Maj+F10, touche Menu), ouvert sous son message. */
@@ -882,10 +905,12 @@ export function CommitGraph({ path, changes }: Props) {
   const findPos = matches.indexOf(selectedIndex);
   // Commits de la liste qui ne sont pas (encore) dans les pages chargées.
   const outside = findSet ? findSet.shas.length - matches.length : 0;
-  const findBar = (findText !== undefined || findSet) && (
+  const findBar = (findText !== undefined || findSet || authorEmails) && (
     <div className="graph-find" role="search" aria-label={t("graphFind.label")}>
-      <Icon name="search" size={13} />
-      {findSet ? (
+      <Icon name={authorEmails ? "user" : "search"} size={13} />
+      {authorEmails ? (
+        <AuthorFilter path={path} selected={authorEmails} />
+      ) : findSet ? (
         <span className="graph-find-set" title={findSet.label}>
           {t("graphFind.setLabel", { label: findSet.label })}
         </span>
@@ -911,7 +936,19 @@ export function CommitGraph({ path, changes }: Props) {
         }}
       />
       )}
+      {!givenSet && (
+        <button
+          className={authorEmails ? "icon-btn sm on" : "icon-btn sm"}
+          aria-pressed={!!authorEmails}
+          aria-label={t("authorFilter.byAuthorButton")}
+          title={authorEmails ? t("authorFilter.byText") : t("authorFilter.byAuthorButton")}
+          onClick={() => (authorEmails ? useGraphFind.getState().open(path) : useGraphFind.getState().showAuthors(path, []))}
+        >
+          <Icon name="user" size={13} />
+        </button>
+      )}
       <span className="muted graph-find-count" role="status">
+        {authorEmails && !authorEmails.length && t("authorFilter.pick")}
         {finding &&
           [
             matches.length === 0

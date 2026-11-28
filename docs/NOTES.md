@@ -240,6 +240,7 @@ Compléments et retours d'utilisation, par thème.
 - Linux : icône de la fenêtre en 512 px et `.desktop` avec `StartupWMClass` ; macOS : double-clic sur la barre de titre (agrandir / restaurer), déplacement après 5 px. **À vérifier par des testeurs** (cf. « Reste à faire », étape 7).
 - Décidé **non** : vérifier les mises à jour pendant que l'app reste ouverte (démarrage + bouton des Réglages suffisent) ; canal de pré-versions (les testeurs suivent `releases/latest`).
 - **Aperçu des images dans le diff** (étape 8) : `blob_preview` (taille, data URL d'une image ≤ 16 Mo ; version d'un commit, de l'index ou du disque), `BinaryPreview` (avant / après côte à côte sur damier, dimensions, poids et écart, ou fondu au curseur), branché dans le diff d'un commit, de la copie de travail, d'une plage, d'un stash, de l'historique d'un fichier et de la recherche.
+- **Filtre du graphe par auteur** (étape 8) : `repo_authors` (toutes branches, regroupés par e-mail sans casse, nom le plus fréquent) et `author_commits` (`git log --all -F -i --author=<e-mail>`, 50 000 au plus) ; dans la barre de recherche du graphe, bouton Auteur et `MultiPicker` des auteurs (identité du dépôt en tête), « Commits de … » au clic droit d'un commit ; même mise en avant, estompage, compte « hors des commits chargés » et flèches que la recherche.
 
 ## Reste à faire
 
@@ -288,7 +289,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Bisect visuel** : depuis le clic droit sur un commit, « Marquer comme mauvais » / « Marquer comme bon » (`git bisect start / good / bad`) ; le graphe met en évidence la plage restante et le commit à tester (checkout fait, auto-stash), bandeau « Bisect : environ N étapes » avec Bon / Mauvais / Passer / Arrêter ; à la fin, le premier mauvais commit est sélectionné. Option : lancer une commande de test (`git bisect run`) et suivre sa sortie.
 - [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés : fait, cf. « Fait ») : par fichier, au-delà des commits chargés (côté git), filtre qui masque les autres lignes ; masquer / solo des branches.
-- [ ] **Filtrer le graphe par auteur du commit** : choisir un ou plusieurs auteurs (liste tirée de l'historique, moi en tête) ; les autres commits masqués ou estompés, au-delà des commits chargés (`git log --author`).
+- [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
 - [ ] **Glisser-déposer d'une branche** (sur une branche locale : fait, cf. « Fait ») : sur une branche distante (PR / MR vers elle), depuis une branche distante (merge).

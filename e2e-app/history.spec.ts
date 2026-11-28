@@ -416,3 +416,37 @@ test("image modifiée : avant / après lus dans git, puis dans la copie de trava
     await app.close();
   }
 });
+
+test("filtre par auteur : commits lus dans git, sur toutes les branches", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const as = (name: string, email: string, file: string, msg: string) => {
+    writeFileSync(join(mine, file), msg);
+    git(mine, "add", file);
+    git(mine, "-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-qm", msg);
+  };
+  as("Zoé", "zoe@exemple.fr", "z1.txt", "zoé : un");
+  as("Yann", "yann@exemple.fr", "y1.txt", "yann : un");
+  git(mine, "switch", "-q", "-c", "autre");
+  as("Zoé", "ZOE@exemple.fr", "z2.txt", "zoé : sur autre");
+  git(mine, "switch", "-q", "main");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    await graph.getByRole("option", { name: /zoé : un/ }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Commits de Zoé" }).click();
+    const found = graph.locator(".commit-row.found");
+    await expect(found).toHaveCount(2);
+    await expect(found.filter({ hasText: "zoé : sur autre" })).toHaveCount(1);
+    await expect(graph.locator(".commit-row.dim", { hasText: "yann : un" })).toHaveCount(1);
+    // La liste des auteurs : l'identité du dépôt en tête ; Zoé compte 2 commits (deux casses
+    // d'e-mail regroupées).
+    const bar = page.getByRole("search", { name: "Chercher dans le graphe" });
+    await bar.getByRole("combobox").click();
+    await expect(bar.getByRole("option").first()).toContainText("mine@exemple.fr");
+    await expect(bar.getByRole("option", { name: /Zoé/ })).toContainText("2 commits");
+  } finally {
+    await app.close();
+  }
+});
