@@ -7981,3 +7981,20 @@ kbd {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Fenêtre « Créer la release » : notes en Markdown, cases côte à côte. */
+.release-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.release-notes {
+  min-height: 180px;
+  resize: vertical;
+  font-size: 12px;
+}
+
+.release-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}

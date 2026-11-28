@@ -122,6 +122,9 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  ReleaseDraft,
+  NewRelease,
+  CreatedRelease,
   ConflictSides,
   BisectState,
   Worktree,
@@ -346,6 +349,10 @@ export interface Api {
   remoteDefaultBranch(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<string>;
   /** Crée la PR / MR, ou renvoie celle qui existe déjà pour ces branches (`existing`). */
   createPull(kind: ProviderKind, url: string, account: string | null, request: NewPull): Promise<Pull>;
+  /** Commits de la release d'un tag (depuis le tag précédent). */
+  releaseDraft(path: string, tag: string): Promise<ReleaseDraft>;
+  /** Crée la release d'un tag déjà poussé, avec le compte donné. */
+  createRelease(kind: ProviderKind, url: string, account: string | null, request: NewRelease): Promise<CreatedRelease>;
   /** Personnes et étiquettes du dépôt en cache (sinon celles des autres dépôts du même
    *  propriétaire, `fromOwner`) ; `null` : rien de connu. Ne demande rien au provider. */
   cachedPullOptions(kind: ProviderKind, url: string, repo: string): Promise<PullOptions | null>;
@@ -420,6 +427,9 @@ export interface Api {
 
 /** Dernier fetch simulé par dépôt (secondes). */
 const mockLastFetch = new Map<string, number>();
+/** Releases créées par le backend simulé (lues par les tests e2e). */
+const mockReleases: (NewRelease & { kind: ProviderKind })[] = [];
+
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -570,6 +580,8 @@ const tauriApi: Api = {
   pullDraft: (path, source, target, kind) => invoke("pull_draft", { path, source, target, kind }),
   remoteDefaultBranch: (kind, url, repo, account) => invoke("remote_default_branch", { kind, url, repo, account }),
   createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
+  releaseDraft: (path, tag) => invoke("release_draft", { path, tag }),
+  createRelease: (kind, url, account, request) => invoke("create_release", { kind, url, account, request }),
   cachedPullOptions: (kind, url, repo) => invoke("cached_pull_options", { kind, url, repo }),
   refreshPullOptions: (kind, url, repo, account) => invoke("refresh_pull_options", { kind, url, repo, account }),
   listPulls: (kind, url, repo, account) => invoke("list_pulls", { kind, url, repo, account }),
@@ -738,7 +750,7 @@ const mockOptionsCache = new Map<string, PullOptions>();
 /** Lectures des personnes / étiquettes sur le « provider » simulé (lues par les tests e2e). */
 const mockOptionFetches = { count: 0, delay: 600 };
 if (!inTauri && typeof window !== "undefined") {
-  Object.assign(window, { __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions, __mockConflict: mockAddConflict });
+  Object.assign(window, { __mockReleases: mockReleases, __mockPulls: mockPulls, __mockOptionFetches: mockOptionFetches, __mockPullActions: mockPullActions, __mockConflict: mockAddConflict });
 }
 
 /** Backend simulé : abonnés à l'avancement du clone, et annulation demandée. */
@@ -1355,6 +1367,19 @@ const mockApi: Api = {
     return "main";
   },
   // Une branche source dont le nom contient `deja` a déjà sa PR / MR.
+  async releaseDraft(path, tag) {
+    await mockDelay();
+    const h = mockHistory(path);
+    if (!h.refs.refs.some((r) => r.kind === "tag" && r.short === tag)) throw "tag_not_found";
+    return { previous: "v0.7.0", commits: h.commits.slice(0, 6).map((c) => ({ sha: c.sha, subject: c.subject })) };
+  },
+  async createRelease(kind, _url, account, request) {
+    await mockDelay();
+    if (!account) throw "account_missing";
+    mockReleases.push({ kind, ...request });
+    const url = kind === "github" ? `https://github.com/${request.repo}/releases/tag/${request.tag}` : `https://gitlab.com/${request.repo}/-/releases/${request.tag}`;
+    return { url, warnings: kind === "gitlab" && request.draft ? ["release_draft_unsupported"] : [] };
+  },
   async createPull(kind, url, account, request) {
     if (!account) throw "account_missing";
     if (!request.title.trim()) throw "pull_title_missing";

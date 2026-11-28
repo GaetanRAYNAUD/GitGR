@@ -117,6 +117,11 @@ fn call(kind: Kind, api: &str, path: &str, token: &str, body: Option<&Value>) ->
     request(kind, api, path, token, method).map(|r| (r.status, r.json))
 }
 
+/// POST à l'API ; renvoie le code et le JSON de la réponse (4xx compris).
+pub(crate) fn post(kind: Kind, api: &str, path: &str, token: &str, body: &Value) -> Result<(u16, Value), String> {
+    call(kind, api, path, token, Some(body))
+}
+
 /// Erreurs communes à toutes les réponses en échec.
 pub(crate) fn refused(status: u16) -> String {
     match status {

@@ -380,6 +380,27 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Commits d'une release depuis le tag précédent (src-tauri/src/releases.rs). */
+export interface ReleaseDraft {
+  previous: string | null;
+  commits: { sha: string; subject: string }[];
+}
+
+export interface NewRelease {
+  repo: string;
+  tag: string;
+  name: string;
+  body: string;
+  draft: boolean;
+  prerelease: boolean;
+}
+
+export interface CreatedRelease {
+  url: string;
+  /** Codes `release_*_unsupported` (GitLab : ni brouillon ni pré-version). */
+  warnings: string[];
+}
+
 /** Versions d'un fichier en conflit présentes dans l'index (tailles ; `null` : absente). */
 export interface ConflictSides {
   base: number | null;

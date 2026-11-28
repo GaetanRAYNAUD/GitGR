@@ -15,6 +15,7 @@ import { useBlameView, useConflictView, useFileHistoryView } from "../../store/r
 import { defaultRemote, useOps } from "../../store/ops";
 import { useBisect } from "../../store/bisect";
 import { useWorktrees } from "../../store/worktrees";
+import { useReleaseDialog } from "../ReleaseDialog";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
@@ -329,6 +330,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     { label: t("menu.checkoutDetached"), onClick: () => ops.checkoutDetached(path, r.target) },
     "sep",
+    { label: t("release.menu"), title: t("release.menuHint"), onClick: () => useReleaseDialog.getState().show(path, r.short) },
     remotes.length > 1
       ? { label: t("tag.pushToMenu"), items: remotes.map((name): MenuItem => ({ label: name, onClick: () => void ops.pushTag(path, r.short, name) })) }
       : {

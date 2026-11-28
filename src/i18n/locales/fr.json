@@ -494,6 +494,42 @@
       "tabs": "Onglets"
     }
   },
+  "release": {
+    "menu": "Créer la release…",
+    "menuHint": "La release GitHub / GitLab de ce tag, avec ses notes",
+    "title": "Release {{tag}}",
+    "since": "Commits depuis {{previous}}",
+    "first": "Premier tag : tous les commits jusqu’à lui",
+    "loading": "Lecture des commits…",
+    "forge": "Forge",
+    "on": "Sur {{forge}}, {{repo}}",
+    "as": "en tant que {{login}}",
+    "name": "Nom",
+    "notesLabel": "Notes (Markdown)",
+    "notesEmpty": "Notes de la release",
+    "draft": "Brouillon (publiée plus tard)",
+    "prerelease": "Pré-version",
+    "pushFirst": "Pousser d’abord le tag {{tag}} sur {{remote}}",
+    "create": "Créer la release",
+    "creating": "Création…",
+    "created": "Release {{tag}} créée.",
+    "open": "Ouvrir la release",
+    "noForge": "Aucun remote GitHub ou GitLab connu pour ce dépôt.",
+    "noAccount": "Pas de compte pour {{remote}} : connectez-en un dans les profils.",
+    "discardTitle": "Abandonner la release ?",
+    "discardBody": "Le nom et les notes saisis seront perdus.",
+    "discard": "Abandonner",
+    "notes": {
+      "feat": "Nouveautés",
+      "fix": "Corrections",
+      "other": "Autres changements",
+      "breaking": "Changements cassants"
+    },
+    "warnings": {
+      "release_draft_unsupported": "GitLab n’a pas de brouillon : la release est publiée.",
+      "release_prerelease_unsupported": "GitLab n’a pas de pré-version : la release est marquée comme les autres."
+    }
+  },
   "graphFind": {
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",
@@ -1335,6 +1371,8 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "release_tag_missing": "Le tag n’est pas sur le dépôt distant : poussez-le d’abord.",
+    "release_exists": "Une release existe déjà pour ce tag.",
     "not_conflicted": "Ce fichier n’est plus en conflit.",
     "branch_in_worktree": "Cette branche est déjà extraite dans un autre worktree : ouvrez-le, ou choisissez une autre branche.",
     "worktree_dir_exists": "Ce dossier existe déjà et n’est pas vide.",
