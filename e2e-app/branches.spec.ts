@@ -300,3 +300,25 @@ test("Ctrl+Z annule un commit (modifications indexées) puis un merge ; Ctrl+Y r
     await app.close();
   }
 });
+
+test("branches récentes : lues dans le reflog de HEAD, checkout depuis le menu", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  git(mine, "switch", "-q", "-c", "a");
+  git(mine, "switch", "-q", "-c", "b");
+  git(mine, "switch", "-q", "main");
+  git(mine, "branch", "-q", "-D", "a");
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await expect(page.locator(".branch-chip-label")).toHaveText("main");
+    await page.keyboard.press("Control+Shift+O");
+    const menu = page.getByRole("menu");
+    // `a` supprimée n'est plus proposée ; `main` (courante) non plus.
+    await expect(menu.getByRole("menuitem")).toHaveText(["b"]);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".branch-chip-label")).toHaveText("b");
+    expect(git(mine, "branch", "--show-current")).toBe("b");
+  } finally {
+    await app.close();
+  }
+});

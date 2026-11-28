@@ -88,7 +88,7 @@ function useShortcuts() {
         const q = useQuickOpen.getState();
         if (q.open) q.hide();
         else q.show();
-      } else if (ctrl && e.key.toLowerCase() === "o") {
+      } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === "o") {
         if (modal) return;
         s.pickAndOpen(t("welcome.pickTitle"));
       } else if (ctrl && /^[1-9]$/.test(e.key)) {

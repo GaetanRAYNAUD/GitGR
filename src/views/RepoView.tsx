@@ -18,7 +18,8 @@ import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
 import { useOps, type OpName } from "../store/ops";
 import { changedCount, useWork } from "../store/worktree";
-import type { PullStrategy } from "../lib/types";
+import type { PullStrategy, ReflogEntry } from "../lib/types";
+import { recentBranches } from "../lib/refs";
 import { remoteMarkOf } from "../components/RemoteMark";
 import { useProfiles } from "../store/profiles";
 import { usePublishDialog } from "../store/publish";
@@ -523,10 +524,55 @@ export function RepoView({ path }: { path: string }) {
     return true;
   };
 
+  // Branches récentes (reflog de HEAD) : menu sous le chevron de la pastille, clic droit sur
+  // elle, ou Ctrl+Maj+O ; un clic fait le checkout (auto-stash comme ailleurs).
+  const recentRef = useRef<HTMLButtonElement>(null);
+  const [recentId, setRecentId] = useState<number | null>(null);
+  const menuShown = useContextMenu((s) => s.menu?.id);
+  const recentOpen = recentId !== null && recentId === menuShown;
+  const recentMenu = async () => {
+    const el = recentRef.current;
+    if (!el) return;
+    let log: ReflogEntry[] = [];
+    try {
+      log = await api.reflog(path, "HEAD");
+    } catch {
+      // Pas de reflog lisible : le menu le dit (aucune branche récente).
+    }
+    // Onglet changé ou vue fermée pendant la lecture : plus de menu à ouvrir.
+    if (!el.isConnected || useApp.getState().active !== path) return;
+    const refs = useGraph.getState().graphs[path]?.refs;
+    const locals = (refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short);
+    const names = recentBranches(log, locals, refs?.headBranch ?? null);
+    const why = useOps.getState().running[path] ? t("repo.busy") : operation ? t("repo.blockedBy", { op: t(`op.${operation}`) }) : undefined;
+    const items: MenuItem[] = [{ header: t("repo.recentBranches") }];
+    if (!names.length) items.push({ label: t("repo.noRecentBranches"), disabled: true, onClick: () => {} });
+    for (const name of names)
+      items.push({ label: name, disabled: !!why, title: why ?? t("repo.recentCheckout", { name }), onClick: () => void useOps.getState().checkout(path, name) });
+    openMenuBelow(el, items);
+    setRecentId(useContextMenu.getState().menu?.id ?? null);
+  };
+  const recentKey = useRef(recentMenu);
+  recentKey.current = recentMenu;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.key.toUpperCase() !== "O") return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      void recentKey.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="repo-view">
       <div className="toolbar">
         {/* Dépôt et branche courante ; un clic (ou Entrée) amène le graphe sur le commit courant. */}
+        <span className="branch-chip-group" onContextMenu={(e) => {
+          e.preventDefault();
+          void recentMenu();
+        }}>
         <button
           type="button"
           className={data && !data.branch ? "branch-chip detached" : "branch-chip"}
@@ -545,6 +591,20 @@ export function RepoView({ path }: { path: string }) {
             {!!data?.behind && <span className="branch-chip-sync mono">↓{data.behind}</span>}
           </span>
         </button>
+        <button
+          ref={recentRef}
+          type="button"
+          className="branch-chip-more"
+          aria-label={t("repo.recentBranches")}
+          title={`${t("repo.recentBranches")} (${t("keys.ctrlShift", { key: "O" })})`}
+          aria-keyshortcuts="Control+Shift+O"
+          aria-haspopup="menu"
+          aria-expanded={recentOpen}
+          onClick={() => void recentMenu()}
+        >
+          <Icon name="chevron" size={12} />
+        </button>
+        </span>
         {changes > 0 && (
           <button
             className={selected === WIP && !diff && !openPull ? "changes-pill on" : "changes-pill"}
