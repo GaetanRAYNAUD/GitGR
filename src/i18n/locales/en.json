@@ -821,6 +821,8 @@
     "ageHint": "Margin mark: the darker, the more recent the line."
   },
   "tag": {
+    "nextVersion": "Next version",
+    "level": { "patch": "Patch", "minor": "Minor", "major": "Major" },
     "newTitle": "New tag",
     "newOn": "On {{target}}",
     "newHere": "New tag here…",

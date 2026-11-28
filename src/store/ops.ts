@@ -395,8 +395,16 @@ export const useOps = create<OpsStore>((set, get) => {
         subtitle: t("tag.newOn", { target: targetLabel }),
         label: t("tag.name"),
         mono: true,
-        // Version suivante (patch) du tag le plus récent en numéro, s'il y en a un.
+        // Version suivante (patch) du tag le plus récent en numéro, s'il y en a un ; minor et
+        // major d'un clic.
         initial: nextTagName([...existing]) ?? "",
+        suggestions: {
+          label: t("tag.nextVersion"),
+          items: (["patch", "minor", "major"] as const).flatMap((level) => {
+            const value = nextTagName([...existing], level);
+            return value ? [{ label: t(`tag.level.${level}`), value }] : [];
+          }),
+        },
         submit: t("tag.create"),
         second: { label: t("tag.message"), initial: "", placeholder: t("tag.messageHint"), optional: true },
         ...(remote ? { checkbox: { label: t("tag.pushTo", { remote }), checked: false } } : {}),

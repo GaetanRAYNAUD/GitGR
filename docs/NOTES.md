@@ -268,6 +268,7 @@ Compléments et retours d'utilisation, par thème.
 - **Palette : commit sélectionné et récentes** (étape 8) : les actions du clic droit du commit sélectionné dans le graphe (groupe « Commit abc1234 », grisées avec leur raison) ; sans recherche, les 5 dernières commandes lancées en tête (`localStorage`, `withRecentFirst`).
 - **Worktrees dans le graphe** (étape 9) : l'étiquette d'une branche extraite dans un autre worktree porte une icône de dossier, son infobulle dit où, et le double-clic ouvre ce worktree dans un onglet (au lieu d'un checkout que git refuserait).
 - **Signature GPG qui échoue au premier essai, opérations** (étape 5) : `run_signing` — merge, rebase (simple, interactif, squash), cherry-pick, revert et « Continuer » : si git s'arrête parce que gpg-agent n'était pas prêt, l'opération (restée en cours, sans conflit) est poursuivie par `--continue` deux fois au plus, une seconde d'écart.
+- **Nouveau tag : version suivante au choix** (étape 6) : sous le nom (patch proposé), « Correctif / Mineure / Majeure » d'un clic (`nextTagName(tags, level)`, `suggestions` des fenêtres de saisie).
 
 ## Reste à faire
 
@@ -292,7 +293,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Jobs / pipelines du dépôt** (l'écran est fait, cf. « Fait ») ; reste : filtre par workflow, détail des jobs d'une exécution (étapes, journal), pastille de CI sur un commit du graphe (clic droit ou détails), ouverture depuis la barre latérale.
   - **Détail d'un job** : ses **étapes** (nom, état, durée) et ses **logs**, dans GitGR. C'est possible des deux côtés : GitHub Actions donne les étapes d'un job (`GET /repos/{o}/{r}/actions/runs/{id}/jobs`, champ `steps`) et son log (`GET /actions/jobs/{id}/logs`, qui répond par une redirection vers un lien de téléchargement temporaire — à suivre **sans** le token, l'agent HTTP actuel ne suit aucune redirection) ; GitLab donne les jobs d'un pipeline (`/pipelines/{id}/jobs`) et le log brut (`/jobs/{id}/trace`), où les étapes sont les sections `section_start` / `section_end`. Logs à découper par étape (GitHub : lignes `##[group]` / horodatage par étape), couleurs ANSI rendues, recherche, défilement qui suit un job en cours (relu par morceaux : `Range` côté GitLab), lien « Ouvrir dans le navigateur ».
   - Actions : relancer un job / toute l'exécution, annuler une exécution en cours, lancer un workflow à la main (`workflow_dispatch`, GitHub) ou un pipeline (GitLab). Droits du token à vérifier pour chaque action, avec un message clair s'ils manquent.
-- [ ] **Releases et tags** (créer la release d'un tag avec ses notes, nom de tag proposé : fait, cf. « Fait ») ; reste : section « Releases » (liste des releases du dépôt, leur état, lien), PR / MR fusionnées liées dans les notes, choix patch / minor / major pour le nom proposé.
+- [ ] **Releases et tags** (créer la release d'un tag avec ses notes, nom de tag proposé : fait, cf. « Fait ») ; reste : section « Releases » (liste des releases du dépôt, leur état, lien), PR / MR fusionnées liées dans les notes (choix patch / minor / major du nom proposé : fait, cf. « Fait »).
 - [ ] **Issues** (GitHub / GitLab, avec le compte du remote) — première version faite (cf. « Fait ») ; reste : celles où je suis mentionné, filtre par étiquette / jalon, modifier titre / description / étiquettes / assignés, créer une issue, préfixe de branche réglable, lien PR / MR ↔ issue (« Closes #12 »), notifications d'issue ouvertes dans GitGR. Cadrage d'origine :
   - **Voir** : section « Issues » de la barre latérale (les miennes / assignées, celles où je suis mentionné, toutes les ouvertes ; filtre ; étiquettes, jalon), et **vue d'une issue** à la place du graphe : titre, description, état, auteur, assignés, étiquettes, jalon, fil de commentaires, PR / MR et branches liées.
   - **Agir** : commenter, s'assigner, modifier titre / description / étiquettes / assignés, fermer / rouvrir, créer une issue.
@@ -386,7 +387,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Créer une release** (`ReleaseDialog`).
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
-- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs.
+- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`).
 
 Accueil et fenêtres :
 

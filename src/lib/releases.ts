@@ -58,14 +58,14 @@ function versionOf(tag: string): [number, number, number] | null {
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
 
-/** Nom proposé pour un nouveau tag : la version patch suivante du plus haut numéro (`v0.3.1`
- *  → `v0.3.2`), `null` sans tag numéroté. */
-export function nextTagName(tags: string[]): string | null {
+/** Nom proposé pour un nouveau tag : la version suivante (patch d'office) du plus haut numéro
+ *  (`v0.3.1` → `v0.3.2`), `null` sans tag numéroté. */
+export function nextTagName(tags: string[], level: "patch" | "minor" | "major" = "patch"): string | null {
   let best: { tag: string; v: [number, number, number] } | null = null;
   for (const tag of tags) {
     const v = versionOf(tag);
     if (!v) continue;
     if (!best || v[0] > best.v[0] || (v[0] === best.v[0] && (v[1] > best.v[1] || (v[1] === best.v[1] && v[2] > best.v[2])))) best = { tag, v };
   }
-  return best ? bumpVersion(best.tag, "patch") : null;
+  return best ? bumpVersion(best.tag, level) : null;
 }

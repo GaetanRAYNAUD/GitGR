@@ -171,6 +171,30 @@ function InputDialog({ request }: { request: InputRequest }) {
             {error}
           </p>
         )}
+        {request.suggestions && request.suggestions.items.length > 0 && (
+          <div className="input-suggest">
+            <span className="muted" id={`${id}-suggest`}>
+              {request.suggestions.label}
+            </span>
+            <div className="segmented" role="group" aria-labelledby={`${id}-suggest`}>
+              {request.suggestions.items.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className={value === s.value ? "seg on" : "seg"}
+                  aria-pressed={value === s.value}
+                  title={s.value}
+                  onClick={() => {
+                    setValue(s.value);
+                    setTouched(true);
+                  }}
+                >
+                  {s.label} <span className="mono">{s.value}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {request.second && (
           <label className="input-field">
             <span>{request.second.label}</span>
