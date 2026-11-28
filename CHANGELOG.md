@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Diff des modifications en cours : « Ouvrir dans l'éditeur à la ligne N » au clic droit d'un numéro de ligne (ou Maj+F10 sur la ligne active), avec l'éditeur des réglages.
 - « Copier le diff » au clic droit des fichiers de la recherche dans les modifications et de la sélection de plusieurs commits ; dans la recherche, le blame s'ouvre aussi à la version du commit.
 - Résolution de conflits : bouton « Copier » pour copier un côté, la version commune ou le résultat tel qu'il est.
 - Palette de commandes : les actions du fichier ouvert (diff, blame ou historique) y sont, groupe « Fichier … » : blame, historique, copier le diff, ouvrir dans l'éditeur…

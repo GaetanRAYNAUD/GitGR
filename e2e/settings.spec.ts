@@ -255,3 +255,27 @@ test("éditeur des fichiers : blame de la copie de travail, « à la ligne N » 
   const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { how: string; line: number }[] }).__mockOpened);
   expect(opened.map((o) => [o.how, String(o.line)])).toEqual([["editor:subl {file}:{line}", label.match(/\d+$/)![0]]]);
 });
+
+test("éditeur des fichiers : diff des modifications en cours, « à la ligne N » au clic droit d'un numéro et au clavier", async ({ page }) => {
+  const settings = await openSettings(page, "Git");
+  const field = settings.getByLabel("Éditeur des fichiers");
+  await field.fill("subl {file}:{line}");
+  await field.press("Enter");
+  await page.getByRole("button", { name: /^Réglages$/ }).click();
+
+  await openRepos(page, 2);
+  const unstaged = page.getByRole("complementary", { name: "Modifications en cours" }).getByRole("listbox", { name: "Non indexés", exact: true });
+  await unstaged.getByText("render.ts").click();
+  const diff = page.getByRole("region", { name: "Diff de src/graph/render.ts" });
+  const row = diff.locator("tr.add").first();
+  const line = (await row.locator("td.ln2").innerText()).trim();
+  await row.locator("td.ln2").click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: `Ouvrir dans l’éditeur à la ligne ${line}` }).click();
+  const opened = () => page.evaluate(() => (window as unknown as { __mockOpened: { how: string; line: number }[] }).__mockOpened.map((o) => String(o.line)));
+  expect(await opened()).toEqual([line]);
+
+  // Au clavier : Maj+F10 sur la ligne active ouvre le même menu.
+  await diff.getByRole("grid").focus();
+  await page.keyboard.press("Shift+F10");
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: /^Ouvrir dans l’éditeur à la ligne \d+$/ })).toBeVisible();
+});
