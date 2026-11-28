@@ -220,7 +220,8 @@ mod tests {
         // Mauvais dès que a.txt vaut 5 ou plus.
         let (_, st, out) = run_command(p, "test \"$(cat a.txt)\" -lt 5", true).unwrap();
         assert_eq!(st.first_bad.as_deref(), Some(shas[5].as_str()));
-        assert!(out.contains("is the first bad commit"), "{out}");
+        // « first bad commit », ou « first 'bad' commit » selon la version de git.
+        assert!(out.contains("is the first"), "{out}");
         reset(p, true).unwrap();
     }
 
