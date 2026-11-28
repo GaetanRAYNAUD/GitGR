@@ -7962,3 +7962,22 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Conflit binaire ou supprimé d'un côté : explication, aperçu, une version à garder. */
+.whole-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+.whole-conflict .bin-preview {
+  padding: 0;
+}
+
+.whole-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

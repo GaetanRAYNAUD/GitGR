@@ -649,6 +649,14 @@
     "deletedRemote": "Tag {{tag}} removed from {{remote}} (if it was there)."
   },
   "conflict": {
+    "whole": {
+      "binary": "Binary file in conflict: keep one of the two versions.",
+      "deletedOurs": "Deleted in “{{ours}}”, changed in “{{theirs}}”: keep the changed version or confirm the deletion.",
+      "deletedTheirs": "Changed in “{{ours}}”, deleted in “{{theirs}}”: keep the changed version or confirm the deletion.",
+      "keep": "Keep: {{side}}",
+      "takeDeletion": "Delete (as in {{side}})",
+      "delete": "Delete the file"
+    },
     "label": "Conflict resolution of {{file}}",
     "title": "Resolve {{file}}",
     "open": "Resolve",
@@ -1327,6 +1335,7 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "not_conflicted": "This file is no longer in conflict.",
     "branch_in_worktree": "This branch is already checked out in another worktree: open it, or pick another branch.",
     "worktree_dir_exists": "This folder already exists and is not empty.",
     "worktree_dirty": "The worktree has changes.",

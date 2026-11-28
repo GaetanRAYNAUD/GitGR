@@ -249,6 +249,7 @@ Compléments et retours d'utilisation, par thème.
 - **Worktrees** (étape 9) : `worktrees.rs` (`worktree list --porcelain`, dossier proposé `<dépôt>-<branche>` à côté du principal, `add` sur une branche / nouvelle branche / détaché, `remove` avec `worktree_dirty` puis force, `prune`), `branch_in_worktree` reconnu au checkout (action « Ouvrir le worktree dans un onglet »), store `worktrees`, section de la barre latérale (dès qu'il y en a un en plus), « Créer un worktree… » au clic droit d'une branche (grisé sur la courante) et d'un commit.
 - **Liste des raccourcis clavier** (étape 12) : table `lib/shortcuts.ts` (zone, combinaisons canoniques `Ctrl+Shift+K`, libellés traduits, noms des touches par langue), sous-page des réglages avec recherche (libellé ou touche, sans accents), F1 pour l'ouvrir ; test qui vérifie que chaque entrée a ses libellés FR / EN.
 - **Palette de commandes** (étape 8) : Ctrl+P, `CommandPalette` (forme du sélecteur rapide, recherche floue `fuzzyFilter` sur libellé et groupe), commandes du dépôt d'abord (pull, push, fetch, stash, pop, nouvelle branche, recherche, filtre par auteur, recherche dans les modifications, reflog, PR / MR, arrêter le bisect), checkout de chaque branche locale, onglets, puis l'app (ouvrir, sélecteur, accueil, réglages, profils, raccourcis, notifications) ; raccourcis lus dans `lib/shortcuts.ts` ; une commande impossible dit pourquoi sans fermer la palette.
+- **Conflits binaires et supprimés d'un côté** (étape 10) : `conflict_sides` (tailles des étapes 1-3 de l'index) et `resolve_conflict_with` (`checkout --ours/--theirs` + `add`, ou `rm` quand la version gardée est une suppression) ; `WholeConflict` dans la vue de résolution (explication selon le cas, aperçu des deux images par `BinaryPreview` sur `:2:` / `:3:`, boutons nommés selon l'opération) ; une commande qui démarre une opération et s'arrête sur des conflits ouvre la résolution du premier fichier (`exec`, `ops.ts`).
 
 ## Reste à faire
 
@@ -327,7 +328,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 ### Étape 10 — conflits et v2
 
-- [ ] **Résolution de conflits** (vue 3 panneaux, baguette, fichier suivant : fait, cf. « Fait ») ; reste : déplacer une ligne du résultat par glisser-déposer d'une ligne entière (aujourd'hui : le glisser-déposer de texte du navigateur, et Alt+↑ / Alt+↓) ; résoudre un fichier supprimé d'un côté (garder / supprimer) et un fichier binaire (choisir une version) dans GitGR ; ouvrir la résolution d'office à la fin d'un merge / rebase / cherry-pick en conflit.
+- [ ] **Résolution de conflits** (vue 3 panneaux, baguette, fichier suivant, fichiers binaires et supprimés d'un côté, ouverture d'office : fait, cf. « Fait ») ; reste : déplacer une ligne du résultat par glisser-déposer d'une ligne entière (aujourd'hui : le glisser-déposer de texte du navigateur, et Alt+↑ / Alt+↓) ; légende des couleurs.
 - [ ] Rebase interactif visuel (réordonner / squash / fixup par glisser-déposer).
 - [ ] Blame : garder la ligne visée en remontant au commit d'avant (le blame et l'historique d'un fichier sont faits, cf. « Fait »).
 - [ ] Submodules, Git LFS.

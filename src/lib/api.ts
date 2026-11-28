@@ -54,7 +54,7 @@ import {
 import { mockAuthors, mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
-import { mockAddConflict, mockConflictVersions, mockResolveConflict,
+import { mockAddConflict, mockConflictSides, mockConflictVersions, mockResolveConflict, mockResolveConflictWith,
   mockChangeCount,
   mockCommitIndex,
   mockDiscard,
@@ -122,6 +122,7 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  ConflictSides,
   BisectState,
   Worktree,
   Author,
@@ -193,6 +194,10 @@ export interface Api {
   commitIdentity(path: string): Promise<{ name: string; email: string } | null>;
   /** Écrit la résolution d'un conflit et marque le fichier résolu (`git add`). */
   resolveConflict(path: string, file: string, content: string): Promise<void>;
+  /** Versions d'un fichier en conflit binaire ou supprimé d'un côté. */
+  conflictSides(path: string, file: string): Promise<ConflictSides>;
+  /** Résout un conflit en entier : garder notre version, l'autre, ou supprimer le fichier. */
+  resolveConflictWith(path: string, file: string, choice: "ours" | "theirs" | "delete"): Promise<void>;
   unstageFiles(path: string, files: string[]): Promise<void>;
   stageAll(path: string): Promise<void>;
   unstageAll(path: string): Promise<void>;
@@ -479,6 +484,8 @@ const tauriApi: Api = {
   conflictVersions: (path, file) => invoke("conflict_versions", { path, file }),
   commitIdentity: (path) => invoke("commit_identity", { path }),
   resolveConflict: (path, file, content) => invoke("resolve_conflict", { path, file, content }),
+  conflictSides: (path, file) => invoke("conflict_sides", { path, file }),
+  resolveConflictWith: (path, file, choice) => invoke("resolve_conflict_with", { path, file, choice }),
   unstageFiles: (path, files) => invoke("unstage_files", { path, files }),
   stageAll: (path) => invoke("stage_all", { path }),
   unstageAll: (path) => invoke("unstage_all", { path }),
@@ -986,6 +993,14 @@ const mockApi: Api = {
     const active = s.repoProfiles?.[path]?.active;
     const p = active ? s.profiles?.find((x) => x.id === active) : undefined;
     return p ? { name: p.userName, email: p.userEmail } : { name: "Démo", email: "demo@exemple.fr" };
+  },
+  async conflictSides(path, file) {
+    await mockDelay();
+    return mockConflictSides(path, file);
+  },
+  async resolveConflictWith(path, file, choice) {
+    await mockDelay();
+    mockResolveConflictWith(path, file, choice);
   },
   async resolveConflict(path, file, content) {
     await mockDelay();

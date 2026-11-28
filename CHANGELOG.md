@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Conflits : un fichier binaire en conflit (une image : les deux versions côte à côte) ou supprimé d'un côté se règle dans GitGR, en gardant une version ou en supprimant le fichier, puis le conflit suivant s'ouvre. Un merge, un rebase ou un cherry-pick qui s'arrête sur des conflits ouvre tout de suite la résolution du premier fichier.
 - Palette de commandes (Ctrl+P) : toutes les actions au même endroit, avec une recherche floue et leur raccourci : pull, push, stash, nouvelle branche, recherche, reflog, checkout d'une branche, aller à un autre onglet, réglages… Une action impossible dit pourquoi.
 - Raccourcis clavier : F1 ouvre leur liste (Réglages → Raccourcis clavier), groupée par zone (onglets, barre d'outils, graphe, diff, conflits…), avec une recherche par action ou par touche.
 - Worktrees : « Créer un worktree… » au clic droit d'une branche ou d'un commit ouvre une autre copie de travail du dépôt dans son propre dossier (proposé à côté du dépôt), puis dans un onglet. Une section Worktrees de la barre latérale les liste (ouvrir, ouvrir le dossier, copier le chemin, supprimer, nettoyer ceux dont le dossier a disparu). Un checkout d'une branche déjà extraite dans un autre worktree propose de l'ouvrir.

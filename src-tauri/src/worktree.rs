@@ -696,6 +696,63 @@ pub fn conflict_versions(path: &Path, file: &str) -> Result<ConflictVersions, St
     Ok(ConflictVersions { base: blob(base)?, ours, theirs, working })
 }
 
+/// Ce que git a gardé d'un fichier en conflit qu'on ne résout pas ligne à ligne (binaire,
+/// supprimé d'un côté) : taille de chaque version présente dans l'index (`None` : absente,
+/// c.-à-d. supprimée de ce côté, ou ajoutée de l'autre).
+#[derive(Serialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictSides {
+    pub base: Option<u64>,
+    pub ours: Option<u64>,
+    pub theirs: Option<u64>,
+}
+
+pub fn conflict_sides(path: &Path, file: &str) -> Result<ConflictSides, String> {
+    check_dir(path)?;
+    check_relative(file)?;
+    let out = run_raw(Some(path), &["ls-files", "-u", "-z", "--", file])?;
+    let mut sides = ConflictSides::default();
+    for entry in out.split('\0').filter(|e| !e.is_empty()) {
+        let Some((meta, name)) = entry.split_once('\t') else { continue };
+        if name != file {
+            continue;
+        }
+        let mut parts = meta.split(' ');
+        let (_, Some(sha), Some(stage)) = (parts.next(), parts.next(), parts.next()) else { continue };
+        let size = run(Some(path), &["cat-file", "-s", sha]).ok().and_then(|s| s.trim().parse().ok());
+        match stage {
+            "1" => sides.base = size,
+            "2" => sides.ours = size,
+            "3" => sides.theirs = size,
+            _ => {}
+        }
+    }
+    if sides.ours.is_none() && sides.theirs.is_none() && sides.base.is_none() {
+        return Err("not_conflicted".into());
+    }
+    Ok(sides)
+}
+
+/// Résout un conflit en entier : garder notre version (`ours`), l'autre (`theirs`), ou
+/// supprimer le fichier (`delete`). Une version absente de ce côté (fichier supprimé) revient
+/// à le supprimer.
+pub fn resolve_conflict_with(path: &Path, file: &str, choice: &str) -> Result<(), String> {
+    let sides = conflict_sides(path, file)?;
+    let keep = match choice {
+        "ours" => sides.ours.map(|_| "--ours"),
+        "theirs" => sides.theirs.map(|_| "--theirs"),
+        "delete" => None,
+        _ => return Err("invalid_choice".into()),
+    };
+    match keep {
+        Some(flag) => {
+            run(Some(path), &["checkout", flag, "--", file])?;
+            run(Some(path), &["add", "--", file]).map(|_| ())
+        }
+        None => run(Some(path), &["rm", "-q", "-f", "--ignore-unmatch", "--", file]).map(|_| ()),
+    }
+}
+
 /// Écrit la résolution d'un conflit dans la copie de travail et la marque résolue (`git add`).
 pub fn resolve_conflict(path: &Path, file: &str, content: &str) -> Result<(), String> {
     check_dir(path)?;
@@ -759,6 +816,38 @@ fn parse_ident(line: &str) -> Option<CommitIdentity> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn binary_and_deleted_conflicts_are_resolved_whole() {
+        let repo = temp_repo();
+        let p = repo.path();
+        std::fs::write(p.join("b.bin"), [0u8, 1, 2]).unwrap();
+        std::fs::write(p.join("d.txt"), "1\n").unwrap();
+        run(Some(p), &["add", "."]).unwrap();
+        run(Some(p), &["commit", "-qm", "base"]).unwrap();
+        run(Some(p), &["switch", "-q", "-c", "autre"]).unwrap();
+        std::fs::write(p.join("b.bin"), [0u8, 9, 9, 9]).unwrap();
+        run(Some(p), &["rm", "-q", "d.txt"]).unwrap();
+        run(Some(p), &["commit", "-qam", "autre"]).unwrap();
+        run(Some(p), &["switch", "-q", "main"]).unwrap();
+        std::fs::write(p.join("b.bin"), [0u8, 5]).unwrap();
+        std::fs::write(p.join("d.txt"), "2\n").unwrap();
+        run(Some(p), &["commit", "-qam", "nous"]).unwrap();
+        assert!(run(Some(p), &["merge", "-q", "autre"]).is_err());
+
+        let b = conflict_sides(p, "b.bin").unwrap();
+        assert_eq!((b.base, b.ours, b.theirs), (Some(3), Some(2), Some(4)));
+        let d = conflict_sides(p, "d.txt").unwrap();
+        assert_eq!((d.ours.is_some(), d.theirs), (true, None));
+
+        resolve_conflict_with(p, "b.bin", "theirs").unwrap();
+        assert_eq!(std::fs::read(p.join("b.bin")).unwrap(), vec![0u8, 9, 9, 9]);
+        // L'autre côté a supprimé d.txt : le prendre, c'est le supprimer.
+        resolve_conflict_with(p, "d.txt", "theirs").unwrap();
+        assert!(!p.join("d.txt").exists());
+        assert_eq!(run(Some(p), &["diff", "--name-only", "--diff-filter=U"]).unwrap(), "");
+        assert_eq!(conflict_sides(p, "b.bin").unwrap_err(), "not_conflicted");
+    }
+
     #[test]
     fn add_to_gitignore_appends_once() {
         let dir = std::env::temp_dir().join(format!("gitgr-ignore-{}", std::process::id()));

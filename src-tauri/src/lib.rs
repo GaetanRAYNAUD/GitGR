@@ -129,6 +129,8 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::conflict_sides,
+            commands::resolve_conflict_with,
             commands::list_worktrees,
             commands::suggest_worktree_dir,
             commands::add_worktree,

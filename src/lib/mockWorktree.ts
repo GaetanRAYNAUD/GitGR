@@ -2,7 +2,7 @@
 // Chaque fichier a éventuellement un côté « indexé » et un côté « non indexé », chacun
 // réduit à une liste de lignes de diff ; indexer des lignes les déplace d'un côté à l'autre.
 
-import type { ConflictVersions, DiffLine, FileDiff, LineRef, StatusFile, WorkFileStatus, WorkStatus } from "./types";
+import type { ConflictSides, ConflictVersions, DiffLine, FileDiff, LineRef, StatusFile, WorkFileStatus, WorkStatus } from "./types";
 import { parseConflicts } from "./conflicts";
 
 interface Side {
@@ -74,12 +74,28 @@ export function mockAddConflict(path: string, file: string, text: string, versio
 export function mockConflictVersions(path: string, file: string): ConflictVersions {
   const c = conflicts.get(path)?.get(file);
   if (c === undefined) throw "conflict_no_file";
+  // Conventions des tests : une image est binaire, « supprime » dans le nom = supprimé d'un côté.
+  if (file.endsWith(".png")) throw "conflict_binary";
+  if (file.includes("supprime")) throw "conflict_deleted";
   if (c.versions) return { ...c.versions, working: c.text };
   const parsed = parseConflicts(c.text);
   const side = (k: "ours" | "theirs" | "base") =>
     parsed.segments.flatMap((s) => (s.kind === "common" ? s.lines : (s[k] ?? []))).map((l) => `${l}\n`).join("");
   const diff3 = parsed.segments.some((s) => s.kind === "conflict" && s.base !== null);
   return { base: diff3 ? side("base") : null, ours: side("ours"), theirs: side("theirs"), working: c.text };
+}
+
+export function mockConflictSides(path: string, file: string): ConflictSides {
+  if (!conflicts.get(path)?.has(file)) throw "not_conflicted";
+  if (file.includes("supprime")) return { base: 40, ours: 52, theirs: null };
+  return { base: 1000, ours: 1200, theirs: 1850 };
+}
+
+export function mockResolveConflictWith(path: string, file: string, choice: "ours" | "theirs" | "delete") {
+  const sides = mockConflictSides(path, file);
+  conflicts.get(path)?.delete(file);
+  const kept = choice === "ours" ? sides.ours : choice === "theirs" ? sides.theirs : null;
+  files(path).push({ path: file, staged: { status: kept === null ? "D" : "M", lines: [add(1, `version ${choice}`)] } });
 }
 
 /** Résolution écrite : le fichier n'est plus en conflit, il est indexé avec ce contenu. */
