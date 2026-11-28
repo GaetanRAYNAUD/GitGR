@@ -277,6 +277,7 @@ Compléments et retours d'utilisation, par thème.
 - **Sous-menu « Créer un worktree »** (étapes 4 et 9) : d'une branche locale, « Sur <branche>… » (grisé si elle est extraite ici) ou « Nouvelle branche depuis <branche>… ».
 - **CI : filtre par workflow** (étape 6) : menu « Workflow » dans l'écran des exécutions dès que la liste en compte deux (GitHub ; GitLab n'a pas de nom de workflow).
 - **Bisect automatique** (étape 8) : « Automatique… » dans le bandeau, commande de test lancée par `git bisect run sh -c` (0 bon, 125 passer, 1–127 mauvais), commande reprise d'un essai à l'autre ; arrêt de git (commande introuvable, code ≥ 128) : fenêtre avec la fin de la sortie (`bisect_run_failed:`).
+- **Stash comme un commit** (demandé le 28/11) : un clic sur un stash (barre latérale ou graphe) le sélectionne dans le graphe, qui reste au milieu ; `StashPanel` dans le panneau de droite (message, branche, date, commit de départ, Pop / Appliquer / Supprimer, fichiers suivis puis non suivis) ; un fichier ouvre le diff comme pour un commit (non suivi : depuis l'arbre vide). `StashView` (vue au milieu) retirée ; la sélection d'un stash survit au rechargement de l'historique et disparaît quand il quitte la pile.
 
 ## Reste à faire
 
@@ -285,7 +286,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 4 — branches et réseau
 
 - [x] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; « Créer un worktree » en sous-menu : fait (cf. « Fait »).
-- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (fait, cf. « Fait ») ; `{line}` depuis le blame de la copie de travail : fait ; reste : depuis le diff des modifications en cours (clic droit sur un numéro de ligne).
+- [x] **Clic droit sur un fichier** : éditeur choisi dans les réglages, `{line}` depuis le blame de la copie de travail et depuis le diff des modifications non indexées (clic droit sur un numéro de ligne, Maj+F10 / touche Menu sur la ligne active) : faits.
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
 
 ### Étape 5 — profils
@@ -322,12 +323,12 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés, par auteur et par fichier au-delà des commits chargés : fait, cf. « Fait ») : filtre qui masque les autres lignes (recalcul des voies du graphe) ; masquer / solo des branches.
 - [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
-- [ ] **Palette de commandes** (faite sur Ctrl+P, cf. « Fait ») ; **à décider** : Ctrl+Maj+P aussi (comme VS Code), ce qui demande de déplacer Pop sur un autre raccourci. Reste : commandes du fichier ouvert (blame, historique) ; les commandes du commit sélectionné et les dernières lancées en tête sont faites (cf. « Fait »).
+- [ ] **Palette de commandes** (faite sur Ctrl+P, cf. « Fait ») ; **à décider** : Ctrl+Maj+P aussi (comme VS Code), ce qui demande de déplacer Pop sur un autre raccourci. Les commandes du commit sélectionné, du fichier ouvert (diff, blame, historique : son menu clic droit) et les dernières lancées en tête sont faites (cf. « Fait »).
 - [ ] **Aperçu des images dans le diff** (fait, cf. « Fait ») ; reste : dans la vue d'une PR / MR (versions à lire au merge-base de la cible), mode « curseur » (rideau glissé) en plus du fondu.
 - [ ] **Diff virtualisé** (plafond à 5 000 lignes avec « Afficher quand même » : fait, cf. « Fait ») ; reste : virtualiser les lignes comme le graphe (en ligne et côte à côte, en gardant la grille au clavier, la sélection de lignes et les en-têtes de bloc figés), « Ouvrir dans l'éditeur » à côté du plafond.
 - [x] **Blame en marge (annotate, comme IntelliJ)** — fait (`BlameMargin`, `diffFull` / `diffBlame` dans les réglages, `--unified=100000000` côté Rust). Cadrage validé (27/11/2026) : bascule « Annoter » (bouton dans l'en-tête du diff, clic droit sur les numéros, Ctrl+Alt+B), mémorisée dans les réglages. Dans le diff d'un commit (blame à ce commit), d'une plage, d'une PR, des modifications en cours (copie de travail) et dans la résolution de conflits (colonne « notre version »). Marge de 160 px sur la première ligne de chaque bloc : nom + date courte, initiales + date si ça ne tient pas ; marque d'âge grise. Survol : résumé, e-mail, date, SHA ; clic : détails ; double-clic : dans le graphe ; clic droit : « Blame avant ce commit » et actions du commit ; au clavier depuis la grille du diff. Avec une bascule « Fichier entier » dans le diff (contexte complet ; indexation par bloc / ligne suspendue, comme « Ignorer les espaces »). La vue Blame reste pour le fichier entier à un commit.
 - [x] **Historique d'un fichier, A + B** — fait (`FileHistoryView` en deux volets, comparaison par `rangeDiff`, B par la mise en évidence du graphe `useGraphFind.showSet`, commits de la branche courante seulement). Cadrage validé (27/11/2026) : A) vue en deux volets, commits à gauche et diff du fichier à droite, ↑ / ↓ change de commit et le diff suit, Ctrl+clic sur deux commits pour comparer deux versions ; B) « Voir dans le graphe » filtre le graphe principal sur les commits qui touchent le fichier (renommages suivis), bandeau « Filtré sur <fichier> × » pour en sortir.
-- [ ] **Copier un diff** (fait pour les diffs, cf. « Fait ») ; reste : dans la résolution de conflits, copier un côté ou le résultat ; « Copier le diff » au clic droit des fichiers de la recherche dans les modifications et de la sélection de commits (plage, stash, PR / MR et modifications en cours : faits, cf. « Fait »).
+- [x] **Copier un diff** : diffs, résolution de conflits (bouton « Copier » : un côté, la version commune, le résultat en l'état), « Copier le diff » au clic droit des fichiers partout (commit, plage, sélection de commits, stash, PR / MR, modifications en cours, recherche dans les modifications).
 
 ### Étape 9 — organisation multi-dépôt
 
@@ -393,8 +394,9 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Palette de commandes** (`CommandPalette`, Ctrl+P) et **liste des raccourcis** (`ShortcutsList`, F1).
 - [ ] **Créer une release** (`ReleaseDialog`).
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`, fenêtre « Bisect automatique » et sortie `.dialog-output`).
+- [ ] **Stash sélectionné** (`StashPanel`, panneau de droite).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
-- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git).
+- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git), bouton « Copier » de la résolution de conflits (`ConflictView`).
 
 Accueil et fenêtres :
 

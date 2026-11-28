@@ -5,11 +5,11 @@
 
 import { create } from "zustand";
 import { useIssues } from "./issues";
-import type { RangeDirection, StashEntry } from "../lib/types";
+import type { RangeDirection } from "../lib/types";
 
 /** Ferme toutes les vues ouvertes à la place du graphe pour ce dépôt. */
 export function closeCenterViews(path: string) {
-  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView, useCiView, useIssues]) {
+  for (const view of [useRangeView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView, useCiView, useIssues]) {
     view.getState().close(path);
   }
 }
@@ -29,21 +29,6 @@ export const useRangeView = create<RangeState>((set) => ({
   close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
 }));
 
-/** Stash ouvert à la place du graphe, un par dépôt. */
-interface StashViewState {
-  open: Record<string, StashEntry | undefined>;
-  show(path: string, entry: StashEntry): void;
-  close(path: string): void;
-}
-
-export const useStashView = create<StashViewState>((set) => ({
-  open: {},
-  show: (path, entry) => {
-    closeCenterViews(path);
-    set((s) => ({ open: { ...s.open, [path]: entry } }));
-  },
-  close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
-}));
 
 /** Reflog ouvert à la place du graphe (`HEAD` ou une branche locale), un par dépôt. */
 interface ReflogViewState {

@@ -12,7 +12,7 @@ import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { usePullList } from "../../store/pullList";
-import { useRangeView, useStashView } from "../../store/range";
+import { closeCenterViews } from "../../store/range";
 import { useStashList } from "../../store/stashes";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
 import { Icon } from "../Icon";
@@ -30,7 +30,7 @@ export function stashMenu(t: TFunction, path: string, s: StashEntry, onMissing: 
     {
       label: t("stashes.showBase"),
       onClick: () =>
-        void useGraph.getState().reveal(path, s.base).then((ok) => (ok ? useStashView.getState().close(path) : onMissing())),
+        void useGraph.getState().reveal(path, s.base).then((ok) => !ok && onMissing()),
     },
     { label: t("stashes.branch"), onClick: () => void ops.stashBranch(path, s.sha, text) },
     { label: t("stashes.renameMenu"), onClick: () => void ops.renameStash(path, s.sha, text) },
@@ -41,12 +41,14 @@ export function stashMenu(t: TFunction, path: string, s: StashEntry, onMissing: 
   ];
 }
 
-/** Ouvre le contenu du stash à la place du graphe (et des autres vues qui le remplacent). */
+/** Sélectionne le stash, comme un commit : le graphe revient (ses vues du milieu fermées),
+ *  la ligne du stash est amenée à l'écran et son contenu va dans le panneau de droite. */
 export function openStash(path: string, s: StashEntry) {
   usePullList.getState().close(path);
-  useRangeView.getState().close(path);
+  closeCenterViews(path);
   useGraph.getState().closeDiff(path);
-  useStashView.getState().show(path, s);
+  // Sa ligne est dessinée au-dessus de son commit de départ : celui-ci d'abord chargé.
+  void useGraph.getState().reveal(path, s.base).then(() => useGraph.getState().select(path, s.sha));
 }
 
 export function StashesSection({ path, query, ui }: { path: string; query: string; ui: RepoUi }) {

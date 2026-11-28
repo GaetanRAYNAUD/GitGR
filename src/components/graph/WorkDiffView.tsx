@@ -2,7 +2,7 @@
 // abandonner le fichier entier, un bloc, ou des lignes choisies (clic, Maj+clic pour une plage ;
 // au clavier, Espace, Maj+flèches, Entrée, Suppr).
 
-import { api } from "../../lib/api";
+import { api, errorCode } from "../../lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FileDiff, LineRef } from "../../lib/types";
@@ -35,6 +35,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
   const closeDiff = useWork((s) => s.closeDiff);
   const ignoreWs = useApp((s) => !!s.settings.diffIgnoreWs);
   const full = useApp((s) => !!s.settings.diffFull);
+  const editor = useApp((s) => s.settings.editor?.trim() || null);
   const update = useApp((s) => s.updateSettings);
   const sectionRef = useRef<HTMLElement>(null);
   const returnFocus = useReturnFocus(sectionRef);
@@ -261,6 +262,8 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           resetKey={`${file.path}\n${area}`}
           copyAs={file}
           binarySides={workSides(path, file, area)}
+          // La nouvelle version est la copie de travail : son numéro de ligne vaut dans l'éditeur.
+          lineMenu={editor && (area === "unstaged" || area === "untracked") ? (line) => [{ label: t("menu.openInEditorLine", { line }), title: editor, onClick: () => void api.openInEditor(path, file.path, editor, line).catch((e) => useApp.setState({ error: errorCode(e) })) }] : undefined}
           // Marge de blame sur la copie de travail ; la version indexée n'en a pas.
           blame={
             file.status === "D"

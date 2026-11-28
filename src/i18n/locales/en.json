@@ -524,6 +524,7 @@
     "noStash": "No stash to reapply.",
     "groups": {
       "commit": "Commit {{sha}}",
+      "file": "File {{file}}",
       "app": "GitGR",
       "repo": "Repository",
       "branches": "Branches",
@@ -876,6 +877,16 @@
     "deletedRemote": "Tag {{tag}} removed from {{remote}} (if it was there)."
   },
   "conflict": {
+    "copy": {
+      "button": "Copy",
+      "hint": "Copy a version of the file or the result",
+      "result": "Result (as is)",
+      "resultHint": "The middle column as it is now, resolved or not",
+      "base": "Common version",
+      "noBase": "No common version (file added on both sides)",
+      "done": "Copied to the clipboard: {{what}}.",
+      "failed": "Couldn't copy: clipboard unavailable."
+    },
     "whole": {
       "binary": "Binary file in conflict: keep one of the two versions.",
       "deletedOurs": "Deleted in “{{ours}}”, changed in “{{theirs}}”: keep the changed version or confirm the deletion.",
@@ -1178,6 +1189,7 @@
     "blameStaged": "No annotations on the staged version: open the working version."
   },
   "stashes": {
+    "panelTitle": "Stash",
     "rename": "Rename",
     "renameMenu": "Rename…",
     "graphHint": "Click: stash contents; right-click: apply, pop, delete…",

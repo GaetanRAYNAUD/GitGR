@@ -3651,6 +3651,22 @@ body.resizing-y * {
   border-color: var(--del);
 }
 
+/* Stash sélectionné (panneau de droite) : d'où il part, puis ses actions. */
+.stash-panel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.stash-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 /* Sortie d'une commande dans une fenêtre (bisect automatique) : bornée, défile. */
 .dialog-output {
   max-height: 240px;

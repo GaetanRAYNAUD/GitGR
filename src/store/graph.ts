@@ -1,6 +1,7 @@
 // État du graphe de chaque dépôt ouvert : historique chargé par pages, refs,
 // commit sélectionné, détails et diff affichés.
 
+import { useStashes } from "./stashes";
 import { create } from "zustand";
 import { api, errorCode } from "../lib/api";
 import { rangeShas } from "../lib/multiSelect";
@@ -131,7 +132,10 @@ export const useGraph = create<GraphStore>((set, get) => {
         const commits = await api.repoLog(path, 0, PAGE_SIZE);
         if (generation[path] !== gen) return;
         const selected = get().graphs[path]?.selected ?? null;
-        const keep = selected === WIP || (selected !== null && commits.some((c) => c.sha === selected));
+        // Un stash sélectionné n'est pas dans l'historique (ses lignes sont ajoutées à l'affichage) :
+        // gardé tant qu'il est dans la pile.
+        const isStash = (sha: string) => !!useStashes.getState().lists[path]?.list.some((s) => s.sha === sha);
+        const keep = selected === WIP || (selected !== null && (commits.some((c) => c.sha === selected) || isStash(selected)));
         const known = new Set(commits.map((c) => c.sha));
         const picked = (get().graphs[path]?.picked ?? []).filter((s) => known.has(s));
         patch(path, {

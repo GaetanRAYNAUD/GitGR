@@ -44,7 +44,7 @@ import { useApp } from "../../store/app";
 import { useDialogs } from "../../store/dialogs";
 import { useConflictView } from "../../store/range";
 import { useGraph } from "../../store/graph";
-import { openContextMenu, useContextMenu } from "../ContextMenu";
+import { type MenuItem, openContextMenu, openMenuBelow, useContextMenu } from "../ContextMenu";
 import { useBlameMargin } from "./BlameMargin";
 import { useWork } from "../../store/worktree";
 import { Icon } from "../Icon";
@@ -122,6 +122,8 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const blameSrc = useMemo(() => (head ? { path, file, rev: head, beforeReveal: () => close(path) } : undefined), [head, path, file, close]);
   const margin = useBlameMargin(blameSrc);
   const [data, setData] = useState<Loaded | null>(null);
+  /** Les versions lues (bouton Copier : un côté ou la version commune, tels quels). */
+  const [versions, setVersions] = useState<ConflictVersions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [states, setStates] = useState<ChangeState[]>([]);
   /** Parties identiques dépliées (indice du morceau). */
@@ -148,6 +150,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
       (v) => {
         if (!live) return;
         const d = load(v);
+        setVersions(v);
         setData(d);
         setStates(d.chunks.filter((c): c is Change => c.kind === "change").map((c) => initialState(c)));
       },
@@ -289,6 +292,31 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
       setSaveError(errorCode(e));
       setSaving(false);
     }
+  };
+  /** Menu Copier : chaque version du fichier, ou le résultat tel qu'il est maintenant. */
+  const copyItems = (): MenuItem[] => {
+    if (!data || !versions) return [];
+    const put = (text: string, what: string) =>
+      void navigator.clipboard?.writeText(text).then(
+        () => useApp.getState().notify(t("conflict.copy.done", { what })),
+        () => useApp.getState().notify(t("conflict.copy.failed")),
+      );
+    const ours = oursName;
+    const theirs = theirsName;
+    const result = t("conflict.copy.result");
+    const base = t("conflict.copy.base");
+    return [
+      { label: result, title: t("conflict.copy.resultHint"), onClick: () => put(composeMerged(data.chunks, states, data.eol, data.finalEol), result) },
+      "sep",
+      { label: ours, title: oursLabel, onClick: () => put(versions.ours, ours) },
+      { label: theirs, title: theirsLabel, onClick: () => put(versions.theirs, theirs) },
+      {
+        label: base,
+        disabled: versions.base === null,
+        title: versions.base === null ? t("conflict.copy.noBase") : undefined,
+        onClick: () => versions.base !== null && put(versions.base, base),
+      },
+    ];
   };
   const markAsIs = async () => {
     setSaveError(null);
@@ -626,6 +654,12 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
               {t("conflict.magicShort", { count: magicCount })}
             </button>
           </span>
+        )}
+        {data && versions && (
+          <button className="mini" aria-haspopup="menu" aria-label={t("conflict.copy.button")} title={t("conflict.copy.hint")} onClick={(e) => openMenuBelow(e.currentTarget, copyItems())}>
+            <Icon name="copy" size={13} />
+            {t("conflict.copy.button")}
+          </button>
         )}
         <span className="conflict-head-gap" />
       </header>

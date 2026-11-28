@@ -18,6 +18,8 @@ import { ResizableBlock } from "../Splitter";
 import { ChangeCounts, FileList, FileViewToggle } from "./FileList";
 import { PickedPanel } from "./PickedPanel";
 import { StagingPanel } from "./StagingPanel";
+import { StashPanel } from "./StashPanel";
+import { useStashList } from "../../store/stashes";
 
 /** Longueur d'un SHA abrégé, comme dans le graphe. */
 const SHORT = 7;
@@ -210,7 +212,18 @@ export function CommitPanel({ path }: { path: string }) {
   const loadDetails = useGraph((s) => s.loadDetails);
   const multi = useGraph((s) => (s.graphs[path]?.picked.length ?? 0) > 1);
   const widthStyle = useWidthStyle(LAYOUT.panel);
-  const showLoading = useLate(!!selected && selected !== WIP && !entry?.data && !entry?.error);
+  const { list: stashes, ready: stashesReady } = useStashList(path);
+  const stash = selected ? stashes.find((s) => s.sha === selected) : undefined;
+  // Stash sélectionné puis retiré de la pile (pop, suppression) : plus rien à montrer.
+  const shownStash = useRef<string | null>(null);
+  useEffect(() => {
+    if (stash) shownStash.current = stash.sha;
+    else if (stashesReady && selected && selected === shownStash.current) {
+      shownStash.current = null;
+      useGraph.getState().select(path, null);
+    }
+  }, [path, stash, stashesReady, selected]);
+  const showLoading = useLate(!!selected && selected !== WIP && !stash && !entry?.data && !entry?.error);
   // Sélection changée ailleurs (graphe, barre latérale) : Alt+← ne remonte plus ce chemin.
   useEffect(() => {
     if (selected !== panelNav.target) {
@@ -224,7 +237,9 @@ export function CommitPanel({ path }: { path: string }) {
   if (selected === WIP) return <StagingPanel path={path} />;
 
   let content;
-  if (!selected) {
+  if (stash) {
+    content = <StashPanel key={stash.sha} path={path} entry={stash} />;
+  } else if (!selected) {
     content = (
       <div className="panel-empty">
         <p className="muted">{t("details.none")}</p>

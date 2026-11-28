@@ -375,15 +375,21 @@ test.describe("dépôt avec des modifications", () => {
     await expect(stashes.getByRole("treeitem")).toHaveCount(1);
     await expect(stashes).toContainText("main");
 
-    // Clic : son contenu à la place du graphe, fichiers et diff ; Échap revient au graphe.
+    // Clic : comme un commit, le graphe reste et le stash va dans le panneau de droite (ses
+    // fichiers, non suivis compris) ; un fichier ouvre son diff, Échap revient au graphe.
     await stashes.getByRole("treeitem").first().click();
-    const view = page.getByRole("region", { name: /^Stash/ });
-    await expect(view.locator(".file-row")).toHaveCount(4);
-    await view.locator(".file-row", { hasText: "notes.txt" }).click();
-    await expect(view.locator(".pull-file-diff .diff-path")).toHaveText("notes.txt");
-    await expect(view.locator(".file-item", { hasText: "notes.txt" })).toContainText("non suivi");
+    const details = page.getByRole("complementary", { name: "Détails du commit" });
+    const graphList = page.getByRole("listbox", { name: "Historique des commits" });
+    await expect(graphList).toBeVisible();
+    await expect(graphList.getByRole("option", { selected: true })).toHaveClass(/stash/);
+    await expect(details.locator(".file-row")).toHaveCount(4);
+    await expect(details.locator(".file-item", { hasText: "notes.txt" })).toContainText("non suivi");
+    await details.locator(".file-row", { hasText: "notes.txt" }).click();
+    const diff = page.getByRole("region", { name: "Diff de notes.txt" });
+    await expect(diff.locator("tr.add").first()).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(view).toHaveCount(0);
+    await expect(diff).toHaveCount(0);
+    await expect(graphList).toBeVisible();
 
     const menu = page.getByRole("menu");
     await stashes.getByRole("treeitem").first().click({ button: "right" });

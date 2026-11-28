@@ -22,7 +22,7 @@ import { clamp, DIFF_LN_W as LN_W, diffSplitBounds, LAYOUT, useLayoutValue } fro
 import type { DiffLine, DiffViewSetting, FileDiff, Hunk, LineRef } from "../../lib/types";
 import { DIFF_WORD_BUDGET, hunkItems, hunkWordDiffs, type Segment } from "../../lib/wordDiff";
 import { useApp } from "../../store/app";
-import { openContextMenu, useContextMenu } from "../ContextMenu";
+import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { Splitter } from "../Splitter";
 import { type BlameSource, MARGIN_W, useBlameMargin } from "./BlameMargin";
@@ -215,6 +215,9 @@ interface Props {
   notes?: Map<number, ReactNode>;
   /** Versions à montrer pour un fichier binaire (aperçu des images, tailles). */
   binarySides?: BinarySides;
+  /** Éléments en tête du menu des numéros de ligne (clic droit, Maj+F10 sur la ligne active),
+   *  pour la ligne `line` de la nouvelle version (absente pour une ligne supprimée). */
+  lineMenu?: (line: number) => MenuItem[];
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -362,7 +365,7 @@ const PAGE = 20;
 /** Au-delà de ce nombre de lignes, le diff attend « Afficher quand même ». */
 export const BIG_DIFF = 5000;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides, notes }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides, notes, lineMenu }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -560,6 +563,13 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       }
       return;
     }
+    // Maj+F10 / touche Menu : le menu des numéros de la ligne active, sous elle.
+    if ((e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) && plain) {
+      e.preventDefault();
+      const box = document.getElementById(cellId(activeRef.hunk, activeRef.line))?.getBoundingClientRect();
+      if (box) useContextMenu.getState().open(box.left, box.bottom, lnItems(lineAt(activeRef)?.new));
+      return;
+    }
     if (e.key === " " && plain && selection) {
       e.preventDefault();
       if (lineAt(activeRef)?.kind !== " ") selection.toggle(activeRef.hunk, activeRef.line, false);
@@ -658,9 +668,13 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       </td>
     );
   };
-  /** Clic droit sur les numéros : afficher ou masquer la marge. */
-  const lnMenu = (e: React.MouseEvent) =>
-    openContextMenu(e, [{ label: t(annotate ? "diff.blameHide" : "diff.blameShow"), onClick: () => update({ diffBlame: !annotate }) }]);
+  /** Menu des numéros de la ligne `n` (nouvelle version) : ce que la vue ajoute, puis
+   *  afficher ou masquer la marge. */
+  const lnItems = (n: number | null | undefined): MenuItem[] => {
+    const own = lineMenu && n != null ? lineMenu(n) : [];
+    return [...own, ...(own.length ? ["sep" as const] : []), { label: t(annotate ? "diff.blameHide" : "diff.blameShow"), onClick: () => update({ diffBlame: !annotate }) }];
+  };
+  const lnMenu = (n: number | null | undefined) => (e: React.MouseEvent) => openContextMenu(e, lnItems(n));
   const extra = margin ? 1 : 0;
 
   /** Ligne de note (fil de relecture) sous la ligne `n` de la nouvelle version, s'il y en a une. */
@@ -684,10 +698,10 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       return [
         <tr key={`${hi}-${li}`} role="row" className={cls || undefined} onMouseDown={picker(hi, { l, i: li })}>
           {annCell(l.kind === "-" ? null : l.new, "ann")}
-          <td className="ln" role="gridcell" aria-hidden="true" onContextMenu={lnMenu}>
+          <td className="ln" role="gridcell" aria-hidden="true" onContextMenu={lnMenu(l.new)}>
             {l.old ?? ""}
           </td>
-          <td className="ln ln2" role="gridcell" aria-hidden="true" onContextMenu={lnMenu}>
+          <td className="ln ln2" role="gridcell" aria-hidden="true" onContextMenu={lnMenu(l.new)}>
             {l.new ?? ""}
           </td>
           <td className="code" role="gridcell" id={cellId(hi, li)} aria-selected={selection && changed ? isSel(hi, li) : undefined}>
@@ -710,7 +724,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     const owner = changed || which === "new";
     const cls = [kindCls(x.l), isSel(hi, x.i) ? "picked" : "", owner && isActive(hi, x.i) ? "active" : ""].filter(Boolean).join(" ");
     return [
-      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)} onContextMenu={lnMenu}>
+      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)} onContextMenu={lnMenu(x.l.new)}>
         {x.l[which] ?? ""}
       </td>,
       <td
