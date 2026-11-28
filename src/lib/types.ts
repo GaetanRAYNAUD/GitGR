@@ -380,6 +380,28 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Une issue (src-tauri/src/issues.rs). */
+export interface IssueSummary {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  author: Person | null;
+  assignees: Person[];
+  labels: Label[];
+  comments: number;
+  url: string;
+  updated: number;
+}
+
+export interface IssueDetail extends IssueSummary {
+  body: string;
+  created: number;
+  milestone: string | null;
+  commentsList: { id: string; author: Person | null; body: string; at: number }[];
+}
+
+export type IssueAction = { type: "comment"; body: string } | { type: "close" } | { type: "reopen" } | { type: "assign"; login: string; id: number };
+
 /** Une exécution de CI (src-tauri/src/ci.rs). */
 export interface CiRun {
   id: number;

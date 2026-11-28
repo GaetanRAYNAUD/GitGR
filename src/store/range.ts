@@ -4,11 +4,12 @@
 // ferme les autres (cf. `closeCenterViews`).
 
 import { create } from "zustand";
+import { useIssues } from "./issues";
 import type { RangeDirection, StashEntry } from "../lib/types";
 
 /** Ferme toutes les vues ouvertes à la place du graphe pour ce dépôt. */
 export function closeCenterViews(path: string) {
-  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView, useCiView]) {
+  for (const view of [useRangeView, useStashView, useReflogView, useSearchView, useFileHistoryView, useBlameView, useConflictView, useRebaseView, useCiView, useIssues]) {
     view.getState().close(path);
   }
 }

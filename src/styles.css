@@ -8179,3 +8179,67 @@ kbd {
   flex: none;
   font-size: 11.5px;
 }
+
+/* Vue d'une issue : méta, actions, description et commentaires, réponse en bas. */
+.issue-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.issue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.issue-text,
+.issue-comment .pull-text {
+  max-width: 110ch;
+  padding: 0 12px;
+}
+
+.issue-label {
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--label, var(--faint)) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--label, var(--faint)) 50%, transparent);
+}
+
+.issue-comments {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue-comment {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.issue-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 4px;
+  font-size: 12.5px;
+}
+
+.issue-reply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.issue-reply textarea {
+  width: 100%;
+  resize: vertical;
+}

@@ -33,6 +33,8 @@ import { StashView } from "../components/graph/StashView";
 import { ReflogView } from "../components/graph/ReflogView";
 import { RebaseView } from "../components/graph/RebaseView";
 import { CiView } from "../components/graph/CiView";
+import { IssueView } from "../components/graph/IssueView";
+import { useIssues } from "../store/issues";
 import { SearchView } from "../components/graph/SearchView";
 import { FileHistoryView } from "../components/graph/FileHistoryView";
 import { BlameView } from "../components/graph/BlameView";
@@ -527,6 +529,7 @@ export function RepoView({ path }: { path: string }) {
   const openRange = useRangeView((s) => s.open[path]);
   const openRebase = useRebaseView((s) => s.open[path]);
   const openCi = useCiView((s) => s.open[path]);
+  const openIssue = useIssues((s) => s.open[path]);
   const openStash = useStashView((s) => s.open[path]);
   const openReflog = useReflogView((s) => s.open[path]);
   const openSearch = useSearchView((s) => s.open[path]);
@@ -544,7 +547,7 @@ export function RepoView({ path }: { path: string }) {
   // panneau des détails (un autre commit) n'a rien à y ajouter.
   // Recherche dans les modifications : chaque résultat a son diff dans la vue.
   const above = !!openConflict || !!diff || !!workDiff || !!openBlame || !!openFileHistory;
-  const ownPanel = !above && (!!openSearch || !!openRebase || !!openCi || (!openReflog && (!!openStash || !!openRange)));
+  const ownPanel = !above && (!!openSearch || !!openRebase || !!openCi || !!openIssue || (!openReflog && (!!openStash || !!openRange)));
   const hidePanel = ownPanel || (pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP));
   useEffect(() => {
     if (!pullsShown) return;
@@ -734,6 +737,8 @@ export function RepoView({ path }: { path: string }) {
             <ReflogView key={openReflog} path={path} refname={openReflog} />
           ) : openStash ? (
             <StashView key={openStash.sha} path={path} entry={openStash} />
+          ) : openIssue ? (
+            <IssueView key={`${openIssue.ctx.remote}#${openIssue.number}`} path={path} ctx={openIssue.ctx} number={openIssue.number} />
           ) : openCi ? (
             <CiView key={`${openCi.branch}`} path={path} branch={openCi.branch} />
           ) : openRebase ? (

@@ -62,7 +62,8 @@ interface OpsStore {
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
   checkoutPull(path: string, remote: string, kind: ProviderKind, number: number, branch: string, fork: boolean): Promise<boolean>;
   /** Demande un nom puis crée la branche sur `start` (HEAD si `null`) ; `startLabel` est affiché. */
-  newBranch(path: string, start: string | null, startLabel: string): Promise<boolean>;
+  /** `initial` : nom proposé (branche pour une issue…). */
+  newBranch(path: string, start: string | null, startLabel: string, initial?: string): Promise<boolean>;
   renameBranch(path: string, branch: string): Promise<boolean>;
   /** Demande un nom (et un message facultatif : tag annoté) puis crée le tag sur `target`
    *  (HEAD si `null`) ; le pousse si la case est cochée. */
@@ -362,7 +363,7 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
-    async newBranch(path, start, startLabel) {
+    async newBranch(path, start, startLabel, initial = "") {
       const existing = new Set(
         (useGraph.getState().graphs[path]?.refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short),
       );
@@ -371,7 +372,7 @@ export const useOps = create<OpsStore>((set, get) => {
         subtitle: t("branch.newFrom", { start: startLabel }),
         label: t("branch.name"),
         mono: true,
-        initial: "",
+        initial,
         submit: t("branch.create"),
         checkbox: { label: t("branch.checkout"), checked: true },
         validate: (v) => nameError(v) ?? (existing.has(v) ? t("branch.exists") : null),

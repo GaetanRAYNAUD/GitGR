@@ -25,6 +25,7 @@ import { checkoutRef, refMenu, remoteMenu, startBranchDrag } from "./menus";
 import { PULLS_SECTION, PullsSection, termOf } from "./PullsSection";
 import { STASHES_SECTION, StashesSection } from "./StashesSection";
 import { WORKTREES_SECTION, WorktreesSection } from "./WorktreesSection";
+import { ISSUES_SECTION, IssuesSection } from "./IssuesSection";
 import { useWorktrees } from "../../store/worktrees";
 import { pullOfRef, usePullContexts, usePullList } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
@@ -75,6 +76,9 @@ export function RefsSidebar({ path }: { path: string }) {
   const contexts = usePullContexts(path);
   const pullLists = usePullList((s) => s.lists);
   const showPulls = contexts.length > 0 && !ui.hidden.includes(PULLS_SECTION);
+  // Issues : seulement avec un compte (sans lui, rien à lire) ; rien n'est lu si masquée.
+  const issueCtx = contexts.some((c) => c.account);
+  const showIssues = issueCtx && !ui.hidden.includes(ISSUES_SECTION);
   /** Remote d'une section distante (sans URL connue si git ne le liste plus). */
   const remoteOf = (s: RefSection): RemoteInfo | null =>
     s.kind === "remote" ? (refs?.remotes.find((r) => r.name === s.remote) ?? { name: s.remote!, url: null, pushUrl: null }) : null;
@@ -86,6 +90,7 @@ export function RefsSidebar({ path }: { path: string }) {
     sections.length -
     shown.length +
     (contexts.length > 0 && ui.hidden.includes(PULLS_SECTION) ? 1 : 0) +
+    (issueCtx && ui.hidden.includes(ISSUES_SECTION) ? 1 : 0) +
     (hasStashes && ui.hidden.includes(STASHES_SECTION) ? 1 : 0) +
     (hasWorktrees && ui.hidden.includes(WORKTREES_SECTION) ? 1 : 0);
   const q = filter.trim().toLowerCase();
@@ -372,6 +377,12 @@ export function RefsSidebar({ path }: { path: string }) {
                 {t(`prv.section_${termOf(contexts)}`)}
               </label>
             )}
+            {issueCtx && (
+              <label className="menu-check">
+                <input type="checkbox" checked={!ui.hidden.includes(ISSUES_SECTION)} onChange={() => setUi(path, { ...ui, hidden: toggle(ui.hidden, ISSUES_SECTION) })} />
+                {t("issues.section")}
+              </label>
+            )}
             {hasStashes && (
               <label className="menu-check">
                 <input type="checkbox" checked={!ui.hidden.includes(STASHES_SECTION)} onChange={() => setUi(path, { ...ui, hidden: toggle(ui.hidden, STASHES_SECTION) })} />
@@ -401,6 +412,7 @@ export function RefsSidebar({ path }: { path: string }) {
           </div>
         )}
         {showPulls && <PullsSection path={path} contexts={contexts} query={q} ui={ui} />}
+        {showIssues && <IssuesSection path={path} contexts={contexts} query={q} ui={ui} />}
         {!ui.hidden.includes(STASHES_SECTION) && <StashesSection path={path} query={q} ui={ui} />}
         {!ui.hidden.includes(WORKTREES_SECTION) && <WorktreesSection path={path} query={q} ui={ui} />}
         {shown.filter((s) => s.kind === "tags").map(renderSection)}
