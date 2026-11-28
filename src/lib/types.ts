@@ -654,6 +654,8 @@ export interface DraftCommit {
 export interface PullDraft {
   commits: DraftCommit[];
   template: string | null;
+  /** Modèles nommés du dépôt, pour en choisir un. */
+  templates: { name: string; body: string }[];
 }
 
 /** Demande de création d'une PR / MR. `sourceRepo` / `targetRepo` : `propriétaire/nom`. */

@@ -1428,6 +1428,11 @@ const mockApi: Api = {
         { subject: `Fin de ${source}`, body: "" },
       ],
       template: target.endsWith("/develop") ? "## Quoi\n\n## Pourquoi" : null,
+      // Simulé : deux modèles nommés (choix de modèle dans la fenêtre).
+      templates: [
+        { name: "bug", body: "## Bug corrigé\n\n## Comment le reproduire" },
+        { name: "feature", body: "## Nouveauté\n\n## Captures" },
+      ],
     };
   },
   async remoteDefaultBranch(_kind, _url, _repo, account) {

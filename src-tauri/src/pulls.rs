@@ -565,6 +565,44 @@ pub struct PullDraft {
     pub commits: Vec<DraftCommit>,
     /// Modèle de PR / MR du dépôt (lu sur la cible), s'il y en a un.
     pub template: Option<String>,
+    /// Tous les modèles nommés du dépôt (`PULL_REQUEST_TEMPLATE/*.md`, `merge_request_templates`),
+    /// pour en choisir un autre que celui d'office.
+    pub templates: Vec<PrTemplate>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PrTemplate {
+    /// Nom du fichier sans `.md`.
+    pub name: String,
+    pub body: String,
+}
+
+/// Dossiers de modèles nommés de GitHub.
+const GITHUB_TEMPLATE_DIRS: &[&str] = &[".github/PULL_REQUEST_TEMPLATE/", "PULL_REQUEST_TEMPLATE/", "docs/PULL_REQUEST_TEMPLATE/"];
+
+/// Modèles nommés lus à `rev` (fichiers `.md` des dossiers de modèles), par nom.
+fn named_templates(path: &Path, rev: &str, kind: Option<Kind>) -> Vec<PrTemplate> {
+    let dirs: Vec<&str> = match kind {
+        Some(Kind::GitHub) => GITHUB_TEMPLATE_DIRS.to_vec(),
+        Some(Kind::GitLab) => vec![GITLAB_TEMPLATES],
+        None => GITHUB_TEMPLATE_DIRS.iter().copied().chain([GITLAB_TEMPLATES]).collect(),
+    };
+    let mut out: Vec<PrTemplate> = Vec::new();
+    for dir in dirs {
+        let Ok(names) = run(Some(path), &["ls-tree", "--name-only", rev, dir]) else { continue };
+        for file in names.lines().filter(|l| l.to_lowercase().ends_with(".md")) {
+            let name = file.rsplit('/').next().unwrap_or(file);
+            let name = &name[..name.len() - 3];
+            if let Some(body) = show(path, rev, file) {
+                if !out.iter().any(|t| t.name == name) {
+                    out.push(PrTemplate { name: name.to_string(), body });
+                }
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out
 }
 
 const MAX_DRAFT_COMMITS: usize = 50;
@@ -634,7 +672,11 @@ pub fn draft(path: &Path, source: &str, target: &str, kind: Option<Kind>) -> Res
         Vec::new()
     };
     let template = has_target.then(|| template(path, target, kind)).flatten().or_else(|| template(path, source, kind));
-    Ok(PullDraft { commits, template })
+    let mut templates = if has_target { named_templates(path, target, kind) } else { Vec::new() };
+    if templates.is_empty() {
+        templates = named_templates(path, source, kind);
+    }
+    Ok(PullDraft { commits, template, templates })
 }
 
 #[cfg(test)]
@@ -694,6 +736,23 @@ mod tests {
             }
         });
         (url, count)
+    }
+
+    #[test]
+    fn named_templates_are_listed() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        std::fs::create_dir_all(p.join(".github/PULL_REQUEST_TEMPLATE")).unwrap();
+        std::fs::write(p.join(".github/PULL_REQUEST_TEMPLATE/bug.md"), "## Bug\n").unwrap();
+        std::fs::write(p.join(".github/PULL_REQUEST_TEMPLATE/Feature.md"), "## Nouveauté\n").unwrap();
+        crate::git::tests::commit_file(p, "a.txt", "1");
+        run(Some(p), &["add", "."]).unwrap();
+        run(Some(p), &["commit", "-qm", "modèles"]).unwrap();
+        run(Some(p), &["switch", "-q", "-c", "sujet"]).unwrap();
+        crate::git::tests::commit_file(p, "b.txt", "1");
+        let d = draft(p, "sujet", "main", Some(Kind::GitHub)).unwrap();
+        assert_eq!(d.template, None);
+        assert_eq!(d.templates.iter().map(|t| (t.name.as_str(), t.body.as_str())).collect::<Vec<_>>(), [("bug", "## Bug"), ("Feature", "## Nouveauté")]);
     }
 
     #[test]
