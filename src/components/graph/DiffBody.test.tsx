@@ -215,6 +215,14 @@ describe("countKind", () => {
 });
 
 describe("<DiffBody mark />", () => {
+  it("s'ouvre sur la première ligne modifiée qui contient le texte (pas une ligne de contexte)", () => {
+    const d: FileDiff = { ...data, hunks: [{ header: "@@ -1,3 +1,3 @@", lines: [ctx(1, "aiguille en contexte"), del(2, "rien"), add(2, "une aiguille"), ctx(3, "fin")] }] };
+    render(<DiffBody data={d} mark={searchMark({ text: "aiguille", regex: false, file: "" })} />);
+    const grid = screen.getByRole("grid");
+    const active = document.getElementById(grid.getAttribute("aria-activedescendant")!);
+    expect(active?.closest("tr")?.textContent).toContain("une aiguille");
+  });
+
   it("surligne le texte cherché, littéral ou en expression, dans les mots modifiés aussi", () => {
     const d: FileDiff = { ...data, hunks: [{ header: "@@ -1 +1 @@", lines: [del(1, "une aiguille ici"), add(1, "deux aiguilles là"), ctx(2, "rien")] }] };
     const { container } = render(<DiffBody data={d} mark={searchMark({ text: "aiguille", regex: false, file: "" })} />);
