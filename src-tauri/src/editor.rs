@@ -17,7 +17,8 @@ pub fn split_command(line: &str) -> Vec<String> {
         match quote {
             Some(q) if c == q => quote = None,
             Some(_) => cur.push(c),
-            None if c == '"' || c == '\'' => {
+            // Une apostrophe au milieu d'un mot (`D'Arc`) en fait partie.
+            None if c == '"' || (c == '\'' && !started) => {
                 quote = Some(c);
                 started = true;
             }
@@ -108,6 +109,7 @@ mod tests {
         assert_eq!(split_command("code -r"), ["code", "-r"]);
         assert_eq!(split_command(r#""C:\Program Files\Idea\idea64.exe"  --wait"#), [r"C:\Program Files\Idea\idea64.exe", "--wait"]);
         assert_eq!(split_command("vim '' x"), ["vim", "", "x"]);
+        assert_eq!(split_command(r"C:\Users\D'Arc\ed.exe -n"), [r"C:\Users\D'Arc\ed.exe", "-n"]);
         assert!(split_command("   ").is_empty());
     }
 

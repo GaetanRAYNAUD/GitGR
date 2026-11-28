@@ -62,6 +62,8 @@ export function recentCommands(): string[] {
 }
 
 export function rememberCommand(id: string) {
+  // Les actions d'un commit (son SHA dans l'id) ne reviendraient jamais : pas gardées.
+  if (id.startsWith("commit:")) return;
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...recentCommands().filter((x) => x !== id)].slice(0, RECENT_MAX)));
   } catch {
