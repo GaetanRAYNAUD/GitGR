@@ -662,6 +662,17 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           </button>
         )}
         <span className="conflict-head-gap" />
+        {/* Ce que disent les couleurs des modifications (bordure et fond de la rangée). */}
+        {data && changes.length > 0 && (
+          <span className="conflict-legend" role="list" aria-label={t("conflict.legend.label")}>
+            {(["one", "both", "conflict"] as const).map((k) => (
+              <span key={k} role="listitem" className={`conflict-legend-item legend-${k}`} title={t(`conflict.legend.${k}Hint`)}>
+                <span className="conflict-legend-swatch" aria-hidden="true" />
+                {t(`conflict.legend.${k}`)}
+              </span>
+            ))}
+          </span>
+        )}
       </header>
       {whole ? (
         <WholeConflict

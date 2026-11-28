@@ -877,6 +877,15 @@
     "deletedRemote": "Tag {{tag}} removed from {{remote}} (if it was there)."
   },
   "conflict": {
+    "legend": {
+      "label": "Change colors",
+      "one": "One side",
+      "oneHint": "Changed on one side only: taken into the result automatically",
+      "both": "Same on both sides",
+      "bothHint": "Same change on both sides: taken automatically",
+      "conflict": "Conflict",
+      "conflictHint": "Changed differently on both sides: to resolve"
+    },
     "copy": {
       "button": "Copy",
       "hint": "Copy a version of the file or the result",
