@@ -324,6 +324,12 @@ test.describe("tags", () => {
     await menu(page).getByRole("menuitem", { name: "Nouveau tag ici…" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau tag" });
     await expect(dialog).toContainText(/Sur [0-9a-f]{7}/);
+    // Version suivante proposée (patch), minor et major d'un clic.
+    const versions = dialog.getByRole("group", { name: "Version suivante" });
+    await expect(versions.getByRole("button", { name: /^Correctif/ })).toHaveAttribute("aria-pressed", "true");
+    await versions.getByRole("button", { name: /^Majeure/ }).click();
+    await expect(dialog.getByLabel("Nom du tag")).toHaveValue(/^v\d+\.0\.0$/);
+    await expect(versions.getByRole("button", { name: /^Majeure/ })).toHaveAttribute("aria-pressed", "true");
     await dialog.getByLabel("Nom du tag").fill("v 9");
     await expect(dialog.getByRole("button", { name: "Créer le tag" })).toBeDisabled();
     await dialog.getByLabel("Nom du tag").fill("v9.0.0");

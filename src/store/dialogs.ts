@@ -54,6 +54,8 @@ export interface InputRequest {
   picks?: { label: string; items: PickItem[]; checked: string[] };
   /** Message d'erreur pour une valeur refusée, `null` si elle convient. */
   validate?: (value: string) => string | null;
+  /** Valeurs proposées d'un clic sous le champ (version patch / minor / major d'un tag…). */
+  suggestions?: { label: string; items: { label: string; value: string }[] };
 }
 
 export interface PickItem {

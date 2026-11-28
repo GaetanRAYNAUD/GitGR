@@ -3651,6 +3651,25 @@ body.resizing-y * {
   border-color: var(--del);
 }
 
+/* Valeurs proposées d'un clic sous le champ (version suivante d'un tag). */
+.input-dialog .input-suggest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+  font-size: 12.5px;
+}
+
+.input-dialog .input-suggest .segmented {
+  flex: 1;
+  min-width: 0;
+}
+
+.input-dialog .input-suggest .seg {
+  height: 26px;
+  font-size: 12.5px;
+}
+
 .input-dialog .input-error {
   margin: -4px 0 0;
   font-size: 12.5px;

@@ -821,6 +821,8 @@
     "ageHint": "Marque en marge : plus elle est foncée, plus la ligne est récente."
   },
   "tag": {
+    "nextVersion": "Version suivante",
+    "level": { "patch": "Correctif", "minor": "Mineure", "major": "Majeure" },
     "newTitle": "Nouveau tag",
     "newOn": "Sur {{target}}",
     "newHere": "Nouveau tag ici…",
