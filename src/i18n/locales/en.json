@@ -79,7 +79,7 @@
     },
     "systemNotifications": "System notifications",
     "notificationsHint": "Paused while the window is minimized or after 15 min of inactivity. “Seen” stays in GitGR; “mark as read” also applies on GitHub / GitLab.",
-    "autoFetchHint": "Fetches the open repository in the background.",
+    "autoFetchHint": "Fetch the shown repository in the background; the other tabs too, half as often, so their behind count stays current.",
     "autoStashHint": "Your changes are set aside, then reapplied; nothing is lost on conflict.",
     "sectionAbout": "About",
     "sections": "Settings sections"
