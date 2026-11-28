@@ -287,7 +287,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [x] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; « Créer un worktree » en sous-menu : fait (cf. « Fait »).
 - [x] **Clic droit sur un fichier** : éditeur choisi dans les réglages, `{line}` depuis le blame de la copie de travail et depuis le diff des modifications non indexées (clic droit sur un numéro de ligne, Maj+F10 / touche Menu sur la ligne active) : faits.
-- [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
+- [x] Commandes réseau qui ne finissent pas (décidé le 28/11 : pas de barre de progression pour fetch / pull / push, trop courts pour qu'elle serve ; les invites en terminal étaient déjà impossibles : `GIT_TERMINAL_PROMPT=0`, askpass de GitGR) : délai d'**inactivité**, jamais de durée totale (un gros push qui avance n'est pas coupé, ni une fenêtre d'identification ouverte) — ssh `ConnectTimeout=30`, `ServerAliveInterval=15` × 4 ; HTTP `GIT_HTTP_LOW_SPEED_LIMIT=1000` / `_TIME=60` ; réglages de l'utilisateur gardés (`core.sshCommand`, `GIT_SSH*`, `http.lowSpeed*`) ; erreur `network_stalled`. Pastille « Fetch depuis 12 s · Annuler » après 2 s, aussi dans la palette (`cancel_network` arrête l'arbre de processus). Reste éventuel : progression pour un fetch long (premier fetch d'un gros dépôt) ; `run_streaming` (clone) n'injecte pas encore identité / clés / délais.
 
 ### Étape 5 — profils
 
@@ -396,7 +396,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`, fenêtre « Bisect automatique » et sortie `.dialog-output`).
 - [ ] **Stash sélectionné** (`StashPanel`, panneau de droite).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
-- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git), bouton « Copier » et légende des couleurs de la résolution de conflits (`ConflictView`).
+- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git), bouton « Copier » et légende des couleurs de la résolution de conflits (`ConflictView`), pastille « Fetch depuis N s · Annuler » de la barre du dépôt (`NetworkPill`).
 
 Accueil et fenêtres :
 

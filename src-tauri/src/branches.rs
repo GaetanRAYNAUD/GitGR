@@ -1230,8 +1230,18 @@ pub fn classify(stderr: &str) -> String {
         || has("Connection refused")
         || has("Failed to connect")
         || has("Network is unreachable")
+        // ssh sous macOS : « connect to host x port 22: Operation timed out ».
+        || (has("connect to host") && has("timed out"))
     {
         "network_unreachable"
+    } else if has("not responding")
+        || has("Connection timed out during banner exchange")
+        || has("Operation too slow")
+        || has("Operation timed out")
+        || has("curl 28")
+    {
+        // Délai d'inactivité atteint (cf. `git::SSH_STALL_OPTIONS`, `HTTP_LOW_SPEED`).
+        "network_stalled"
     } else if has("couldn't find remote ref") || has("Couldn't find remote ref") {
         "remote_ref_not_found"
     } else if has("Repository not found")
@@ -1397,6 +1407,10 @@ mod tests {
         assert_eq!(classify("git@github.com: Permission denied (publickey)."), "auth_failed");
         assert_eq!(classify("fatal: could not read Username for 'https://github.com': terminal prompts disabled"), "auth_failed");
         assert_eq!(classify("ssh: Could not resolve hostname gitlab.local: Name or service not known"), "network_unreachable");
+        assert_eq!(classify("Timeout, server gitlab.local not responding.\nfatal: the remote end hung up unexpectedly"), "network_stalled");
+        assert_eq!(classify("error: RPC failed; curl 28 Operation too slow. Less than 1000 bytes/sec transferred the last 60 seconds"), "network_stalled");
+        assert_eq!(classify("cancelled"), "cancelled");
+        assert_eq!(classify("ssh: connect to host gitlab.local port 22: Operation timed out"), "network_unreachable");
         assert_eq!(classify("Host key verification failed."), "host_key_unknown");
         assert_eq!(classify("fatal: couldn't find remote ref refs/heads/x"), "remote_ref_not_found");
         assert_eq!(classify("fatal: autre chose"), "fatal: autre chose");

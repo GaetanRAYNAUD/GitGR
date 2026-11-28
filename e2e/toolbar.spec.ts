@@ -85,3 +85,23 @@ test("barre d'état : ↑ ouvre ce qui part au push, lu en toutes lettres", asyn
   await bar.getByRole("button", { name: "1 commit à pousser" }).click();
   await expect(page.getByRole("region", { name: "Ce qui part au push" })).toBeVisible();
 });
+
+test("commande réseau qui dure : temps écoulé, Annuler l'arrête (aussi depuis la palette)", async ({ page }) => {
+  await page.evaluate(() => ((window as unknown as { __mockNetworkDelay: number }).__mockNetworkDelay = 60_000));
+  await page.keyboard.press("Control+Shift+F");
+  // Rien les deux premières secondes (pas de clignotement), puis le temps écoulé.
+  await expect(page.getByText(/^Fetch depuis \d+ s$/)).toBeVisible({ timeout: 5000 });
+  await page.getByRole("button", { name: "Arrêter le Fetch en cours" }).click();
+  await expect(page.getByText("Commande arrêtée.")).toBeVisible();
+  await expect(page.getByText(/^Fetch depuis/)).toHaveCount(0);
+  await expect(page.getByText("Fetch terminé.")).toHaveCount(0);
+
+  // Depuis la palette, au clavier.
+  await page.keyboard.press("Control+Shift+F");
+  await page.keyboard.press("Control+p");
+  const palette = page.getByRole("dialog", { name: "Palette de commandes" });
+  await palette.getByRole("combobox").fill("arrêter le fetch");
+  await palette.getByRole("combobox").press("Enter");
+  await expect(page.getByText("Commande arrêtée.")).toBeVisible();
+  await expect(bar(page).getByRole("button", { name: "Fetch" })).not.toHaveAttribute("aria-busy", "true");
+});

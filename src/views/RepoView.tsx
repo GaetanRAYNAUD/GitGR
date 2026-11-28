@@ -16,7 +16,7 @@ import { relativeTime, remoteHost, remoteWebUrl } from "../lib/format";
 import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
-import { useOps, type OpName } from "../store/ops";
+import { isNetworkOp, useOps, type OpName } from "../store/ops";
 import { useBisect } from "../store/bisect";
 import { changedCount, useWork } from "../store/worktree";
 import type { PullStrategy, ReflogEntry } from "../lib/types";
@@ -463,6 +463,52 @@ function LastFetch({ seconds }: { seconds: number | null }) {
 }
 
 /** Vue d'un dépôt ouvert : barre d'outils, branches, graphe (ou diff) et détails du commit. */
+
+/** Fetch, pull ou push qui dure : depuis combien de temps, et de quoi l'arrêter (réseau
+ *  bloqué, serveur muet). Montrée après 2 s, pour ne pas clignoter à chaque commande rapide. */
+function NetworkPill({ path }: { path: string }) {
+  const { t } = useTranslation();
+  const running = useOps((s) => s.running[path]);
+  const net = running && isNetworkOp(running) ? running : null;
+  const [since, setSince] = useState<{ op: string; start: number; now: number } | null>(null);
+  const [stopping, setStopping] = useState(false);
+  useEffect(() => {
+    setStopping(false);
+    if (!net) return setSince(null);
+    const start = Date.now();
+    setSince({ op: net, start, now: start });
+    const id = setInterval(() => setSince((s) => s && { ...s, now: Date.now() }), 1000);
+    return () => clearInterval(id);
+  }, [net]);
+  const secs = since && since.op === net ? Math.floor((since.now - since.start) / 1000) : 0;
+  if (!net || secs < 2) return null;
+  const op = t(`repo.${net}`);
+  const elapsed = secs < 60 ? t("repo.netSecs", { secs }) : t("repo.netMins", { mins: Math.floor(secs / 60), secs: secs % 60 });
+  return (
+    <span className="net-pill">
+      <span className="check-spinner" aria-hidden="true" />
+      <span className="pill-label">{t("repo.netRunning", { op, elapsed })}</span>
+      <button
+        className="link net-pill-cancel"
+        disabled={stopping}
+        title={t("repo.netCancelHint")}
+        aria-label={t("repo.netCancelOp", { op })}
+        onClick={() => {
+          setStopping(true);
+          // Rien à arrêter à cet instant (entre deux étapes d'un pull, git pas encore lancé) :
+          // le bouton reste utilisable.
+          void api.cancelNetwork(path).then(
+            (stopped) => !stopped && setStopping(false),
+            () => setStopping(false),
+          );
+        }}
+      >
+        {t("repo.netCancel")}
+      </button>
+    </span>
+  );
+}
+
 export function RepoView({ path }: { path: string }) {
   const { t } = useTranslation();
   const repo = useApp((s) => s.repos.find((r) => r.path === path));
@@ -684,6 +730,7 @@ export function RepoView({ path }: { path: string }) {
             </span>
           </button>
         )}
+        <NetworkPill path={path} />
         {/* Merge, rebase… en cours : dit pourquoi pull, push, branche et stash sont grisés, et
             mène au panneau des modifications (conflits, Continuer, Annuler l'opération). */}
         {operation && (

@@ -29,6 +29,9 @@ import { nextEntry, useUndo } from "./undo";
 
 export type OpName = "checkout" | "branch" | "fetch" | "pull" | "push" | "stash" | "pop" | "operation" | "remote";
 
+/** Commandes qui parlent au remote : arrêtables (bouton Annuler, `api.cancelNetwork`). */
+export const isNetworkOp = (op: OpName): op is "fetch" | "pull" | "push" => op === "fetch" || op === "pull" || op === "push";
+
 export { AUTOSTASH_PREFIX };
 
 type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -255,6 +258,11 @@ export const useOps = create<OpsStore>((set, get) => {
 
   /** Erreur affichée en bas ; `actions` : ce qu'on peut faire tout de suite (Réessayer…). */
   const fail = (error: string, actions?: NoticeAction[]) => {
+    // Arrêtée par l'utilisateur (bouton Annuler) : pas une erreur à lui montrer.
+    if (error === "cancelled") {
+      useApp.getState().notify(t("repo.netCancelled"));
+      return false;
+    }
     useApp.setState({ error, errorActions: actions?.length ? { for: error, actions } : null });
     return false;
   };
@@ -800,6 +808,8 @@ export const useOps = create<OpsStore>((set, get) => {
           try {
             await api.push(path, false, remote);
           } catch (e) {
+            // Arrêté par l'utilisateur (Annuler) : pas les remotes suivants.
+            if (errorCode(e) === "cancelled") throw e;
             failed.push({ remote, error: errorCode(e) });
           }
         }

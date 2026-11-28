@@ -16,7 +16,7 @@ import { useBisect } from "../store/bisect";
 import { useGraph, WIP } from "../store/graph";
 import { useGraphFind } from "../store/graphFind";
 import { useNotifications } from "../store/notifications";
-import { useOps } from "../store/ops";
+import { isNetworkOp, useOps } from "../store/ops";
 import { useProfiles } from "../store/profiles";
 import { usePublishDialog } from "../store/publish";
 import { usePullDialog } from "../store/pulls";
@@ -172,6 +172,7 @@ export function buildCommands(t: TFunction): Command[] {
       cmd("createPull", t("palette.createPull"), r, () => usePullDialog.getState().show(path), noRemote ? t("palette.noRemote") : null),
     );
     if (useBisect.getState().states[path]) list.push(cmd("bisectStop", t("palette.bisectStop"), r, () => void ops.bisectReset(path), busy));
+    if (running && isNetworkOp(running)) list.push(cmd("cancelNetwork", t("repo.netCancelOp", { op: t(`repo.${running}`) }), r, () => void api.cancelNetwork(path)));
     // Fichier ouvert au milieu : les actions de son clic droit, comme sur son titre.
     const open = openFileMenu(t, path);
     if (open) list.push(...menuCommands(open.items, `file:${open.file}`, t("palette.groups.file", { file: open.file }), t("palette.unavailable")));

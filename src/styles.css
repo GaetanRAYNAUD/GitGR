@@ -963,6 +963,28 @@ h2 {
   cursor: pointer;
 }
 
+/* Commande réseau qui dure (NetworkPill) : temps écoulé, Annuler. Neutre : ce n'est pas un
+   problème, seulement une attente. */
+.net-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.net-pill .pill-label {
+  font-variant-numeric: tabular-nums;
+}
+
+.net-pill-cancel {
+  font-size: 12px;
+}
+
 .op-pill .ico {
   color: var(--mod);
 }
