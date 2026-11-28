@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Glisser un ou plusieurs commits sur une autre branche fait le cherry-pick sans la checkout : la branche courante et les modifications en cours ne bougent pas. Seulement en cas de conflit (ou de merge à reprendre), GitGR passe d'abord sur la branche, comme avant.
 - Blame : « Blame avant ce commit » et « Blame à ce commit » gardent la ligne qu'on regardait, ramenée à son numéro dans cette version (même quand des lignes ont été ajoutées au-dessus).
 - Signature : les tags annotés sont signés comme les commits quand le profil signe (GPG ou SSH). Les détails d'un commit signé disent s'il est vérifié, signé par une clé sans confiance, invalide, expiré ou impossible à vérifier, et par qui.
 - Rebase interactif visuel : « Rebase interactif à partir d'ici… » au clic droit d'un commit (ou « Rebase interactif de main ici… » sur une autre branche) liste les commits à rejouer. On les réordonne par glisser-déposer ou Alt+↑ / Alt+↓, et pour chacun : garder, renommer (nouveau message saisi sur place), réunir au précédent, réunir sans son message ou retirer (touches P, R, S, F, D). GitGR prévient avant de réécrire des commits déjà poussés ; un conflit ouvre sa résolution.

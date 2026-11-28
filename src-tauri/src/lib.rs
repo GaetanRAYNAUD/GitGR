@@ -131,6 +131,7 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::cherry_pick_to_branch,
             commands::commit_signature,
             commands::rebase_plan,
             commands::interactive_rebase,

@@ -307,6 +307,11 @@ pub fn run_env(cwd: Option<&Path>, args: &[&str], env: &[(&str, &str)]) -> Resul
     run_with_input(cwd, args, None, env).map(|s| s.trim_end().to_string())
 }
 
+/// Comme [`run_input`], avec des variables d'environnement en plus (auteur d'origine…).
+pub fn run_input_env(cwd: Option<&Path>, args: &[&str], input: &str, env: &[(&str, &str)]) -> Result<String, String> {
+    run_with_input(cwd, args, Some(input), env).map(|s| s.trim_end().to_string())
+}
+
 /// Lance git en lui passant `input` sur l'entrée standard (message de commit, patch…).
 pub fn run_input(cwd: Option<&Path>, args: &[&str], input: &str) -> Result<String, String> {
     run_with_input(cwd, args, Some(input), &[]).map(|s| s.trim_end().to_string())

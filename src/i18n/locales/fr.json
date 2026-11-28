@@ -908,8 +908,8 @@
     "selectOne": "Ne sélectionner que ce commit",
     "cherryPick_one": "Cherry-pick sur {{branch}}",
     "cherryPick_other": "Cherry-pick des {{count}} commits sur {{branch}}",
-    "cherryPickOther_one": "Cherry-pick de {{count}} commit sur {{branch}} (checkout de {{branch}} d’abord)",
-    "cherryPickOther_other": "Cherry-pick des {{count}} commits sur {{branch}} (checkout de {{branch}} d’abord)",
+    "cherryPickOther_one": "Cherry-pick de {{count}} commit sur {{branch}}",
+    "cherryPickOther_other": "Cherry-pick des {{count}} commits sur {{branch}}",
     "dragLabel_one": "{{count}} commit",
     "dragLabel_other": "{{count}} commits",
     "cherryPickHint": "Applique ces commits sur {{branch}}, du plus ancien au plus récent (ceux déjà présents sont sautés)",
@@ -1341,7 +1341,7 @@
       "upstreamGone": "Cette branche distante n’existe plus (supprimée, ou pas encore relue par un fetch)."
     },
     "cherryPickOnto": "Cherry-pick de {{sha}} sur {{branch}}",
-    "cherryPickOntoOther": "Cherry-pick de {{sha}} sur {{branch}} (checkout de {{branch}} d’abord)",
+    "cherryPickOntoOther": "Cherry-pick de {{sha}} sur {{branch}}",
     "moveBranch": "Déplacer {{branch}} sur {{sha}}…",
     "short": {
       "pullFf": "Pull (avance rapide)",
@@ -1373,6 +1373,9 @@
     "abortBody": "Le dépôt revient à l’état d’avant l’opération ; les résolutions de conflits en cours sont perdues."
   },
   "notice": {
+    "cherryPickedAway_one": "{{count}} commit cherry-pické sur {{branch}}, sans quitter la branche courante.",
+    "cherryPickedAway_other": "{{count}} commits cherry-pickés sur {{branch}}, sans quitter la branche courante.",
+    "cherryPickedNothing": "Déjà sur {{branch}} : rien à ajouter.",
     "stashKept": "Vos modifications n’ont pas pu être réappliquées sans conflit : elles sont gardées dans le stash « {{label}} ». Résolvez les conflits, puis supprimez le stash.",
     "popConflict": "Le stash a été appliqué avec des conflits ; il est conservé.",
     "conflicts": "L’opération s’est arrêtée sur des conflits : résolvez-les dans les modifications en cours.",
@@ -1435,6 +1438,7 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "needs_checkout": "Impossible sans changer de branche.",
     "rebase_not_ancestor": "Ce commit n’est pas sur la branche courante : « à partir d’ici » ne s’applique qu’à ses commits.",
     "invalid_action": "Action de rebase inconnue.",
     "rebase_all_dropped": "Tous les commits sont retirés.",

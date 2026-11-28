@@ -642,6 +642,16 @@ export const useOps = create<OpsStore>((set, get) => {
     },
 
     async cherryPickOnto(path, branch, shas) {
+      // Autre branche : d'abord sans la checkout (copie de travail intacte) ; sinon (conflit,
+      // merge…), checkout puis cherry-pick comme avant.
+      if (branch !== currentBranch(path)) {
+        const out = await exec(path, ["operation", "cherryPick"], () => api.cherryPickToBranch(path, branch, shas));
+        if (out.ok) {
+          notify(out.value ? t("notice.cherryPickedAway", { count: out.value, branch }) : t("notice.cherryPickedNothing", { branch }));
+          return true;
+        }
+        if (out.error !== "needs_checkout") return fail(out.error);
+      }
       if (branch !== currentBranch(path) && !(await get().checkout(path, branch))) return false;
       // Checkout arrêté (stash gardé en conflit) : la branche n'est peut-être pas celle visée.
       if (currentBranch(path) !== branch) return false;

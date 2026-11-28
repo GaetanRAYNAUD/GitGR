@@ -230,6 +230,9 @@ export interface Api {
   /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** Cherry-pick sur une autre branche sans la checkout (nombre de commits ajoutés) ;
+   *  `needs_checkout` quand ce n'est pas possible ainsi (conflit…). */
+  cherryPickToBranch(path: string, branch: string, shas: string[]): Promise<number>;
   /** Signature d'un commit, vérifiée par git. */
   commitSignature(path: string, sha: string): Promise<CommitSignature>;
   /** Commits de la branche courante après `base` (`null` : depuis le premier commit). */
@@ -524,6 +527,7 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  cherryPickToBranch: (path, branch, shas) => invoke("cherry_pick_to_branch", { path, branch, shas }),
   commitSignature: (path, sha) => invoke("commit_signature", { path, sha }),
   rebasePlan: (path, base, onto) => invoke("rebase_plan", { path, base, onto }),
   interactiveRebase: (path, base, onto, steps, autoStash) => invoke("interactive_rebase", { path, base, onto, steps, autoStash }),
@@ -1081,6 +1085,11 @@ const mockApi: Api = {
   checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  // Simulé : toujours possible sans checkout, sauf vers une branche dont le nom contient « conflit ».
+  cherryPickToBranch: async (_path, branch, shas) => {
+    if (branch.includes("conflit")) throw "needs_checkout";
+    return shas.length;
+  },
   // Simulé : le commit le plus récent est signé et vérifié, les autres non signés.
   commitSignature: async (path, sha) =>
     mockHistory(path).commits[0]?.sha === sha
