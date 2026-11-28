@@ -45,6 +45,7 @@ export function IssueView({ path, ctx, number }: { path: string; ctx: PullContex
       if (action.type === "comment") setDraft("");
       await useIssues.getState().loadDetail(ctx, number);
       void useIssues.getState().ensure(ctx, "all", true);
+      void useIssues.getState().ensure(ctx, "mine", true);
     } catch (e) {
       setError(errorCode(e));
     } finally {

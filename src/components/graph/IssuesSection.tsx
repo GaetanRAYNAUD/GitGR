@@ -10,6 +10,7 @@ import { errorMessage } from "../../lib/errors";
 import { sectionKey } from "../../lib/layout";
 import type { IssueSummary, RepoUi } from "../../lib/types";
 import { useApp } from "../../store/app";
+import { useGraph } from "../../store/graph";
 import { type IssueFilter, listKey, useIssues } from "../../store/issues";
 import { pullCtxKey, type PullContext } from "../../store/pullList";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
@@ -38,10 +39,13 @@ export function IssuesSection({ path, contexts, query, ui }: { path: string; con
   const [filter, setFilter] = useState<IssueFilter>("all");
   const withAccount = contexts.filter((c) => c.account);
   const keys = withAccount.map((c) => listKey(c, filter)).join("\n");
+  // Relue aussi à chaque nouvel état des refs (fetch, fetch automatique), au plus toutes les
+  // deux minutes (cf. store/issues).
+  const refs = useGraph((s) => s.graphs[path]?.refs);
   useEffect(() => {
     for (const c of withAccount) void ensure(c, filter);
     // `keys` résume les contextes et le filtre.
-  }, [keys]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [keys, refs]);
 
   if (!withAccount.length) return null;
   const open = query !== "" || !ui.collapsed.includes(ISSUES_SECTION);
