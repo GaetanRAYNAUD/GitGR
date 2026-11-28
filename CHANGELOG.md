@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Créer une PR / MR sur GitHub : les équipes qui ont accès au dépôt sont proposées comme relecteurs.
 - Créer une PR / MR : quand le dépôt a plusieurs modèles (`.github/PULL_REQUEST_TEMPLATE/`, `.gitlab/merge_request_templates/`), un menu « Modèle » permet d'en prendre un ; une description écrite à la main n'est remplacée qu'après confirmation.
 - PR / MR, onglet Fichiers : les fils de relecture d'un fichier apparaissent dans son diff, sous la ligne qu'ils commentent (résolus estompés).
 - Cloner depuis un compte GitHub : quand une organisation cache ses dépôts (application GitGR non approuvée par l'organisation, ou SSO non autorisé pour le token), la fenêtre la nomme et dit quoi faire, au lieu de simplement ne pas les montrer.
