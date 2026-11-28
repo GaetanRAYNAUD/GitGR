@@ -275,6 +275,7 @@ Compléments et retours d'utilisation, par thème.
 - **Éditeur à la ligne** (étape 4) : `{line}` dans la commande de l'éditeur ; « Ouvrir dans l'éditeur à la ligne N » au clic droit d'une ligne du blame de la copie de travail.
 - **Worktrees verrouillés** (étape 9) : « Verrouiller… » (raison facultative, `git worktree lock --reason`) / « Déverrouiller » au clic droit d'un worktree ; l'erreur « locked working tree » de git est reconnue (`worktree_locked`).
 - **Sous-menu « Créer un worktree »** (étapes 4 et 9) : d'une branche locale, « Sur <branche>… » (grisé si elle est extraite ici) ou « Nouvelle branche depuis <branche>… ».
+- **CI : filtre par workflow** (étape 6) : menu « Workflow » dans l'écran des exécutions dès que la liste en compte deux (GitHub ; GitLab n'a pas de nom de workflow).
 
 ## Reste à faire
 
@@ -296,7 +297,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **PR / MR** : commentaires placés sur les lignes du diff (affichage fait, cf. « Fait » ; reste : en ajouter un sur une ligne, répondre depuis le diff) ; requêtes conditionnelles (ETag) ; bouton de la barre d'outils et glisser-déposer d'une branche sur une autre pour créer ; équipes GitHub dans la modification d'une PR (proposées à la création seulement) ; choix d'un dépôt cible hors des remotes (fork). À garder en tête : compte = celui du **profil du remote** (cf. §3) ; droits du token à contrôler (GitHub : `repo` ; GitLab : `api`) avec un message clair s'ils manquent ; limites de requêtes des API (cache local — c'est là que SQLite se justifiera — et requêtes conditionnelles) ; différences GitHub / GitLab à masquer derrière un même modèle (relecture GitHub ↔ approbation GitLab, checks ↔ pipelines, fils de discussion) ; actions destructives ou visibles des autres (merge, fermeture, commentaire) jamais lancées sans un clic explicite.
 - [ ] **Formulaire de création d'une PR / MR** : la liste des branches cibles est à revoir (peu lisible) — recherche, branche par défaut du dépôt en tête, branches récentes, locale / distante distinguées.
 - [ ] **Liens dans les messages de commit** : aussi dans l'infobulle du graphe (aujourd'hui un `title` natif, sans lien possible : il faudrait une vraie infobulle).
-- [ ] **Jobs / pipelines du dépôt** (l'écran est fait, cf. « Fait ») ; reste : filtre par workflow, détail des jobs d'une exécution (étapes, journal), pastille de CI sur un commit du graphe (clic droit ou détails), ouverture depuis la barre latérale.
+- [ ] **Jobs / pipelines du dépôt** (l'écran est fait, cf. « Fait ») ; reste : détail des jobs d'une exécution (étapes, journal), pastille de CI sur un commit du graphe (clic droit ou détails), ouverture depuis la barre latérale.
   - **Détail d'un job** : ses **étapes** (nom, état, durée) et ses **logs**, dans GitGR. C'est possible des deux côtés : GitHub Actions donne les étapes d'un job (`GET /repos/{o}/{r}/actions/runs/{id}/jobs`, champ `steps`) et son log (`GET /actions/jobs/{id}/logs`, qui répond par une redirection vers un lien de téléchargement temporaire — à suivre **sans** le token, l'agent HTTP actuel ne suit aucune redirection) ; GitLab donne les jobs d'un pipeline (`/pipelines/{id}/jobs`) et le log brut (`/jobs/{id}/trace`), où les étapes sont les sections `section_start` / `section_end`. Logs à découper par étape (GitHub : lignes `##[group]` / horodatage par étape), couleurs ANSI rendues, recherche, défilement qui suit un job en cours (relu par morceaux : `Range` côté GitLab), lien « Ouvrir dans le navigateur ».
   - Actions : relancer un job / toute l'exécution, annuler une exécution en cours, lancer un workflow à la main (`workflow_dispatch`, GitHub) ou un pipeline (GitLab). Droits du token à vérifier pour chaque action, avec un message clair s'ils manquent.
 - [ ] **Releases et tags** (créer la release d'un tag avec ses notes, nom de tag proposé : fait, cf. « Fait ») ; reste : section « Releases » (liste des releases du dépôt, leur état, lien), PR / MR fusionnées liées dans les notes (choix patch / minor / major du nom proposé : fait, cf. « Fait »).
@@ -386,7 +387,7 @@ Vues ponctuelles (à la place du graphe) :
 Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par `/code-review` seulement) — `/impeccable critique` puis `/impeccable polish`, captures en clair et en sombre :
 
 - [ ] **Rebase interactif** (`RebaseView`).
-- [ ] **Exécutions de CI** (`CiView`).
+- [ ] **Exécutions de CI** (`CiView`, avec le menu « Workflow »).
 - [ ] **Issues** (`IssuesSection`, `IssueView`).
 - [ ] **Palette de commandes** (`CommandPalette`, Ctrl+P) et **liste des raccourcis** (`ShortcutsList`, F1).
 - [ ] **Créer une release** (`ReleaseDialog`).

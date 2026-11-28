@@ -34,6 +34,15 @@ test("exécutions de CI : depuis la palette, filtres, relancer un échec, depuis
   await expect(list).toBeFocused();
   await expect(list.getByRole("option").first()).toHaveAttribute("aria-label", "CI, En cours");
 
+  // Filtre par workflow (deux dans la liste : CI et Nuit).
+  await view.getByRole("button", { name: /^Workflow/ }).click();
+  await page.getByRole("menuitemradio", { name: "Nuit" }).click();
+  await expect(list.getByRole("option")).toHaveCount(1);
+  await expect(list.getByRole("option").first()).toHaveAttribute("aria-label", /^Nuit/);
+  await view.getByRole("button", { name: /^Workflow/ }).click();
+  await page.getByRole("menuitemradio", { name: "Tous les workflows" }).click();
+  await expect(list.getByRole("option")).toHaveCount(3);
+
   await view.getByRole("button", { name: "En échec" }).click();
   await expect(list.getByRole("option")).toHaveCount(1);
   await list.getByRole("option").first().click({ button: "right" });

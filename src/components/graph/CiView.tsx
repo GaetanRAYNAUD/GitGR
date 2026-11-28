@@ -44,6 +44,8 @@ export function CiView({ path, branch: initialBranch }: { path: string; branch: 
   const head = useGraph((s) => s.graphs[path]?.refs?.headBranch ?? null);
   const [branch, setBranch] = useState<string | null>(initialBranch);
   const [filter, setFilter] = useState<StateFilter>("all");
+  // Workflow (GitHub) : filtre sur les exécutions lues, proposé dès qu'il y en a deux.
+  const [workflow, setWorkflow] = useState<string | null>(null);
   const [runs, setRuns] = useState<{ key: string; list: CiRun[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -76,10 +78,11 @@ export function CiView({ path, branch: initialBranch }: { path: string; branch: 
     return () => clearInterval(id);
   }, [active]);
 
+  const workflows = useMemo(() => [...new Set((runs?.key === key ? runs.list : []).map((r) => r.name).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [runs, key]);
   const list = useMemo(() => {
-    const all = runs?.key === key ? runs.list : [];
+    const all = (runs?.key === key ? runs.list : []).filter((r) => workflow === null || r.name === workflow);
     return filter === "all" ? all : all.filter((r) => (filter === "failure" ? r.state === "failure" : r.state === "running" || r.state === "pending"));
-  }, [runs, key, filter]);
+  }, [runs, key, filter, workflow]);
   const at = Math.min(row, Math.max(0, list.length - 1));
 
   // Focus sur la liste dès qu'elle a des lignes (une fois).
@@ -150,6 +153,19 @@ export function CiView({ path, branch: initialBranch }: { path: string; branch: 
           <Icon name="branch" size={14} />
           <span className="picker-text">{branchLabel}</span>
         </Picker>
+        {(workflows.length > 1 || workflow !== null) && (
+          <Picker
+            label={t("ci.workflow")}
+            items={() => [
+              { label: t("ci.allWorkflows"), checked: workflow === null, onClick: () => setWorkflow(null) },
+              "sep",
+              ...[...new Set([...workflows, ...(workflow ? [workflow] : [])])].map((w) => ({ label: w, checked: w === workflow, onClick: () => setWorkflow(w) })),
+            ]}
+          >
+            <Icon name="list" size={14} />
+            <span className="picker-text">{workflow ?? t("ci.allWorkflows")}</span>
+          </Picker>
+        )}
         <div className="view-toggle ci-filter" role="group" aria-label={t("ci.stateFilter")}>
           {(["all", "failure", "running"] as const).map((f) => (
             <button key={f} className={filter === f ? "on" : undefined} aria-pressed={filter === f} onClick={() => setFilter(f)}>
@@ -174,7 +190,7 @@ export function CiView({ path, branch: initialBranch }: { path: string; branch: 
           {runs?.key !== key ? (
             !error && <p className="muted pull-pad">{t("details.loading")}</p>
           ) : list.length === 0 ? (
-            <p className="muted pull-pad">{t(filter === "all" ? "ci.empty" : "ci.emptyFilter")}</p>
+            <p className="muted pull-pad">{t(filter === "all" && workflow === null ? "ci.empty" : "ci.emptyFilter")}</p>
           ) : (
             <ul ref={listRef} className="reflog-list ci-list" role="listbox" tabIndex={0} aria-label={t("ci.list")} aria-activedescendant={`ci-${at}`} onKeyDown={onKeyDown}>
               {list.map((r, i) => (

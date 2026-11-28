@@ -621,6 +621,8 @@
     }
   },
   "ci": {
+    "workflow": "Workflow",
+    "allWorkflows": "Tous les workflows",
     "label": "Exécutions de CI",
     "title": "Exécutions de CI (Actions, pipelines)",
     "forge": "Forge",
