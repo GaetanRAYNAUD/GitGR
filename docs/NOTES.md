@@ -261,6 +261,7 @@ Compléments et retours d'utilisation, par thème.
 - **Glisser-déposer des branches distantes** (étape 8) : les distantes se glissent et reçoivent un dépôt (barre latérale, étiquettes du graphe) ; distante sur locale : merge dedans, rebase de la locale dessus ; locale sur distante : rebase dessus, PR / MR (branche courante) ; deux distantes : rien.
 - **Exécutions de CI** (étape 6) : `ci.rs` (`actions/runs` GitHub, `pipelines` GitLab, états unifiés, `rerun-failed-jobs` / `retry`), `CiView` au centre (forge du remote, branche, état ; relue toutes les 20 s tant qu'une exécution tourne ; Entrée / Maj+Entrée / menu), ouverte par la palette ou le clic droit d'une branche.
 - **Issues, première version** (étape 6) : `issues.rs` (liste des ouvertes, les miennes ; détail avec commentaires sans notes système ; commenter, fermer, rouvrir, s'assigner — GitLab : identifiant lu par `/user` ; nom de branche proposé), store `issues` (relu au plus toutes les 2 min), `IssuesSection` (montée seulement si affichée et s'il y a un compte), `IssueView` au centre.
+- **Organisations GitHub restreintes** (étape 6) : après la liste des dépôts d'un compte GitHub, les organisations (`/user/orgs`) sans aucun dépôt listé sont sondées (`/orgs/<o>/repos?per_page=1`, 30 au plus) ; un 403 « OAuth App access restrictions » ou « SAML » les nomme dans la fenêtre Cloner, avec quoi faire.
 
 ## Reste à faire
 
@@ -281,7 +282,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 6 — providers
 
 - [ ] **PR / MR** : commentaires placés sur les lignes du diff (et en ajouter un sur une ligne) ; requêtes conditionnelles (ETag) ; bouton de la barre d'outils et glisser-déposer d'une branche sur une autre pour créer ; équipes GitHub comme relecteurs ; choix d'un dépôt cible hors des remotes (fork) ; modèle choisi parmi plusieurs (`PULL_REQUEST_TEMPLATE/`). À garder en tête : compte = celui du **profil du remote** (cf. §3) ; droits du token à contrôler (GitHub : `repo` ; GitLab : `api`) avec un message clair s'ils manquent ; limites de requêtes des API (cache local — c'est là que SQLite se justifiera — et requêtes conditionnelles) ; différences GitHub / GitLab à masquer derrière un même modèle (relecture GitHub ↔ approbation GitLab, checks ↔ pipelines, fils de discussion) ; actions destructives ou visibles des autres (merge, fermeture, commentaire) jamais lancées sans un clic explicite.
-- [ ] **OAuth GitHub** : message clair quand une organisation n'a pas approuvé l'application GitGR (ses dépôts n'apparaissent pas).
 - [ ] **Formulaire de création d'une PR / MR** : la liste des branches cibles est à revoir (peu lisible) — recherche, branche par défaut du dépôt en tête, branches récentes, locale / distante distinguées.
 - [ ] **Liens dans les messages de commit** : aussi dans l'infobulle du graphe (aujourd'hui un `title` natif, sans lien possible : il faudrait une vraie infobulle).
 - [ ] **Jobs / pipelines du dépôt** (l'écran est fait, cf. « Fait ») ; reste : filtre par workflow, détail des jobs d'une exécution (étapes, journal), pastille de CI sur un commit du graphe (clic droit ou détails), ouverture depuis la barre latérale.

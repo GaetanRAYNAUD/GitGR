@@ -415,6 +415,16 @@ pub struct RepoList {
     pub repos: Vec<ProviderRepo>,
     /// Plus de dépôts que ceux lus (limite de pages atteinte).
     pub truncated: bool,
+    /// Organisations GitHub dont les dépôts sont cachés au token : application OAuth non
+    /// approuvée par l'organisation (`oauth`), ou SSO (SAML) non autorisé pour le token (`saml`).
+    pub restricted: Vec<RestrictedOrg>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RestrictedOrg {
+    pub org: String,
+    pub reason: String,
 }
 
 /// Dépôts par page (maximum des deux API), et pages lues au plus.
@@ -465,11 +475,41 @@ fn list_repos_with(kind: Kind, api: &str, token: &str) -> Result<RepoList, Strin
         let items = body.as_array().ok_or("provider_unexpected")?;
         list.repos.extend(items.iter().filter_map(|v| parse_repo(kind, v)));
         if items.len() < PER_PAGE {
+            if kind == Kind::GitHub {
+                list.restricted = restricted_orgs(api, token, &list.repos);
+            }
             return Ok(list);
         }
     }
     list.truncated = true;
     Ok(list)
+}
+
+/// Organisations du compte dont aucun dépôt n'est venu, et que GitHub refuse au token
+/// (application OAuth non approuvée, SSO non autorisé). Sans réponse claire : rien.
+fn restricted_orgs(api: &str, token: &str, repos: &[ProviderRepo]) -> Vec<RestrictedOrg> {
+    let Ok(orgs) = get_limited(Kind::GitHub, api, "/user/orgs?per_page=100", token, MAX_LIST_BODY) else { return Vec::new() };
+    let mut out = Vec::new();
+    for org in orgs.as_array().into_iter().flatten().filter_map(|o| o["login"].as_str()).take(30) {
+        let prefix = format!("{}/", org.to_lowercase());
+        if repos.iter().any(|r| r.full_name.to_lowercase().starts_with(&prefix)) {
+            continue;
+        }
+        let Ok(r) = crate::pulls::request(Kind::GitHub, api, &format!("/orgs/{}/repos?per_page=1", crate::pulls::enc(org)), token, crate::pulls::Method::Get) else { continue };
+        if r.status != 403 {
+            continue;
+        }
+        let text = r.json.to_string().to_lowercase();
+        let reason = if text.contains("oauth app access restrictions") {
+            "oauth"
+        } else if text.contains("saml") {
+            "saml"
+        } else {
+            continue;
+        };
+        out.push(RestrictedOrg { org: org.to_string(), reason: reason.into() });
+    }
+    out
 }
 
 /// Dépôts du compte, avec son token du trousseau.
@@ -1007,6 +1047,26 @@ pub(crate) mod tests {
         let first = requests.recv().unwrap();
         assert!(first.starts_with("GET /api/v3/user/repos?per_page=100&page=1&sort=pushed"), "{first}");
         assert!(requests.recv().unwrap().starts_with("GET /api/v3/user/repos?per_page=100&page=2&"));
+    }
+
+    #[test]
+    fn github_orgs_hiding_their_repos_are_named() {
+        let (url, requests) = serve(vec![
+            (200, r#"[{"full_name":"moi/a","name":"a","private":false,"clone_url":"https://github.com/moi/a.git"}]"#),
+            (200, r#"[{"login":"Libre"},{"login":"Fermee"},{"login":"Sso"}]"#),
+            (200, "[]"),
+            (403, r#"{"message":"Although you appear to have the correct authorization credentials, the `Fermee` organization has enabled OAuth App access restrictions"}"#),
+            (403, r#"{"message":"Resource protected by organization SAML enforcement. You must grant your Personal Access token access to this organization."}"#),
+        ]);
+        let list = list_repos_with(Kind::GitHub, &url, "t").unwrap();
+        for _ in 0..2 {
+            requests.recv().unwrap();
+        }
+        assert!(requests.recv().unwrap().starts_with("GET /orgs/Libre/repos?per_page=1 "));
+        assert_eq!(
+            list.restricted,
+            [RestrictedOrg { org: "Fermee".into(), reason: "oauth".into() }, RestrictedOrg { org: "Sso".into(), reason: "saml".into() }]
+        );
     }
 
     #[test]

@@ -1301,7 +1301,8 @@ const mockApi: Api = {
     if (!found) throw "account_not_found";
     if (found.login.startsWith("revoked")) throw "token_invalid";
     if (found.url.includes("injoignable")) throw "provider_unreachable";
-    return { repos: mockAccountRepos(found), truncated: false };
+    // Simulé : un compte GitHub voit une organisation qui n'a pas approuvé l'application.
+    return { repos: mockAccountRepos(found), truncated: false, restricted: found.kind === "github" ? [{ org: "acme-fermee", reason: "oauth" }] : [] };
   },
   // Backend simulé : le compte, puis l'organisation / le groupe « acme ».
   async listAccountNamespaces(account) {
@@ -1481,7 +1482,7 @@ const mockApi: Api = {
       i.comments = i.commentsList.length;
     } else if (action.type === "close") i.state = "closed";
     else if (action.type === "reopen") i.state = "open";
-    else i.assignees = [...i.assignees, { id: action.id, login: action.login, name: null, avatar: null }];
+    else i.assignees = [...i.assignees, { id: 7, login: action.login, name: null, avatar: null }];
   },
   async issueBranchName(number, title, prefix) {
     const slug = title.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).slice(0, 6).join("-");

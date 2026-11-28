@@ -97,7 +97,7 @@ export function IssueView({ path, ctx, number }: { path: string; ctx: PullContex
           </div>
           <div className="issue-actions">
             {me && !d.assignees.some((a) => a.login === me) && (
-              <button className="btn sm" disabled={!!busy} onClick={() => void act("assign", { type: "assign", login: me, id: 0 })}>
+              <button className="btn sm" disabled={!!busy} onClick={() => void act("assign", { type: "assign", login: me })}>
                 {t("issues.assignMe")}
               </button>
             )}

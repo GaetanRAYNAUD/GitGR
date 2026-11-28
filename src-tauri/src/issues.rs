@@ -128,7 +128,7 @@ pub enum IssueAction {
     Close,
     Reopen,
     /// S'assigner (le login du compte).
-    Assign { login: String, id: u64 },
+    Assign { login: String },
 }
 
 /// Ce qu'on fait sur une issue ; une action refusée par le provider rend `issue_forbidden`.
@@ -148,7 +148,7 @@ pub fn act(kind: Kind, api: &str, token: &str, repo: &str, number: u64, action: 
         (Kind::GitHub, IssueAction::Reopen) => (base, json!({ "state": "open" }), "patch"),
         (Kind::GitLab, IssueAction::Close) => (base, json!({ "state_event": "close" }), "put"),
         (Kind::GitLab, IssueAction::Reopen) => (base, json!({ "state_event": "reopen" }), "put"),
-        (Kind::GitHub, IssueAction::Assign { login, .. }) => (format!("{base}/assignees"), json!({ "assignees": [login] }), "post"),
+        (Kind::GitHub, IssueAction::Assign { login }) => (format!("{base}/assignees"), json!({ "assignees": [login] }), "post"),
         (Kind::GitLab, IssueAction::Assign { .. }) => {
             // L'identifiant du compte du token (l'interface ne connaît que son login).
             let me = get(kind, api, "/user", token)?["id"].as_u64().ok_or("provider_unexpected")?;

@@ -552,6 +552,16 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
                 </div>
                 )}
                 {repos.status === "ready" && repos.list.truncated && <p className="account-hint">{t("clone.truncated", { count: repos.list.repos.length })}</p>}
+                {/* Organisations dont GitHub cache les dépôts au token : dire pourquoi, et quoi faire. */}
+                {repos.status === "ready" &&
+                  ["oauth", "saml"].map((reason) => {
+                    const orgs = (repos.list.restricted ?? []).filter((o) => o.reason === reason).map((o) => o.org);
+                    return orgs.length ? (
+                      <p key={reason} className="account-hint clone-restricted" role="note">
+                        {t(`clone.restricted.${reason}`, { count: orgs.length, orgs: orgs.join(", ") })}
+                      </p>
+                    ) : null;
+                  })}
             </div>
             <div className="dialog-col">
                 <div className="segmented clone-protocol" role="radiogroup" aria-label={t("clone.protocol")} onKeyDown={onRadioGroupKeyDown}>

@@ -139,6 +139,12 @@
     "openOther": "Open a repository… (Ctrl+O)"
   },
   "clone": {
+    "restricted": {
+      "oauth_one": "Repositories of the {{orgs}} organization are missing: it has not approved the GitGR application. Request access on GitHub (Settings → Applications → GitGR → Grant / Request), or connect the account with a personal token.",
+      "oauth_other": "Repositories of the {{orgs}} organizations are missing: they have not approved the GitGR application. Request access on GitHub (Settings → Applications → GitGR → Grant / Request), or connect the account with a personal token.",
+      "saml_one": "Repositories of the {{orgs}} organization are missing: it requires SSO. Authorize the token for it on GitHub (Settings → Developer settings → Tokens → Configure SSO).",
+      "saml_other": "Repositories of the {{orgs}} organizations are missing: they require SSO. Authorize the token for them on GitHub (Settings → Developer settings → Tokens → Configure SSO)."
+    },
     "title": "Clone a repository",
     "source": "Source",
     "mode_url": "From a URL",
