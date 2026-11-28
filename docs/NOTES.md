@@ -347,7 +347,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 ### Étape 10 — conflits et v2
 
-- [ ] **Résolution de conflits** (vue 3 panneaux, baguette, fichier suivant, fichiers binaires et supprimés d'un côté, ouverture d'office : fait, cf. « Fait ») ; reste : déplacer une ligne du résultat par glisser-déposer d'une ligne entière (aujourd'hui : le glisser-déposer de texte du navigateur, et Alt+↑ / Alt+↓) ; légende des couleurs.
+- [ ] **Résolution de conflits** (vue 3 panneaux, baguette, fichier suivant, fichiers binaires et supprimés d'un côté, ouverture d'office : fait, cf. « Fait ») ; reste : déplacer une ligne du résultat par glisser-déposer d'une ligne entière (aujourd'hui : le glisser-déposer de texte du navigateur, et Alt+↑ / Alt+↓). Légende des couleurs : faite (à droite de l'en-tête, passe à la ligne quand il manque de place).
 - [ ] Rebase interactif visuel (fait, cf. « Fait ») ; reste : action « edit » (s'arrêter sur un commit pour le modifier), réunir plusieurs commits avec un nouveau message commun, plage contenant des merges (`--rebase-merges`).
 - [ ] Submodules, Git LFS.
 
@@ -396,7 +396,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`, fenêtre « Bisect automatique » et sortie `.dialog-output`).
 - [ ] **Stash sélectionné** (`StashPanel`, panneau de droite).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
-- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git), bouton « Copier » de la résolution de conflits (`ConflictView`).
+- [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git), bouton « Copier » et légende des couleurs de la résolution de conflits (`ConflictView`).
 
 Accueil et fenêtres :
 
