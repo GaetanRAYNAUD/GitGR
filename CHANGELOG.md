@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- « Copier le diff » au clic droit des fichiers de la recherche dans les modifications et de la sélection de plusieurs commits ; dans la recherche, le blame s'ouvre aussi à la version du commit.
 - Résolution de conflits : bouton « Copier » pour copier un côté, la version commune ou le résultat tel qu'il est.
 - Palette de commandes : les actions du fichier ouvert (diff, blame ou historique) y sont, groupe « Fichier … » : blame, historique, copier le diff, ouvrir dans l'éditeur…
 - Stash : un clic le sélectionne comme un commit ; le graphe reste affiché et ses fichiers, avec Pop / Appliquer / Supprimer, sont dans le panneau de droite. Un fichier ouvre son diff.

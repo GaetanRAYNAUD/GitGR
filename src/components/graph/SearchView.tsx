@@ -332,7 +332,7 @@ export function SearchView({ path }: { path: string }) {
                         label={filesLabel}
                         isActive={(f) => fileShown?.path === f.path}
                         onOpen={setFile}
-                        onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+                        onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { rev: shown.sha, deleted: f.status === "D", change: f }))}
                       />
                     </div>
                   )
@@ -341,7 +341,7 @@ export function SearchView({ path }: { path: string }) {
                   <>
                     <header className="diff-head">
                       <StatusBadge status={fileShown.status} />
-                      <DiffPath file={fileShown} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, fileShown.path))} />
+                      <DiffPath file={fileShown} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, fileShown.path, { rev: focus ?? undefined, deleted: fileShown.status === "D", change: fileShown }))} />
                       {diff?.data && <DiffStats diff={diff.data} />}
                       <DiffViewToggle />
                     </header>
