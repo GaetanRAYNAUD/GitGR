@@ -1178,6 +1178,7 @@
     "blameStaged": "No annotations on the staged version: open the working version."
   },
   "stashes": {
+    "panelTitle": "Stash",
     "rename": "Rename",
     "renameMenu": "Rename…",
     "graphHint": "Click: stash contents; right-click: apply, pop, delete…",

@@ -1178,6 +1178,7 @@
     "blameStaged": "Pas d’annotations sur la version indexée : ouvrez la version de travail."
   },
   "stashes": {
+    "panelTitle": "Stash",
     "rename": "Renommer",
     "renameMenu": "Renommer…",
     "graphHint": "Clic : contenu du stash ; clic droit : appliquer, pop, supprimer…",

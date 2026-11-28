@@ -277,6 +277,7 @@ Compléments et retours d'utilisation, par thème.
 - **Sous-menu « Créer un worktree »** (étapes 4 et 9) : d'une branche locale, « Sur <branche>… » (grisé si elle est extraite ici) ou « Nouvelle branche depuis <branche>… ».
 - **CI : filtre par workflow** (étape 6) : menu « Workflow » dans l'écran des exécutions dès que la liste en compte deux (GitHub ; GitLab n'a pas de nom de workflow).
 - **Bisect automatique** (étape 8) : « Automatique… » dans le bandeau, commande de test lancée par `git bisect run sh -c` (0 bon, 125 passer, 1–127 mauvais), commande reprise d'un essai à l'autre ; arrêt de git (commande introuvable, code ≥ 128) : fenêtre avec la fin de la sortie (`bisect_run_failed:`).
+- **Stash comme un commit** (demandé le 28/11) : un clic sur un stash (barre latérale ou graphe) le sélectionne dans le graphe, qui reste au milieu ; `StashPanel` dans le panneau de droite (message, branche, date, commit de départ, Pop / Appliquer / Supprimer, fichiers suivis puis non suivis) ; un fichier ouvre le diff comme pour un commit (non suivi : depuis l'arbre vide). `StashView` (vue au milieu) retirée ; la sélection d'un stash survit au rechargement de l'historique et disparaît quand il quitte la pile.
 
 ## Reste à faire
 
@@ -393,6 +394,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Palette de commandes** (`CommandPalette`, Ctrl+P) et **liste des raccourcis** (`ShortcutsList`, F1).
 - [ ] **Créer une release** (`ReleaseDialog`).
 - [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`, fenêtre « Bisect automatique » et sortie `.dialog-output`).
+- [ ] **Stash sélectionné** (`StashPanel`, panneau de droite).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
 - [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git).
 

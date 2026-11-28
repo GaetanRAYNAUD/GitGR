@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Stash : un clic le sélectionne comme un commit ; le graphe reste affiché et ses fichiers, avec Pop / Appliquer / Supprimer, sont dans le panneau de droite. Un fichier ouvre son diff.
 - Bisect : « Automatique… » lance une commande de test sur chaque commit jusqu'au premier mauvais (code 0 : bon, 125 : passer, autre : mauvais) ; si elle échoue, sa sortie est affichée.
 - Exécutions de CI : filtre par workflow (GitHub).
 - Menu d'une branche : « Créer un worktree » propose le worktree sur cette branche ou sur une nouvelle branche qui en part (possible aussi depuis la branche courante).

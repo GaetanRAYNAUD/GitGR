@@ -28,8 +28,7 @@ import { usePullOptions, type OptionsContext } from "../store/pullOptions";
 import { usePullContexts, usePullList } from "../store/pullList";
 import { PullView } from "../components/graph/PullView";
 import { RangeView } from "../components/graph/RangeView";
-import { closeCenterViews, useCiView, useRebaseView, useConflictView, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView, useStashView } from "../store/range";
-import { StashView } from "../components/graph/StashView";
+import { closeCenterViews, useCiView, useRebaseView, useConflictView, useBlameView, useFileHistoryView, useRangeView, useReflogView, useSearchView } from "../store/range";
 import { ReflogView } from "../components/graph/ReflogView";
 import { RebaseView } from "../components/graph/RebaseView";
 import { CiView } from "../components/graph/CiView";
@@ -533,7 +532,6 @@ export function RepoView({ path }: { path: string }) {
   const openRebase = useRebaseView((s) => s.open[path]);
   const openCi = useCiView((s) => s.open[path]);
   const openIssue = useIssues((s) => s.open[path]);
-  const openStash = useStashView((s) => s.open[path]);
   const openReflog = useReflogView((s) => s.open[path]);
   const openSearch = useSearchView((s) => s.open[path]);
   const openFileHistory = useFileHistoryView((s) => s.open[path]);
@@ -541,7 +539,7 @@ export function RepoView({ path }: { path: string }) {
   const openConflict = useConflictView((s) => s.open[path]);
   // Vue d'une PR / MR au centre : le panneau des détails, sans rapport, lui laisse la place ;
   // il revient dès qu'un commit est choisi depuis la PR (SHA cité, lien d'un commit).
-  const pullShown = !!openPull && !openConflict && !diff && !workDiff && !openBlame && !openFileHistory && !openSearch && !openReflog && !openStash && !openRange;
+  const pullShown = !!openPull && !openConflict && !diff && !workDiff && !openBlame && !openFileHistory && !openSearch && !openReflog && !openRange;
   const pullKey = openPull ? `${openPull.ctx.remote}#${openPull.number}` : null;
   const [pullSel, setPullSel] = useState<{ key: string | null; sel: string | null }>({ key: pullKey, sel: selected });
   if (pullSel.key !== pullKey) setPullSel({ key: pullKey, sel: selected });
@@ -550,7 +548,7 @@ export function RepoView({ path }: { path: string }) {
   // panneau des détails (un autre commit) n'a rien à y ajouter.
   // Recherche dans les modifications : chaque résultat a son diff dans la vue.
   const above = !!openConflict || !!diff || !!workDiff || !!openBlame || !!openFileHistory;
-  const ownPanel = !above && (!!openSearch || !!openRebase || !!openCi || !!openIssue || (!openReflog && (!!openStash || !!openRange)));
+  const ownPanel = !above && (!!openSearch || !!openRebase || !!openCi || !!openIssue || (!openReflog && !!openRange));
   const hidePanel = ownPanel || (pullShown && pullSel.key === pullKey && (pullSel.sel === selected || selected === WIP));
   useEffect(() => {
     if (!pullsShown) return;
@@ -738,8 +736,6 @@ export function RepoView({ path }: { path: string }) {
             <SearchView path={path} />
           ) : openReflog ? (
             <ReflogView key={openReflog} path={path} refname={openReflog} />
-          ) : openStash ? (
-            <StashView key={openStash.sha} path={path} entry={openStash} />
           ) : openIssue ? (
             <IssueView key={`${openIssue.ctx.remote}#${openIssue.number}`} path={path} ctx={openIssue.ctx} number={openIssue.number} />
           ) : openCi ? (

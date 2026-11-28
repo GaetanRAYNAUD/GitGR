@@ -1096,8 +1096,7 @@ export function CommitGraph({ path, changes }: Props) {
             const isWip = c.sha === WIP;
             const stash = stashes.get(c.sha);
             const isStash = !!stash;
-            // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
-            const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
+            const sel = pickedSet.size > 0 ? !isStash && pickedSet.has(c.sha) : c.sha === selected;
             // Bisect en cours (sans recherche) : hors de la plage restante, estompé.
             const found = finding ? (matchSet.has(i) ? "found" : "dim") : bisectSet && !isWip && !isStash && !bisectSet.has(c.sha) ? "dim" : null;
             const cls = [

@@ -21,13 +21,15 @@ test("stashes : toute la pile, appliquer le plus ancien sans le retirer, supprim
     await expect(stashes.getByRole("treeitem")).toHaveText([/le plus récent/, /le plus ancien/]);
     const menu = page.getByRole("menu");
 
-    // Contenu du plus récent : le fichier suivi et le non suivi, chacun avec son diff.
+    // Contenu du plus récent, dans le panneau de droite (le graphe reste) : le fichier suivi et
+    // le non suivi, chacun avec son diff.
     await stashes.getByRole("treeitem", { name: /le plus récent/ }).click();
-    const view = page.getByRole("region", { name: "Stash « le plus récent »" });
-    await view.locator(".file-row", { hasText: "neuf.txt" }).click();
-    await expect(view.locator(".pull-file-diff tr.add")).toHaveCount(1);
-    await view.locator(".file-row", { hasText: "a.txt" }).click();
-    await expect(view.locator(".pull-file-diff tr.add")).toContainText("récent");
+    const details = page.getByRole("complementary", { name: "Détails du commit" });
+    await expect(details).toContainText("le plus récent");
+    await details.locator(".file-row", { hasText: "neuf.txt" }).click();
+    await expect(page.getByRole("region", { name: "Diff de neuf.txt" }).locator("tr.add")).toHaveCount(1);
+    await details.locator(".file-row", { hasText: "a.txt" }).click();
+    await expect(page.getByRole("region", { name: "Diff de a.txt" }).locator("tr.add")).toContainText("récent");
     await page.keyboard.press("Escape");
 
     await stashes.getByRole("treeitem", { name: /le plus ancien/ }).click({ button: "right" });
@@ -89,7 +91,7 @@ test("stash partiel de deux fichiers sur trois, et sa ligne dans le graphe sous 
     await expect(rows.nth(2)).toContainText("ajout de b.txt");
 
     await rows.nth(1).click();
-    await expect(page.getByRole("region", { name: "Stash « a et neuf »" }).locator(".file-row")).toHaveCount(2);
+    await expect(page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row")).toHaveCount(2);
   } finally {
     await app.close();
   }

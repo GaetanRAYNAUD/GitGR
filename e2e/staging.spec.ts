@@ -186,14 +186,14 @@ test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une l
   await expect(unstaged(page)).not.toContainText("render.ts");
   await expect(staged(page)).toContainText("lanes.ts");
 
-  // Ligne discrète du stash, juste au-dessus du commit d'où il part (HEAD) ; clic : son contenu.
+  // Ligne discrète du stash, juste au-dessus du commit d'où il part (HEAD) ; clic : son contenu
+  // dans le panneau de droite, le graphe reste.
   const row = graph(page).getByRole("option", { name: /deux fichiers/ });
   await expect(row).toHaveClass(/stash/);
   await expect(graph(page).getByRole("option").nth(2)).toHaveClass(/head/);
   await row.click();
-  const view = page.getByRole("region", { name: /^Stash/ });
-  await expect(view.locator(".file-row")).toHaveCount(2);
-  await page.keyboard.press("Escape");
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row")).toHaveCount(2);
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toContainText("Appliquer et retirer (pop)");
 });
