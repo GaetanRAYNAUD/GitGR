@@ -41,8 +41,8 @@ pub fn split_command(line: &str) -> Vec<String> {
 }
 
 /// Programme et arguments pour ouvrir `file` : `{file}` remplacé par le chemin, sinon le
-/// chemin ajouté à la fin. `None` si la commande est vide.
-pub fn editor_args(editor: &str, file: &Path) -> Option<(String, Vec<String>)> {
+/// chemin ajouté à la fin ; `{line}` par la ligne (1 sans ligne). `None` si la commande est vide.
+pub fn editor_args(editor: &str, file: &Path, line: Option<u32>) -> Option<(String, Vec<String>)> {
     let mut words = split_command(editor);
     if words.is_empty() {
         return None;
@@ -50,7 +50,11 @@ pub fn editor_args(editor: &str, file: &Path) -> Option<(String, Vec<String>)> {
     let program = words.remove(0);
     let path = file.to_string_lossy().to_string();
     let mut placed = false;
+    let line = line.unwrap_or(1).to_string();
     for w in words.iter_mut() {
+        if w.contains("{line}") {
+            *w = w.replace("{line}", &line);
+        }
         if w.contains("{file}") {
             *w = w.replace("{file}", &path);
             placed = true;
@@ -82,8 +86,8 @@ fn resolve(program: &str) -> PathBuf {
 }
 
 /// Lance l'éditeur sur `file`, sans l'attendre. `editor_not_found` si le programme n'existe pas.
-pub fn open(editor: &str, file: &Path, cwd: &Path) -> Result<(), String> {
-    let (program, args) = editor_args(editor, file).ok_or("editor_not_found")?;
+pub fn open(editor: &str, file: &Path, cwd: &Path, line: Option<u32>) -> Result<(), String> {
+    let (program, args) = editor_args(editor, file, line).ok_or("editor_not_found")?;
     let mut cmd = Command::new(resolve(&program));
     cmd.args(&args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(windows)]
@@ -116,14 +120,15 @@ mod tests {
     #[test]
     fn the_file_goes_at_its_place_or_at_the_end() {
         let f = Path::new("/d/a b.txt");
-        assert_eq!(editor_args("code -r", f), Some(("code".into(), vec!["-r".into(), "/d/a b.txt".into()])));
-        assert_eq!(editor_args("subl {file}:1", f), Some(("subl".into(), vec!["/d/a b.txt:1".into()])));
-        assert_eq!(editor_args("", f), None);
+        assert_eq!(editor_args("code -r", f, None), Some(("code".into(), vec!["-r".into(), "/d/a b.txt".into()])));
+        assert_eq!(editor_args("subl {file}:{line}", f, Some(12)), Some(("subl".into(), vec!["/d/a b.txt:12".into()])));
+        assert_eq!(editor_args("idea --line {line} {file}", f, None), Some(("idea".into(), vec!["--line".into(), "1".into(), "/d/a b.txt".into()])));
+        assert_eq!(editor_args("", f, None), None);
     }
 
     #[test]
     fn a_missing_editor_is_named() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(open("gitgr-editeur-introuvable-xyz", &dir.path().join("a"), dir.path()), Err("editor_not_found".into()));
+        assert_eq!(open("gitgr-editeur-introuvable-xyz", &dir.path().join("a"), dir.path(), None), Err("editor_not_found".into()));
     }
 }

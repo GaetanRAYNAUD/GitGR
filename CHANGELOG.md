@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Éditeur des fichiers : `{line}` dans la commande place la ligne ; le blame d'un fichier (copie de travail) propose « Ouvrir dans l'éditeur à la ligne N ».
 - Recherche dans les modifications : le diff d'un fichier s'ouvre directement sur la première ligne où le texte apparaît ou disparaît.
 - Réglages, Git : « Éditeur des fichiers » (par exemple `code -r`) ; le clic droit d'un fichier propose alors « Ouvrir dans l'éditeur ».
 - « Copier le diff » au clic droit d'un fichier marche aussi dans une plage de commits, un stash, une PR / MR et les modifications en cours.

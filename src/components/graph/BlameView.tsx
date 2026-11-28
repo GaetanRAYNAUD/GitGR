@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
+import { useApp } from "../../store/app";
 import { lineBefore } from "../../lib/lineMap";
 import { errorMessage } from "../../lib/errors";
 import { commitDate } from "../../lib/format";
@@ -131,7 +132,19 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
   };
   /** `row` : ligne d'où vient le menu ; « Blame à ce commit / avant » y amène (son numéro dans
    *  ce commit-là, celui que git donne pour la ligne). */
+  const editor = useApp((s) => s.settings.editor?.trim());
   const items = (c: BlameCommit, row: number): MenuItem[] => [
+    // Blame de la copie de travail : ses numéros de ligne sont ceux du fichier ouvert.
+    ...(editor && !rev
+      ? [
+          {
+            label: t("menu.openInEditorLine", { line: row + 1 }),
+            title: editor,
+            onClick: () => void api.openInEditor(path, file, editor, row + 1).catch((e) => useApp.setState({ error: errorCode(e) })),
+          },
+          "sep" as const,
+        ]
+      : []),
     { label: t("reflog.showInGraph"), onClick: () => reveal(c.sha) },
     {
       label: t("blame.atCommit"),
