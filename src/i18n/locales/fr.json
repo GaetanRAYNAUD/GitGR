@@ -595,6 +595,8 @@
     }
   },
   "graphFind": {
+    "fileMenu": "Mettre en avant ses commits dans le graphe",
+    "fileMenuHint": "Les commits de toutes les branches qui le modifient ; les autres sont estompés",
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",
     "count_one": "{{count}} commit trouvé",

@@ -11,7 +11,8 @@ import { useGraph } from "../../store/graph";
 import { changedCount, useWork } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
 import { usePullList } from "../../store/pullList";
-import { useBlameView, useConflictView, useFileHistoryView, useRebaseView } from "../../store/range";
+import { closeCenterViews, useBlameView, useConflictView, useFileHistoryView, useRebaseView } from "../../store/range";
+import { useGraphFind } from "../../store/graphFind";
 import { defaultRemote, useOps } from "../../store/ops";
 import { useBisect } from "../../store/bisect";
 import { useWorktrees } from "../../store/worktrees";
@@ -596,6 +597,7 @@ export function dirMenu(t: TFunction, repo: string, dir: string): MenuItem[] {
   return [
     { label: t("menu.openDir"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
+    { label: t("graphFind.fileMenu"), title: t("graphFind.fileMenuHint"), onClick: () => void showFileInGraph(repo, dir) },
     "sep",
     { label: t("menu.copyPath"), onClick: () => copy(dir) },
     { label: t("menu.copyAbsolutePath"), onClick: () => copy(absolutePath(repo, dir)) },
@@ -653,6 +655,7 @@ export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: s
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
     { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
+    { label: t("graphFind.fileMenu"), title: t("graphFind.fileMenuHint"), onClick: () => void showFileInGraph(repo, file) },
     {
       label: t("blame.menu"),
       disabled: at?.deleted,
@@ -672,4 +675,19 @@ export function openRebaseFrom(path: string, sha: string) {
   const c = useGraph.getState().graphs[path]?.commits.find((x) => x.sha === sha);
   const parent = c?.parents[0] ?? null;
   useRebaseView.getState().show(path, c ? parent : `${sha}^`, sha.slice(0, 7));
+}
+
+/** Met en avant dans le graphe les commits (toutes branches) qui touchent ce fichier ou ce
+ *  dossier ; les autres sont estompés (barre de recherche, Entrée pour passer de l'un à l'autre). */
+export async function showFileInGraph(repo: string, file: string) {
+  try {
+    const shas = await api.fileCommits(repo, file);
+    closeCenterViews(repo);
+    usePullList.getState().close(repo);
+    useGraph.getState().closeDiff(repo);
+    useWork.getState().closeDiff(repo);
+    useGraphFind.getState().showSet(repo, { label: file, shas });
+  } catch (e) {
+    useApp.setState({ error: errorCode(e) });
+  }
 }

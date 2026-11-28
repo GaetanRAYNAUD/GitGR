@@ -256,6 +256,7 @@ Compléments et retours d'utilisation, par thème.
 - **Blame : la ligne gardée** (étape 10) : `BlameTarget.line`, « Blame avant ce commit » ramène le numéro de la ligne à la version d'avant par le diff du commit (`lib/lineMap.ts`, `lineBefore`), « Blame à ce commit » garde le numéro donné par git ; ligne active et centrée à l'ouverture.
 - **Cherry-pick sans checkout** (étape 4) : `cherry_pick_to_branch` (arbre par `git merge-tree --write-tree --merge-base=<parent>`, commit par `commit-tree` avec l'auteur et le message d'origine, branche avancée d'un coup par `update-ref` avec l'ancienne valeur ; commits déjà présents sautés) ; `needs_checkout` pour un conflit, un merge, un commit racine, la branche courante ou extraite dans un autre worktree, et l'interface repasse alors par le checkout. Annulable par Ctrl+Z (refs notées par `exec`).
 - **Fetch des onglets inactifs** (étape 9) : `useAutoFetch` récupère aussi les onglets non affichés, deux fois moins souvent que le dépôt affiché, un à la fois (`lib/autoFetch.ts`, `dueTab` : le plus anciennement récupéré), puis relit leur seul résumé (pas le graphe). Reste : les dépôts récents de l'accueil qui ne sont pas en onglet.
+- **Commits d'un fichier dans le graphe** (étape 8) : `file_commits` (`log --all -- <chemin>`, fichier ou dossier) et « Mettre en avant ses commits dans le graphe » au clic droit d'un fichier ou d'un dossier, par la liste de commits de la barre de recherche (`showSet`).
 
 ## Reste à faire
 
@@ -265,7 +266,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; reste : « Créer un worktree depuis » en sous-menu.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
-- [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande).
+- [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
 
 ### Étape 5 — profils
 
@@ -300,7 +301,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 8 — historique avancé
 
 - [ ] **Bisect visuel** (fait, cf. « Fait ») ; reste : lancer une commande de test (`git bisect run`) et suivre sa sortie ; termes personnalisés (`--term-old/new`) ; marques de bisect sur les commits hors des pages chargées.
-- [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés : fait, cf. « Fait ») : par fichier, au-delà des commits chargés (côté git), filtre qui masque les autres lignes ; masquer / solo des branches.
+- [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés, par auteur et par fichier au-delà des commits chargés : fait, cf. « Fait ») : filtre qui masque les autres lignes (recalcul des voies du graphe) ; masquer / solo des branches.
 - [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
