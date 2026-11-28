@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Fetch, pull et push : une commande qui dure affiche depuis combien de temps elle tourne, avec « Annuler » (aussi dans la palette). Un serveur qui ne répond plus pendant une minute fait échouer la commande au lieu de la laisser bloquée (sauf si vous avez réglé vous-même `core.sshCommand` ou `http.lowSpeedTime`).
 - Palette de commandes : un stash sélectionné propose ses actions (pop, appliquer, supprimer), plus celles d'un commit. Sélection de plusieurs commits : le blame d'un fichier s'ouvre à la version du dernier commit.
 - Diff des modifications en cours : « Ouvrir dans l'éditeur à la ligne N » au clic droit d'un numéro de ligne (ou Maj+F10 sur la ligne active), avec l'éditeur des réglages.
 - « Copier le diff » au clic droit des fichiers de la recherche dans les modifications et de la sélection de plusieurs commits ; dans la recherche, le blame s'ouvre aussi à la version du commit.

@@ -244,6 +244,7 @@ pub fn run() {
             commands::create_account_repo,
             commands::clone_repo,
             commands::cancel_clone,
+            commands::cancel_network,
             commands::account_keys,
             commands::add_account_key,
             commands::owner_avatar,

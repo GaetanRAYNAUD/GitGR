@@ -186,19 +186,117 @@ fn injected(cwd: Option<&Path>, network: bool) -> (Vec<String>, Vec<(&'static st
     if network {
         // Remotes HTTPS : token du compte du profil de chaque remote (cf. `credential`).
         args.extend(crate::credential::config_args(&crate::remotes::https_accounts(dir)));
+        let user = UserNetConfig::read(dir);
         if let Some(ssh) = crate::remotes::ssh_setup(dir, id.as_ref().and_then(|i| i.ssh_key.as_deref())) {
-            env.push(("GIT_SSH_COMMAND", ssh.command));
+            env.push(("GIT_SSH_COMMAND", format!("{} {SSH_STALL_OPTIONS}", ssh.command)));
             for key in ssh.keys {
                 if !keys.contains(&key) {
                     keys.push(key);
                 }
             }
+        } else if !user.ssh_command {
+            env.push(("GIT_SSH_COMMAND", format!("ssh {SSH_STALL_OPTIONS}")));
         }
+        env.extend(http_stall_env(&user));
     }
     if !keys.is_empty() {
         env.extend(askpass_env(&keys));
     }
     (args, env)
+}
+
+/// Délai d'inactivité de ssh : connexion abandonnée après 30 s, puis liaison tenue pour morte
+/// si le serveur ne répond plus à 4 relances espacées de 15 s (une minute sans rien). Pas de
+/// durée maximale : un gros push qui avance n'est jamais coupé.
+const SSH_STALL_OPTIONS: &str = "-o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4";
+
+/// HTTP : git abandonne si moins de 1 000 octets/s passent pendant 60 s.
+const HTTP_LOW_SPEED: (&str, &str) = ("1000", "60");
+
+/// Ce que l'utilisateur a déjà réglé lui-même pour le réseau : on ne l'écrase pas.
+#[derive(Debug, Default, PartialEq)]
+struct UserNetConfig {
+    /// `core.sshCommand`, `GIT_SSH` ou `GIT_SSH_COMMAND` (plink, autre client…).
+    ssh_command: bool,
+    /// `http.lowSpeedLimit` / `http.lowSpeedTime`, ou leurs variables d'environnement.
+    http_low_speed: bool,
+}
+
+impl UserNetConfig {
+    /// Lu en une commande (`git config --get-regexp`) et dans l'environnement de l'app.
+    fn read(dir: &Path) -> Self {
+        let mut cmd = git_command();
+        cmd.current_dir(dir).args(["config", "--get-regexp", r"^(core\.sshcommand|http\.lowspeed(limit|time))$"]);
+        let out = cmd.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+        let env = |k: &str| std::env::var_os(k).is_some_and(|v| !v.is_empty());
+        Self::from_config(&out, env("GIT_SSH") || env("GIT_SSH_COMMAND"), env("GIT_HTTP_LOW_SPEED_LIMIT") || env("GIT_HTTP_LOW_SPEED_TIME"))
+    }
+
+    fn from_config(config: &str, ssh_env: bool, http_env: bool) -> Self {
+        let keys: Vec<String> = config.lines().filter_map(|l| l.split_whitespace().next()).map(str::to_ascii_lowercase).collect();
+        UserNetConfig {
+            ssh_command: ssh_env || keys.iter().any(|k| k == "core.sshcommand"),
+            http_low_speed: http_env || keys.iter().any(|k| k.starts_with("http.lowspeed")),
+        }
+    }
+}
+
+/// Variables du délai d'inactivité HTTP, sauf si l'utilisateur en a réglé un.
+fn http_stall_env(user: &UserNetConfig) -> Vec<(&'static str, String)> {
+    if user.http_low_speed {
+        return Vec::new();
+    }
+    vec![("GIT_HTTP_LOW_SPEED_LIMIT", HTTP_LOW_SPEED.0.to_string()), ("GIT_HTTP_LOW_SPEED_TIME", HTTP_LOW_SPEED.1.to_string())]
+}
+
+/// Une commande réseau qui tourne : son processus, et si l'utilisateur l'a arrêtée.
+type RunningCommand = (u32, std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+/// Commandes réseau en cours, par dépôt.
+static NETWORK_RUNS: LazyLock<std::sync::Mutex<HashMap<PathBuf, Vec<RunningCommand>>>> = LazyLock::new(Default::default);
+
+/// Arrête les commandes réseau en cours dans `dir` (fetch, pull, push) ; elles échouent avec
+/// `cancelled`. Renvoie `false` s'il n'y en avait pas.
+pub fn cancel_network(dir: &Path) -> bool {
+    let runs = NETWORK_RUNS.lock().map(|m| m.get(dir).cloned().unwrap_or_default()).unwrap_or_default();
+    for (pid, flag) in &runs {
+        flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        kill_tree(*pid);
+    }
+    !runs.is_empty()
+}
+
+/// Tient la commande `pid` pour arrêtable tant qu'elle tourne ; retirée en sortant.
+struct NetworkRun {
+    dir: PathBuf,
+    pid: u32,
+    cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl NetworkRun {
+    fn start(dir: &Path, pid: u32) -> Self {
+        let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        if let Ok(mut m) = NETWORK_RUNS.lock() {
+            m.entry(dir.to_path_buf()).or_default().push((pid, cancelled.clone()));
+        }
+        NetworkRun { dir: dir.to_path_buf(), pid, cancelled }
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancelled.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+impl Drop for NetworkRun {
+    fn drop(&mut self) {
+        let Ok(mut m) = NETWORK_RUNS.lock() else { return };
+        if let Some(list) = m.get_mut(&self.dir) {
+            list.retain(|(pid, _)| *pid != self.pid);
+            if list.is_empty() {
+                m.remove(&self.dir);
+            }
+        }
+    }
 }
 
 /// Phrase de passe d'une clé protégée : ssh n'a pas de terminal, il la demande au programme de
@@ -324,7 +422,8 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    let (identity_args, identity_env) = injected(cwd, is_network(args));
+    let network = is_network(args);
+    let (identity_args, identity_env) = injected(cwd, network);
     cmd.args(identity_args).args(args);
     for (k, v) in identity_env {
         cmd.env(k, v);
@@ -336,7 +435,17 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
     cmd.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // Commande réseau : arrêtable (bouton Annuler), avec ce qu'elle lance (ssh,
+    // git-remote-https) dans son groupe de processus.
+    #[cfg(unix)]
+    if network {
+        std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+    }
+    let mut run: Option<NetworkRun> = None;
     let spawned = cmd.spawn().and_then(|mut child| {
+        if let (true, Some(dir)) = (network, cwd) {
+            run = Some(NetworkRun::start(dir, child.id()));
+        }
         let stdin = child.stdin.take();
         // L'entrée est écrite par un autre fil pendant que les sorties sont lues : écrite d'abord,
         // elle bloquerait dès que git remplit son tube de sortie sans avoir tout lu (les deux
@@ -363,6 +472,9 @@ fn run_with_input(cwd: Option<&Path>, args: &[&str], input: Option<&str>, env: &
             e.to_string()
         }
     })?;
+    if run.as_ref().is_some_and(NetworkRun::cancelled) {
+        return Err("cancelled".to_string());
+    }
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
@@ -621,6 +733,57 @@ fn parse_status(out: &str) -> RepoSummary {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    #[test]
+    fn user_network_settings_are_kept() {
+        let none = UserNetConfig::from_config("", false, false);
+        assert_eq!(none, UserNetConfig::default());
+        assert_eq!(http_stall_env(&none), vec![("GIT_HTTP_LOW_SPEED_LIMIT", "1000".to_string()), ("GIT_HTTP_LOW_SPEED_TIME", "60".to_string())]);
+        let own = UserNetConfig::from_config("core.sshcommand plink -batch\nhttp.lowspeedtime 300\n", false, false);
+        assert!(own.ssh_command && own.http_low_speed);
+        assert!(http_stall_env(&own).is_empty());
+        assert!(UserNetConfig::from_config("", true, false).ssh_command);
+        assert!(UserNetConfig::from_config("", false, true).http_low_speed);
+    }
+
+    #[test]
+    fn network_command_gets_stall_timeouts_unless_the_user_set_some() {
+        let repo = tempfile::tempdir().unwrap();
+        let p = repo.path();
+        run(Some(p), &["init", "-q"]).unwrap();
+        let (_, env) = injected(Some(p), true);
+        let var = |k: &str| env.iter().find(|(n, _)| *n == k).map(|(_, v)| v.clone());
+        assert!(var("GIT_SSH_COMMAND").unwrap().contains("ServerAliveInterval=15"));
+        assert_eq!(var("GIT_HTTP_LOW_SPEED_TIME").as_deref(), Some("60"));
+        // Pas pour une commande locale.
+        assert_eq!(injected(Some(p), false).1.iter().filter(|(n, _)| n.starts_with("GIT_HTTP")).count(), 0);
+        // Réglages de l'utilisateur gardés.
+        run(Some(p), &["config", "core.sshCommand", "plink -batch"]).unwrap();
+        run(Some(p), &["config", "http.lowSpeedTime", "300"]).unwrap();
+        let (_, env) = injected(Some(p), true);
+        assert!(!env.iter().any(|(n, _)| *n == "GIT_SSH_COMMAND" || n.starts_with("GIT_HTTP")));
+    }
+
+    #[test]
+    fn cancel_network_stops_a_running_fetch() {
+        // Un « remote » qui ne répond jamais : une commande d'upload-pack qui attend.
+        let repo = tempfile::tempdir().unwrap();
+        let p = repo.path().to_path_buf();
+        run(Some(&p), &["init", "-q"]).unwrap();
+        run(Some(&p), &["remote", "add", "lent", "ext::sh -c 'sleep 30'"]).unwrap();
+        run(Some(&p), &["config", "protocol.ext.allow", "always"]).unwrap();
+        assert!(!cancel_network(&p));
+        let dir = p.clone();
+        let fetch = std::thread::spawn(move || run(Some(&dir), &["fetch", "lent"]));
+        let start = std::time::Instant::now();
+        while !cancel_network(&p) {
+            assert!(start.elapsed() < std::time::Duration::from_secs(10), "fetch jamais enregistré");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert_eq!(fetch.join().unwrap(), Err("cancelled".to_string()));
+        assert!(start.elapsed() < std::time::Duration::from_secs(20));
+        assert!(!cancel_network(&p));
+    }
+
     use super::*;
 
     #[test]
@@ -764,16 +927,20 @@ pub(crate) mod tests {
         assert_eq!(var(&env, "SSH_ASKPASS"), Some(exe));
         assert_eq!(var(&env, "SSH_ASKPASS_REQUIRE").as_deref(), Some("force"));
         assert_eq!(var(&env, crate::askpass::KEY_VAR).as_deref(), Some("/k/id"));
-        assert_eq!(injected(Some(other.path()), true), (vec![], vec![]));
+        // Autre dépôt, commande réseau : seulement les délais d'inactivité.
+        let (args, env) = injected(Some(other.path()), true);
+        assert!(args.is_empty());
+        assert!(env.iter().all(|(k, _)| matches!(*k, "GIT_SSH_COMMAND" | "GIT_HTTP_LOW_SPEED_LIMIT" | "GIT_HTTP_LOW_SPEED_TIME")));
         assert_eq!(injected(None, true), (vec![], vec![]));
 
-        // Commande réseau : sans remote ssh, rien ; avec, la clé du profil du dépôt pour son hôte.
-        assert_eq!(var(&injected(Some(repo.path()), true).1, "GIT_SSH_COMMAND"), None);
+        // Commande réseau : sans remote ssh, ssh seul avec ses délais ; avec, la clé du profil du
+        // dépôt pour son hôte.
+        assert_eq!(var(&injected(Some(repo.path()), true).1, "GIT_SSH_COMMAND").as_deref(), Some(format!("ssh {SSH_STALL_OPTIONS}").as_str()));
         let host = format!("depot-{}.exemple.fr", std::process::id());
         run(Some(repo.path()), &["remote", "add", "origin", &format!("git@{host}:g/r.git")]).unwrap();
         let env = injected(Some(repo.path()), true).1;
         let command = var(&env, "GIT_SSH_COMMAND").unwrap();
-        let file = command.strip_prefix("ssh -F '").and_then(|c| c.strip_suffix('\'')).unwrap();
+        let file = command.strip_prefix("ssh -F '").and_then(|c| c.strip_suffix(&format!("' {SSH_STALL_OPTIONS}"))).unwrap();
         assert!(std::fs::read_to_string(file).unwrap().contains(&format!("Host {host}\n  IdentityFile \"/k/id\"\n  IdentitiesOnly yes")));
         assert_eq!(var(&env, crate::askpass::KEY_VAR).as_deref(), Some("/k/id"));
         assert!(is_network(&["fetch", "-q", "--all"]) && is_network(&["push"]) && !is_network(&["status"]) && !is_network(&[]));

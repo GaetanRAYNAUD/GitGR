@@ -426,6 +426,9 @@ export interface Api {
   cloneRepo(url: string, parent: string, name: string, profile: string | null): Promise<string>;
   /** Arrête le clone en cours : il échoue avec `clone_cancelled`. */
   cancelClone(): Promise<void>;
+  /** Arrête les commandes réseau en cours du dépôt (fetch, pull, push) : elles échouent avec
+   *  `cancelled`. `false` s'il n'y en avait pas. */
+  cancelNetwork(path: string): Promise<boolean>;
   /** Avancement du clone en cours ; renvoie de quoi se désabonner. */
   onCloneProgress(cb: (p: CloneProgress) => void): Promise<() => void>;
   /** Ouvre un sélecteur de dossier ; `null` si annulé. */
@@ -666,6 +669,7 @@ const tauriApi: Api = {
   addAccountKey: (profile, account, kind) => invoke("add_account_key", { profile, account, kind }),
   cloneRepo: (url, parent, name, profile) => invoke("clone_repo", { url, parent, name, profile }),
   cancelClone: () => invoke("cancel_clone"),
+  cancelNetwork: (path) => invoke("cancel_network", { path }),
   async onCloneProgress(cb) {
     const { listen } = await import("@tauri-apps/api/event");
     return listen<CloneProgress>("clone-progress", (e) => cb(e.payload));
@@ -847,6 +851,26 @@ function mockAccountRepos(account: Account): ProviderRepo[] {
 /** Petite latence simulée, pour voir les états de chargement. */
 const mockDelay = () => new Promise((r) => setTimeout(r, 30));
 
+/** Commandes réseau simulées en cours, par dépôt : de quoi les arrêter. */
+const mockNetworkRuns = new Map<string, () => void>();
+
+/** Attente d'une commande réseau simulée (`__mockNetworkDelay` ms, 30 par défaut), arrêtable
+ *  par `cancelNetwork` (échoue alors avec `cancelled`). */
+function mockNetwork(path: string): Promise<void> {
+  const ms = mockWindow().__mockNetworkDelay ?? 30;
+  return new Promise<void>((resolve, reject) => {
+    const id = setTimeout(() => {
+      mockNetworkRuns.delete(path);
+      resolve();
+    }, ms);
+    mockNetworkRuns.set(path, () => {
+      clearTimeout(id);
+      mockNetworkRuns.delete(path);
+      reject("cancelled");
+    });
+  });
+}
+
 /** Réglages des tests sur le backend simulé, posés sur `window`. */
 function mockWindow() {
   return window as unknown as {
@@ -858,6 +882,7 @@ function mockWindow() {
     __mockDownloadError?: string;
     __mockInstalled?: boolean;
     __mockCloseRequested?: () => Promise<void>;
+    __mockNetworkDelay?: number;
   };
 }
 
@@ -1177,23 +1202,23 @@ const mockApi: Api = {
     return mockTagRemote(path, name, remote);
   },
   async fetch(path) {
-    await mockDelay();
+    await mockNetwork(path);
     mockLastFetch.set(path, Math.floor(Date.now() / 1000));
   },
   async pull(path, strategy, autoStash) {
-    await mockDelay();
+    await mockNetwork(path);
     return mockPull(path, strategy, autoStash);
   },
   async pullFrom(path, remote, branch, strategy, autoStash) {
-    await mockDelay();
+    await mockNetwork(path);
     return mockPullFrom(path, remote, branch, strategy, autoStash);
   },
   async push(path, force, remote) {
-    await mockDelay();
+    await mockNetwork(path);
     mockPush(path, force, remote);
   },
   async pushBranch(path, branch, force, remote) {
-    await mockDelay();
+    await mockNetwork(path);
     mockPushBranch(path, branch, force, remote);
   },
   async fastForwardBranch(path, branch) {
@@ -1625,6 +1650,11 @@ const mockApi: Api = {
     if (!path) throw "key_not_found";
     if (path.includes("ailleurs")) throw "key_in_use";
     mockAccountKeys.add(`${account}|${kind}|${path}`);
+  },
+  async cancelNetwork(path) {
+    const stop = mockNetworkRuns.get(path);
+    stop?.();
+    return !!stop;
   },
   async cancelClone() {
     mockCloneCancel?.();

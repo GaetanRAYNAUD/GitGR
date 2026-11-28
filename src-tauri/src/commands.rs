@@ -962,6 +962,13 @@ pub async fn clone_repo(url: String, parent: String, name: String, profile: Opti
     .map_err(|e| e.to_string())?
 }
 
+/// Arrête les commandes réseau en cours dans le dépôt (fetch, pull, push) ; elles échouent
+/// avec `cancelled`.
+#[tauri::command]
+pub fn cancel_network(path: String) -> bool {
+    crate::git::cancel_network(Path::new(&path))
+}
+
 /// Arrête le clone en cours ; il échoue avec `clone_cancelled`.
 #[tauri::command]
 pub fn cancel_clone() {
