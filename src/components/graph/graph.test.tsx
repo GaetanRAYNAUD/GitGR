@@ -63,7 +63,7 @@ describe("<CommitGraph /> : clavier, lecteur d'écran, erreurs", () => {
     useContextMenu.getState().close();
     vi.restoreAllMocks();
   });
-  const labels = () => (useContextMenu.getState().menu?.items ?? []).flatMap((i) => (i === "sep" ? [] : [i.label]));
+  const labels = () => (useContextMenu.getState().menu?.items ?? []).flatMap((i) => (i === "sep" || "header" in i ? [] : [i.label]));
 
   it("Maj+F10 et la touche Menu ouvrent le menu de la ligne active", async () => {
     await loaded();

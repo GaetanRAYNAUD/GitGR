@@ -17,9 +17,16 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
   const id = useId();
   useDismiss(ref, true, () => answer(null));
   useRestoreFocus();
-  // Focus sur « Retour » : Entrée par réflexe ne lance rien.
-  useEffect(() => cancelRef.current?.focus(), []);
-  const danger = request.choices.some((c) => c.danger);
+  const radio = request.radio;
+  const [picked, setPicked] = useState(radio?.initial ?? "");
+  const option = radio?.options.find((o) => o.id === picked);
+  // Focus sur « Retour » : Entrée par réflexe ne lance rien. Avec un choix exclusif, sur
+  // l'option proposée (les flèches changent d'option, rien ne part sans le bouton).
+  useEffect(() => {
+    if (radio) ref.current?.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.focus();
+    else cancelRef.current?.focus();
+  }, [radio]);
+  const danger = radio ? !!option?.danger : request.choices.some((c) => c.danger);
   return (
     <div className="overlay">
       <div
@@ -36,11 +43,32 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
         </div>
         <h2 id={`${id}-title`}>{request.title}</h2>
         <p id={`${id}-body`}>{request.body}</p>
+        {radio && (
+          <fieldset className="dialog-radios">
+            <legend className="visually-hidden">{radio.label}</legend>
+            {radio.options.map((o) => (
+              <label key={o.id} className={o.id === picked ? "dialog-radio on" : "dialog-radio"}>
+                <input type="radio" name={`${id}-radio`} value={o.id} checked={o.id === picked} onChange={() => setPicked(o.id)} aria-describedby={`${id}-${o.id}`} />
+                <span className="dialog-radio-text">
+                  <span className={o.danger ? "dialog-radio-label danger-text" : "dialog-radio-label"}>{o.label}</span>
+                  <span id={`${id}-${o.id}`} className="dialog-radio-hint">
+                    {o.hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         <div className="dialog-actions">
           <button className="btn" ref={cancelRef} onClick={() => answer(null)}>
             {t("confirm.cancel")}
           </button>
-          {request.choices.map((c, i) => (
+          {option && (
+            <button className={option.danger ? "btn danger" : "btn primary"} onClick={() => answer(option.id)}>
+              {option.submit}
+            </button>
+          )}
+          {!radio && request.choices.map((c, i) => (
             <button
               key={c.id}
               className={c.danger ? "btn danger" : i === request.choices.length - 1 ? "btn primary" : "btn"}

@@ -368,7 +368,8 @@ test("reset de main sur un commit plus ancien, puis le reflog retrouve l'ancienn
   await rows.nth(1).click({ button: "right" });
   await page.getByRole("menu").getByRole("menuitem", { name: "Reset de main ici…" }).click();
   const dialog = page.getByRole("alertdialog", { name: /^Reset de main sur/ });
-  await dialog.getByRole("button", { name: "Soft" }).click();
+  await dialog.getByRole("radio", { name: "Soft" }).check();
+  await dialog.getByRole("button", { name: "Reset soft" }).click();
   await expect(page.getByText(/main est maintenant sur/)).toBeVisible();
 
   await page.getByRole("button", { name: "Reflog" }).click();

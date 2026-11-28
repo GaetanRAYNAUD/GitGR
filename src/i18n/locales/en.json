@@ -213,7 +213,11 @@
     "noOwner": "This account cannot create a repository anywhere (no owner available).",
     "destLabel": "Will be created on {{provider}}:",
     "whyLoading": "Reading the owners…",
-    "whyName": "Give the repository a name."
+    "whyName": "Give the repository a name.",
+    "pushedBy": "Pushed by profile",
+    "viaSsh": "with SSH key {{key}}",
+    "viaSshAgent": "over SSH (agent or default key)",
+    "viaHttps": "over HTTPS with the token of account {{login}}"
   },
   "repo": {
     "pull": "Pull",
@@ -374,12 +378,18 @@
   },
   "reset": {
     "title": "Reset {{branch}} to {{sha}}",
-    "body": "What to do with the changes between the current position and this commit? Soft: kept and staged. Mixed: kept, unstaged. Hard: discarded, along with uncommitted changes to tracked files (irreversible for those; commits stay in the reflog). Untracked files are left alone.",
     "soft": "Soft",
     "mixed": "Mixed",
-    "hard": "Hard (discard everything)",
+    "hard": "Hard",
     "done": "{{branch}} is now at {{sha}}.",
-    "hardBody": "The commits between the current position and this commit, and the pending changes to tracked files, are discarded (irreversible for the changes; the commits stay in the reflog). Untracked files are not touched."
+    "intro": "{{branch}} will point to {{sha}}. What should happen to the changes in between? Untracked files are left alone.",
+    "mode": "Reset mode",
+    "softHint": "Kept and staged, ready to be committed again.",
+    "mixedHint": "Kept in the files, unstaged. The usual choice.",
+    "hardHint": "Discarded, along with uncommitted changes to tracked files: irreversible for them (commits stay in the reflog).",
+    "softSubmit": "Reset soft",
+    "mixedSubmit": "Reset mixed",
+    "hardSubmit": "Reset hard: discard everything"
   },
   "fileHistory": {
     "label": "File history",
@@ -440,7 +450,6 @@
     "pushToMenu": "Push tag to",
     "noRemote": "This repository has no remote.",
     "pushed": "Tag {{tag}} pushed to {{remote}}.",
-    "delete": "Delete tag {{tag}}…",
     "deleteTitle": "Delete tag {{tag}}?",
     "deleteBody": "The tag is removed from this repository; the commit stays.",
     "deleteBodyRemote": "The tag can be removed from this repository, from {{remote}}, or both; the commit stays. On {{remote}}, others only lose it on their next fetch that prunes tags.",
@@ -934,7 +943,8 @@
     "pullFirst": "Pull",
     "force": "Force push",
     "remoteFailed": "{{remote}}: {{error}}",
-    "rejectedOtherBody": "The remote branch of {{branch}} contains commits you don't have. Switch to {{branch}} to pull, or overwrite it (force with lease: refused if someone pushed since your last fetch)."
+    "rejectedOtherBody": "The remote branch of {{branch}} contains commits you don't have. Switch to {{branch}} to pull, or overwrite it (force with lease: refused if someone pushed since your last fetch).",
+    "pullThenPush": "Pull then push"
   },
   "branch": {
     "newTitle": "New branch",
@@ -944,9 +954,6 @@
     "create": "Create",
     "renameTitle": "Rename {{branch}}",
     "rename": "Rename",
-    "deleteTitle": "Delete {{branch}}?",
-    "deleteBody": "The local branch is deleted; its commits remain reachable from the reflog.",
-    "delete": "Delete",
     "notMergedTitle": "{{branch}} is not merged",
     "notMergedBody": "Its commits are not in any other branch: once deleted, they will no longer show in the graph (the reflog keeps them for a while).",
     "forceDelete": "Delete anyway",
@@ -957,7 +964,8 @@
     "exists": "A branch with this name already exists.",
     "deleteBothTitle": "Delete {{branch}} and {{remote}}?",
     "deleteBothBody": "The local branch is deleted, then the remote branch, on the server, for everyone. The commits stay reachable from the reflog.",
-    "deleteBoth": "Delete both"
+    "deleteBoth": "Delete both",
+    "deleted": "Branch {{branch}} deleted."
   },
   "menu": {
     "checkout": "Checkout",
@@ -981,8 +989,6 @@
     "revealFile": "Show in folder",
     "copyPath": "Copy path",
     "copyAbsolutePath": "Copy full path",
-    "pullBranch": "Pull {{branch}} (fast-forward)",
-    "pushBranch": "Push {{branch}}",
     "pullInto": "Pull into {{branch}}",
     "upstream": "Upstream",
     "upstreamOf": "Upstream: {{upstream}}",
@@ -990,18 +996,6 @@
     "upstreamNone": "None",
     "mergeInto": "Merge {{source}} into {{branch}}",
     "rebaseOnto": "Rebase {{branch}} onto {{onto}}",
-    "checkoutDetachedAt": "Checkout {{branch}} as detached HEAD",
-    "checkoutTracking": "Checkout {{branch}} (local tracking branch)",
-    "newBranchFrom": "New branch from {{branch}}…",
-    "cherryPickTip": "Cherry-pick the commit of {{source}} onto {{branch}}",
-    "revertTip": "Revert the commit of {{branch}}",
-    "resetSub": "Reset {{branch}} to {{target}}",
-    "resetSoft": "Soft (changes kept and staged)",
-    "resetMixed": "Mixed (changes kept, unstaged)",
-    "resetHard": "Hard (changes discarded)…",
-    "deleteLocal": "Delete {{branch}}…",
-    "deleteRemoteOf": "Delete {{branch}} on the server…",
-    "deleteBoth": "Delete {{branch}} and {{remote}}…",
     "why": {
       "branchColorsOff": "Fixed colors by branch name are turned off (Settings > Graph).",
       "checkoutFirst": "Checks out {{branch}} first (with auto-stash)",
@@ -1018,7 +1012,23 @@
     },
     "cherryPickOnto": "Cherry-pick {{sha}} onto {{branch}}",
     "cherryPickOntoOther": "Cherry-pick {{sha}} onto {{branch}} (checkout {{branch}} first)",
-    "moveBranch": "Move {{branch}} to {{sha}}…"
+    "moveBranch": "Move {{branch}} to {{sha}}…",
+    "short": {
+      "pullFf": "Pull (fast-forward)",
+      "merge": "Merge into {{branch}}",
+      "rebase": "Rebase {{branch}} onto it",
+      "checkout": "Checkout",
+      "detached": "Checkout as detached HEAD",
+      "checkoutTracking": "Checkout {{branch}} (local tracking it)",
+      "cherryPick": "Cherry-pick its commit onto {{branch}}",
+      "revert": "Revert its commit",
+      "delete": "Delete…",
+      "deleteOn": "Delete on {{remote}}…",
+      "deleteBoth": "Delete here and on {{remote}}…",
+      "deleteRemote": "Delete on the server…",
+      "deleteLocalOf": "Delete local {{branch}}…",
+      "deleteBothRemote": "Delete with local {{branch}}…"
+    }
   },
   "op": {
     "merge": "Merge in progress",
@@ -1226,7 +1236,9 @@
     "branch_checked_out": "This branch is checked out in another worktree: update it from there.",
     "same_branch": "Pick a branch other than the current one.",
     "undo_stale": "The repository has changed since this operation: it can no longer be undone or redone.",
-    "undo_local_changes": "Pending changes touch the same files: commit or stash them, then try again."
+    "undo_local_changes": "Pending changes touch the same files: commit or stash them, then try again.",
+    "retry": "Retry",
+    "openProfiles": "Profiles and accounts…"
   },
   "profiles": {
     "title": "Profiles",
@@ -1488,7 +1500,10 @@
     "leave_mr": "Discard this merge request? What you typed will be lost.",
     "keepEditing": "Keep editing",
     "discard": "Discard",
-    "submitKeys": "Ctrl+Enter"
+    "submitKeys": "Ctrl+Enter",
+    "createdBy_pr": "Pull request created by",
+    "createdBy_mr": "Merge request created by",
+    "createdByProfile": "on {{provider}}, account of profile {{profile}}"
   },
   "prv": {
     "section_pr": "Pull requests",
@@ -1682,11 +1697,6 @@
     "submit": "Track",
     "unknown": "No remote branch with this name: fetch, or push the branch."
   },
-  "move": {
-    "title": "Move {{branch}} to {{sha}}?",
-    "body": "{{branch}} will point to this commit. Commits only it contained will no longer show in the graph (its reflog keeps them for a while). Nothing is sent to the server.",
-    "confirm": "Move"
-  },
   "undo": {
     "undo": "Undo",
     "redo": "Redo",
@@ -1711,7 +1721,8 @@
       "revert": "revert",
       "commit": "commit",
       "amend": "amend"
-    }
+    },
+    "undoKeys": "Undo (Ctrl+Z)"
   },
   "wip": {
     "stash": "Stash changes",

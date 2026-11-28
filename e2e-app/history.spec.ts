@@ -56,7 +56,9 @@ test("reset hard, puis le reflog retrouve le commit perdu et une branche le réc
     const graph = page.getByRole("listbox", { name: "Historique des commits" });
     await graph.getByRole("option").nth(1).click({ button: "right" });
     await page.getByRole("menu").getByRole("menuitem", { name: "Reset de main ici…" }).click();
-    await page.getByRole("alertdialog", { name: /^Reset de main sur/ }).getByRole("button", { name: "Hard (tout abandonner)" }).click();
+    const reset = page.getByRole("alertdialog", { name: /^Reset de main sur/ });
+    await reset.getByRole("radio", { name: "Hard" }).check();
+    await reset.getByRole("button", { name: "Reset hard : tout abandonner" }).click();
     await expect(graph).not.toContainText("commit à retrouver");
     expect(git(mine, "status", "--porcelain")).toBe("");
 
@@ -193,7 +195,7 @@ test("tag annoté créé sur un commit et poussé, puis supprimé ici et sur le 
     expect(git(sandbox.remote, "rev-parse", "v1.0.0^{commit}")).toBe(first);
 
     await row.locator(".chip.tag", { hasText: "v1.0.0" }).click({ button: "right" });
-    await page.getByRole("menu").first().getByRole("menuitem", { name: "Supprimer le tag v1.0.0…" }).click();
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Supprimer…" }).click();
     await page.getByRole("alertdialog", { name: "Supprimer le tag v1.0.0 ?" }).getByRole("button", { name: "Ici et sur origin" }).click();
     await expect(row).not.toContainText("v1.0.0");
     expect(git(mine, "tag", "-l")).toBe("");

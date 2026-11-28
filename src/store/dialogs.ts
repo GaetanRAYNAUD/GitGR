@@ -11,12 +11,26 @@ export interface Choice {
   danger?: boolean;
 }
 
+/** Option d'un choix exclusif (boutons radio), avec ce qu'elle fait. */
+export interface RadioOption {
+  id: string;
+  label: string;
+  /** Conséquence de l'option, sous son libellé. */
+  hint: string;
+  /** Libellé du bouton d'action quand elle est choisie. */
+  submit: string;
+  /** Action destructive : bouton rouge. */
+  danger?: boolean;
+}
+
 export interface ChoiceRequest {
   kind: "choice";
   title: string;
   body: string;
   /** De la moins à la plus engageante (la dernière est mise en avant). */
   choices: Choice[];
+  /** À la place de `choices` : un choix exclusif expliqué, puis un seul bouton d'action. */
+  radio?: { label: string; options: RadioOption[]; initial: string };
 }
 
 export interface InputRequest {

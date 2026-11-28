@@ -238,6 +238,87 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
           ? t("clone.whyName")
           : null;
 
+  /** Où cloner (dossier, nom) et avec quel profil : à droite des dépôts, ou sous l'URL. */
+  const destFields = (
+    <>
+      <div className="input-field">
+        <span id="clone-parent-label">{t("clone.parent")}</span>
+        <div className="pf-row">
+          <input
+            type="text"
+            className="mono"
+            aria-labelledby="clone-parent-label"
+            value={parent}
+            onChange={(e) => setParent(e.target.value)}
+            disabled={busy}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <button type="button" className="btn" onClick={browse} disabled={busy}>
+            {t("clone.browse")}
+          </button>
+        </div>
+      </div>
+
+      <label className="input-field">
+        <span>{t("clone.name")}</span>
+        <input
+          type="text"
+          value={folder}
+          onChange={(e) => {
+            setName(e.target.value);
+            setNameTouched(true);
+            setError(null);
+          }}
+          disabled={busy}
+          spellCheck={false}
+          autoComplete="off"
+          aria-invalid={!!folder && !nameValid}
+          aria-describedby={folder && !nameValid ? "clone-name-error" : dest ? "clone-dest" : undefined}
+        />
+      </label>
+      {folder && !nameValid ? (
+        <p id="clone-name-error" className="input-error" role="alert">
+          {t("errors.invalid_folder_name")}
+        </p>
+      ) : (
+        dest && (
+          <p id="clone-dest" className="account-hint dest-line" title={dest}>
+            <span>{t("clone.destLabel")}</span>{" "}
+            <span className="mono path-tail">
+              <bdi>{dest}</bdi>
+            </span>
+          </p>
+        )
+      )}
+
+      {profiles.length > 0 && (
+        <div className="input-field">
+          <span>{t("clone.profile")}</span>
+          <Picker
+            label={t("clone.profile")}
+            disabled={busy}
+            items={() => [
+              ...profiles.map((p) => ({
+                label: p.id === suggested?.id ? t("clone.suggested", { name: p.name }) : p.name,
+                checked: p.id === profileId,
+                swatch: profileColor(p),
+                image: p.image,
+                onClick: () => setChosenProfile(p.id),
+              })),
+              { label: t("clone.noProfile"), checked: !profileId, swatch: null, onClick: () => setChosenProfile(null) },
+            ]}
+          >
+            <ProfileMark profile={profile} />
+            <span className="picker-text">
+              {profile ? (profile.id === suggested?.id ? t("clone.suggested", { name: profile.name }) : profile.name) : t("clone.noProfile")}
+            </span>
+          </Picker>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="overlay">
       <form
@@ -313,260 +394,194 @@ export function CloneDialog({ onClose }: { onClose(): void }) {
           </div>
         )}
 
-        {mode === "account" && linked && (
-          <>
-            <div className="clone-account-row">
-              {accounts.length > 1 ? (
-                <Picker
-                  label={t("clone.account")}
-                  disabled={busy}
-                  items={() =>
-                    accounts.map((l) => ({
-                      label: `${PROVIDER_NAMES[l.account.kind]} · ${accountLabel(l.account)} (${l.profile.name})`,
-                      checked: l.account.id === accountId,
-                      swatch: profileColor(l.profile),
-                      image: l.profile.image,
-                      onClick: () => {
-                        setAccountId(l.account.id);
-                        setPicked(null);
-                        setSsh(!!l.profile.sshKey);
-                        setChosenProfile(undefined);
-                      },
-                    }))
-                  }
-                >
-                  <Icon name={linked.account.kind} size={15} />
-                  <span className="picker-text">{accountLabel(linked.account)}</span>
-                  <ProfileMark profile={linked.profile} />
-                </Picker>
-              ) : (
-                <span className="clone-account">
-                  <Icon name={linked.account.kind} size={15} />
-                  <span className="picker-text">{accountLabel(linked.account)}</span>
-                  <ProfileMark profile={linked.profile} />
-                </span>
-              )}
-              <label className="search">
-                <Icon name="search" size={15} />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setActiveRow(null);
-                  }}
-                  onKeyDown={onSearchKey}
-                  placeholder={t("clone.search")}
-                  aria-label={t("clone.search")}
-                  disabled={busy}
-                />
-              </label>
-            </div>
-
-            {/* États (chargement, erreur, rien) hors de l'arbre : il ne contient que des lignes. */}
-            {repos.status !== "ready" || visible.length === 0 ? (
-              <div className="clone-repos" aria-busy={repos.status === "loading"}>
-                {repos.status === "loading" && (
-                  <p className="empty" role="status">
-                    {t("clone.loading")}
-                  </p>
-                )}
-                {repos.status === "error" && (
-                  <div className="empty" role="alert">
-                    <p>{errorMessage(t, repos.error)}</p>
-                    <button type="button" className="link" onClick={() => setReload((n) => n + 1)}>
-                      {t("clone.retry")}
-                    </button>
-                  </div>
-                )}
-                {repos.status === "ready" && (
-                  <p className="empty" role="status">
-                    {repos.list.repos.length ? t("clone.noMatch", { q: query }) : t("clone.noRepos")}
-                  </p>
-                )}
-              </div>
-            ) : (
-            <div
-              ref={treeRef}
-              className="clone-repos"
-              role="tree"
-              tabIndex={busy ? -1 : 0}
-              aria-label={t("clone.repos")}
-              aria-description={t("clone.treeKeys")}
-              aria-activedescendant={rows.length ? `clone-row-${at}` : undefined}
-              onKeyDown={onTreeKey}
-            >
-              {groups.map((g) => {
-                const oi = rowIndex(`o:${g.owner}`);
-                const open = !isCollapsed(g.owner);
-                return (
-                <div
-                  key={g.owner}
-                  id={`clone-row-${oi}`}
-                  role="treeitem"
-                  aria-level={1}
-                  aria-expanded={open}
-                  aria-label={`${g.owner}, ${t("clone.repoCount", { count: g.repos.length })}`}
-                  className={oi === at ? "clone-group active" : "clone-group"}
-                >
-                  <div
-                    className="clone-owner"
-                    onClick={() => {
-                      setActiveRow(`o:${g.owner}`);
-                      toggleOwner(g.owner);
-                    }}
-                  >
-                    <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
-                    <OwnerAvatar account={linked?.account ?? null} owner={g.owner} />
-                    <span className="clone-owner-name">{g.owner}</span>
-                    <span className="clone-owner-count" aria-hidden="true">
-                      {g.repos.length}
+        {/* Depuis un compte : deux colonnes, la liste des dépôts à gauche (toute la hauteur),
+            où et comment le cloner à droite. */}
+        {mode === "account" && linked ? (
+          <div className="dialog-cols">
+            <div className="dialog-col clone-pick">
+                <div className="clone-account-row">
+                  {accounts.length > 1 ? (
+                    <Picker
+                      label={t("clone.account")}
+                      disabled={busy}
+                      items={() =>
+                        accounts.map((l) => ({
+                          label: `${PROVIDER_NAMES[l.account.kind]} · ${accountLabel(l.account)} (${l.profile.name})`,
+                          checked: l.account.id === accountId,
+                          swatch: profileColor(l.profile),
+                          image: l.profile.image,
+                          onClick: () => {
+                            setAccountId(l.account.id);
+                            setPicked(null);
+                            setSsh(!!l.profile.sshKey);
+                            setChosenProfile(undefined);
+                          },
+                        }))
+                      }
+                    >
+                      <Icon name={linked.account.kind} size={15} />
+                      <span className="picker-text">{accountLabel(linked.account)}</span>
+                      <ProfileMark profile={linked.profile} />
+                    </Picker>
+                  ) : (
+                    <span className="clone-account">
+                      <Icon name={linked.account.kind} size={15} />
+                      <span className="picker-text">{accountLabel(linked.account)}</span>
+                      <ProfileMark profile={linked.profile} />
                     </span>
+                  )}
+                  <label className="search">
+                    <Icon name="search" size={15} />
+                    <input
+                      autoFocus
+                      value={query}
+                      onChange={(e) => {
+                        setQuery(e.target.value);
+                        setActiveRow(null);
+                      }}
+                      onKeyDown={onSearchKey}
+                      placeholder={t("clone.search")}
+                      aria-label={t("clone.search")}
+                      disabled={busy}
+                    />
+                  </label>
+                </div>
+
+                {/* États (chargement, erreur, rien) hors de l'arbre : il ne contient que des lignes. */}
+                {repos.status !== "ready" || visible.length === 0 ? (
+                  <div className="clone-repos" aria-busy={repos.status === "loading"}>
+                    {repos.status === "loading" && (
+                      <p className="empty" role="status">
+                        {t("clone.loading")}
+                      </p>
+                    )}
+                    {repos.status === "error" && (
+                      <div className="empty" role="alert">
+                        <p>{errorMessage(t, repos.error)}</p>
+                        <button type="button" className="link" onClick={() => setReload((n) => n + 1)}>
+                          {t("clone.retry")}
+                        </button>
+                      </div>
+                    )}
+                    {repos.status === "ready" && (
+                      <p className="empty" role="status">
+                        {repos.list.repos.length ? t("clone.noMatch", { q: query }) : t("clone.noRepos")}
+                      </p>
+                    )}
                   </div>
-                  {open && (
-                  <div role="group">
-                  {g.repos.map((r) => {
-                    const ri = rowIndex(`r:${r.fullName}`);
+                ) : (
+                <div
+                  ref={treeRef}
+                  className="clone-repos"
+                  role="tree"
+                  tabIndex={busy ? -1 : 0}
+                  aria-label={t("clone.repos")}
+                  aria-description={t("clone.treeKeys")}
+                  aria-activedescendant={rows.length ? `clone-row-${at}` : undefined}
+                  onKeyDown={onTreeKey}
+                >
+                  {groups.map((g) => {
+                    const oi = rowIndex(`o:${g.owner}`);
+                    const open = !isCollapsed(g.owner);
                     return (
                     <div
-                      key={r.fullName}
-                      id={`clone-row-${ri}`}
+                      key={g.owner}
+                      id={`clone-row-${oi}`}
                       role="treeitem"
-                      aria-level={2}
-                      aria-selected={picked?.fullName === r.fullName}
-                      className={["clone-repo", picked?.fullName === r.fullName && "on", ri === at && "active"].filter(Boolean).join(" ")}
-                      onClick={() => {
-                        if (busy) return;
-                        setActiveRow(`r:${r.fullName}`);
-                        pick(r);
-                      }}
-                      title={r.description ? `${r.fullName}\n${r.description}` : r.fullName}
+                      aria-level={1}
+                      aria-expanded={open}
+                      aria-label={`${g.owner}, ${t("clone.repoCount", { count: g.repos.length })}`}
+                      className={oi === at ? "clone-group active" : "clone-group"}
                     >
-                      <span className="clone-repo-name">
-                        {repoShortName(r)}
-                        {r.private && <span className="clone-tag">{t("clone.private")}</span>}
-                        {r.fork && <span className="clone-tag">{t("clone.fork")}</span>}
-                        {r.archived && <span className="clone-tag">{t("clone.archived")}</span>}
-                      </span>
-                      {r.description && <span className="clone-repo-desc">{r.description}</span>}
-                      {r.updatedAt && (
-                        <span className="clone-repo-when">
-                          {(() => {
-                            const rel = relativeTime(Date.parse(r.updatedAt));
-                            return t(`time.${rel.key}`, { count: rel.count });
-                          })()}
+                      <div
+                        className="clone-owner"
+                        onClick={() => {
+                          setActiveRow(`o:${g.owner}`);
+                          toggleOwner(g.owner);
+                        }}
+                      >
+                        <Icon name="chevron" size={13} className={open ? "chev" : "chev closed"} />
+                        <OwnerAvatar account={linked?.account ?? null} owner={g.owner} />
+                        <span className="clone-owner-name">{g.owner}</span>
+                        <span className="clone-owner-count" aria-hidden="true">
+                          {g.repos.length}
                         </span>
+                      </div>
+                      {open && (
+                      <div role="group">
+                      {g.repos.map((r) => {
+                        const ri = rowIndex(`r:${r.fullName}`);
+                        return (
+                        <div
+                          key={r.fullName}
+                          id={`clone-row-${ri}`}
+                          role="treeitem"
+                          aria-level={2}
+                          aria-selected={picked?.fullName === r.fullName}
+                          className={["clone-repo", picked?.fullName === r.fullName && "on", ri === at && "active"].filter(Boolean).join(" ")}
+                          onClick={() => {
+                            if (busy) return;
+                            setActiveRow(`r:${r.fullName}`);
+                            pick(r);
+                          }}
+                          title={r.description ? `${r.fullName}\n${r.description}` : r.fullName}
+                        >
+                          <span className="clone-repo-name">
+                            {repoShortName(r)}
+                            {r.private && <span className="clone-tag">{t("clone.private")}</span>}
+                            {r.fork && <span className="clone-tag">{t("clone.fork")}</span>}
+                            {r.archived && <span className="clone-tag">{t("clone.archived")}</span>}
+                          </span>
+                          {r.description && <span className="clone-repo-desc">{r.description}</span>}
+                          {r.updatedAt && (
+                            <span className="clone-repo-when">
+                              {(() => {
+                                const rel = relativeTime(Date.parse(r.updatedAt));
+                                return t(`time.${rel.key}`, { count: rel.count });
+                              })()}
+                            </span>
+                          )}
+                        </div>
+                        );
+                      })}
+                      </div>
                       )}
                     </div>
                     );
                   })}
-                  </div>
-                  )}
                 </div>
-                );
-              })}
+                )}
+                {repos.status === "ready" && repos.list.truncated && <p className="account-hint">{t("clone.truncated", { count: repos.list.repos.length })}</p>}
             </div>
-            )}
-            {repos.status === "ready" && repos.list.truncated && <p className="account-hint">{t("clone.truncated", { count: repos.list.repos.length })}</p>}
-
-            <div className="segmented clone-protocol" role="radiogroup" aria-label={t("clone.protocol")} onKeyDown={onRadioGroupKeyDown}>
-              {[true, false].map((v) => (
-                <button
-                  key={String(v)}
-                  type="button"
-                  role="radio"
-                  aria-checked={ssh === v}
-                  tabIndex={ssh === v ? 0 : -1}
-                  className={ssh === v ? "seg on" : "seg"}
-                  disabled={busy}
-                  onClick={() => setSsh(v)}
-                >
-                  {v ? "SSH" : "HTTPS"}
-                </button>
-              ))}
+            <div className="dialog-col">
+                <div className="segmented clone-protocol" role="radiogroup" aria-label={t("clone.protocol")} onKeyDown={onRadioGroupKeyDown}>
+                  {[true, false].map((v) => (
+                    <button
+                      key={String(v)}
+                      type="button"
+                      role="radio"
+                      aria-checked={ssh === v}
+                      tabIndex={ssh === v ? 0 : -1}
+                      className={ssh === v ? "seg on" : "seg"}
+                      disabled={busy}
+                      onClick={() => setSsh(v)}
+                    >
+                      {v ? "SSH" : "HTTPS"}
+                    </button>
+                  ))}
+                </div>
+                {picked && (
+                  <p className="account-hint mono clone-url" title={cloneUrl}>
+                    {cloneUrl}
+                  </p>
+                )}
+              {destFields}
             </div>
-            {picked && (
-              <p className="account-hint mono clone-url" title={cloneUrl}>
-                {cloneUrl}
-              </p>
-            )}
-          </>
-        )}
-
-        <div className="input-field">
-          <span id="clone-parent-label">{t("clone.parent")}</span>
-          <div className="pf-row">
-            <input
-              type="text"
-              className="mono"
-              aria-labelledby="clone-parent-label"
-              value={parent}
-              onChange={(e) => setParent(e.target.value)}
-              disabled={busy}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button type="button" className="btn" onClick={browse} disabled={busy}>
-              {t("clone.browse")}
-            </button>
           </div>
-        </div>
-
-        <label className="input-field">
-          <span>{t("clone.name")}</span>
-          <input
-            type="text"
-            value={folder}
-            onChange={(e) => {
-              setName(e.target.value);
-              setNameTouched(true);
-              setError(null);
-            }}
-            disabled={busy}
-            spellCheck={false}
-            autoComplete="off"
-            aria-invalid={!!folder && !nameValid}
-            aria-describedby={folder && !nameValid ? "clone-name-error" : dest ? "clone-dest" : undefined}
-          />
-        </label>
-        {folder && !nameValid ? (
-          <p id="clone-name-error" className="input-error" role="alert">
-            {t("errors.invalid_folder_name")}
-          </p>
         ) : (
-          dest && (
-            <p id="clone-dest" className="account-hint dest-line" title={dest}>
-              <span>{t("clone.destLabel")}</span>{" "}
-              <span className="mono path-tail">
-                <bdi>{dest}</bdi>
-              </span>
-            </p>
-          )
-        )}
-
-        {profiles.length > 0 && (
-          <div className="input-field">
-            <span>{t("clone.profile")}</span>
-            <Picker
-              label={t("clone.profile")}
-              disabled={busy}
-              items={() => [
-                ...profiles.map((p) => ({
-                  label: p.id === suggested?.id ? t("clone.suggested", { name: p.name }) : p.name,
-                  checked: p.id === profileId,
-                  swatch: profileColor(p),
-                  image: p.image,
-                  onClick: () => setChosenProfile(p.id),
-                })),
-                { label: t("clone.noProfile"), checked: !profileId, swatch: null, onClick: () => setChosenProfile(null) },
-              ]}
-            >
-              <ProfileMark profile={profile} />
-              <span className="picker-text">
-                {profile ? (profile.id === suggested?.id ? t("clone.suggested", { name: profile.name }) : profile.name) : t("clone.noProfile")}
-              </span>
-            </Picker>
-          </div>
+          <>
+            {destFields}
+          </>
         )}
 
         {busy && (

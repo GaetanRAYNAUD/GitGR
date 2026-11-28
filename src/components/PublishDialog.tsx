@@ -360,6 +360,17 @@ function PublishDialog({ path }: { path: string }) {
               </label>
               {/* Case grisée : la raison lisible, pas seulement en infobulle. */}
               {!canPush && <p className="account-hint">{t(branch ? "publish.nothingToPush" : "errors.detached_head")}</p>}
+              {/* Qui pousse, et comment : le profil du compte, sa clé SSH ou le jeton du compte. */}
+              <p className="account-hint dialog-as">
+                {t("publish.pushedBy")} <strong>{linked.profile.name}</strong>{" "}
+                <span className="muted">
+                  {ssh
+                    ? linked.profile.sshKey
+                      ? t("publish.viaSsh", { key: linked.profile.sshKey })
+                      : t("publish.viaSshAgent")
+                    : t("publish.viaHttps", { login: linked.account.login })}
+                </span>
+              </p>
               {owner && name && !nameError && (
                 <p className="account-hint dest-line" title={`${owner.path}/${name}`}>
                   <span>{t("publish.destLabel", { provider })}</span>{" "}

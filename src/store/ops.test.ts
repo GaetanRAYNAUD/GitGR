@@ -184,13 +184,17 @@ describe("branches", () => {
     expect(local(REPO_A, "feature/profils")).toBeUndefined();
   });
 
-  it("supprimer une branche non fusionnée demande une seconde confirmation", async () => {
+  it("supprimer une branche : sans confirmation (elle s'annule), sauf si elle n'est pas fusionnée", async () => {
     await open(REPO_A);
     const done = ops().deleteBranch(REPO_A, "feature/graph-rendering");
-    expect(await answer("delete")).toBe("Supprimer feature/graph-rendering ?");
     expect(await answer("force")).toBe("feature/graph-rendering n’est pas fusionnée");
     expect(await done).toBe(true);
     expect(local(REPO_A, "feature/graph-rendering")).toBeUndefined();
+    // Le message propose de l'annuler ; l'annulation la recrée.
+    const notice = useApp.getState().notice;
+    expect(notice?.text).toBe("Branche feature/graph-rendering supprimée.");
+    notice?.actions?.[0].onClick();
+    await vi.waitFor(() => expect(local(REPO_A, "feature/graph-rendering")).toBeDefined());
   });
 
   it("supprimer sur le serveur marque la locale comme orpheline", async () => {
@@ -264,6 +268,31 @@ describe("réseau", () => {
     expect(spy).toHaveBeenCalledTimes(2);
     expect(useApp.getState().error).toMatch(/^origin : Authentification refusée/);
     expect(useApp.getState().notice).toMatchObject({ text: "main poussée vers client.", sticky: true });
+    // L'erreur propose de recommencer.
+    expect(useApp.getState().errorActions?.actions.map((a) => a.label)).toEqual(["Réessayer"]);
+
+    // Un remote refuse (commits qu'on n'a pas) : « Pull puis push ».
+    spy.mockClear();
+    spy.mockRejectedValueOnce("push_rejected");
+    const pull = vi.spyOn(api, "pull");
+    expect(await ops().pushAll(REPO_C)).toBe(false);
+    const actions = useApp.getState().errorActions?.actions ?? [];
+    expect(actions.map((a) => a.label)).toEqual(["Pull puis push"]);
+    actions[0].onClick();
+    await vi.waitFor(() => expect(pull).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(4));
+  });
+
+  it("fetch en échec réseau : « Réessayer » ; authentification refusée : les profils aussi", async () => {
+    await open(REPO_A);
+    const spy = vi.spyOn(api, "fetch").mockRejectedValueOnce("network_unreachable");
+    expect(await ops().fetch(REPO_A)).toBe(false);
+    expect(useApp.getState().errorActions?.actions.map((a) => a.label)).toEqual(["Réessayer"]);
+    useApp.getState().errorActions!.actions[0].onClick();
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    spy.mockRejectedValueOnce("auth_failed");
+    expect(await ops().fetch(REPO_A)).toBe(false);
+    expect(useApp.getState().errorActions?.actions.map((a) => a.label)).toEqual(["Réessayer", "Profils et comptes…"]);
   });
 
   it("pousser vers tous une branche sans suivi : elle suit origin", async () => {

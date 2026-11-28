@@ -34,6 +34,9 @@ interface AppStore {
   error: string | null;
   /** Message d'information ; `sticky` : reste affiché jusqu'à ce qu'on le ferme. */
   notice: { text: string; sticky: boolean; id: number; actions?: NoticeAction[] } | null;
+  /** Actions proposées avec l'erreur affichée (Réessayer, Pull puis push…), valables tant que
+   *  c'est la même erreur (`for`). */
+  errorActions: { for: string; actions: NoticeAction[] } | null;
 
   init(): Promise<void>;
   recheckGit(): Promise<void>;
@@ -98,6 +101,7 @@ export const useApp = create<AppStore>((set, get) => ({
   repoUi: {},
   error: null,
   notice: null,
+  errorActions: null,
 
   async init() {
     let state, git, home;
@@ -301,7 +305,7 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   dismissError() {
-    set({ error: null });
+    set({ error: null, errorActions: null });
   },
 
   notify(text, sticky = false, actions) {
@@ -312,6 +316,12 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ notice: null });
   },
 }));
+
+// Une erreur posée sans ses actions (directement, hors `fail` des opérations) n'hérite pas de
+// celles de l'erreur précédente.
+useApp.subscribe((s, prev) => {
+  if (s.error !== prev.error && s.errorActions && s.errorActions === prev.errorActions) useApp.setState({ errorActions: null });
+});
 
 /** Change une entrée de dépôt tout de suite, l'enregistre, et revient en arrière si
  *  l'enregistrement échoue (l'interface ne montre pas un nom ou une couleur perdus). */

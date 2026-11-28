@@ -6,6 +6,12 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Publier et Créer une PR / MR disent qui agit sur le serveur : « Poussé par le profil Perso avec la clé SSH … » ou « en HTTPS avec le jeton du compte … », « Merge request créée par camille sur GitLab, compte du profil Boulot ».
+- Cloner depuis un compte et Créer une PR / MR passent en deux colonnes : la liste des dépôts (ou le texte de la PR) à gauche, la destination (ou la cible et les relecteurs) à droite. Les colonnes s'empilent quand la fenêtre est étroite.
+- Supprimer une branche locale ou déplacer une branche ne demande plus confirmation : un message propose « Annuler (Ctrl+Z) ». Une branche non fusionnée le dit toujours avant d'être supprimée.
+- Menus d'une branche ou d'un tag : son nom en tête, une seule fois, et des libellés courts (« Supprimer… », « Merge dans main », « Supprimer sur origin/main… ») au lieu de noms répétés et coupés.
+- Reset : une seule entrée « Reset de main ici… », d'où qu'on vienne. La fenêtre explique chaque mode (Soft, Mixed proposé, Hard) et son bouton dit ce qui va se passer, en rouge pour Hard.
+- Les erreurs proposent quoi faire : « Réessayer » après un échec réseau, « Profils et comptes… » après un refus d'authentification, « Pull puis push » quand un remote refuse le push.
 - Menus contextuels au clavier : une action grisée reste atteignable aux flèches et dit pourquoi ; Début / Fin, une lettre va à l'action suivante qui commence par elle, Tab ferme le menu, Échap ne referme qu'un sous-menu. Les raccourcis s'affichent à droite (Espace, Suppr pour les fichiers) ; un libellé coupé est complet en infobulle.
 - Sélecteur rapide (Ctrl+E) : la ligne choisie reste visible quand la liste défile (Début, Fin, Pg↑, Pg↓ aussi), le chemin est coupé au début pour garder le nom du dossier, et « Ouvrir un dépôt… » est proposé quand il n'y a rien à montrer. Tab reste dans la fenêtre et le focus revient à sa place en la fermant.
 - Notifications : Ctrl+Maj+N ouvre la cloche, le focus va à la première notification ; ↑ / ↓ les parcourent, Entrée ouvre, Suppr marque comme lu, Échap rend le focus à la cloche. Une erreur de compte dit lequel (forge, serveur, login) et propose Réessayer ou Gérer les comptes ; « Tout marquer comme vu » devient « Masquer les pastilles ».
