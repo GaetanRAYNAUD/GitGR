@@ -19,6 +19,7 @@ import {
   mockAddWorktree,
   mockRemoveWorktree,
   mockPruneWorktrees,
+  mockLockWorktree,
   mockBisectReset,
   mockBisectState,
   mockCheckoutRemote,
@@ -253,6 +254,9 @@ export interface Api {
   addWorktree(path: string, dir: string, opts: { branch?: string; newBranch?: string; start?: string }): Promise<void>;
   removeWorktree(path: string, dir: string, force: boolean): Promise<void>;
   pruneWorktrees(path: string): Promise<void>;
+  /** Verrouille un worktree (raison facultative) / le déverrouille. */
+  lockWorktree(path: string, dir: string, reason: string | null): Promise<void>;
+  unlockWorktree(path: string, dir: string): Promise<void>;
   /** Bisect en cours (`null` : aucun). */
   bisectState(path: string): Promise<BisectState | null>;
   /** Marque `sha` (HEAD si `null`) bon, mauvais ou à passer ; commence le bisect au besoin. */
@@ -561,6 +565,8 @@ const tauriApi: Api = {
   addWorktree: (path, dir, o) => invoke("add_worktree", { path, dir, branch: o.branch ?? null, newBranch: o.newBranch ?? null, start: o.start ?? null }),
   removeWorktree: (path, dir, force) => invoke("remove_worktree", { path, dir, force }),
   pruneWorktrees: (path) => invoke("prune_worktrees", { path }),
+  lockWorktree: (path, dir, reason) => invoke("lock_worktree", { path, dir, reason }),
+  unlockWorktree: (path, dir) => invoke("unlock_worktree", { path, dir }),
   bisectState: (path) => invoke("bisect_state", { path }),
   bisectMark: (path, verdict, sha, autoStash) => invoke("bisect_mark", { path, verdict, sha, autoStash }),
   bisectReset: (path, autoStash) => invoke("bisect_reset", { path, autoStash }),
@@ -1142,6 +1148,8 @@ const mockApi: Api = {
   addWorktree: async (path, dir, o) => mockAddWorktree(path, dir, o),
   removeWorktree: async (path, dir, force) => mockRemoveWorktree(path, dir, force),
   pruneWorktrees: async (path) => mockPruneWorktrees(path),
+  lockWorktree: async (path, dir, reason) => mockLockWorktree(path, dir, reason),
+  unlockWorktree: async (path, dir) => mockLockWorktree(path, dir, null, true),
   bisectState: async (path) => mockBisectState(path),
   bisectMark: async (path, verdict, sha, autoStash) => mockBisectMark(path, verdict, sha, autoStash),
   bisectReset: async (path, autoStash) => mockBisectReset(path, autoStash),

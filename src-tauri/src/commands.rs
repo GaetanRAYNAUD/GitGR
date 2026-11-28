@@ -468,6 +468,16 @@ pub async fn remove_worktree(path: String, dir: String, force: bool) -> Result<(
 
 /// Oublie les worktrees dont le dossier a disparu.
 #[tauri::command]
+pub async fn lock_worktree(path: String, dir: String, reason: Option<String>) -> Result<(), String> {
+    crate::worktrees::lock(Path::new(&path), &dir, reason.as_deref())
+}
+
+#[tauri::command]
+pub async fn unlock_worktree(path: String, dir: String) -> Result<(), String> {
+    crate::worktrees::unlock(Path::new(&path), &dir)
+}
+
+#[tauri::command]
 pub async fn prune_worktrees(path: String) -> Result<(), String> {
     crate::worktrees::prune(Path::new(&path))
 }

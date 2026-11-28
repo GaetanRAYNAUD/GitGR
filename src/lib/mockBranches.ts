@@ -644,6 +644,12 @@ export function mockRemoveWorktree(path: string, dir: string, force: boolean) {
   worktrees.set(path, list.filter((x) => x !== w));
 }
 
+export function mockLockWorktree(path: string, dir: string, reason: string | null, unlock = false) {
+  const w = (worktrees.get(path) ?? []).find((x) => x.path === dir);
+  if (!w) throw "invalid_path";
+  w.locked = unlock ? null : (reason?.trim() ?? "");
+}
+
 export function mockPruneWorktrees(path: string) {
   worktrees.set(path, (worktrees.get(path) ?? []).filter((w) => !w.prunable));
 }

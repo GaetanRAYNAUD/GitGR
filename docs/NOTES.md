@@ -273,6 +273,7 @@ Compléments et retours d'utilisation, par thème.
 - **Éditeur des fichiers** (étape 4) : réglage « Éditeur des fichiers » (page Git : ligne de commande, `{file}` pour placer le chemin, « Choisir… » un programme) ; « Ouvrir dans l'éditeur » en tête du clic droit d'un fichier (`editor.rs` : découpe avec guillemets, programme cherché avec `PATHEXT` sous Windows, sans console ; `editor_not_found`).
 - **Recherche dans les modifications : diff sur la ligne** (étape 8) : `DiffBody` avec `mark` rend active (et fait défiler jusqu'à) la première ligne ajoutée ou retirée qui contient le texte cherché.
 - **Éditeur à la ligne** (étape 4) : `{line}` dans la commande de l'éditeur ; « Ouvrir dans l'éditeur à la ligne N » au clic droit d'une ligne du blame de la copie de travail.
+- **Worktrees verrouillés** (étape 9) : « Verrouiller… » (raison facultative, `git worktree lock --reason`) / « Déverrouiller » au clic droit d'un worktree ; l'erreur « locked working tree » de git est reconnue (`worktree_locked`).
 
 ## Reste à faire
 
@@ -337,7 +338,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Indicateur de travail en attente dans la barre d'onglets** (fait pour les onglets de dépôt, cf. « Fait » ; reste : l'indicateur agrégé d'un groupe ; le fetch en arrière-plan des onglets inactifs est fait) : savoir d'un coup d'œil qu'un onglet a des modifications non commitées ou des commits à tirer / pousser, **sans charger la barre** (à voir au rendu : un point ou un liseré sur la pastille de l'onglet plutôt que des compteurs, le détail en infobulle). Le même indicateur, agrégé, sur l'onglet d'un groupe.
 - [ ] **Refonte de l'accueil** (`Welcome`, sortie de l'étape 13 : la page sera de toute façon retravaillée pour les groupes) : la passer par `/impeccable shape` puis critique / polish en même temps que les groupes — actions, dépôts récents avec leur état, recherche, état vide, clavier (liste à une tabulation), clair / sombre.
 - [ ] **Groupes à l'accueil** : les dossiers (groupes de dépôts) prévus pour la barre d'onglets repris dans la liste de l'accueil, **repliables**, avec un **résumé** des indicateurs de leurs dépôts sur la ligne du groupe (ex. « 2 en retard · 1 avec du travail en attente »).
-- [ ] **Gérer les worktrees** (fait, cf. « Fait ») ; reste : verrouiller / déverrouiller ; sous-menu « Créer un worktree depuis » du menu de branche (aujourd'hui une entrée simple).
+- [ ] **Gérer les worktrees** (fait, cf. « Fait ») ; reste : sous-menu « Créer un worktree depuis » du menu de branche (aujourd'hui une entrée simple).
 - [ ] **Image / icône d'onglet** (fichier local, avatar du dépôt).
 
 ### Étape 10 — conflits et v2

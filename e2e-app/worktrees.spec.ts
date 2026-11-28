@@ -33,9 +33,22 @@ test("worktree : créé depuis une branche et ouvert dans un onglet ; checkout r
     await expect(page.getByText("Cette branche est déjà extraite dans un autre worktree")).toBeVisible();
     await expect(page.getByRole("button", { name: "Ouvrir le worktree dans un onglet" })).toBeVisible();
 
+    // Verrouillé puis déverrouillé : git le note avec sa raison.
+    const item = sidebar.getByRole("treeitem", { name: /^sujet/ }).last();
+    await item.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Verrouiller…" }).click();
+    const lock = page.getByRole("dialog", { name: /^Verrouiller le worktree/ });
+    await lock.getByLabel("Raison (facultative)").fill("disque USB");
+    await lock.getByRole("button", { name: "Verrouiller" }).click();
+    await expect(item).toContainText("verrouillé");
+    expect(git(mine, "worktree", "list", "--porcelain")).toContain("locked disque USB");
+    await item.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Déverrouiller" }).click();
+    await expect(item).not.toContainText("verrouillé");
+    expect(git(mine, "worktree", "list", "--porcelain")).not.toContain("locked");
+
     // Une modification dans le worktree : la suppression demande confirmation deux fois.
     writeFileSync(join(dir, "neuf.txt"), "x");
-    const item = sidebar.getByRole("treeitem", { name: /^sujet/ }).last();
     await item.click({ button: "right" });
     await page.getByRole("menuitem", { name: "Supprimer le worktree…" }).click();
     await page.getByRole("button", { name: "Supprimer", exact: true }).click();

@@ -25,6 +25,8 @@ interface WorktreesState {
   create(path: string, from: { branch: string } | { start: string; startLabel: string }): Promise<boolean>;
   remove(path: string, w: Worktree): Promise<boolean>;
   prune(path: string): Promise<boolean>;
+  /** Verrouille (raison demandée, facultative) ou déverrouille un worktree. */
+  toggleLock(path: string, w: Worktree): Promise<boolean>;
   /** Ouvre le worktree dans un onglet (dépôt à part entière). */
   open(w: Worktree): void;
 }
@@ -124,6 +126,29 @@ export const useWorktrees = create<WorktreesState>((set, get) => ({
     await useApp.getState().refreshRepo(path);
     get().load(path, useGraph.getState().graphs[path]?.refs ?? null, true);
     useApp.getState().notify(t("worktrees.removed", { name }));
+    return true;
+  },
+
+  async toggleLock(path, w) {
+    let reason: string | null = null;
+    if (w.locked === null) {
+      const answer = await useDialogs.getState().input({
+        title: t("worktrees.lockTitle", { name: worktreeName(w) }),
+        subtitle: t("worktrees.lockBody"),
+        label: t("worktrees.lockReason"),
+        initial: "",
+        submit: t("worktrees.lock"),
+      });
+      if (!answer) return false;
+      reason = answer.value.trim() || null;
+    }
+    try {
+      await (w.locked === null ? api.lockWorktree(path, w.path, reason) : api.unlockWorktree(path, w.path));
+    } catch (e) {
+      return fail(e);
+    }
+    get().load(path, useGraph.getState().graphs[path]?.refs ?? null, true);
+    useApp.getState().notify(t(w.locked === null ? "worktrees.locked_done" : "worktrees.unlocked", { name: worktreeName(w) }));
     return true;
   },
 

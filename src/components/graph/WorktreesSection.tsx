@@ -29,6 +29,13 @@ export function worktreeMenu(t: TFunction, path: string, w: Worktree, list: Work
       onClick: () => void api.openRepoFile(w.path, "", "open").catch((e) => useApp.setState({ error: errorCode(e) })),
     });
   items.push({ label: t("menu.copyAbsolutePath"), onClick: () => void navigator.clipboard?.writeText(w.path).catch(() => {}) });
+  if (!w.main && !w.prunable) {
+    items.push("sep", {
+      label: t(w.locked === null ? "worktrees.lockMenu" : "worktrees.unlockMenu"),
+      title: w.locked ? t("worktrees.lockedBecause", { reason: w.locked }) : t("worktrees.lockHint"),
+      onClick: () => void store.toggleLock(path, w),
+    });
+  }
   if (!w.main) {
     const why = w.current ? t("worktrees.removeCurrent") : w.locked !== null ? t("worktrees.lockedWhy") : undefined;
     items.push("sep", { label: t("worktrees.removeMenu"), danger: true, disabled: !!why, title: why, onClick: () => void store.remove(path, w) });

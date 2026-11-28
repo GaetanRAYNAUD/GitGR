@@ -36,6 +36,19 @@ test("worktree : créé depuis une branche, listé dans sa section, puis supprim
   await expect(menu(page).getByRole("menuitem", { name: "Créer un worktree…" })).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
 
+  // Verrouillé (avec une raison) : plus supprimable ; déverrouillé ensuite.
+  await item.click({ button: "right" });
+  await menu(page).getByRole("menuitem", { name: "Verrouiller…" }).click();
+  const lock = page.getByRole("dialog", { name: /^Verrouiller le worktree/ });
+  await lock.getByLabel("Raison (facultative)").fill("disque USB");
+  await lock.getByRole("button", { name: "Verrouiller" }).click();
+  await expect(item).toContainText("verrouillé");
+  await item.click({ button: "right" });
+  await expect(menu(page).getByRole("menuitem", { name: "Supprimer le worktree…" })).toHaveAttribute("aria-disabled", "true");
+  await expect(menu(page).getByRole("menuitem", { name: "Déverrouiller" })).toHaveAttribute("title", "Verrouillé : disque USB");
+  await menu(page).getByRole("menuitem", { name: "Déverrouiller" }).click();
+  await expect(item).not.toContainText("verrouillé");
+
   await item.click({ button: "right" });
   await menu(page).getByRole("menuitem", { name: "Supprimer le worktree…" }).click();
   const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog"));

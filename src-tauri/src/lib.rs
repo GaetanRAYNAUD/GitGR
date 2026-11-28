@@ -154,6 +154,8 @@ pub fn run() {
             commands::add_worktree,
             commands::remove_worktree,
             commands::prune_worktrees,
+            commands::lock_worktree,
+            commands::unlock_worktree,
             commands::bisect_state,
             commands::bisect_mark,
             commands::bisect_reset,
