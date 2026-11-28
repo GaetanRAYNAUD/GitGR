@@ -48,14 +48,7 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
             <legend className="visually-hidden">{radio.label}</legend>
             {radio.options.map((o) => (
               <label key={o.id} className={o.id === picked ? "dialog-radio on" : "dialog-radio"}>
-                <input
-                  type="radio"
-                  name={`${id}-radio`}
-                  value={o.id}
-                  checked={o.id === picked}
-                  onChange={() => setPicked(o.id)}
-                  aria-describedby={`${id}-${o.id}`}
-                />
+                <input type="radio" name={`${id}-radio`} value={o.id} checked={o.id === picked} onChange={() => setPicked(o.id)} aria-describedby={`${id}-${o.id}`} />
                 <span className="dialog-radio-text">
                   <span className={o.danger ? "dialog-radio-label danger-text" : "dialog-radio-label"}>{o.label}</span>
                   <span id={`${id}-${o.id}`} className="dialog-radio-hint">
@@ -75,12 +68,15 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
               {option.submit}
             </button>
           )}
-          {!radio &&
-            request.choices.map((c, i) => (
-              <button key={c.id} className={c.danger ? "btn danger" : i === request.choices.length - 1 ? "btn primary" : "btn"} onClick={() => answer(c.id)}>
-                {c.label}
-              </button>
-            ))}
+          {!radio && request.choices.map((c, i) => (
+            <button
+              key={c.id}
+              className={c.danger ? "btn danger" : i === request.choices.length - 1 ? "btn primary" : "btn"}
+              onClick={() => answer(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
