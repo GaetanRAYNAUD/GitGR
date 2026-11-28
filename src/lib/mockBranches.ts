@@ -4,7 +4,7 @@
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockDiscardAll, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, BisectState, Worktree, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
+import type { AutoStash, BisectState, RebasePlan, RebaseStep, Worktree, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -646,4 +646,35 @@ export function mockRemoveWorktree(path: string, dir: string, force: boolean) {
 
 export function mockPruneWorktrees(path: string) {
   worktrees.set(path, (worktrees.get(path) ?? []).filter((w) => !w.prunable));
+}
+
+// --- Rebase interactif simulé ------------------------------------------------
+
+/** Commits de la branche courante après `base` (premiers parents), du plus ancien au plus récent. */
+export function mockRebasePlan(path: string, base: string | null): RebasePlan {
+  const h = mockHistory(path);
+  if (!h.refs.headBranch) throw "detached_head";
+  const byId = new Map(h.commits.map((c) => [c.sha, c]));
+  const baseSha = base ? (h.refs.refs.find((r) => r.short === base || r.name === base)?.target ?? base) : null;
+  const stop = baseSha ? ancestors(path, baseSha) : new Set<string>();
+  const out = [];
+  for (let s: string | undefined = h.refs.head ?? undefined; s && !stop.has(s) && out.length < 50; ) {
+    const c = byId.get(s);
+    if (!c) break;
+    if (c.parents.length > 1) throw "rebase_merges";
+    out.push({ sha: c.sha, subject: c.subject, message: c.subject, author: c.author, time: c.time, pushed: false });
+    s = c.parents[0];
+  }
+  if (!out.length) throw "rebase_nothing";
+  return { commits: out.reverse(), base: baseSha };
+}
+
+/** Rebase simulé : les commits retirés quittent la branche (le graphe simulé ne réécrit pas
+ *  les autres). */
+export const mockRebases: { base: string | null; steps: RebaseStep[] }[] = [];
+export function mockInteractiveRebase(path: string, base: string | null, steps: RebaseStep[], autoStash: boolean): OpResult {
+  mockRebases.push({ base, steps });
+  if (!steps.some((s) => s.action !== "drop")) throw "rebase_all_dropped";
+  record(path, mockHistory(path).refs.head ?? "", "rebase (finish)", `returning to refs/heads/${mockHistory(path).refs.headBranch}`);
+  return stashResult(path, autoStash);
 }

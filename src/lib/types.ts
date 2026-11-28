@@ -380,6 +380,18 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Commits d'un rebase interactif (src-tauri/src/rebase.rs). */
+export interface RebasePlan {
+  commits: { sha: string; subject: string; message: string; author: string; time: number; pushed: boolean }[];
+  base: string | null;
+}
+
+export interface RebaseStep {
+  sha: string;
+  action: "pick" | "reword" | "squash" | "fixup" | "drop";
+  message: string | null;
+}
+
 /** Commits d'une release depuis le tag précédent (src-tauri/src/releases.rs). */
 export interface ReleaseDraft {
   previous: string | null;

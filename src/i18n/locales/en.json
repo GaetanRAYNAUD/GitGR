@@ -530,6 +530,52 @@
       "release_prerelease_unsupported": "GitLab has no pre-releases: the release is marked like the others."
     }
   },
+  "rebase": {
+    "leaveTitle": "Discard this interactive rebase?",
+    "leaveBody": "The order and the choices made for each commit will be lost.",
+    "leave": "Discard",
+    "label": "Interactive rebase",
+    "title": "Interactive rebase of {{branch}} from {{base}}",
+    "list": "Commits to replay, oldest first",
+    "keys": "↑ ↓ choose · Alt+↑ ↓ or drag: move · P keep · R reword · S squash · F fixup · D (Del) drop · Enter: write the message",
+    "actions": {
+      "pick": "Keep",
+      "reword": "Reword",
+      "squash": "Squash",
+      "fixup": "Fixup",
+      "drop": "Drop"
+    },
+    "actionHint": "What to do with this commit (P, R, S, F, D)",
+    "newMessage": "New message for “{{subject}}”",
+    "pushed": "pushed",
+    "pushedHint": "Already on a remote branch: rewriting it will need a force push.",
+    "count_one": "{{count}} commit",
+    "count_other": "{{count}} commits",
+    "moved_one": "{{count}} moved",
+    "moved_other": "{{count}} moved",
+    "reworded_one": "{{count}} reworded",
+    "reworded_other": "{{count}} reworded",
+    "squashed_one": "{{count}} squashed",
+    "squashed_other": "{{count}} squashed",
+    "dropped_one": "{{count}} dropped",
+    "dropped_other": "{{count}} dropped",
+    "pushedWarn": "Commits already pushed will be rewritten.",
+    "start": "Start rebase",
+    "done": "Rebase of {{branch}} done.",
+    "pushedTitle": "Rewrite commits already pushed?",
+    "pushedBody": "They have been shared: a force push will be needed, and whoever fetched them will have to adapt.",
+    "pushedGo": "Rewrite anyway",
+    "fromHere": "Interactive rebase from here…",
+    "fromHereHint": "Reorder, reword, squash or drop the commits of {{branch}} from this one (included)",
+    "ontoMenu": "Interactive rebase of {{branch}} here…",
+    "ontoHint": "Replay the commits of {{branch}} onto {{onto}}, choosing what happens to each",
+    "why": {
+      "allDropped": "Every commit is dropped.",
+      "squashFirst": "The first kept commit can't be squashed into a previous one.",
+      "emptyMessage": "A commit to reword has no message.",
+      "nothing": "Nothing changed."
+    }
+  },
   "graphFind": {
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",
@@ -1371,6 +1417,14 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "rebase_not_ancestor": "This commit is not on the current branch: “from here” only applies to its commits.",
+    "invalid_action": "Unknown rebase action.",
+    "rebase_all_dropped": "Every commit is dropped.",
+    "rebase_squash_first": "The first kept commit can't be squashed into a previous one.",
+    "rebase_plan_changed": "The branch changed: reopen the interactive rebase.",
+    "rebase_too_many": "Too many commits (over 500) for an interactive rebase.",
+    "rebase_nothing": "No commit to rewrite.",
+    "rebase_merges": "The range contains merges: an interactive rebase would flatten them.",
     "release_tag_missing": "The tag is not on the remote repository: push it first.",
     "release_exists": "A release already exists for this tag.",
     "not_conflicted": "This file is no longer in conflict.",

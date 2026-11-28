@@ -7998,3 +7998,114 @@ kbd {
   flex-wrap: wrap;
   gap: 4px 16px;
 }
+
+/* Rebase interactif : une ligne par commit (poignée, action, message), action en couleur
+   discrète, commit retiré barré. */
+.rebase-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  outline: none;
+}
+
+.rebase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 3px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  cursor: grab;
+}
+
+.rebase-row.on {
+  background: var(--sel);
+}
+
+.rebase-list:focus-visible .rebase-row.active {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.rebase-row.dragging {
+  opacity: 0.6;
+}
+
+.rebase-grip {
+  color: var(--faint);
+  letter-spacing: -2px;
+  user-select: none;
+}
+
+.rebase-action {
+  flex: none;
+  width: 140px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rebase-action.act-reword {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.rebase-action.act-squash,
+.rebase-action.act-fixup {
+  border-color: color-mix(in srgb, var(--merged) 50%, var(--border));
+}
+
+.rebase-action.act-drop {
+  border-color: color-mix(in srgb, var(--del) 50%, var(--border));
+}
+
+.rebase-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.rebase-subject {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rebase-row.act-drop .rebase-subject {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.rebase-message {
+  width: 100%;
+  resize: vertical;
+  font-size: 12px;
+}
+
+.rebase-pushed {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rebase-foot {
+  flex-wrap: wrap;
+}
+
+.rebase-summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.rebase-warn {
+  color: var(--mod);
+  font-size: 12px;
+}

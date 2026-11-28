@@ -18,7 +18,7 @@ import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branc
 import { errorMessage } from "../lib/errors";
 import { remoteProfile } from "../lib/profiles";
 import { splitRemoteBranch } from "../lib/refs";
-import type { GitRef, OpResult, ProviderKind, PullStrategy, ResetMode } from "../lib/types";
+import type { GitRef, OpResult, RebaseStep, ProviderKind, PullStrategy, ResetMode } from "../lib/types";
 import { type NoticeAction, useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph, WIP } from "./graph";
@@ -49,6 +49,9 @@ interface OpsStore {
    *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
+  /** Rebase interactif (`base` : commits après elle). `pushed` : des commits déjà poussés
+   *  seront réécrits, à confirmer. */
+  interactiveRebase(path: string, base: string | null, onto: boolean, steps: RebaseStep[], pushed: boolean): Promise<boolean>;
   /** Bisect : marque `sha` (le commit extrait si `null`) bon, mauvais ou à passer ; extrait le
    *  suivant à tester (auto-stash). Trouvé : le premier mauvais commit est sélectionné. */
   bisect(path: string, verdict: BisectVerdict, sha: string | null): Promise<boolean>;
@@ -560,6 +563,27 @@ export const useOps = create<OpsStore>((set, get) => {
       report(out.value, label);
       if (!out.value.conflicts) {
         notify(t("notice.merged", { source: ref.short, branch: label }));
+        await selectHead(path);
+      }
+      return true;
+    },
+
+    async interactiveRebase(path, base, onto, steps, pushed) {
+      const label = currentBranch(path);
+      if (!label) return fail("detached_head");
+      if (pushed) {
+        const go = await useDialogs.getState().choose({
+          title: t("rebase.pushedTitle"),
+          body: t("rebase.pushedBody"),
+          choices: [{ id: "go", label: t("rebase.pushedGo"), danger: true }],
+        });
+        if (go !== "go") return false;
+      }
+      const out = await exec(path, ["operation", "rebase"], () => api.interactiveRebase(path, base, onto, steps, autoStash(path)));
+      if (!out.ok) return fail(out.error);
+      report(out.value, label);
+      if (!out.value.conflicts) {
+        notify(t("rebase.done", { branch: label }));
         await selectHead(path);
       }
       return true;

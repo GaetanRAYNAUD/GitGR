@@ -251,6 +251,7 @@ Compléments et retours d'utilisation, par thème.
 - **Palette de commandes** (étape 8) : Ctrl+P, `CommandPalette` (forme du sélecteur rapide, recherche floue `fuzzyFilter` sur libellé et groupe), commandes du dépôt d'abord (pull, push, fetch, stash, pop, nouvelle branche, recherche, filtre par auteur, recherche dans les modifications, reflog, PR / MR, arrêter le bisect), checkout de chaque branche locale, onglets, puis l'app (ouvrir, sélecteur, accueil, réglages, profils, raccourcis, notifications) ; raccourcis lus dans `lib/shortcuts.ts` ; une commande impossible dit pourquoi sans fermer la palette.
 - **Conflits binaires et supprimés d'un côté** (étape 10) : `conflict_sides` (tailles des étapes 1-3 de l'index) et `resolve_conflict_with` (`checkout --ours/--theirs` + `add`, ou `rm` quand la version gardée est une suppression) ; `WholeConflict` dans la vue de résolution (explication selon le cas, aperçu des deux images par `BinaryPreview` sur `:2:` / `:3:`, boutons nommés selon l'opération) ; une commande qui démarre une opération et s'arrête sur des conflits ouvre la résolution du premier fichier (`exec`, `ops.ts`).
 - **Releases** (étape 6) : `releases.rs` (`draft` : commits depuis `git describe --tags --abbrev=0 tag^`, sans merges ; `create` : `POST …/releases` GitHub / GitLab, erreurs `release_exists`, `release_tag_missing`, avertissements GitLab sans brouillon ni pré-version), `lib/releases.ts` (notes groupées si au moins la moitié des messages suivent les conventional commits, `bumpVersion`, `nextTagName`), `ReleaseDialog` (forge du remote, compte, nom, notes, brouillon / pré-version GitHub, tag poussé d'abord), « Créer la release… » au clic droit d'un tag. Constaté : les identifiants HTTPS par le token du compte étaient déjà faits (`credential.rs`), retiré de « Reste à faire ».
+- **Rebase interactif visuel** (étape 10) : `rebase.rs` (`plan` : commits après la base, du plus ancien au plus récent, refus des merges, marque « poussé » ; `run_rebase` : liste écrite par GitGR et copiée par `GIT_SEQUENCE_EDITOR=cp '<liste>'`, reword par `exec git commit --amend -F` — l'identité injectée passe par `GIT_CONFIG_PARAMETERS` —, refus nommés : tout retiré, réunir le premier, plan changé, message vide ; conflits comme un rebase ordinaire), `lib/rebasePlan.ts`, `RebaseView` (au centre ; P / R / S / F / D, Suppr, Alt+↑ / ↓, glisser-déposer, message saisi sur place, résumé, avertissement et confirmation pour les commits poussés), entrées au clic droit d'un commit et d'une branche.
 
 ## Reste à faire
 
@@ -258,7 +259,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 ### Étape 4 — branches et réseau
 
-- [ ] **Menu contextuel d'une branche** (le reste est fait, cf. « Fait ») : **Rebase interactif <courante> onto <cette branche>** (avec le rebase interactif, étape 10) ; **Créer un worktree depuis** (sous-menu ; avec les worktrees, étape 9).
+- [ ] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; reste : « Créer un worktree depuis » en sous-menu.
 - [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord). La sélection de plusieurs commits glissée d'un coup est faite.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande).
@@ -329,7 +330,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 10 — conflits et v2
 
 - [ ] **Résolution de conflits** (vue 3 panneaux, baguette, fichier suivant, fichiers binaires et supprimés d'un côté, ouverture d'office : fait, cf. « Fait ») ; reste : déplacer une ligne du résultat par glisser-déposer d'une ligne entière (aujourd'hui : le glisser-déposer de texte du navigateur, et Alt+↑ / Alt+↓) ; légende des couleurs.
-- [ ] Rebase interactif visuel (réordonner / squash / fixup par glisser-déposer).
+- [ ] Rebase interactif visuel (fait, cf. « Fait ») ; reste : action « edit » (s'arrêter sur un commit pour le modifier), réunir plusieurs commits avec un nouveau message commun, plage contenant des merges (`--rebase-merges`).
 - [ ] Blame : garder la ligne visée en remontant au commit d'avant (le blame et l'historique d'un fichier sont faits, cf. « Fait »).
 - [ ] Submodules, Git LFS.
 

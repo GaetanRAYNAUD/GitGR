@@ -59,7 +59,7 @@ fn is_dirty(path: &Path) -> Result<bool, String> {
     Ok(!run(Some(path), &["status", "--porcelain", "--untracked-files=all"])?.is_empty())
 }
 
-fn has_conflicts(path: &Path) -> bool {
+pub(crate) fn has_conflicts(path: &Path) -> bool {
     run(Some(path), &["diff", "--name-only", "--diff-filter=U"]).map(|o| !o.is_empty()).unwrap_or(false)
 }
 
