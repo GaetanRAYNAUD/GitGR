@@ -882,6 +882,15 @@
     "deletedRemote": "Tag {{tag}} retiré de {{remote}} (s’il y était)."
   },
   "conflict": {
+    "legend": {
+      "label": "Couleurs des modifications",
+      "one": "Un seul côté",
+      "oneHint": "Modifié d'un seul côté : repris d'office dans le résultat",
+      "both": "Pareil des deux côtés",
+      "bothHint": "Même modification des deux côtés : reprise d'office",
+      "conflict": "Conflit",
+      "conflictHint": "Modifié différemment des deux côtés : à résoudre"
+    },
     "copy": {
       "button": "Copier",
       "hint": "Copier une version du fichier ou le résultat",

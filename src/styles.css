@@ -7831,6 +7831,46 @@ body.commit-dragging * {
   flex: 1;
 }
 
+/* Légende des couleurs des modifications, à droite de l'en-tête : les mêmes teintes que les
+   rangées. Elle cède la place la première quand l'en-tête manque de largeur. */
+.conflict-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.conflict-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.conflict-legend-item.legend-one {
+  --m: var(--m-ours);
+}
+
+.conflict-legend-item.legend-both {
+  --m: var(--m-both);
+}
+
+.conflict-legend-item.legend-conflict {
+  --m: var(--m-conflict);
+}
+
+.conflict-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--m) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m) 45%, transparent);
+}
+
 /* Aperçu d'un fichier binaire dans le diff (BinaryPreview) : images avant / après sur un
    damier (transparence visible), tailles et dimensions. */
 .bin-preview {
