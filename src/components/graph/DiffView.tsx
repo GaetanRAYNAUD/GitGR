@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../../store/app";
 import { useGraph, type OpenDiff } from "../../store/graph";
 import { Icon } from "../Icon";
+import { CopyDiffButton, DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { commitSides } from "./BinaryPreview";
-import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
 import { openContextMenu } from "../ContextMenu";
@@ -62,11 +62,12 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
       <header className="diff-head">
         <BackButton onClick={close} />
         <StatusBadge status={file.status} />
-        <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, { rev: diff.sha, deleted: file.status === "D" }))} />
+        <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, { rev: diff.sha, deleted: file.status === "D", change: diff.base ? undefined : file }))} />
         {diff.data && <DiffStats diff={diff.data} />}
         <span className="mono muted diff-sha" title={diff.base ? t("multi.diffRange") : undefined}>
           {diff.base ? `${diff.base.slice(0, 7)}..${diff.sha.slice(0, 7)}` : diff.sha.slice(0, 7)}
         </span>
+        <CopyDiffButton file={file} data={diff.data} />
         <DiffViewToggle />
       </header>
       <div className="diff-body">
@@ -75,6 +76,7 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
           error={diff.error}
           onRetry={reopen}
           resetKey={`${diff.sha}\n${file.path}`}
+          copyAs={file}
           binarySides={commitSides(path, file, diff.sha, diff.base)}
           blame={file.status === "D" ? undefined : { path, file: file.path, rev: diff.sha, beforeReveal: () => closeDiff(path) }}
         />

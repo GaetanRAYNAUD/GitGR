@@ -716,6 +716,7 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
                 data={diff?.data ?? undefined}
                 error={diff?.error ?? undefined}
                 resetKey={file.path}
+                copyAs={file}
                 blame={file.status === "D" || !head ? undefined : { path, file: file.path, rev: head, beforeReveal: () => usePullList.getState().close(path) }}
               />
             </div>

@@ -44,6 +44,40 @@ test("sélectionner un commit affiche ses détails, puis le diff d'un fichier", 
   await expect(graph(page)).toBeVisible();
 });
 
+test("copier un diff : fichier entier, bloc, Ctrl+C sur la ligne active", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  // Le presse-papiers de Windows passe en fins de ligne CRLF.
+  const clip = async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n");
+  await graph(page).getByRole("option").nth(1).click();
+  await panel(page).locator(".file-row").first().click();
+  const diff = page.getByRole("region", { name: /^Diff de / });
+  await expect(diff.locator("tr.add").first()).toBeVisible();
+  const name = (await diff.getAttribute("aria-label"))!.replace(/^Diff de /, "");
+
+  await diff.getByRole("button", { name: "Copier le diff" }).click();
+  await expect(page.getByText(`Diff de ${name} copié au format patch.`)).toBeVisible();
+  const whole = await clip();
+  expect(whole.startsWith(`diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ `)).toBe(true);
+
+  await diff.locator(".diff-hunk").first().getByRole("button", { name: "Copier" }).click();
+  const hunk = await clip();
+  expect(hunk.split("\n@@").length).toBe(2);
+  expect(whole.startsWith(hunk.trimEnd())).toBe(true);
+
+  // Au clavier : Ctrl+C dans la grille copie le bloc de la ligne active.
+  await page.evaluate(() => navigator.clipboard.writeText(""));
+  await diff.getByRole("grid").focus();
+  await page.keyboard.press("Control+c");
+  await expect.poll(clip).toBe(hunk);
+
+  // Clic droit sur un fichier du commit : « Copier le diff ».
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await panel(page).locator(".file-row").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copier le diff" }).click();
+  await expect.poll(clip).toBe(whole);
+});
+
 test("image modifiée : avant / après côte à côte, tailles, puis en fondu", async ({ page }) => {
   await graph(page).getByRole("option").first().click();
   await panel(page).locator(".file-row", { hasText: "logo.png" }).click();

@@ -323,6 +323,7 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
                 error={shownDiff?.error}
                 onRetry={() => setDiffReload((n) => n + 1)}
                 resetKey={diffKey}
+                copyAs={diffFile ?? undefined}
                 binarySides={
                   other && older && newer
                     ? { path, old: { rev: older.commit.sha, file: older.change.path }, new: newer.change.status === "D" ? null : { rev: newer.commit.sha, file: newer.change.path } }

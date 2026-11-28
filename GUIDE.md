@@ -20,6 +20,7 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 - Toutes les branches, les tags, la HEAD et une ligne « Modifications en cours » quand vous avez des changements non commités.
 - **Avatars** des auteurs sur les commits et les branches, ou leurs initiales s'ils n'en ont pas. On peut les désactiver dans les Réglages.
 - Cliquez sur un commit pour voir ses détails et ses fichiers, puis sur un fichier pour voir son diff (en ligne ou côte à côte). Échap revient au graphe.
+- **Copier un diff** au format patch : « Copier le diff » dans l'en-tête du diff (ou au clic droit sur un fichier du commit), « Copier » sur un bloc, ou Ctrl+C dans le diff (les lignes cochées, sinon le bloc de la ligne active).
 - Navigation au clavier : ↑ ↓, Page préc. / Page suiv., Début / Fin ; Maj+↑ / Maj+↓ étendent la sélection. Maj+F10 (ou la touche Menu) ouvre le menu du commit, Entrée passe au panneau de détails, Ctrl+G revient au graphe. Ctrl+F cherche un commit parmi ceux chargés.
 - **Filtrer par auteur** : clic droit sur un commit, « Commits de … », ou le bouton Auteur de la barre de recherche : choisissez un ou plusieurs auteurs ; leurs commits restent en avant, les autres sont estompés.
 - Les colonnes s'affichent ou se masquent d'un clic droit sur l'en-tête, et se redimensionnent à la souris. Les branches principales (`main`, `develop`, `release/*`…) ont des couleurs fixes, modifiables dans les Réglages ou d'un clic droit sur une branche (« Couleur fixe pour ce nom… »).
