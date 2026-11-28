@@ -400,7 +400,7 @@ export interface IssueDetail extends IssueSummary {
   commentsList: { id: string; author: Person | null; body: string; at: number }[];
 }
 
-export type IssueAction = { type: "comment"; body: string } | { type: "close" } | { type: "reopen" } | { type: "assign"; login: string; id: number };
+export type IssueAction = { type: "comment"; body: string } | { type: "close" } | { type: "reopen" } | { type: "assign"; login: string };
 
 /** Une exécution de CI (src-tauri/src/ci.rs). */
 export interface CiRun {
@@ -630,6 +630,8 @@ export interface RepoList {
   repos: ProviderRepo[];
   /** Le compte a plus de dépôts que ceux lus. */
   truncated: boolean;
+  /** Organisations GitHub dont les dépôts sont cachés au token (OAuth non approuvé, SSO). */
+  restricted?: { org: string; reason: "oauth" | "saml" | string }[];
 }
 
 /** Phase d'un clone, telle que git l'écrit. */

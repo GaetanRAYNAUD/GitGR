@@ -126,6 +126,8 @@ test("cloner depuis un compte : liste filtrable, ssh ou https, profil du compte"
   await expect(repos).toHaveCount(6);
   // Rangés par propriétaire : le compte d'abord, puis ses organisations.
   await expect(list.locator(".clone-owner-name")).toHaveText(["octo-demo", "acme"]);
+  // Une organisation qui n'a pas approuvé l'application : nommée, avec quoi faire.
+  await expect(d.locator(".clone-restricted")).toContainText("Les dépôts de l’organisation acme-fermee n’apparaissent pas : elle n’a pas approuvé l’application GitGR.");
   const acme = list.getByRole("treeitem", { name: /^acme, / });
   await expect(acme.locator('[role="treeitem"]')).toHaveCount(3);
   // Une section se replie ; une recherche montre ses dépôts quand même.

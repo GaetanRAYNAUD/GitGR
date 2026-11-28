@@ -139,6 +139,12 @@
     "openOther": "Ouvrir un dépôt… (Ctrl+O)"
   },
   "clone": {
+    "restricted": {
+      "oauth_one": "Les dépôts de l’organisation {{orgs}} n’apparaissent pas : elle n’a pas approuvé l’application GitGR. Demandez l’accès sur GitHub (Settings → Applications → GitGR → Grant / Request), ou connectez le compte par un token personnel.",
+      "oauth_other": "Les dépôts des organisations {{orgs}} n’apparaissent pas : elles n’ont pas approuvé l’application GitGR. Demandez l’accès sur GitHub (Settings → Applications → GitGR → Grant / Request), ou connectez le compte par un token personnel.",
+      "saml_one": "Les dépôts de l’organisation {{orgs}} n’apparaissent pas : elle exige une connexion SSO. Autorisez le token pour elle sur GitHub (Settings → Developer settings → Tokens → Configure SSO).",
+      "saml_other": "Les dépôts des organisations {{orgs}} n’apparaissent pas : elles exigent une connexion SSO. Autorisez le token pour elles sur GitHub (Settings → Developer settings → Tokens → Configure SSO)."
+    },
     "title": "Cloner un dépôt",
     "source": "Source",
     "mode_url": "Par URL",
