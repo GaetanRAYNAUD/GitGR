@@ -51,23 +51,28 @@ test.describe("dépôt propre", () => {
     // Retour sur main, puis suppression depuis le menu contextuel.
     await branch(page, "main").dblclick();
     await expect(current(page)).toHaveText("main");
+    // Le menu nomme la branche en tête ; la suppression se fait sans confirmation (elle
+    // s'annule) et le message propose « Annuler ».
     await branch(page, "neuve").click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Supprimer essai/neuve…" }).click();
-    const confirm = page.getByRole("alertdialog", { name: "Supprimer essai/neuve ?" });
-    await confirm.getByRole("button", { name: "Supprimer" }).click();
+    await expect(menu(page)).toHaveAccessibleName("essai/neuve");
+    await expect(menu(page).locator(".menu-head")).toHaveText("essai/neuve");
+    await menu(page).getByRole("menuitem", { name: "Supprimer…" }).click();
     await expect(branch(page, "neuve")).toHaveCount(0);
+    const toast = page.locator(".toast", { hasText: "Branche essai/neuve supprimée." });
+    await toast.getByRole("button", { name: "Annuler (Ctrl+Z)" }).click();
+    await expect(branch(page, "neuve")).toHaveCount(1);
   });
 
   test("la branche courante ne peut pas être supprimée depuis son menu", async ({ page }) => {
     await branch(page, "main").click({ button: "right" });
-    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toBeDisabled();
-    await expect(menu(page).getByRole("menuitem", { name: "Supprimer main…" })).toHaveAttribute("title", "Impossible de supprimer la branche courante.");
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer…" })).toBeDisabled();
+    await expect(menu(page).getByRole("menuitem", { name: "Supprimer…" })).toHaveAttribute("title", "Impossible de supprimer la branche courante.");
     // Pas de merge / rebase d'une branche sur elle-même.
     await expect(menu(page).getByRole("menuitem", { name: /^Merge de/ })).toHaveCount(0);
     await expect(menu(page).getByRole("menuitem", { name: "Push" })).toBeEnabled();
     // Au clavier : l'élément grisé reste atteignable, sa raison lue avec lui ; Début / Fin, une
     // lettre va à l'élément qui commence par elle, Tab ferme le menu.
-    const del = menu(page).getByRole("menuitem", { name: "Supprimer main…" });
+    const del = menu(page).getByRole("menuitem", { name: "Supprimer…" });
     await expect(del).toHaveAttribute("aria-disabled", "true");
     await expect(del).toHaveAttribute("aria-description", "Impossible de supprimer la branche courante.");
     await page.keyboard.press("End");
@@ -131,31 +136,30 @@ test.describe("dépôt propre", () => {
     await expect(menu(page).getByRole("menuitemradio", { name: "Rebase" })).toHaveAttribute("aria-checked", "true");
   });
 
-  test("menu d'une autre branche : pull sans checkout, merge, reset en sous-menu", async ({ page }) => {
+  test("menu d'une autre branche : pull sans checkout, merge, reset expliqué", async ({ page }) => {
     // fix/ssh-agent a un commit à tirer : mise à jour sans quitter main.
     await branch(page, "ssh-agent").click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Pull de fix/ssh-agent (avance rapide)" }).click();
+    await menu(page).getByRole("menuitem", { name: "Pull (avance rapide)" }).click();
     await expect(page.getByRole("status").filter({ hasText: "fix/ssh-agent mise à jour." })).toBeVisible();
     await expect(current(page)).toHaveText("main");
 
     // Merge de feature/profils dans main.
     await branch(page, "profils").click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Merge de feature/profils dans main" }).click();
+    await menu(page).getByRole("menuitem", { name: "Merge dans main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "feature/profils fusionnée dans main." })).toBeVisible();
 
-    // Reset : le mode se choisit dans le sous-menu (au clavier ici), hard demande confirmation.
+    // Reset : le mode se choisit dans la fenêtre (mixed proposé), chacun expliqué ; le bouton
+    // dit ce qui va se passer, rouge pour hard.
     await branch(page, "profils").click({ button: "right" });
-    const reset = menu(page).getByRole("menuitem", { name: "Reset de main sur feature/profils" });
-    await reset.focus();
-    await page.keyboard.press("ArrowRight");
-    const sub = page.locator(".context-menu.submenu");
-    await expect(sub.getByRole("menuitem", { name: /^Soft/ })).toBeFocused();
-    await page.keyboard.press("ArrowLeft");
-    await expect(sub).toHaveCount(0);
-    await expect(reset).toBeFocused();
-    await reset.hover();
-    await sub.getByRole("menuitem", { name: /^Hard/ }).click();
-    await page.getByRole("alertdialog", { name: /^Reset de main sur / }).getByRole("button", { name: "Hard (tout abandonner)" }).click();
+    await menu(page).getByRole("menuitem", { name: "Reset de main ici…" }).click();
+    const dialog = page.getByRole("alertdialog", { name: /^Reset de main sur / });
+    await expect(dialog.getByRole("radio", { name: "Mixed" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Mixed" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(dialog.getByRole("radio", { name: "Hard" })).toBeChecked();
+    const go = dialog.getByRole("button", { name: "Reset hard : tout abandonner" });
+    await expect(go).toHaveClass(/danger/);
+    await go.click();
     await expect(page.getByRole("status").filter({ hasText: /^main est maintenant sur / })).toBeVisible();
   });
 
@@ -174,16 +178,16 @@ test.describe("dépôt propre", () => {
       await page.mouse.up();
     };
 
-    // Sur une autre branche : la déplacer (confirmation).
+    // Sur une autre branche : la déplacer (sans confirmation, elle s'annule).
     await drag(branch(page, "profils"));
     await menu(page).getByRole("menuitem", { name: `Déplacer feature/profils sur ${sha}…` }).click();
-    await page.getByRole("alertdialog", { name: `Déplacer feature/profils sur ${sha} ?` }).getByRole("button", { name: "Déplacer" }).click();
     await expect(row).toContainText("feature/profils");
+    await expect(page.locator(".toast").getByRole("button", { name: "Annuler (Ctrl+Z)" })).toBeVisible();
     await expect(current(page)).toHaveText("main");
 
     // Sur la branche courante : cherry-pick.
     await drag(branch(page, "main"));
-    await expect(menu(page).getByRole("menuitem", { name: `Reset de main sur ${sha}` })).toBeVisible();
+    await expect(menu(page).getByRole("menuitem", { name: "Reset de main ici…" })).toBeVisible();
     await menu(page).getByRole("menuitem", { name: `Cherry-pick de ${sha} sur main` }).click();
     await expect(page.getByRole("status").filter({ hasText: "Cherry-pick sur main terminé." })).toBeVisible();
   });
@@ -298,7 +302,7 @@ test.describe("tags", () => {
 
     await sidebar(page).getByRole("treeitem", { name: /^Tags/ }).click();
     await sidebar(page).getByRole("treeitem", { name: "v9.0.0" }).click({ button: "right" });
-    await menu(page).getByRole("menuitem", { name: "Supprimer le tag v9.0.0…" }).click();
+    await menu(page).getByRole("menuitem", { name: "Supprimer…" }).click();
     const confirm = page.getByRole("alertdialog", { name: "Supprimer le tag v9.0.0 ?" });
     await confirm.getByRole("button", { name: "Supprimer localement" }).click();
     await expect(row).not.toContainText("v9.0.0");

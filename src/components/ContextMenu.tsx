@@ -45,9 +45,16 @@ export interface MenuSub {
   title?: string;
 }
 
-export type MenuItem = MenuAction | MenuSub | "sep";
+/** En-tête du menu (nom de la branche, du tag) : ni cliquable ni focalisable ; nomme le menu
+ *  pour les lecteurs d'écran. */
+export interface MenuHeader {
+  header: string;
+}
+
+export type MenuItem = MenuAction | MenuSub | MenuHeader | "sep";
 
 export const isSub = (item: MenuItem): item is MenuSub => item !== "sep" && "items" in item;
+export const isHeader = (item: MenuItem): item is MenuHeader => item !== "sep" && "header" in item;
 
 interface MenuState {
   /** `label` : nom du menu pour les lecteurs d'écran (celui du bouton qui l'ouvre). */
@@ -193,7 +200,7 @@ function MenuList({ x, y, items, label, labelledBy, altX, onBack, focusFirst, on
     <div
       className={altX === undefined ? "context-menu" : "context-menu submenu"}
       role="menu"
-      aria-label={labelledBy ? undefined : label}
+      aria-label={labelledBy ? undefined : (label ?? items.find(isHeader)?.header)}
       aria-labelledby={labelledBy}
       ref={ref}
       style={pos}
@@ -203,6 +210,12 @@ function MenuList({ x, y, items, label, labelledBy, altX, onBack, focusFirst, on
     >
       {items.map((item, i) => {
         if (item === "sep") return <div key={`sep${i}`} className="menu-sep" role="separator" />;
+        if (isHeader(item))
+          return (
+            <div key={`head${i}`} className="menu-head mono" role="none" title={item.header}>
+              {item.header}
+            </div>
+          );
         if (isSub(item)) {
           return (
             <button

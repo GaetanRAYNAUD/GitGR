@@ -16,7 +16,7 @@ import { errorMessage } from "../lib/errors";
 import { remoteProfile } from "../lib/profiles";
 import { splitRemoteBranch } from "../lib/refs";
 import type { GitRef, OpResult, ProviderKind, PullStrategy, ResetMode } from "../lib/types";
-import { useApp } from "./app";
+import { type NoticeAction, useApp } from "./app";
 import { useDialogs } from "./dialogs";
 import { useGraph, WIP } from "./graph";
 import { useProfiles } from "./profiles";
@@ -144,6 +144,11 @@ function notify(text: string, sticky = false) {
   useApp.getState().notify(text, sticky);
 }
 
+/** Message d'une opération faite sans confirmation parce qu'elle s'annule : avec « Annuler ». */
+function undoable(path: string, text: string) {
+  useApp.getState().notify(text, false, [{ label: t("undo.undoKeys"), onClick: () => void useOps.getState().replay(path, "undo") }]);
+}
+
 /** Conséquences d'une commande passée par l'auto-stash : stash gardé, conflits. */
 function report(r: OpResult, label: string) {
   // Arrêté sur des conflits avec un auto-stash : les deux messages, sinon les modifications
@@ -222,10 +227,19 @@ export const useOps = create<OpsStore>((set, get) => {
     return next;
   };
 
-  const fail = (error: string) => {
-    useApp.setState({ error });
+  /** Erreur affichée en bas ; `actions` : ce qu'on peut faire tout de suite (Réessayer…). */
+  const fail = (error: string, actions?: NoticeAction[]) => {
+    useApp.setState({ error, errorActions: actions?.length ? { for: error, actions } : null });
     return false;
   };
+
+  /** Actions d'une erreur réseau : refaire l'opération, et pour un refus d'authentification,
+   *  ouvrir les profils (comptes, clés). */
+  const netActions = (error: string, retry: () => unknown): NoticeAction[] => [
+    { label: t("errors.retry"), onClick: () => void retry() },
+    ...(error === "auth_failed" || error === "wrong_passphrase" ? [{ label: t("errors.openProfiles"), onClick: () => useProfiles.getState().openPage() }] : []),
+  ];
+  const isNet = (error: string) => ["auth_failed", "network_unreachable", "host_key_unknown", "wrong_passphrase"].includes(error);
 
   /** Checkout générique : auto-stash, compte rendu, sélection du nouveau HEAD. Renvoie le
    *  résultat de la commande (`null` : échec, erreur affichée). */
@@ -270,24 +284,24 @@ export const useOps = create<OpsStore>((set, get) => {
     async resetTo(path, sha, chosen) {
       const branch = currentBranch(path) ?? "HEAD";
       const title = t("reset.title", { branch, sha: sha.slice(0, 7) });
-      // Mode choisi dans le menu : seul « hard » demande confirmation (il abandonne des modifications).
-      const mode =
-        chosen === "hard"
-          ? await useDialogs.getState().choose({
-              title,
-              body: t("reset.hardBody"),
-              choices: [{ id: "hard", label: t("reset.hard"), danger: true }],
-            })
-          : (chosen ??
-            (await useDialogs.getState().choose({
-              title,
-              body: t("reset.body"),
-              choices: [
-                { id: "soft", label: t("reset.soft") },
-                { id: "mixed", label: t("reset.mixed") },
-                { id: "hard", label: t("reset.hard"), danger: true },
-              ],
-            })));
+      // Un seul chemin, d'où qu'on vienne : le mode se choisit dans la fenêtre, expliqué
+      // (mixed proposé) ; le bouton dit ce qui va se passer, rouge pour hard.
+      const mode = await useDialogs.getState().choose({
+        title,
+        body: t("reset.intro", { branch, sha: sha.slice(0, 7) }),
+        choices: [],
+        radio: {
+          label: t("reset.mode"),
+          initial: chosen ?? "mixed",
+          options: (["soft", "mixed", "hard"] as const).map((m) => ({
+            id: m,
+            label: t(`reset.${m}`),
+            hint: t(`reset.${m}Hint`),
+            submit: t(`reset.${m}Submit`),
+            danger: m === "hard",
+          })),
+        },
+      });
       if (mode !== "soft" && mode !== "mixed" && mode !== "hard") return false;
       const out = await exec(path, ["operation", "reset"], () => api.resetTo(path, sha, mode));
       if (!out.ok) return fail(out.error);
@@ -387,14 +401,10 @@ export const useOps = create<OpsStore>((set, get) => {
       return out.ok || fail(out.error);
     },
 
+    // Branche locale : pas de confirmation, la suppression s'annule (message « Annuler »,
+    // Ctrl+Z). Une branche non fusionnée le dit quand même avant de la supprimer.
     async deleteBranch(path, branch) {
       const dialogs = useDialogs.getState();
-      const ok = await dialogs.choose({
-        title: t("branch.deleteTitle", { branch }),
-        body: t("branch.deleteBody"),
-        choices: [{ id: "delete", label: t("branch.delete"), danger: true }],
-      });
-      if (!ok) return false;
       let out = await exec(path, ["branch", "deleteBranch"], () => api.deleteBranch(path, branch, false));
       if (!out.ok && out.error === "branch_not_merged") {
         const force = await dialogs.choose({
@@ -405,7 +415,9 @@ export const useOps = create<OpsStore>((set, get) => {
         if (!force) return false;
         out = await exec(path, ["branch", "deleteBranch"], () => api.deleteBranch(path, branch, true));
       }
-      return out.ok || fail(out.error);
+      if (!out.ok) return fail(out.error);
+      undoable(path, t("branch.deleted", { branch }));
+      return true;
     },
 
     async deleteRemoteBranch(path, branch) {
@@ -546,16 +558,11 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
+    // Sans confirmation : le déplacement s'annule (message « Annuler », Ctrl+Z).
     async moveBranch(path, branch, sha) {
-      const ok = await useDialogs.getState().choose({
-        title: t("move.title", { branch, sha: sha.slice(0, 7) }),
-        body: t("move.body", { branch }),
-        choices: [{ id: "move", label: t("move.confirm"), danger: true }],
-      });
-      if (ok !== "move") return false;
       const out = await exec(path, ["branch", "move"], () => api.moveBranch(path, branch, sha));
       if (!out.ok) return fail(out.error);
-      notify(t("reset.done", { branch, sha: sha.slice(0, 7) }));
+      undoable(path, t("reset.done", { branch, sha: sha.slice(0, 7) }));
       return true;
     },
 
@@ -570,7 +577,7 @@ export const useOps = create<OpsStore>((set, get) => {
       if (silent && get().running[path]) return false;
       const out = await exec(path, "fetch", () => api.fetch(path));
       if (silent) return out.ok;
-      if (!out.ok) return fail(out.error);
+      if (!out.ok) return fail(out.error, isNet(out.error) ? netActions(out.error, () => get().fetch(path)) : undefined);
       notify(t("notice.fetched"));
       return true;
     },
@@ -590,7 +597,7 @@ export const useOps = create<OpsStore>((set, get) => {
         });
         return pick ? get().pull(path, pick as PullStrategy) : false;
       }
-      if (!out.ok) return fail(out.error);
+      if (!out.ok) return fail(out.error, isNet(out.error) ? netActions(out.error, () => get().pull(path, strategy)) : undefined);
       report(out.value, branch);
       return true;
     },
@@ -637,7 +644,7 @@ export const useOps = create<OpsStore>((set, get) => {
         if (pick === "pull") return remote && !tracksOn(path, remote) ? get().pullFrom(path, remote) : get().pull(path);
         return pick === "force" ? get().push(path, true, remote) : false;
       }
-      if (!out.ok) return fail(out.error);
+      if (!out.ok) return fail(out.error, isNet(out.error) ? netActions(out.error, () => get().push(path, force, remote)) : undefined);
       // Lu après le push : le dépôt vient d'être relu (au démarrage, il pouvait ne pas l'être encore).
       const branch = currentBranch(path) ?? "HEAD";
       notify(remote ? t("notice.pushedTo", { branch, remote }) : t("notice.pushed", { branch }));
@@ -670,7 +677,21 @@ export const useOps = create<OpsStore>((set, get) => {
       if (done.length) notify(t("notice.pushedTo", { branch, remote: done.join(", ") }), failed.length > 0);
       if (failed.length === 0) return true;
       const details = failed.map((f) => t("push.remoteFailed", { remote: f.remote, error: errorMessage(i18n.t, f.error) }));
-      return fail(details.join("\n"));
+      // Un remote a des commits qu'on n'a pas : « Pull puis push » ; sinon, réessayer.
+      const rejected = failed.find((f) => f.error === "push_rejected");
+      const actions: NoticeAction[] = rejected
+        ? [
+            {
+              label: t("push.pullThenPush"),
+              onClick: () =>
+                void (async () => {
+                  const pulled = tracksOn(path, rejected.remote) ? await get().pull(path) : await get().pullFrom(path, rejected.remote);
+                  if (pulled) await get().pushAll(path);
+                })(),
+            },
+          ]
+        : [{ label: t("errors.retry"), onClick: () => void get().pushAll(path) }];
+      return fail(details.join("\n"), actions);
     },
 
     async addRemote(path) {

@@ -194,14 +194,14 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
     const menu = page.getByRole("menu").first();
 
     await locals.getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
-    await menu.getByRole("menuitem", { name: "Pull de main (avance rapide)" }).click();
+    await menu.getByRole("menuitem", { name: "Pull (avance rapide)" }).click();
     await expect(page.getByRole("status").filter({ hasText: "main mise à jour." })).toBeVisible();
     expect(git(mine, "log", "-1", "--format=%s", "main")).toBe("distant: b");
     expect(git(mine, "branch", "--show-current")).toBe("travail");
 
     // Rebase de la courante sur main : t.txt rejoué après « distant: b ».
     await locals.getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
-    await menu.getByRole("menuitem", { name: "Rebase de travail sur main" }).click();
+    await menu.getByRole("menuitem", { name: "Rebase de travail dessus" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail rebasée sur main." })).toBeVisible();
     expect(git(mine, "log", "-1", "--format=%s", "HEAD~1")).toBe("distant: b");
 
@@ -210,13 +210,13 @@ test("menu d'une autre branche : pull sans checkout, push, merge et rebase", asy
     // Le menu lit les refs de la barre latérale : attendre qu'elle soit relue.
     await expect(locals.getByRole("treeitem", { name: /^main/ })).toHaveClass(/current/);
     await locals.getByRole("treeitem", { name: /^travail/ }).click({ button: "right" });
-    await menu.getByRole("menuitem", { name: "Push de travail" }).click();
+    await menu.getByRole("menuitem", { name: "Push", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail poussée." })).toBeVisible();
     expect(git(mine, "rev-parse", "--abbrev-ref", "travail@{u}")).toBe("origin/travail");
 
     // Merge de travail dans main : avance rapide.
     await locals.getByRole("treeitem", { name: /^travail/ }).click({ button: "right" });
-    await menu.getByRole("menuitem", { name: "Merge de travail dans main" }).click();
+    await menu.getByRole("menuitem", { name: "Merge dans main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "travail fusionnée dans main." })).toBeVisible();
     expect(git(mine, "rev-parse", "main")).toBe(git(mine, "rev-parse", "travail"));
   } finally {
@@ -270,7 +270,7 @@ test("Ctrl+Z annule un commit (modifications indexées) puis un merge ; Ctrl+Y r
 
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     await locals.getByRole("treeitem", { name: /^feature/ }).click({ button: "right" });
-    await page.getByRole("menu").first().getByRole("menuitem", { name: "Merge de feature dans main" }).click();
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Merge dans main" }).click();
     await expect(page.getByRole("status").filter({ hasText: "feature fusionnée dans main." })).toBeVisible();
 
     // Annuler le merge, puis le commit : n.txt revient indexé.

@@ -17,7 +17,7 @@ import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
-import { type MenuItem, openContextMenu } from "../ContextMenu";
+import { isHeader, type MenuItem, openContextMenu } from "../ContextMenu";
 import { Icon, type IconName } from "../Icon";
 import { ProfileAvatar } from "../ProfileAvatar";
 import { RemoteMark } from "../RemoteMark";
@@ -141,10 +141,13 @@ export function RefsSidebar({ path }: { path: string }) {
       .filter(Boolean)
       .join(", ");
     // Menu : la PR / MR de la branche d'abord (sa puce n'est pas atteignable au clavier).
-    const menu = (): MenuItem[] => [
-      ...(pr && prRef ? [{ label: t("sidebar.openPull", { ref: prRef }), onClick: () => usePullList.getState().show(path, pr.ctx, pr.pull.number) }, "sep" as const] : []),
-      ...refMenu(t, path, r, refs),
-    ];
+    // (Sous l'en-tête du menu, qui nomme la branche.)
+    const menu = (): MenuItem[] => {
+      const items = refMenu(t, path, r, refs);
+      const head = items[0] && isHeader(items[0]) ? [items[0]] : [];
+      const pull: MenuItem[] = pr && prRef ? [{ label: t("sidebar.openPull", { ref: prRef }), onClick: () => usePullList.getState().show(path, pr.ctx, pr.pull.number) }, "sep"] : [];
+      return [...head, ...pull, ...items.slice(head.length)];
+    };
     return (
       <li key={r.name}>
         <button

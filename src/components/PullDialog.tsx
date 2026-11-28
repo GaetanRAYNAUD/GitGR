@@ -13,7 +13,7 @@ import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
 import { trapTab } from "../lib/focusTrap";
 import { useRestoreFocus } from "../lib/useRestoreFocus";
-import { PROVIDER_NAMES } from "../lib/providers";
+import { linkedAccounts, PROVIDER_NAMES } from "../lib/providers";
 import { draftText, pullRef, pullSource, type PullTarget } from "../lib/pulls";
 import { relativeTime } from "../lib/format";
 import type { Person, Pull, ProviderKind, RefsInfo } from "../lib/types";
@@ -106,6 +106,8 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
     [remotes, profiles, binding],
   );
   const tgt = side(targetRemote);
+  /** Compte (et son profil) qui crée la PR / MR sur la forge. */
+  const creator = useMemo(() => (tgt?.account ? (linkedAccounts(profiles).find((l) => l.account.id === tgt.account) ?? null) : null), [profiles, tgt?.account]);
   const src = side(source?.remote ?? null);
   const kind = tgt?.provider ?? null;
   const term = pullTerm(kind);
@@ -344,121 +346,131 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
           </div>
         )}
 
-        <div className="pf-row pull-target">
-          {remotes.length > 1 && (
-            <label className="input-field pull-remote">
-              <span>{t("pr.remote")}</span>
-              <select
-                className="pf-input"
-                value={targetRemote}
+        {/* Deux colonnes : le texte à gauche ; la cible, qui crée la PR / MR et les personnes à droite. */}
+        <div className="dialog-cols">
+          <div className="dialog-col">
+            <label className="input-field">
+              <span>{t("pr.titleField")}</span>
+              <input
+                autoFocus
+                value={title}
                 disabled={!!busy}
                 onChange={(e) => {
-                  setTargetRemote(e.target.value);
-                  setBranchTouched(false);
+                  setTitle(e.target.value);
+                  setTextTouched(true);
                 }}
-              >
-                {remotes.map((r) => (
-                  <option key={r.name} value={r.name}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+                autoComplete="off"
+              />
             </label>
-          )}
-          <label className="input-field pull-branch">
-            <span>{t("pr.target")}</span>
-            <input
-              className="pf-input mono"
-              list="pull-branches"
-              value={targetBranch}
-              disabled={!!busy}
-              onChange={(e) => {
-                setTargetBranch(e.target.value);
-                setBranchTouched(true);
-              }}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <datalist id="pull-branches">
-              {branches.map((b) => (
-                <option key={b} value={b} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-
-        <label className="input-field">
-          <span>{t("pr.titleField")}</span>
-          <input
-            autoFocus
-            value={title}
-            disabled={!!busy}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setTextTouched(true);
-            }}
-            autoComplete="off"
-          />
-        </label>
-        <label className="input-field">
-          <span>{t("pr.body")}</span>
-          <textarea
-            className="pf-input pull-body"
-            value={body}
-            disabled={!!busy}
-            rows={8}
-            onChange={(e) => {
-              setBody(e.target.value);
-              setTextTouched(true);
-            }}
-          />
-        </label>
-        <label className="menu-check">
-          <input type="checkbox" checked={draft} disabled={!!busy} onChange={(e) => setDraft(e.target.checked)} />
-          {t("pr.draft")}
-        </label>
-
-        {ctx && (
-          <div className="pull-people">
-            <div className="pull-people-head">
-              <span className="eyebrow pull-people-title">{t("pr.people")}</span>
-              <span className="pull-people-status" role="status">
-                {entry?.loading
-                  ? options
-                    ? options.fromOwner
-                      ? t("pr.loadingOwner", { owner: tgt?.owner })
-                      : t("pr.refreshing")
-                    : t("pr.loading")
-                  : entry?.error
-                    ? errorMessage(t, entry.error)
-                    : age
-                      ? t("pr.listAge", { age: t(`time.${age.key}`, { count: age.count }) })
-                      : null}
-                {options?.truncated && ` · ${t("pr.truncated")}`}
-              </span>
-              {last && (
-                <button type="button" className="link" disabled={!!busy} onClick={reuseLast}>
-                  {t("pr.reuseLast")}
-                </button>
-              )}
-              <button type="button" className="link" disabled={!!busy || !!entry?.loading || !ctx.account} onClick={() => void ensure(ctx, true)}>
-                {t("pr.refresh")}
-              </button>
-            </div>
-            <MultiPicker label={t("pr.reviewers")} options={reviewerOptions} selected={reviewers} onChange={pick(setReviewers)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
-            <div className="pull-assign-field">
-              <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
-              {/* Seulement si le compte est dans la liste (GitLab a besoin de son identifiant). */}
-              {me && people.has(me.toLowerCase()) && !assignees.includes(me.toLowerCase()) && (
-                <button type="button" className="link pull-assign-me" disabled={!!busy} onClick={() => pick(setAssignees)([...assignees, me.toLowerCase()])}>
-                  {t("pr.assignMe")}
-                </button>
-              )}
-            </div>
-            <MultiPicker label={t("pr.labels")} options={labelOptions} selected={labels} onChange={setLabels} disabled={!!busy} placeholder={t("pr.searchLabels")} />
+            <label className="input-field">
+              <span>{t("pr.body")}</span>
+              <textarea
+                className="pf-input pull-body"
+                value={body}
+                disabled={!!busy}
+                rows={8}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  setTextTouched(true);
+                }}
+              />
+            </label>
+            <label className="menu-check">
+              <input type="checkbox" checked={draft} disabled={!!busy} onChange={(e) => setDraft(e.target.checked)} />
+              {t("pr.draft")}
+            </label>
           </div>
-        )}
-
+          <div className="dialog-col">
+            <div className="pf-row pull-target">
+              {remotes.length > 1 && (
+                <label className="input-field pull-remote">
+                  <span>{t("pr.remote")}</span>
+                  <select
+                    className="pf-input"
+                    value={targetRemote}
+                    disabled={!!busy}
+                    onChange={(e) => {
+                      setTargetRemote(e.target.value);
+                      setBranchTouched(false);
+                    }}
+                  >
+                    {remotes.map((r) => (
+                      <option key={r.name} value={r.name}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="input-field pull-branch">
+                <span>{t("pr.target")}</span>
+                <input
+                  className="pf-input mono"
+                  list="pull-branches"
+                  value={targetBranch}
+                  disabled={!!busy}
+                  onChange={(e) => {
+                    setTargetBranch(e.target.value);
+                    setBranchTouched(true);
+                  }}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <datalist id="pull-branches">
+                  {branches.map((b) => (
+                    <option key={b} value={b} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+            {creator && (
+              <p className="account-hint dialog-as">
+                {t(`pr.createdBy_${term}`)} <strong>{creator.account.login}</strong>{" "}
+                <span className="muted">{t("pr.createdByProfile", { provider: PROVIDER_NAMES[creator.account.kind], profile: creator.profile.name })}</span>
+              </p>
+            )}
+            {ctx && (
+              <div className="pull-people">
+                <div className="pull-people-head">
+                  <span className="eyebrow pull-people-title">{t("pr.people")}</span>
+                  <span className="pull-people-status" role="status">
+                    {entry?.loading
+                      ? options
+                        ? options.fromOwner
+                          ? t("pr.loadingOwner", { owner: tgt?.owner })
+                          : t("pr.refreshing")
+                        : t("pr.loading")
+                      : entry?.error
+                        ? errorMessage(t, entry.error)
+                        : age
+                          ? t("pr.listAge", { age: t(`time.${age.key}`, { count: age.count }) })
+                          : null}
+                    {options?.truncated && ` · ${t("pr.truncated")}`}
+                  </span>
+                  {last && (
+                    <button type="button" className="link" disabled={!!busy} onClick={reuseLast}>
+                      {t("pr.reuseLast")}
+                    </button>
+                  )}
+                  <button type="button" className="link" disabled={!!busy || !!entry?.loading || !ctx.account} onClick={() => void ensure(ctx, true)}>
+                    {t("pr.refresh")}
+                  </button>
+                </div>
+                <MultiPicker label={t("pr.reviewers")} options={reviewerOptions} selected={reviewers} onChange={pick(setReviewers)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
+                <div className="pull-assign-field">
+                  <MultiPicker label={t("pr.assignees")} options={personOptions} selected={assignees} onChange={pick(setAssignees)} disabled={!!busy} placeholder={t("pr.searchPeople")} />
+                  {/* Seulement si le compte est dans la liste (GitLab a besoin de son identifiant). */}
+                  {me && people.has(me.toLowerCase()) && !assignees.includes(me.toLowerCase()) && (
+                    <button type="button" className="link pull-assign-me" disabled={!!busy} onClick={() => pick(setAssignees)([...assignees, me.toLowerCase()])}>
+                      {t("pr.assignMe")}
+                    </button>
+                  )}
+                </div>
+                <MultiPicker label={t("pr.labels")} options={labelOptions} selected={labels} onChange={setLabels} disabled={!!busy} placeholder={t("pr.searchLabels")} />
+              </div>
+            )}
+          </div>
+        </div>
         {source?.needsPush && !blocker && <p className="account-hint">{t("pr.willPush", { branch: source.branch, remote: source.remote })}</p>}
         {error && (
           <p className="input-error" role="alert">

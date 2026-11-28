@@ -281,6 +281,7 @@ export default function App() {
   const active = useApp((s) => s.active);
   const error = useApp((s) => s.error);
   const dismissError = useApp((s) => s.dismissError);
+  const errorActions = useApp((s) => (s.errorActions && s.errorActions.for === s.error ? s.errorActions.actions : null));
   const init = useApp((s) => s.init);
   const profilesOpen = useProfiles((s) => s.pageOpen);
   const settingsOpen = useApp((s) => s.settingsOpen);
@@ -311,6 +312,18 @@ export default function App() {
             <div className="toast error" role="alert">
               <Icon name="alert" />
               <span>{errorMessage(t, error)}</span>
+              {errorActions?.map((a) => (
+                <button
+                  key={a.label}
+                  className="link notice-action"
+                  onClick={() => {
+                    dismissError();
+                    a.onClick();
+                  }}
+                >
+                  {a.label}
+                </button>
+              ))}
               <button className="link" onClick={dismissError}>
                 {t("errors.dismiss")}
               </button>

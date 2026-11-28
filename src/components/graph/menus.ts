@@ -65,20 +65,17 @@ function pullItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null)
   ];
 }
 
-/** Reset de la branche courante sur un commit : sous-menu soft / mixed / hard (hard confirmé). */
-function resetSub(t: TFunction, path: string, sha: string, refs: RefsInfo | null, label: string): MenuItem {
+/** Reset de la branche courante sur un commit : une fenêtre où choisir le mode, expliqué
+ *  (soft / mixed / hard), comme depuis le menu d'un commit. */
+function resetItem(t: TFunction, path: string, sha: string, refs: RefsInfo | null): MenuItem {
   const ops = useOps.getState();
   const head = refs?.headBranch ?? "HEAD";
   const same = !refs?.head || sha === refs.head;
   return {
-    label: t("menu.resetSub", { branch: head, target: label }),
+    label: t("menu.resetHere", { branch: head }),
     disabled: same,
     title: !refs?.head ? t("menu.why.noHead") : same ? t("menu.why.sameCommit", { branch: head }) : undefined,
-    items: [
-      { label: t("menu.resetSoft"), onClick: () => void ops.resetTo(path, sha, "soft") },
-      { label: t("menu.resetMixed"), onClick: () => void ops.resetTo(path, sha, "mixed") },
-      { label: t("menu.resetHard"), danger: true, onClick: () => void ops.resetTo(path, sha, "hard") },
-    ],
+    onClick: () => void ops.resetTo(path, sha),
   };
 }
 
@@ -91,16 +88,16 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
   // La branche courante sur elle-même : « Cherry-pick du commit de main sur main » n'a pas de sens.
   const isHead = r.kind === "local" && r.short === refs?.headBranch;
   return [
-    { label: t("menu.newBranchFrom", { branch: r.short }), onClick: () => ops.newBranch(path, r.name, r.short) },
+    { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     ...(isHead ? [] : [{
-      label: t("menu.cherryPickTip", { source: r.short, branch: head }),
+      label: t("menu.short.cherryPick", { branch: head }),
       disabled: noHead || r.target === refs?.head || merge,
       title: noHead ? t("menu.why.noHead") : merge ? t("multi.cherryPickMerge") : r.target === refs?.head ? t("menu.why.sameCommit", { branch: head }) : undefined,
       onClick: () => void ops.cherryPick(path, [r.target]),
     }]),
-    resetSub(t, path, r.target, refs, r.short),
+    resetItem(t, path, r.target, refs),
     {
-      label: t("menu.revertTip", { branch: r.short }),
+      label: t("menu.short.revert"),
       disabled: noHead || merge,
       title: noHead ? t("menu.why.noHead") : merge ? t("multi.revertMerge") : t("multi.revertHint"),
       onClick: () => void ops.revert(path, [r.target]),
@@ -121,8 +118,8 @@ function integrateItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
   const why = !head ? t("menu.why.detached") : busy ? t("menu.why.operation") : undefined;
   const label = head ?? "HEAD";
   return [
-    { label: t("menu.mergeInto", { source: r.short, branch: label }), disabled: !!why, title: why, onClick: () => void ops.mergeInto(path, r) },
-    { label: t("menu.rebaseOnto", { branch: label, onto: r.short }), disabled: !!why, title: why, onClick: () => void ops.rebaseOnto(path, r) },
+    { label: t("menu.short.merge", { branch: label }), disabled: !!why, title: why, onClick: () => void ops.mergeInto(path, r) },
+    { label: t("menu.short.rebase", { branch: label }), disabled: !!why, title: why, onClick: () => void ops.rebaseOnto(path, r) },
   ];
 }
 
@@ -198,8 +195,10 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
   const colors = r.kind === "tag" ? [] : branchColorItems(t, r);
   const pulls = pullItems(t, path, r, refs);
   const pullGroup: MenuItem[] = pulls.length ? ["sep", ...pulls] : [];
+  // Le nom une fois, en tête ; les actions dessous parlent de « elle ».
+  const header: MenuItem = { header: r.short };
   const detached: MenuItem = {
-    label: t("menu.checkoutDetachedAt", { branch: r.short }),
+    label: t("menu.short.detached"),
     disabled: r.target === refs?.head && !head,
     onClick: () => ops.checkoutDetached(path, r.target),
   };
@@ -210,14 +209,15 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
     const noUpstream = r.gone ? t("menu.why.gone", { upstream: r.upstream }) : t("menu.why.noUpstream");
     const remoteOf = upstream ? (refs?.refs ?? []).find((x) => x.kind === "remote" && x.short === upstream) : undefined;
     return [
+      header,
       {
-        label: current ? t("menu.pull") : t("menu.pullBranch", { branch: r.short }),
+        label: current ? t("menu.pull") : t("menu.short.pullFf"),
         disabled: !upstream,
         title: !upstream ? noUpstream : current ? undefined : t("menu.why.ffOnly"),
         onClick: () => void (current ? ops.pull(path) : ops.fastForward(path, r.short)),
       },
       {
-        label: current ? t("menu.push") : t("menu.pushBranch", { branch: r.short }),
+        label: t("menu.push"),
         onClick: () => void (current ? ops.push(path) : ops.pushBranch(path, r.short)),
       },
       upstreamSub(t, path, r, refs),
@@ -226,7 +226,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       {
         label: t("menu.checkout"),
         items: [
-          { label: t("menu.checkoutBranch", { branch: r.short }), disabled: current, title: current ? t("menu.why.current") : undefined, onClick: () => ops.checkout(path, r.short) },
+          { label: t("menu.short.checkout"), disabled: current, title: current ? t("menu.why.current") : undefined, onClick: () => ops.checkout(path, r.short) },
           detached,
         ],
       },
@@ -236,7 +236,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       "sep",
       { label: t("menu.rename"), onClick: () => ops.renameBranch(path, r.short) },
       {
-        label: t("menu.deleteLocal", { branch: r.short }),
+        label: t("menu.short.delete"),
         danger: true,
         disabled: current,
         title: current ? t("menu.why.deleteCurrent") : undefined,
@@ -244,9 +244,9 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       },
       ...(remoteOf
         ? ([
-            { label: t("menu.deleteRemoteOf", { branch: remoteOf.short }), danger: true, onClick: () => ops.deleteRemoteBranch(path, remoteOf.short) },
+            { label: t("menu.short.deleteOn", { remote: remoteOf.short }), danger: true, onClick: () => ops.deleteRemoteBranch(path, remoteOf.short) },
             {
-              label: t("menu.deleteBoth", { branch: r.short, remote: remoteOf.short }),
+              label: t("menu.short.deleteBoth", { remote: remoteOf.short }),
               danger: true,
               disabled: current,
               title: current ? t("menu.why.deleteCurrent") : undefined,
@@ -264,6 +264,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
     const local = (refs?.refs ?? []).find((x) => x.kind === "local" && x.upstream === r.short && !x.gone);
     const localCurrent = !!local && local.short === head;
     return [
+      header,
       ...(local
         ? ([
             {
@@ -279,7 +280,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       {
         label: t("menu.checkout"),
         items: [
-          { label: t("menu.checkoutTracking", { branch: local?.short ?? r.short }), onClick: () => ops.checkoutRemote(path, r.short) },
+          { label: t("menu.short.checkoutTracking", { branch: local?.short ?? r.short }), onClick: () => ops.checkoutRemote(path, r.short) },
           detached,
         ],
       },
@@ -287,18 +288,18 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
       ...tipItems(t, path, r, refs),
       ...pullGroup,
       "sep",
-      { label: t("menu.deleteRemoteOf", { branch: r.short }), danger: true, onClick: () => ops.deleteRemoteBranch(path, r.short) },
+      { label: t("menu.short.deleteRemote"), danger: true, onClick: () => ops.deleteRemoteBranch(path, r.short) },
       ...(local
         ? ([
             {
-              label: t("menu.deleteLocal", { branch: local.short }),
+              label: t("menu.short.deleteLocalOf", { branch: local.short }),
               danger: true,
               disabled: localCurrent,
               title: localCurrent ? t("menu.why.deleteCurrent") : undefined,
               onClick: () => ops.deleteBranch(path, local.short),
             },
             {
-              label: t("menu.deleteBoth", { branch: local.short, remote: r.short }),
+              label: t("menu.short.deleteBothRemote", { branch: local.short }),
               danger: true,
               disabled: localCurrent,
               title: localCurrent ? t("menu.why.deleteCurrent") : undefined,
@@ -314,6 +315,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
   const remotes = (refs?.remotes ?? []).map((x) => x.name);
   const remote = defaultRemote(remotes);
   return [
+    header,
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
     { label: t("menu.checkoutDetached"), onClick: () => ops.checkoutDetached(path, r.target) },
     "sep",
@@ -325,7 +327,7 @@ export function refMenu(t: TFunction, path: string, r: GitRef, refs: RefsInfo | 
           title: remote ? undefined : t("tag.noRemote"),
           onClick: () => void ops.pushTag(path, r.short, remote ?? undefined),
         },
-    { label: t("tag.delete", { tag: r.short }), danger: true, onClick: () => void ops.deleteTag(path, r.short) },
+    { label: t("menu.short.delete"), danger: true, onClick: () => void ops.deleteTag(path, r.short) },
     "sep",
     copyName,
   ];
@@ -384,7 +386,7 @@ export function commitDropMenu(t: TFunction, path: string, sha: string, target: 
       onClick: () => void ops.cherryPickOnto(path, target.short, [sha]),
     },
     current
-      ? resetSub(t, path, sha, refs, short)
+      ? resetItem(t, path, sha, refs)
       : {
           label: t("menu.moveBranch", { branch: target.short, sha: short }),
           danger: true,

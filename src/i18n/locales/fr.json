@@ -213,7 +213,11 @@
     "noOwner": "Ce compte ne peut créer de dépôt nulle part (aucun propriétaire disponible).",
     "destLabel": "Sera créé sur {{provider}} :",
     "whyLoading": "Lecture des propriétaires…",
-    "whyName": "Donnez un nom au dépôt."
+    "whyName": "Donnez un nom au dépôt.",
+    "pushedBy": "Poussé par le profil",
+    "viaSsh": "avec la clé SSH {{key}}",
+    "viaSshAgent": "en SSH (agent ou clé par défaut)",
+    "viaHttps": "en HTTPS avec le jeton du compte {{login}}"
   },
   "repo": {
     "pull": "Pull",
@@ -374,12 +378,18 @@
   },
   "reset": {
     "title": "Reset de {{branch}} sur {{sha}}",
-    "body": "Que faire des modifications entre la position actuelle et ce commit ? Soft : gardées et indexées. Mixed : gardées, non indexées. Hard : abandonnées, avec les modifications en cours des fichiers suivis (irréversible pour elles ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés.",
     "soft": "Soft",
     "mixed": "Mixed",
-    "hard": "Hard (tout abandonner)",
+    "hard": "Hard",
     "done": "{{branch}} est maintenant sur {{sha}}.",
-    "hardBody": "Les commits entre la position actuelle et ce commit, et les modifications en cours des fichiers suivis, sont abandonnés (irréversible pour les modifications ; les commits restent dans le reflog). Les fichiers non suivis ne sont pas touchés."
+    "intro": "{{branch}} va pointer sur {{sha}}. Que faire des modifications entre les deux ? Les fichiers non suivis ne sont pas touchés.",
+    "mode": "Mode du reset",
+    "softHint": "Gardées et indexées, prêtes à être recommitées.",
+    "mixedHint": "Gardées dans les fichiers, non indexées. Le choix habituel.",
+    "hardHint": "Abandonnées, avec les modifications en cours des fichiers suivis : irréversible pour elles (les commits restent dans le reflog).",
+    "softSubmit": "Reset soft",
+    "mixedSubmit": "Reset mixed",
+    "hardSubmit": "Reset hard : tout abandonner"
   },
   "fileHistory": {
     "label": "Historique du fichier",
@@ -440,7 +450,6 @@
     "pushToMenu": "Pousser le tag vers",
     "noRemote": "Aucun remote dans ce dépôt.",
     "pushed": "Tag {{tag}} poussé sur {{remote}}.",
-    "delete": "Supprimer le tag {{tag}}…",
     "deleteTitle": "Supprimer le tag {{tag}} ?",
     "deleteBody": "Le tag est retiré de ce dépôt ; le commit reste.",
     "deleteBodyRemote": "Le tag peut être retiré de ce dépôt, de {{remote}}, ou des deux ; le commit reste. Sur {{remote}}, les autres le perdent à leur prochain fetch avec élagage des tags seulement.",
@@ -934,7 +943,8 @@
     "pullFirst": "Pull",
     "force": "Forcer le push",
     "remoteFailed": "{{remote}} : {{error}}",
-    "rejectedOtherBody": "La branche distante de {{branch}} contient des commits que vous n’avez pas. Passez sur {{branch}} pour faire un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch)."
+    "rejectedOtherBody": "La branche distante de {{branch}} contient des commits que vous n’avez pas. Passez sur {{branch}} pour faire un pull, ou écrasez-la (force avec lease : refusé si quelqu’un a poussé depuis votre dernier fetch).",
+    "pullThenPush": "Pull puis push"
   },
   "branch": {
     "newTitle": "Nouvelle branche",
@@ -944,9 +954,6 @@
     "create": "Créer",
     "renameTitle": "Renommer {{branch}}",
     "rename": "Renommer",
-    "deleteTitle": "Supprimer {{branch}} ?",
-    "deleteBody": "La branche locale est supprimée ; les commits restent accessibles depuis le reflog.",
-    "delete": "Supprimer",
     "notMergedTitle": "{{branch}} n’est pas fusionnée",
     "notMergedBody": "Ses commits ne sont dans aucune autre branche : après suppression, ils ne seront plus visibles dans le graphe (le reflog les garde quelque temps).",
     "forceDelete": "Supprimer quand même",
@@ -957,7 +964,8 @@
     "exists": "Une branche porte déjà ce nom.",
     "deleteBothTitle": "Supprimer {{branch}} et {{remote}} ?",
     "deleteBothBody": "La branche locale est supprimée, puis la branche distante, sur le serveur, pour tout le monde. Les commits restent accessibles depuis le reflog.",
-    "deleteBoth": "Supprimer les deux"
+    "deleteBoth": "Supprimer les deux",
+    "deleted": "Branche {{branch}} supprimée."
   },
   "menu": {
     "checkout": "Checkout",
@@ -981,8 +989,6 @@
     "revealFile": "Montrer dans le dossier",
     "copyPath": "Copier le chemin",
     "copyAbsolutePath": "Copier le chemin complet",
-    "pullBranch": "Pull de {{branch}} (avance rapide)",
-    "pushBranch": "Push de {{branch}}",
     "pullInto": "Pull dans {{branch}}",
     "upstream": "Branche suivie",
     "upstreamOf": "Branche suivie : {{upstream}}",
@@ -990,18 +996,6 @@
     "upstreamNone": "Aucune",
     "mergeInto": "Merge de {{source}} dans {{branch}}",
     "rebaseOnto": "Rebase de {{branch}} sur {{onto}}",
-    "checkoutDetachedAt": "Checkout de {{branch}} en HEAD détachée",
-    "checkoutTracking": "Checkout de {{branch}} (locale qui la suit)",
-    "newBranchFrom": "Nouvelle branche depuis {{branch}}…",
-    "cherryPickTip": "Cherry-pick du commit de {{source}} sur {{branch}}",
-    "revertTip": "Revert du commit de {{branch}}",
-    "resetSub": "Reset de {{branch}} sur {{target}}",
-    "resetSoft": "Soft (modifications gardées et indexées)",
-    "resetMixed": "Mixed (modifications gardées, non indexées)",
-    "resetHard": "Hard (modifications abandonnées)…",
-    "deleteLocal": "Supprimer {{branch}}…",
-    "deleteRemoteOf": "Supprimer {{branch}} sur le serveur…",
-    "deleteBoth": "Supprimer {{branch}} et {{remote}}…",
     "why": {
       "branchColorsOff": "Les couleurs fixes par nom de branche sont désactivées (Réglages > Graphe).",
       "checkoutFirst": "Passe d’abord sur {{branch}} (avec l’auto-stash)",
@@ -1018,7 +1012,23 @@
     },
     "cherryPickOnto": "Cherry-pick de {{sha}} sur {{branch}}",
     "cherryPickOntoOther": "Cherry-pick de {{sha}} sur {{branch}} (checkout de {{branch}} d’abord)",
-    "moveBranch": "Déplacer {{branch}} sur {{sha}}…"
+    "moveBranch": "Déplacer {{branch}} sur {{sha}}…",
+    "short": {
+      "pullFf": "Pull (avance rapide)",
+      "merge": "Merge dans {{branch}}",
+      "rebase": "Rebase de {{branch}} dessus",
+      "checkout": "Checkout",
+      "detached": "Checkout en HEAD détachée",
+      "checkoutTracking": "Checkout de {{branch}} (locale qui la suit)",
+      "cherryPick": "Cherry-pick de son commit sur {{branch}}",
+      "revert": "Revert de son commit",
+      "delete": "Supprimer…",
+      "deleteOn": "Supprimer sur {{remote}}…",
+      "deleteBoth": "Supprimer ici et sur {{remote}}…",
+      "deleteRemote": "Supprimer sur le serveur…",
+      "deleteLocalOf": "Supprimer la locale {{branch}}…",
+      "deleteBothRemote": "Supprimer avec la locale {{branch}}…"
+    }
   },
   "op": {
     "merge": "Merge en cours",
@@ -1226,7 +1236,9 @@
     "branch_checked_out": "Cette branche est extraite dans un autre worktree : mettez-la à jour depuis celui-ci.",
     "same_branch": "Choisissez une autre branche que la branche courante.",
     "undo_stale": "Le dépôt a changé depuis cette opération : elle ne peut plus être annulée ni rétablie.",
-    "undo_local_changes": "Des modifications en cours touchent les mêmes fichiers : commitez-les ou mettez-les de côté, puis réessayez."
+    "undo_local_changes": "Des modifications en cours touchent les mêmes fichiers : commitez-les ou mettez-les de côté, puis réessayez.",
+    "retry": "Réessayer",
+    "openProfiles": "Profils et comptes…"
   },
   "profiles": {
     "title": "Profils",
@@ -1488,7 +1500,10 @@
     "leave_mr": "Abandonner cette merge request ? Le texte saisi sera perdu.",
     "keepEditing": "Continuer la saisie",
     "discard": "Abandonner",
-    "submitKeys": "Ctrl+Entrée"
+    "submitKeys": "Ctrl+Entrée",
+    "createdBy_pr": "Pull request créée par",
+    "createdBy_mr": "Merge request créée par",
+    "createdByProfile": "sur {{provider}}, compte du profil {{profile}}"
   },
   "prv": {
     "section_pr": "Pull requests",
@@ -1682,11 +1697,6 @@
     "submit": "Suivre",
     "unknown": "Aucune branche distante de ce nom : faites un fetch, ou poussez la branche."
   },
-  "move": {
-    "title": "Déplacer {{branch}} sur {{sha}} ?",
-    "body": "{{branch}} pointera sur ce commit. Les commits qu’elle seule contenait ne seront plus visibles dans le graphe (son reflog les garde quelque temps). Rien n’est envoyé au serveur.",
-    "confirm": "Déplacer"
-  },
   "undo": {
     "undo": "Annuler",
     "redo": "Rétablir",
@@ -1711,7 +1721,8 @@
       "revert": "revert",
       "commit": "commit",
       "amend": "amend"
-    }
+    },
+    "undoKeys": "Annuler (Ctrl+Z)"
   },
   "wip": {
     "stash": "Stasher les modifications",
