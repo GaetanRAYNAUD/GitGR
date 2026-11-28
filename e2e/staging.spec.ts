@@ -439,3 +439,15 @@ test("conflit binaire puis fichier supprimé d'un côté : réglés en gardant u
   await expect(next).toHaveCount(0);
   await expect(panel.getByRole("listbox", { name: "Conflits" })).toHaveCount(0);
 });
+
+test("copier le diff d'une modification en cours au clic droit (non indexé, indexé)", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const clip = async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n");
+  await unstaged(page).getByText("render.ts").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copier le diff" }).click();
+  await expect.poll(clip).toMatch(/^diff --git a\/src\/graph\/render\.ts b\/src\/graph\/render\.ts\n--- a\/src\/graph\/render\.ts\n\+\+\+ b\/src\/graph\/render\.ts\n@@ /);
+
+  await staged(page).getByRole("option").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copier le diff" }).click();
+  await expect.poll(clip).toMatch(/^diff --git a\/\S+ b\/\S+\n/);
+});

@@ -87,6 +87,12 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
     [data],
   );
 
+  /** Diff d'un fichier du stash (non suivi : depuis l'arbre vide), celui qu'on copie. */
+  const fileDiffOf = (f: StashFile) => {
+    const [base, tip] = f.untracked ? [EMPTY_TREE, data!.untracked!] : [data!.base, data!.tip];
+    return api.rangeDiff(path, base, tip, f.path, f.oldPath);
+  };
+
   useEffect(() => {
     if (!file || !data) return;
     let live = true;
@@ -155,7 +161,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
               label={t("details.files", { count: files.length })}
               isActive={(f) => file?.path === f.path && !!file.untracked === !!f.untracked}
               onOpen={setFile}
-              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { change: f, load: () => fileDiffOf(f) }))}
               actions={(f) => (f.untracked ? <span className="side-meta">{t("stashes.untracked")}</span> : null)}
             />
           </div>
@@ -164,7 +170,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
               <>
                 <header className="diff-head">
                   <StatusBadge status={file.status} />
-                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
+                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, { change: file, load: () => fileDiffOf(file) }))} />
                   {diff?.data && <DiffStats diff={diff.data} />}
                   <DiffViewToggle />
                 </header>

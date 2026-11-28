@@ -2,6 +2,7 @@
 // abandonner le fichier entier, un bloc, ou des lignes choisies (clic, Maj+clic pour une plage ;
 // au clavier, Espace, Maj+flèches, Entrée, Suppr).
 
+import { api } from "../../lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FileDiff, LineRef } from "../../lib/types";
@@ -220,7 +221,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
       <header className="diff-head">
         <BackButton onClick={close} />
         <StatusBadge status={file.status} />
-        <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
+        <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, area === "conflicted" ? undefined : { rev: null, change: file, load: () => api.workDiff(path, file.path, file.oldPath, area) }))} />
         <span className={`area-pill area-${area}`}>{t(`staging.area.${area}`)}</span>
         {data && <DiffStats diff={data} />}
         <span className="diff-file-actions">
