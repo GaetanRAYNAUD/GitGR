@@ -24,6 +24,8 @@ import { useBlameView, useCiView, useConflictView, useFileHistoryView, useReflog
 import { api } from "../lib/api";
 import { useWork } from "../store/worktree";
 import { commitMenu, fileMenu } from "./graph/menus";
+import { stashMenu } from "./graph/StashesSection";
+import { useStashes } from "../store/stashes";
 import { isHeader, isSub, type MenuItem } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { useQuickOpen } from "./QuickOpen";
@@ -107,7 +109,7 @@ function openFileMenu(t: TFunction, path: string): { file: string; items: MenuIt
     return { file: f.path, items: fileMenu(t, path, f.path, at) };
   }
   const blame = useBlameView.getState().open[path];
-  if (blame) return { file: blame.file, items: fileMenu(t, path, blame.file, blame.rev ? { rev: blame.rev } : undefined) };
+  if (blame) return { file: blame.file, items: fileMenu(t, path, blame.file, { rev: blame.rev ?? undefined, historyFile: blame.historyFile }) };
   const history = useFileHistoryView.getState().open[path];
   if (history) return { file: history, items: fileMenu(t, path, history) };
   return null;
@@ -173,9 +175,13 @@ export function buildCommands(t: TFunction): Command[] {
     // Fichier ouvert au milieu : les actions de son clic droit, comme sur son titre.
     const open = openFileMenu(t, path);
     if (open) list.push(...menuCommands(open.items, `file:${open.file}`, t("palette.groups.file", { file: open.file }), t("palette.unavailable")));
-    // Commit sélectionné dans le graphe : les actions de son clic droit.
+    // Commit sélectionné dans le graphe : les actions de son clic droit (un stash : les siennes,
+    // jamais reset / revert sur son commit interne).
     const sha = useGraph.getState().graphs[path]?.selected;
-    if (sha && sha !== WIP) {
+    const stash = sha ? useStashes.getState().lists[path]?.list.find((s) => s.sha === sha) : undefined;
+    if (stash) {
+      list.push(...menuCommands(stashMenu(t, path, stash, () => {}), `commit:${stash.sha}`, t("stashes.panelTitle"), t("palette.unavailable")));
+    } else if (sha && sha !== WIP) {
       list.push(...menuCommands(commitMenu(t, path, sha, refs), `commit:${sha}`, t("palette.groups.commit", { sha: sha.slice(0, 7) }), t("palette.unavailable")));
     }
     const b = t("palette.groups.branches");

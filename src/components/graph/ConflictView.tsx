@@ -296,11 +296,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   /** Menu Copier : chaque version du fichier, ou le résultat tel qu'il est maintenant. */
   const copyItems = (): MenuItem[] => {
     if (!data || !versions) return [];
-    const put = (text: string, what: string) =>
-      void navigator.clipboard?.writeText(text).then(
-        () => useApp.getState().notify(t("conflict.copy.done", { what })),
-        () => useApp.getState().notify(t("conflict.copy.failed")),
-      );
+    const put = (text: string, what: string) => {
+      const failed = () => useApp.getState().notify(t("conflict.copy.failed"));
+      if (!navigator.clipboard) return failed();
+      void navigator.clipboard.writeText(text).then(() => useApp.getState().notify(t("conflict.copy.done", { what })), failed);
+    };
     const ours = oursName;
     const theirs = theirsName;
     const result = t("conflict.copy.result");

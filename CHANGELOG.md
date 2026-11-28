@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Palette de commandes : un stash sélectionné propose ses actions (pop, appliquer, supprimer), plus celles d'un commit. Sélection de plusieurs commits : le blame d'un fichier s'ouvre à la version du dernier commit.
 - Diff des modifications en cours : « Ouvrir dans l'éditeur à la ligne N » au clic droit d'un numéro de ligne (ou Maj+F10 sur la ligne active), avec l'éditeur des réglages.
 - « Copier le diff » au clic droit des fichiers de la recherche dans les modifications et de la sélection de plusieurs commits ; dans la recherche, le blame s'ouvre aussi à la version du commit.
 - Résolution de conflits : bouton « Copier » pour copier un côté, la version commune ou le résultat tel qu'il est.

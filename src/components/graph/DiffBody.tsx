@@ -674,7 +674,11 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     const own = lineMenu && n != null ? lineMenu(n) : [];
     return [...own, ...(own.length ? ["sep" as const] : []), { label: t(annotate ? "diff.blameHide" : "diff.blameShow"), onClick: () => update({ diffBlame: !annotate }) }];
   };
-  const lnMenu = (n: number | null | undefined) => (e: React.MouseEvent) => openContextMenu(e, lnItems(n));
+  /** Clic droit sur un numéro : la ligne de la nouvelle version est dans `data-ln`. */
+  const lnMenu = (e: React.MouseEvent<HTMLElement>) => {
+    const n = e.currentTarget.dataset.ln;
+    openContextMenu(e, lnItems(n ? Number(n) : null));
+  };
   const extra = margin ? 1 : 0;
 
   /** Ligne de note (fil de relecture) sous la ligne `n` de la nouvelle version, s'il y en a une. */
@@ -698,10 +702,10 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       return [
         <tr key={`${hi}-${li}`} role="row" className={cls || undefined} onMouseDown={picker(hi, { l, i: li })}>
           {annCell(l.kind === "-" ? null : l.new, "ann")}
-          <td className="ln" role="gridcell" aria-hidden="true" onContextMenu={lnMenu(l.new)}>
+          <td className="ln" role="gridcell" aria-hidden="true" data-ln={l.new ?? undefined} onContextMenu={lnMenu}>
             {l.old ?? ""}
           </td>
-          <td className="ln ln2" role="gridcell" aria-hidden="true" onContextMenu={lnMenu(l.new)}>
+          <td className="ln ln2" role="gridcell" aria-hidden="true" data-ln={l.new ?? undefined} onContextMenu={lnMenu}>
             {l.new ?? ""}
           </td>
           <td className="code" role="gridcell" id={cellId(hi, li)} aria-selected={selection && changed ? isSel(hi, li) : undefined}>
@@ -724,7 +728,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     const owner = changed || which === "new";
     const cls = [kindCls(x.l), isSel(hi, x.i) ? "picked" : "", owner && isActive(hi, x.i) ? "active" : ""].filter(Boolean).join(" ");
     return [
-      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)} onContextMenu={lnMenu(x.l.new)}>
+      <td key={`${which}-ln`} className={`ln ${cls}`} role="gridcell" aria-hidden="true" onMouseDown={picker(hi, x)} data-ln={x.l.new ?? undefined} onContextMenu={lnMenu}>
         {x.l[which] ?? ""}
       </td>,
       <td

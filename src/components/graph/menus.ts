@@ -677,6 +677,9 @@ export function fileMenu(
     /** Lit son diff (plage, stash, PR / MR, modifications en cours) ; par défaut : celui du
      *  commit `rev`. */
     load?: () => Promise<FileDiff>;
+    /** Chemin dont montrer l'historique, quand `file` est un ancien nom (blame d'avant un
+     *  renommage). */
+    historyFile?: string;
   },
 ): MenuItem[] {
   const change = at?.change;
@@ -715,7 +718,7 @@ export function fileMenu(
     ...inEditor,
     { label: t("menu.openFile"), onClick: run("open") },
     { label: t("menu.revealFile"), onClick: run("reveal") },
-    { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, file) },
+    { label: t("fileHistory.menu"), onClick: () => showFileHistory(repo, at?.historyFile ?? file) },
     { label: t("graphFind.fileMenu"), title: t("graphFind.fileMenuHint"), onClick: () => void showFileInGraph(repo, file) },
     {
       label: t("blame.menu"),

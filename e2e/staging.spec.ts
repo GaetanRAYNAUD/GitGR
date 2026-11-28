@@ -194,6 +194,14 @@ test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une l
   await row.click();
   await expect(row).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row")).toHaveCount(2);
+  // Palette : les actions du stash, pas celles d'un commit (reset, revert).
+  await page.keyboard.press("Control+p");
+  const palette = page.getByRole("dialog", { name: "Palette de commandes" });
+  await palette.getByRole("combobox").fill("pop");
+  await expect(palette.getByRole("option", { name: /Appliquer et retirer \(pop\)/ })).toBeVisible();
+  await palette.getByRole("combobox").fill("reset");
+  await expect(palette.getByRole("option", { name: /Reset/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toContainText("Appliquer et retirer (pop)");
 });
