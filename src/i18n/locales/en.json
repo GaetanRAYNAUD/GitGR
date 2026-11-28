@@ -43,6 +43,10 @@
     "restore": "Restore"
   },
   "settings": {
+    "editor": "File editor",
+    "editorHint": "Command that opens a repository file (“Open in editor” on right-click). {file} places the path, otherwise it is added at the end. Empty: the system’s default program.",
+    "editorPlaceholder": "code -r",
+    "editorPick": "Choose…",
     "version": "GitGR {{version}}",
     "releaseNotes": "Release notes",
     "title": "Settings",
@@ -1399,6 +1403,7 @@
     "deleted": "Branch {{branch}} deleted."
   },
   "menu": {
+    "openInEditor": "Open in editor",
     "checkout": "Checkout",
     "checkoutBranch": "Checkout {{branch}}",
     "checkoutDetached": "Checkout this commit (detached HEAD)",
@@ -1539,6 +1544,7 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "editor_not_found": "Editor not found: check the command in the settings (Git, File editor).",
     "issue_not_found": "Issue not found.",
     "issue_forbidden": "The account is not allowed to do that on this issue.",
     "needs_checkout": "Not possible without switching branch.",

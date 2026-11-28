@@ -355,6 +355,16 @@ pub async fn open_repo_file(app: AppHandle, path: String, file: String, how: Str
     }
 }
 
+/// Ouvre un fichier du dépôt dans l'éditeur des réglages (ligne de commande).
+#[tauri::command]
+pub async fn open_in_editor(path: String, file: String, editor: String) -> Result<(), String> {
+    let full = worktree::repo_file(Path::new(&path), &file)?;
+    if !full.exists() {
+        return Err("file_missing".into());
+    }
+    crate::editor::open(&editor, &full, Path::new(&path))
+}
+
 #[tauri::command]
 pub async fn discard_all(path: String) -> Result<(), String> {
     worktree::discard_all(Path::new(&path)).map_err(classify)
