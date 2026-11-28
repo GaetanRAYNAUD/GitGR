@@ -54,3 +54,28 @@ test("palette : actions du commit sélectionné, dernières commandes en tête",
   await page.keyboard.press("Control+p");
   await expect(palette.getByRole("option").first()).toContainText("Réglages");
 });
+
+test("palette : actions du fichier ouvert (blame depuis son diff)", async ({ page }) => {
+  await page.goto("/");
+  await openNextRepo(page, "GitGR");
+  await page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option").nth(1).click();
+  await page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row").first().click();
+  const diff = page.getByRole("region", { name: /^Diff de / });
+  const name = (await diff.getAttribute("aria-label"))!.replace(/^Diff de /, "");
+
+  await page.keyboard.press("Control+p");
+  const palette = page.getByRole("dialog", { name: "Palette de commandes" });
+  const input = palette.getByRole("combobox");
+  await input.fill("blame");
+  const blame = palette.getByRole("option").first();
+  await expect(blame).toContainText(`Fichier ${name}`);
+  await input.press("Enter");
+  await expect(page.getByRole("region", { name: "Blame" })).toContainText(`Blame de ${name}`);
+
+  // Depuis le blame : l'historique du même fichier.
+  await page.keyboard.press("Control+p");
+  await input.fill("historique du fichier");
+  await expect(palette.getByRole("option").first()).toContainText(`Fichier ${name}`);
+  await input.press("Enter");
+  await expect(page.getByRole("region", { name: /^Historique/ })).toBeVisible();
+});
