@@ -356,6 +356,9 @@ function LineText({ segments, text, mark }: { segments?: Segment[]; text: string
 
 const PAGE = 20;
 
+/** Au-delà de ce nombre de lignes, le diff attend « Afficher quand même ». */
+export const BIG_DIFF = 5000;
+
 export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides }: Props) {
   const { t } = useTranslation();
   const uid = useId();
@@ -393,6 +396,9 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
   // Ligne active (rang dans `order`), -1 tant que la grille n'a pas eu le focus. Gardée,
   // rebornée, quand le diff change après une indexation : on continue au même endroit.
   const [active, setActive] = useState(-1);
+  // Très gros diff : pas rendu d'office (des milliers de lignes figent la fenêtre) ; « Afficher
+  // quand même » le montre pour ce fichier-là (`resetKey`).
+  const [bigShown, setBigShown] = useState<string | null>(null);
   const anchor = useRef(-1);
   // Anneau de la ligne active : au clavier seulement, pas après un clic.
   const [kbd, setKbd] = useState(false);
@@ -446,6 +452,17 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       </Delayed>
     );
   if (data.binary) return binarySides ? <BinaryPreview sides={binarySides} /> : <p className="muted">{t("diff.binary")}</p>;
+  const total = data.hunks.reduce((n, h) => n + h.lines.length, 0);
+  if (total > BIG_DIFF && bigShown !== (resetKey ?? "")) {
+    return (
+      <div className="notice big-diff" role="status">
+        <span>{t("diff.big", { count: total })}</span>
+        <button type="button" className="btn sm notice-action" onClick={() => setBigShown(resetKey ?? "")}>
+          {t("diff.showAnyway")}
+        </button>
+      </div>
+    );
+  }
   if (data.hunks.length === 0) {
     if (data.truncated) return <p className="muted">{t("diff.tooBig")}</p>;
     if (ignoreWs)

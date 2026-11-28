@@ -233,3 +233,14 @@ describe("<DiffBody mark />", () => {
     expect(searchMark({ text: "", regex: false, file: "" })).toBeNull();
   });
 });
+
+describe("<DiffBody /> très long", () => {
+  it("attend « Afficher quand même » au-delà de la limite", async () => {
+    const lines = Array.from({ length: 5001 }, (_, i) => ({ kind: "+" as const, old: null, new: i + 1, text: `l${i}` }));
+    const big: FileDiff = { binary: false, truncated: false, fingerprint: "b", hunks: [{ header: "@@ -0,0 +1,5001 @@", lines }] };
+    render(<DiffBody data={big} resetKey="f" />);
+    expect(screen.queryByRole("grid")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Afficher quand même" }));
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+  });
+});

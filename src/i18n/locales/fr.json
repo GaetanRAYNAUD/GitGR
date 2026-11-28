@@ -1014,6 +1014,9 @@
     "fadeValue": "{{value}} % de la nouvelle image"
   },
   "diff": {
+    "big_one": "Diff très long ({{count}} ligne) : pas affiché d’office.",
+    "big_other": "Diff très long ({{count}} lignes) : pas affiché d’office, il pourrait ralentir la fenêtre.",
+    "showAnyway": "Afficher quand même",
     "label": "Diff de {{file}}",
     "back": "Retour au graphe",
     "loading": "Chargement du diff…",
