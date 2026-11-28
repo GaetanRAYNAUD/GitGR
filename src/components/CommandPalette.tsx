@@ -1,6 +1,6 @@
 // Palette de commandes (Ctrl+P) : toutes les actions de l'app au même endroit, recherche floue,
 // raccourci affiché à droite ; dépôt ouvert : ses actions, celles du commit sélectionné, le
-// checkout de ses branches, les autres onglets. Sans recherche, les dernières lancées en tête. ↑ / ↓ (Début, Fin, Pg↑, Pg↓), Entrée pour lancer, Échap pour fermer.
+// checkout de ses branches, les autres onglets, celles du fichier ouvert (diff, blame, historique). Sans recherche, les dernières lancées en tête. ↑ / ↓ (Début, Fin, Pg↑, Pg↓), Entrée pour lancer, Échap pour fermer.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,9 +20,10 @@ import { useOps } from "../store/ops";
 import { useProfiles } from "../store/profiles";
 import { usePublishDialog } from "../store/publish";
 import { usePullDialog } from "../store/pulls";
-import { useCiView, useReflogView, useSearchView } from "../store/range";
+import { useBlameView, useCiView, useConflictView, useFileHistoryView, useReflogView, useSearchView } from "../store/range";
+import { api } from "../lib/api";
 import { useWork } from "../store/worktree";
-import { commitMenu } from "./graph/menus";
+import { commitMenu, fileMenu } from "./graph/menus";
 import { isHeader, isSub, type MenuItem } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { useQuickOpen } from "./QuickOpen";
@@ -62,8 +63,9 @@ export function recentCommands(): string[] {
 }
 
 export function rememberCommand(id: string) {
-  // Les actions d'un commit (son SHA dans l'id) ne reviendraient jamais : pas gardées.
-  if (id.startsWith("commit:")) return;
+  // Les actions d'un commit ou d'un fichier (son SHA, son chemin dans l'id) ne reviendraient
+  // jamais : pas gardées.
+  if (id.startsWith("commit:") || id.startsWith("file:")) return;
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...recentCommands().filter((x) => x !== id)].slice(0, RECENT_MAX)));
   } catch {
@@ -87,6 +89,28 @@ function menuCommands(items: MenuItem[], prefix: string, group: string, unavaila
     out.push({ id: `${prefix}:${i}`, label: item.label, group, why: item.disabled ? (item.title ?? unavailable) : undefined, run: () => void item.onClick() });
   });
   return out;
+}
+
+/** Le fichier montré à la place du graphe (diff d'un commit ou en cours, blame, historique) et
+ *  son menu, dans l'ordre où le centre les affiche ; `null` sans fichier ouvert. */
+function openFileMenu(t: TFunction, path: string): { file: string; items: MenuItem[] } | null {
+  if (useConflictView.getState().open[path]) return null;
+  const diff = useGraph.getState().diffs[path];
+  if (diff) {
+    const f = diff.file;
+    return { file: f.path, items: fileMenu(t, path, f.path, { rev: diff.sha, deleted: f.status === "D", change: diff.base ? undefined : f }) };
+  }
+  const work = useGraph.getState().graphs[path]?.selected === WIP ? useWork.getState().repos[path]?.diff : undefined;
+  if (work) {
+    const f = work.file;
+    const at = work.area === "conflicted" ? undefined : { rev: null, change: f, load: () => api.workDiff(path, f.path, f.oldPath, work.area) };
+    return { file: f.path, items: fileMenu(t, path, f.path, at) };
+  }
+  const blame = useBlameView.getState().open[path];
+  if (blame) return { file: blame.file, items: fileMenu(t, path, blame.file, blame.rev ? { rev: blame.rev } : undefined) };
+  const history = useFileHistoryView.getState().open[path];
+  if (history) return { file: history, items: fileMenu(t, path, history) };
+  return null;
 }
 
 /** Commandes possibles maintenant (onglet actif, branches, état du dépôt). */
@@ -146,6 +170,9 @@ export function buildCommands(t: TFunction): Command[] {
       cmd("createPull", t("palette.createPull"), r, () => usePullDialog.getState().show(path), noRemote ? t("palette.noRemote") : null),
     );
     if (useBisect.getState().states[path]) list.push(cmd("bisectStop", t("palette.bisectStop"), r, () => void ops.bisectReset(path), busy));
+    // Fichier ouvert au milieu : les actions de son clic droit, comme sur son titre.
+    const open = openFileMenu(t, path);
+    if (open) list.push(...menuCommands(open.items, `file:${open.file}`, t("palette.groups.file", { file: open.file }), t("palette.unavailable")));
     // Commit sélectionné dans le graphe : les actions de son clic droit.
     const sha = useGraph.getState().graphs[path]?.selected;
     if (sha && sha !== WIP) {

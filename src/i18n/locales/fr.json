@@ -524,6 +524,7 @@
     "noStash": "Aucun stash à réappliquer.",
     "groups": {
       "commit": "Commit {{sha}}",
+      "file": "Fichier {{file}}",
       "app": "GitGR",
       "repo": "Dépôt",
       "branches": "Branches",

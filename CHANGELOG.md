@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Palette de commandes : les actions du fichier ouvert (diff, blame ou historique) y sont, groupe « Fichier … » : blame, historique, copier le diff, ouvrir dans l'éditeur…
 - Stash : un clic le sélectionne comme un commit ; le graphe reste affiché et ses fichiers, avec Pop / Appliquer / Supprimer, sont dans le panneau de droite. Un fichier ouvre son diff.
 - Bisect : « Automatique… » lance une commande de test sur chaque commit jusqu'au premier mauvais (code 0 : bon, 125 : passer, autre : mauvais) ; si elle échoue, sa sortie est affichée.
 - Exécutions de CI : filtre par workflow (GitHub).
