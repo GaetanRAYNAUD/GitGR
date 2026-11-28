@@ -210,6 +210,9 @@ interface Props {
   mark?: RegExp | null;
   /** Fichier du diff : active la copie au format patch (bouton de bloc, Ctrl+C). */
   copyAs?: PatchFile;
+  /** Contenu affiché sous une ligne de la nouvelle version (fils de relecture d'une PR / MR),
+   *  par numéro de ligne. */
+  notes?: Map<number, ReactNode>;
   /** Versions à montrer pour un fichier binaire (aperçu des images, tailles). */
   binarySides?: BinarySides;
 }
@@ -359,7 +362,7 @@ const PAGE = 20;
 /** Au-delà de ce nombre de lignes, le diff attend « Afficher quand même ». */
 export const BIG_DIFF = 5000;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides, notes }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -643,13 +646,25 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     openContextMenu(e, [{ label: t(annotate ? "diff.blameHide" : "diff.blameShow"), onClick: () => update({ diffBlame: !annotate }) }]);
   const extra = margin ? 1 : 0;
 
+  /** Ligne de note (fil de relecture) sous la ligne `n` de la nouvelle version, s'il y en a une. */
+  const noteRow = (key: string, n: number | null | undefined, cols: number) => {
+    const node = n != null ? notes?.get(n) : undefined;
+    return node ? (
+      <tr key={`note-${key}`} role="row" className="diff-note">
+        <td colSpan={cols} role="gridcell">
+          {node}
+        </td>
+      </tr>
+    ) : null;
+  };
+
   const inline = data.hunks.map((h, hi) => [
     <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3 + extra} id={hunkId(hi)} hunkActions={hunkActions} onCopy={copyAs ? copyHunk : undefined} />,
-    ...h.lines.map((l, li) => {
+    ...h.lines.flatMap((l, li) => {
       if (li === 0) prev = null;
       const changed = l.kind !== " ";
       const cls = [kindCls(l), isSel(hi, li) ? "picked" : "", isActive(hi, li) ? "active" : ""].filter(Boolean).join(" ");
-      return (
+      return [
         <tr key={`${hi}-${li}`} role="row" className={cls || undefined} onMouseDown={picker(hi, { l, i: li })}>
           {annCell(l.kind === "-" ? null : l.new, "ann")}
           <td className="ln" role="gridcell" aria-hidden="true" onContextMenu={lnMenu}>
@@ -661,8 +676,9 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
           <td className="code" role="gridcell" id={cellId(hi, li)} aria-selected={selection && changed ? isSel(hi, li) : undefined}>
             {code(hi, { l, i: li })}
           </td>
-        </tr>
-      );
+        </tr>,
+        l.kind === "-" ? null : noteRow(`${hi}-${li}`, l.new, 3 + extra),
+      ];
     }),
   ]);
 
@@ -696,15 +712,16 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
 
   const split = data.hunks.map((h, hi) => [
     <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4 + extra} id={hunkId(hi)} hunkActions={hunkActions} onCopy={copyAs ? copyHunk : undefined} />,
-    ...splitRows(h).map((r, k) => {
+    ...splitRows(h).flatMap((r, k) => {
       if (k === 0) prev = null;
-      return (
+      return [
         <tr key={`${hi}-${k}`} role="row">
           {annCell(r.right?.l.new, "ann")}
           {side(hi, r.left, "old")}
           {side(hi, r.right, "new")}
-        </tr>
-      );
+        </tr>,
+        noteRow(`${hi}-${k}`, r.right?.l.new, 4 + extra),
+      ];
     }),
   ]);
 

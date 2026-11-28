@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- PR / MR, onglet Fichiers : les fils de relecture d'un fichier apparaissent dans son diff, sous la ligne qu'ils commentent (résolus estompés).
 - Cloner depuis un compte GitHub : quand une organisation cache ses dépôts (application GitGR non approuvée par l'organisation, ou SSO non autorisé pour le token), la fenêtre la nomme et dit quoi faire, au lieu de simplement ne pas les montrer.
 - Issues GitHub / GitLab : une section Issues de la barre latérale liste les issues ouvertes (toutes, ou les vôtres) avec le compte du remote, et ne lit rien quand elle est masquée. Une issue s'ouvre à la place du graphe : description et commentaires, commenter (Ctrl+Entrée), fermer ou rouvrir, vous l'assigner, et « Créer une branche… » avec un nom proposé (12-titre-court).
 - Exécutions de CI : un écran liste toutes les exécutions GitHub Actions ou les pipelines GitLab du dépôt (pas seulement ceux des PR / MR), filtrés par branche et par état, relus tant qu'une exécution tourne. Entrée ouvre sur la forge, Maj+Entrée montre le commit dans le graphe, et les jobs en échec se relancent au clic droit. Ouvert depuis la palette (Ctrl+P) ou « Voir ses exécutions de CI » au clic droit d'une branche.

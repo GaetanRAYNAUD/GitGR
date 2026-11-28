@@ -244,3 +244,19 @@ describe("<DiffBody /> très long", () => {
     expect(screen.getByRole("grid")).toBeInTheDocument();
   });
 });
+
+describe("<DiffBody /> notes", () => {
+  it("une note sous sa ligne de la nouvelle version, en ligne et côte à côte", () => {
+    const d: FileDiff = { binary: false, truncated: false, fingerprint: "n", hunks: [{ header: "@@ -1,2 +1,2 @@", lines: [ctx(1, "a"), del(2, "b"), add(2, "B")] }] };
+    const notes = new Map([[2, <span key="n">Pourquoi B ?</span>]]);
+    useApp.setState((s) => ({ settings: { ...s.settings, diffView: "inline" } }));
+    const { container, unmount } = render(<DiffBody data={d} notes={notes} />);
+    const rows = [...container.querySelectorAll("tr")].map((r) => (r.classList.contains("diff-note") ? "note" : r.textContent));
+    expect(rows.indexOf("note")).toBe(rows.length - 1);
+    expect(screen.getByText("Pourquoi B ?")).toBeInTheDocument();
+    unmount();
+    useApp.setState((s) => ({ settings: { ...s.settings, diffView: "split" } }));
+    render(<DiffBody data={d} notes={notes} />);
+    expect(screen.getByText("Pourquoi B ?")).toBeInTheDocument();
+  });
+});
