@@ -6,6 +6,7 @@ import { useApp } from "../../store/app";
 import { useGraph, type OpenDiff } from "../../store/graph";
 import { Icon } from "../Icon";
 import { CopyDiffButton, DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
+import { commitSides } from "./BinaryPreview";
 import { StatusBadge } from "./FileList";
 import { fileMenu } from "./menus";
 import { openContextMenu } from "../ContextMenu";
@@ -76,6 +77,7 @@ export function DiffView({ path, diff }: { path: string; diff: OpenDiff }) {
           onRetry={reopen}
           resetKey={`${diff.sha}\n${file.path}`}
           copyAs={file}
+          binarySides={commitSides(path, file, diff.sha, diff.base)}
           blame={file.status === "D" ? undefined : { path, file: file.path, rev: diff.sha, beforeReveal: () => closeDiff(path) }}
         />
       </div>

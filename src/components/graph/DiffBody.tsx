@@ -27,6 +27,7 @@ import { Icon } from "../Icon";
 import { Splitter } from "../Splitter";
 import { type BlameSource, MARGIN_W, useBlameMargin } from "./BlameMargin";
 import { copyPatch, filePatch, linesPatch, type PatchFile } from "../../lib/patch";
+import { BinaryPreview, type BinarySides } from "./BinaryPreview";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
@@ -209,6 +210,8 @@ interface Props {
   mark?: RegExp | null;
   /** Fichier du diff : active la copie au format patch (bouton de bloc, Ctrl+C). */
   copyAs?: PatchFile;
+  /** Versions à montrer pour un fichier binaire (aperçu des images, tailles). */
+  binarySides?: BinarySides;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -353,7 +356,7 @@ function LineText({ segments, text, mark }: { segments?: Segment[]; text: string
 
 const PAGE = 20;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs, binarySides }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -442,7 +445,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
         <p className="muted">{t("diff.loading")}</p>
       </Delayed>
     );
-  if (data.binary) return <p className="muted">{t("diff.binary")}</p>;
+  if (data.binary) return binarySides ? <BinaryPreview sides={binarySides} /> : <p className="muted">{t("diff.binary")}</p>;
   if (data.hunks.length === 0) {
     if (data.truncated) return <p className="muted">{t("diff.tooBig")}</p>;
     if (ignoreWs)

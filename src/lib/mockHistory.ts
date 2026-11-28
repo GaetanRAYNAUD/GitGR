@@ -1,7 +1,7 @@
 // Historique factice pour le backend simulé (navigateur, tests E2E).
 // Déterministe : un même chemin de dépôt donne toujours le même historique.
 
-import type { Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
+import type { BlobPreview, BlobSide, Commit, CommitDetails, FileChange, FileDiff, GitRef, RefsInfo, RemoteInfo } from "./types";
 import { hunkItems } from "./wordDiff";
 
 /** Petit générateur pseudo-aléatoire déterministe (mulberry32). */
@@ -143,6 +143,8 @@ export function mockDetails(path: string, sha: string): CommitDetails {
   if (files.length === 0) files.push({ status: "M", path: FILES[0], oldPath: null });
   if (rand() < 0.3) files.push({ status: "A", path: "docs/nouveau.md", oldPath: null });
   if (rand() < 0.2) files.push({ status: "R", path: "src/lib/lanes.ts", oldPath: "src/lib/old-lanes.ts" });
+  // Une image modifiée dans le commit le plus récent (aperçu des binaires dans le diff).
+  if (mockHistory(path).commits[0]?.sha === sha) files.push({ status: "M", path: "docs/logo.png", oldPath: null });
   return {
     sha: c.sha,
     parents: c.parents,
@@ -156,6 +158,17 @@ export function mockDetails(path: string, sha: string): CommitDetails {
     body: c.parents.length > 1 ? "" : `Description détaillée du changement, liée à !12.\n\nAvec un second paragraphe, après ${c.parents[0]?.slice(0, 8) ?? "rien"}.`,
     files,
   };
+}
+
+/** Version simulée d'un fichier binaire : une image SVG dont la couleur et la taille dépendent
+ *  de la version (`rev` : commit, `""` index, `null` copie de travail). */
+export function mockBlobPreview(side: BlobSide): BlobPreview | null {
+  if (!side.file.endsWith(".png")) return side.file.endsWith(".bin") ? { size: 2048, mime: null, data: null } : null;
+  const parent = side.rev?.endsWith("^") ?? false;
+  const w = parent ? 64 : 96;
+  const fill = parent ? "#3b82f6" : "#f97316";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="64"><rect x="8" y="8" width="${w - 16}" height="48" rx="8" fill="${fill}"/></svg>`;
+  return { size: parent ? 1200 : 1850, mime: "image/png", data: `data:image/svg+xml;base64,${btoa(svg)}` };
 }
 
 export function mockDiff(sha: string, file: string): FileDiff {

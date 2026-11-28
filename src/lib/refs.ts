@@ -1,6 +1,6 @@
 // Mise en forme des refs pour le graphe et la barre latérale (fonctions pures, testées dans refs.test.ts).
 
-import type { GitRef, RefsInfo } from "./types";
+import type { GitRef, RefsInfo, ReflogEntry } from "./types";
 
 export interface RefChip {
   label: string;
@@ -168,4 +168,24 @@ export function fitChips(sizes: ChipSize[], available: number, more: number, gap
     shown++;
   }
   return shown;
+}
+
+/** Branches locales extraites récemment (reflog de HEAD : « checkout: moving from a to b »), de
+ *  la plus récente à la plus ancienne, sans la courante ni celles qui n'existent plus. */
+export function recentBranches(reflog: ReflogEntry[], locals: string[], current: string | null, max = 10): string[] {
+  const exists = new Set(locals);
+  const out: string[] = [];
+  const add = (name: string) => {
+    if (name && name !== current && exists.has(name) && !out.includes(name)) out.push(name);
+  };
+  for (const e of reflog) {
+    if (e.action !== "checkout") continue;
+    const m = /^moving from (.+) to (.+)$/.exec(e.message);
+    if (!m) continue;
+    // La branche d'arrivée d'abord (plus récente), puis celle qu'on quittait.
+    add(m[2]);
+    add(m[1]);
+    if (out.length >= max) break;
+  }
+  return out.slice(0, max);
 }

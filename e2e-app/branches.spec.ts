@@ -64,6 +64,9 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     await locals.getByRole("treeitem", { name: /^feature/ }).dblclick();
     await expect(page.locator(".branch-chip-label")).toHaveText("feature");
+    // La pastille change dès le checkout ; le stash est réappliqué ensuite : attendre la fin
+    // de la commande (annonce vide) avant de lire le dépôt.
+    await expect(page.locator(".tools > [role=status]")).toHaveText("");
     // Modification gardée, combinée avec celle de la branche : pas de conflit, stash vidé.
     expect(git(mine, "diff")).toContain("+cinq");
     expect(git(mine, "stash", "list")).toBe("");
@@ -293,6 +296,28 @@ test("Ctrl+Z annule un commit (modifications indexées) puis un merge ; Ctrl+Y r
     await page.locator("body").press("Control+y");
     await expect(page.getByRole("alert")).toContainText("Le dépôt a changé depuis cette opération");
     expect(git(mine, "log", "-1", "--format=%s")).toBe("ailleurs");
+  } finally {
+    await app.close();
+  }
+});
+
+test("branches récentes : lues dans le reflog de HEAD, checkout depuis le menu", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  git(mine, "switch", "-q", "-c", "a");
+  git(mine, "switch", "-q", "-c", "b");
+  git(mine, "switch", "-q", "main");
+  git(mine, "branch", "-q", "-D", "a");
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await expect(page.locator(".branch-chip-label")).toHaveText("main");
+    await page.keyboard.press("Control+Shift+O");
+    const menu = page.getByRole("menu");
+    // `a` supprimée n'est plus proposée ; `main` (courante) non plus.
+    await expect(menu.getByRole("menuitem")).toHaveText(["b"]);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".branch-chip-label")).toHaveText("b");
+    expect(git(mine, "branch", "--show-current")).toBe("b");
   } finally {
     await app.close();
   }

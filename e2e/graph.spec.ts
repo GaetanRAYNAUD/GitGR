@@ -78,6 +78,22 @@ test("copier un diff : fichier entier, bloc, Ctrl+C sur la ligne active", async 
   await expect.poll(clip).toBe(whole);
 });
 
+test("image modifiée : avant / après côte à côte, tailles, puis en fondu", async ({ page }) => {
+  await graph(page).getByRole("option").first().click();
+  await panel(page).locator(".file-row", { hasText: "logo.png" }).click();
+  const diff = page.getByRole("region", { name: "Diff de docs/logo.png" });
+  await expect(diff.getByRole("img", { name: "Image avant la modification" })).toBeVisible();
+  await expect(diff.getByRole("img", { name: "Image après la modification" })).toBeVisible();
+  await expect(diff).toContainText("64 × 64 px");
+  await expect(diff).toContainText("96 × 64 px");
+  await expect(diff.locator(".bin-sizes")).toHaveText(/1,2 Ko → 1,8 Ko \(\+650 o\)/);
+  await diff.getByRole("button", { name: "Fondu" }).click();
+  const slider = diff.getByRole("slider", { name: "Fondu entre l’image avant et après" });
+  await slider.focus();
+  await page.keyboard.press("End");
+  await expect(slider).toHaveValue("100");
+});
+
 test("clic droit sur un fichier d'un commit : ouvrir, montrer dans le dossier, copier le chemin", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await graph(page).getByRole("option").nth(1).click();

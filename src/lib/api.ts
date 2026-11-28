@@ -43,7 +43,7 @@ import {
   mockStashPop,
   mockStashPush,
 } from "./mockBranches";
-import { mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
+import { mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
 import { mockAddConflict, mockConflictVersions, mockResolveConflict,
@@ -114,6 +114,8 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  BlobPreview,
+  BlobSide,
 } from "./types";
 
 export interface Api {
@@ -148,6 +150,8 @@ export interface Api {
   blame(path: string, file: string, rev: string | null): Promise<Blame>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
+  /** Une version d'un fichier binaire pour l'aperçu du diff ; `null` si absente de cette version. */
+  blobPreview(path: string, side: BlobSide): Promise<BlobPreview | null>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
   resetTo(path: string, sha: string, mode: ResetMode): Promise<void>;
   /** Fichiers modifiés entre deux commits (`base` : un commit ou l'arbre vide). */
@@ -426,6 +430,7 @@ const tauriApi: Api = {
   rangeDiff: (path, base, tip, file, oldFile, opts) => invoke("range_diff", { path, base, tip, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
+  blobPreview: (path, side) => invoke("blob_preview", { path, rev: side.rev, file: side.file }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
   searchFiles: (path, sha, text, regex, file) => invoke("search_files", { path, sha, text, regex, file }),
   fileHistory: (path, file) => invoke("file_history", { path, file }),
@@ -900,6 +905,10 @@ const mockApi: Api = {
   async reflog(path, refname) {
     await mockDelay();
     return mockReflog(path, refname);
+  },
+  async blobPreview(_path, side) {
+    await mockDelay();
+    return mockBlobPreview(side);
   },
   resetTo: async (path, sha, mode) => mockResetTo(path, sha, mode),
   async rangeDiff(_path, _base, tip, file, _oldFile, opts) {

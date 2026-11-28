@@ -183,7 +183,7 @@ fn with_paths<'a>(base: &[&'a str], files: &'a [String]) -> Vec<&'a str> {
 /// Chemin relatif fourni par l'interface : ne jamais sortir du dépôt. Refuse `..`, un chemin
 /// absolu, vide ou `.` (le dépôt lui-même) et, sous Windows, `\x` ou `C:x`, que `join`
 /// placerait ailleurs.
-fn check_relative(file: &str) -> Result<(), String> {
+pub(crate) fn check_relative(file: &str) -> Result<(), String> {
     let mut parts = Path::new(file).components().peekable();
     if parts.peek().is_some() && parts.all(|c| matches!(c, std::path::Component::Normal(_))) {
         Ok(())

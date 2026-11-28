@@ -9,6 +9,7 @@ import { useApp } from "../../store/app";
 import { useWork, type WorkDiff } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
 import { compareLines, CopyDiffButton, DiffBody, DiffViewToggle, lineKey, useEscape, useReturnFocus } from "./DiffBody";
+import { workSides } from "./BinaryPreview";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
 import { StatusBadge } from "./FileList";
@@ -258,6 +259,7 @@ export function WorkDiffView({ path, diff }: { path: string; diff: WorkDiff }) {
           onRetry={() => void useWork.getState().openDiff(path, file, area)}
           resetKey={`${file.path}\n${area}`}
           copyAs={file}
+          binarySides={workSides(path, file, area)}
           // Marge de blame sur la copie de travail ; la version indexée n'en a pas.
           blame={
             file.status === "D"

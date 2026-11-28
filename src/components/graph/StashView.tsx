@@ -14,6 +14,7 @@ import { useStashView } from "../../store/range";
 import { useStashList } from "../../store/stashes";
 import { openContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
+import { commitSides } from "./BinaryPreview";
 import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
@@ -174,6 +175,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
                     onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
                     copyAs={file}
+                    binarySides={file.untracked ? { path, old: null, new: { rev: data.untracked!, file: file.path } } : commitSides(path, file, data.tip, data.base)}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: file.untracked ? data.untracked! : data.tip }}
                   />
                 </div>
