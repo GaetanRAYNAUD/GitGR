@@ -10,6 +10,9 @@ export default defineConfig({
   // unique car son nom est un check requis). `GITGR_APP_WORKERS` pour forcer (1 : en série).
   workers: Number(process.env.GITGR_APP_WORKERS) || (process.env.CI ? 3 : 4),
   fullyParallel: true,
+  // En CI, un lancement de WebView2 raté sur le runner chargé (« Interface absente après
+  // 90 s ») ne doit pas faire échouer la PR : un second essai, signalé comme instable.
+  retries: process.env.CI ? 1 : 0,
   timeout: process.env.CI ? 150_000 : 60_000,
   // Sur un runner chargé, un push suivi de la relecture du dépôt peut dépasser les 5 s par
   // défaut : le message « poussée » arrivait trop tard (échec intermittent sur main).
