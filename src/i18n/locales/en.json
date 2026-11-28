@@ -354,6 +354,7 @@
     }
   },
   "worktrees": {
+    "chipTitle": "checked out in worktree {{dir}} (double-click to open it)",
     "section": "Worktrees",
     "newMenu": "Create worktree…",
     "newHint": "Another working copy of the repository, in its own folder, to work on two branches at once.",

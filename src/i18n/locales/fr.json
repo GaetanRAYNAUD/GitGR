@@ -354,6 +354,7 @@
     }
   },
   "worktrees": {
+    "chipTitle": "extraite dans le worktree {{dir}} (double-clic : l’ouvrir)",
     "section": "Worktrees",
     "newMenu": "Créer un worktree…",
     "newHint": "Une autre copie de travail du dépôt, dans son propre dossier, pour travailler sur deux branches à la fois.",

@@ -26,6 +26,11 @@ test("worktree : créé depuis une branche, listé dans sa section, puis supprim
   await expect(section).toBeVisible();
   const item = sidebar(page).getByRole("treeitem", { name: /^feature\/profils/ }).last();
   await expect(item).toContainText("-feature-profils");
+  // Dans le graphe : l'étiquette de la branche dit où elle est extraite.
+  await locals(page).getByRole("treeitem", { name: /^profils/ }).click();
+  const chip = page.locator(".chip", { hasText: /^feature\/profils$/ }).first();
+  await expect(chip.locator(".chip-worktree")).toBeVisible();
+  await expect(chip).toHaveAttribute("title", /extraite dans le worktree .*-feature-profils/);
   // La branche courante ne peut pas avoir de worktree : déjà extraite ici.
   await locals(page).getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
   await expect(menu(page).getByRole("menuitem", { name: "Créer un worktree…" })).toHaveAttribute("aria-disabled", "true");
