@@ -350,6 +350,7 @@ export function SearchView({ path }: { path: string }) {
                         error={diff?.error ?? undefined}
                         onRetry={() => setDiffReload((n) => n + 1)}
                         resetKey={`${focus}:${fileShown.path}`}
+                        copyAs={fileShown}
                         blame={fileShown.status === "D" ? undefined : { path, file: fileShown.path, rev: focus }}
                         mark={mark}
                       />

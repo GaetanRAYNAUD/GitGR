@@ -322,6 +322,7 @@ export function FileHistoryView({ path, file }: { path: string; file: string }) 
                 error={shownDiff?.error}
                 onRetry={() => setDiffReload((n) => n + 1)}
                 resetKey={diffKey}
+                copyAs={diffFile ?? undefined}
                 blame={
                   diffFile && diffFile.status !== "D"
                     ? { path, file: diffFile.path, rev: (other ? newer : active)!.commit.sha, beforeReveal: () => useFileHistoryView.getState().close(path) }

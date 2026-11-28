@@ -26,6 +26,7 @@ import { openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
 import { Splitter } from "../Splitter";
 import { type BlameSource, MARGIN_W, useBlameMargin } from "./BlameMargin";
+import { copyPatch, filePatch, linesPatch, type PatchFile } from "../../lib/patch";
 
 /** Clé d'une ligne sélectionnée : `hunk:ligne`. */
 export const lineKey = (hunk: number, line: number) => `${hunk}:${line}`;
@@ -109,6 +110,24 @@ export function AnnotateToggle() {
 
 /** Bascules du diff, mémorisées dans les réglages : marge de blame (Ctrl+Alt+B), fichier
  *  entier, sans les espaces, et en ligne / côte à côte. */
+/** Bouton d'en-tête : le diff du fichier entier au format patch. */
+export function CopyDiffButton({ file, data }: { file: PatchFile; data?: FileDiff | null }) {
+  const { t } = useTranslation();
+  const usable = !!data && !data.binary && data.hunks.length > 0;
+  return (
+    <button
+      type="button"
+      className="icon-btn"
+      aria-label={t("patch.copyFile")}
+      title={usable ? t("patch.copyFileHint") : t("patch.nothing")}
+      aria-disabled={!usable}
+      onClick={() => usable && void copyPatch(t, filePatch(file, data!), t("patch.fileCopied", { file: file.path }))}
+    >
+      <Icon name="copy" size={14} />
+    </button>
+  );
+}
+
 export function DiffViewToggle() {
   const { t } = useTranslation();
   const view = useApp((s) => s.settings.diffView ?? "inline");
@@ -188,6 +207,8 @@ interface Props {
   blame?: BlameSource;
   /** Texte cherché, surligné dans les lignes (recherche dans les modifications). */
   mark?: RegExp | null;
+  /** Fichier du diff : active la copie au format patch (bouton de bloc, Ctrl+C). */
+  copyAs?: PatchFile;
 }
 
 /** Une ligne repérée par sa position dans le hunk (pour la sélection). */
@@ -239,19 +260,32 @@ function HunkHeader({
   cols,
   id,
   hunkActions,
+  onCopy,
 }: {
   h: Hunk;
   hi: number;
   cols: number;
   id: string;
   hunkActions?: (hunk: number) => ReactNode;
+  onCopy?: (hunk: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <tr className="diff-hunk" id={id} role="row">
       <td colSpan={cols} role="gridcell">
         <div className="hunk-head">
           <span className="hunk-title">{h.header}</span>
-          {hunkActions && <span className="hunk-actions">{hunkActions(hi)}</span>}
+          {(hunkActions || onCopy) && (
+            <span className="hunk-actions">
+              {/* Hors tabulation, comme les autres boutons du bloc : Ctrl+C dans la grille. */}
+              {onCopy && (
+                <button className="mini" tabIndex={-1} title={`${t("patch.copyHunk")} (Ctrl+C)`} onClick={() => onCopy(hi)}>
+                  {t("patch.copy")}
+                </button>
+              )}
+              {hunkActions?.(hi)}
+            </span>
+          )}
         </div>
       </td>
     </tr>
@@ -319,7 +353,7 @@ function LineText({ segments, text, mark }: { segments?: Segment[]; text: string
 
 const PAGE = 20;
 
-export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark }: Props) {
+export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onRetry, resetKey, blame, mark, copyAs }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const mode = useApp((s) => s.settings.diffView ?? "inline");
@@ -423,6 +457,9 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     return <p className="muted">{t("diff.empty")}</p>;
   }
 
+  const copyHunk = (hi: number) => {
+    if (copyAs) void copyPatch(t, filePatch(copyAs, data, [hi]), t("patch.hunkCopied"));
+  };
   const cellId = (hi: number, li: number) => `${uid}-l${hi}-${li}`;
   const hunkId = (hi: number) => `${uid}-h${hi}`;
   const rank = (hi: number, li: number) => order.findIndex((r) => r.hunk === hi && r.line === li);
@@ -487,6 +524,15 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
       e.preventDefault();
       if (lineAt(activeRef)?.kind !== " ") selection.toggle(activeRef.hunk, activeRef.line, false);
       anchor.current = cur;
+      return;
+    }
+    // Ctrl+C : lignes cochées, sinon le bloc de la ligne active (un texte sélectionné à la
+    // souris garde la copie du navigateur).
+    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "c" && copyAs && !window.getSelection()?.toString()) {
+      e.preventDefault();
+      const picked = selection ? order.filter((r) => selection.selected.has(lineKey(r.hunk, r.line))) : [];
+      if (picked.length) void copyPatch(t, linesPatch(data, picked), t("patch.linesCopied", { count: picked.length }));
+      else copyHunk(activeRef.hunk);
       return;
     }
     if (e.ctrlKey && e.key.toLowerCase() === "a" && selection) {
@@ -578,7 +624,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
   const extra = margin ? 1 : 0;
 
   const inline = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3 + extra} id={hunkId(hi)} hunkActions={hunkActions} />,
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={3 + extra} id={hunkId(hi)} hunkActions={hunkActions} onCopy={copyAs ? copyHunk : undefined} />,
     ...h.lines.map((l, li) => {
       if (li === 0) prev = null;
       const changed = l.kind !== " ";
@@ -629,7 +675,7 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
   };
 
   const split = data.hunks.map((h, hi) => [
-    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4 + extra} id={hunkId(hi)} hunkActions={hunkActions} />,
+    <HunkHeader key={`h${hi}`} h={h} hi={hi} cols={4 + extra} id={hunkId(hi)} hunkActions={hunkActions} onCopy={copyAs ? copyHunk : undefined} />,
     ...splitRows(h).map((r, k) => {
       if (k === 0) prev = null;
       return (

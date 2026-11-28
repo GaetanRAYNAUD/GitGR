@@ -173,6 +173,7 @@ export function StashView({ path, entry }: { path: string; entry: StashEntry }) 
                     error={diff?.error ?? undefined}
                     onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
+                    copyAs={file}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: file.untracked ? data.untracked! : data.tip }}
                   />
                 </div>

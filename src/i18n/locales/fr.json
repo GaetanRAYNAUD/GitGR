@@ -645,6 +645,7 @@
     "parents_other": "Parents",
     "copy": "Copier le SHA",
     "copied": "SHA copié",
+    "nothing": "Pas de diff texte à copier (fichier binaire ou sans changement de contenu).",
     "copyFailed": "Copie impossible",
     "parentLabel": "Parent {{sha}} : sélectionner ce commit",
     "shaNotLoaded": "Commit absent de l’historique chargé",
@@ -680,6 +681,17 @@
       "deleted_other": "{{count}} supprimés",
       "conflicted": "{{count}} en conflit"
     }
+  },
+  "patch": {
+    "copy": "Copier",
+    "copyHunk": "Copier le bloc au format patch",
+    "copyFile": "Copier le diff",
+    "copyFileHint": "Copier le diff du fichier au format patch",
+    "hunkCopied": "Bloc copié au format patch.",
+    "fileCopied": "Diff de {{file}} copié au format patch.",
+    "linesCopied_one": "{{count}} ligne copiée.",
+    "linesCopied_other": "{{count}} lignes copiées.",
+    "copyFailed": "Copie impossible : le presse-papiers est indisponible."
   },
   "diff": {
     "label": "Diff de {{file}}",
