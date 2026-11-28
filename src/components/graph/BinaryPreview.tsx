@@ -33,12 +33,16 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
   const [mode, setMode] = useState<"side" | "fade">("side");
   const [fade, setFade] = useState(50);
   const [dims, setDims] = useState<{ old?: [number, number]; new?: [number, number] }>({});
+  // Images que la WebView n'a pas su décoder (fichier abîmé, format non pris en charge).
+  const [broken, setBroken] = useState<{ old?: boolean; new?: boolean }>({});
+  const [reload, setReload] = useState(0);
   const fadeId = useId();
   const key = JSON.stringify(sides);
 
   useEffect(() => {
     let live = true;
     setDims({});
+    setBroken({});
     const read = (s: BlobSide | null) => (s ? api.blobPreview(sides.path, s) : Promise.resolve(null));
     Promise.all([read(sides.old), read(sides.new)]).then(
       ([o, n]) => live && setState({ key, data: { old: o, new: n } }),
@@ -48,13 +52,21 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
       live = false;
     };
     // `key` résume `sides` (nouvel objet à chaque rendu chez l'appelant).
-  }, [key]);
+  }, [key, reload]);
 
   const units: [string, string, string] = [t("binary.bytes"), t("binary.kb"), t("binary.mb")];
   const size = (n: number) => formatSize(n, i18n.language, units);
 
   if (!state || state.key !== key) return <p className="muted">{t("diff.loading")}</p>;
-  if (state.error) return <p className="notice error">{errorMessage(t, state.error)}</p>;
+  if (state.error)
+    return (
+      <div className="notice error" role="alert">
+        <span>{errorMessage(t, state.error)}</span>
+        <button type="button" className="link notice-action" onClick={() => setReload((n) => n + 1)}>
+          {t("graph.retry")}
+        </button>
+      </div>
+    );
   const { old: before, new: after } = state.data!;
   const image = (before?.mime ?? after?.mime) != null;
 
@@ -98,6 +110,8 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
             <span className="muted">{t(which === "old" ? "binary.added" : "binary.deleted")}</span>
           ) : tooBig(b) ? (
             <span className="muted">{t("binary.tooBig")}</span>
+          ) : broken[which] ? (
+            <span className="muted">{t("binary.unreadable")}</span>
           ) : (
             <img
               src={b.data!}
@@ -106,13 +120,14 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
                 const img = e.currentTarget;
                 setDims((x) => ({ ...x, [which]: [img.naturalWidth, img.naturalHeight] }));
               }}
+              onError={() => setBroken((x) => ({ ...x, [which]: true }))}
             />
           )}
         </div>
       </figure>
     );
   };
-  const canFade = !!before?.data && !!after?.data;
+  const canFade = !!before?.data && !!after?.data && !broken.old && !broken.new;
 
   return (
     <div className="bin-preview">

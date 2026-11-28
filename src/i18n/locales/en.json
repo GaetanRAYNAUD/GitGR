@@ -693,6 +693,7 @@
     "added": "File added",
     "deleted": "File deleted",
     "tooBig": "Image too large to preview.",
+    "unreadable": "Unreadable image: no preview.",
     "noPreview": "Binary file: no preview.",
     "mode": "Image comparison",
     "side": "Side by side",

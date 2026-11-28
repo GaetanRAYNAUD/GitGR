@@ -693,6 +693,7 @@
     "added": "Fichier ajouté",
     "deleted": "Fichier supprimé",
     "tooBig": "Image trop lourde pour l’aperçu.",
+    "unreadable": "Image illisible : pas d’aperçu.",
     "noPreview": "Fichier binaire : pas d’aperçu.",
     "mode": "Comparaison des images",
     "side": "Côte à côte",

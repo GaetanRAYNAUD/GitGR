@@ -853,7 +853,8 @@ pub fn blob_preview(path: &Path, rev: Option<&str>, file: &str) -> Result<Option
     let (size, bytes) = match rev {
         None => {
             let full = path.join(file);
-            let meta = match std::fs::metadata(&full) {
+            // Pas de lien symbolique : il mènerait hors du dépôt (son diff n'est pas binaire).
+            let meta = match std::fs::symlink_metadata(&full) {
                 Ok(m) if m.is_file() => m,
                 Ok(_) => return Ok(None),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),

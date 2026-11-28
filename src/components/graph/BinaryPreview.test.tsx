@@ -45,3 +45,13 @@ describe("<BinaryPreview />", () => {
     expect(screen.getByText(/absent → 2 Ko/)).toBeInTheDocument();
   });
 });
+
+describe("<BinaryPreview /> image illisible", () => {
+  it("remplace l'image cassée par un texte et retire le fondu", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    render(<BinaryPreview sides={{ path: "/r", old: { rev: "x^", file: "logo.png" }, new: { rev: "x", file: "logo.png" } }} />);
+    fireEvent.error(await screen.findByRole("img", { name: "Image après la modification" }));
+    expect(screen.getByText("Image illisible : pas d’aperçu.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fondu" })).toBeNull();
+  });
+});
