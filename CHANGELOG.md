@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Recherche dans les modifications : le diff d'un fichier s'ouvre directement sur la première ligne où le texte apparaît ou disparaît.
 - Réglages, Git : « Éditeur des fichiers » (par exemple `code -r`) ; le clic droit d'un fichier propose alors « Ouvrir dans l'éditeur ».
 - « Copier le diff » au clic droit d'un fichier marche aussi dans une plage de commits, un stash, une PR / MR et les modifications en cours.
 - Nouveau tag : la version suivante proposée peut passer de correctif à mineure ou majeure d'un clic (`v1.2.4`, `v1.3.0`, `v2.0.0`).

@@ -271,6 +271,7 @@ Compléments et retours d'utilisation, par thème.
 - **Nouveau tag : version suivante au choix** (étape 6) : sous le nom (patch proposé), « Correctif / Mineure / Majeure » d'un clic (`nextTagName(tags, level)`, `suggestions` des fenêtres de saisie).
 - **Copier le diff au clic droit, partout** (étape 8) : `fileMenu(…, { change, load })` — fichiers d'une plage (commit centré ou plage entière), d'un stash (non suivis compris), d'une PR / MR et des modifications en cours (non indexé / indexé, pas en conflit).
 - **Éditeur des fichiers** (étape 4) : réglage « Éditeur des fichiers » (page Git : ligne de commande, `{file}` pour placer le chemin, « Choisir… » un programme) ; « Ouvrir dans l'éditeur » en tête du clic droit d'un fichier (`editor.rs` : découpe avec guillemets, programme cherché avec `PATHEXT` sous Windows, sans console ; `editor_not_found`).
+- **Recherche dans les modifications : diff sur la ligne** (étape 8) : `DiffBody` avec `mark` rend active (et fait défiler jusqu'à) la première ligne ajoutée ou retirée qui contient le texte cherché.
 
 ## Reste à faire
 
@@ -315,7 +316,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Bisect visuel** (fait, cf. « Fait ») ; reste : lancer une commande de test (`git bisect run`) et suivre sa sortie ; termes personnalisés (`--term-old/new`) ; marques de bisect sur les commits hors des pages chargées.
 - [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés, par auteur et par fichier au-delà des commits chargés : fait, cf. « Fait ») : filtre qui masque les autres lignes (recalcul des voies du graphe) ; masquer / solo des branches.
 - [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
-- [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
 - [ ] **Palette de commandes** (faite sur Ctrl+P, cf. « Fait ») ; **à décider** : Ctrl+Maj+P aussi (comme VS Code), ce qui demande de déplacer Pop sur un autre raccourci. Reste : commandes du fichier ouvert (blame, historique) ; les commandes du commit sélectionné et les dernières lancées en tête sont faites (cf. « Fait »).
 - [ ] **Aperçu des images dans le diff** (fait, cf. « Fait ») ; reste : dans la vue d'une PR / MR (versions à lire au merge-base de la cible), mode « curseur » (rideau glissé) en plus du fondu.

@@ -435,6 +435,23 @@ export function DiffBody({ data, error, hunkActions, selection, onKeyAction, onR
     else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
   });
 
+  // Texte cherché (recherche dans les modifications) : le diff s'ouvre sur la première ligne
+  // ajoutée ou retirée qui le contient, active.
+  const markKey = mark ? `${mark.source}/${mark.flags}` : "";
+  useEffect(() => {
+    if (!mark || !data) return;
+    const k = order.findIndex((r) => {
+      const l = data.hunks[r.hunk].lines[r.line];
+      return l.kind !== " " && markRanges(l.text, mark).length > 0;
+    });
+    if (k < 0) return;
+    setActive(k);
+    anchor.current = k;
+    scrollTo.current = `${uid}-l${order[k].hunk}-${order[k].line}`;
+    // `mark` est rendu par `markKey` (nouvelle expression à chaque recherche).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, order, markKey, uid]);
+
   if (error) {
     return (
       <div className="notice error" role="alert">
