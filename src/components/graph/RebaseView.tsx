@@ -61,7 +61,6 @@ export function RebaseView({ path, base, label, onto = false }: { path: string; 
         setRows(p.commits.map((c) => ({ sha: c.sha, subject: c.subject, original: c.message, action: "pick", message: c.message, pushed: c.pushed, time: c.time })));
         setOriginal(p.commits.map((c) => c.sha));
         setError(null);
-        requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
       },
       (e) => live && setError(errorCode(e)),
     );
@@ -69,6 +68,26 @@ export function RebaseView({ path, base, label, onto = false }: { path: string; 
       live = false;
     };
   }, [path, base, onto, reload]);
+
+  // Focus sur la liste dès qu'elle est là (une fois). Le menu contextuel qui a ouvert la vue,
+  // en se refermant, ou le graphe qui s'en va peuvent le reprendre juste après : on le remet
+  // tant qu'il n'est pas allé ailleurs dans la vue.
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!rows?.length || focused.current) return;
+    focused.current = true;
+    const put = () => {
+      const now = document.activeElement;
+      if (!now || now === document.body || !sectionRef.current?.contains(now)) listRef.current?.focus({ preventScroll: true });
+    };
+    put();
+    const timers = [requestAnimationFrame(put), window.setTimeout(put, 50), window.setTimeout(put, 200)];
+    return () => {
+      cancelAnimationFrame(timers[0]);
+      window.clearTimeout(timers[1]);
+      window.clearTimeout(timers[2]);
+    };
+  }, [rows]);
 
   const list = rows ?? [];
   const cur = Math.min(at, Math.max(0, list.length - 1));
