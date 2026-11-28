@@ -79,7 +79,7 @@
     },
     "systemNotifications": "Notifications du système",
     "notificationsHint": "En pause quand la fenêtre est réduite ou après 15 min d’inactivité. « Vu » reste dans GitGR ; « marquer comme lu » s’applique aussi sur GitHub / GitLab.",
-    "autoFetchHint": "Fetch du dépôt affiché, en arrière-plan.",
+    "autoFetchHint": "Fetch du dépôt affiché en arrière-plan ; les autres onglets aussi, deux fois moins souvent, pour que leur retard reste à jour.",
     "autoStashHint": "Vos modifications sont mises de côté puis réappliquées ; en cas de conflit, rien n’est perdu.",
     "sectionAbout": "À propos",
     "sections": "Sections des réglages"

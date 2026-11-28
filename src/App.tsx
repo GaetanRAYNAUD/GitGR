@@ -12,6 +12,7 @@ import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
 import { resolveLanguage } from "./i18n";
 import { api } from "./lib/api";
+import { dueTab } from "./lib/autoFetch";
 import { errorMessage } from "./lib/errors";
 import { useUpdates } from "./store/updates";
 import { useApp } from "./store/app";
@@ -206,6 +207,38 @@ function useAutoFetch() {
     const id = setInterval(tick, FETCH_TICK_MS);
     return () => clearInterval(id);
   }, [active, minutes]);
+
+  // Les autres onglets aussi, deux fois moins souvent et un seul à la fois : leur retard (↓
+  // dans l'onglet, à l'accueil) reste à jour sans les ouvrir. Juste le fetch et le résumé,
+  // pas le graphe : rien à recharger tant que l'onglet n'est pas affiché.
+  const tabs = useApp((s) => s.tabs);
+  useEffect(() => {
+    if (minutes <= 0) return;
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      const app = useApp.getState();
+      const due = dueTab(tabs, app.active, (p) => !!useOps.getState().running[p], (p) => lastFetch.get(p) ?? 0, Date.now(), 2 * minutes * 60_000);
+      if (!due) return;
+      busy = true;
+      lastFetch.set(due, Date.now());
+      try {
+        await api.fetch(due);
+        await useApp.getState().refreshSummary(due);
+      } catch {
+        // Silencieux, comme le fetch automatique du dépôt affiché.
+      } finally {
+        busy = false;
+      }
+    };
+    // Premier passage après un moment : l'ouverture de l'app reste légère.
+    const first = setTimeout(() => void tick(), FETCH_TICK_MS);
+    const id = setInterval(() => void tick(), FETCH_TICK_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, [tabs, minutes]);
 }
 
 /** Pas de menu du navigateur (Recharger, Inspecter…) : nos propres menus le remplacent.
