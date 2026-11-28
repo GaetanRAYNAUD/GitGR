@@ -307,6 +307,45 @@
     "rowStash": "Stash: {{message}}",
     "wipMark": "//"
   },
+  "authorFilter": {
+    "label": "Authors",
+    "placeholder": "Name or email",
+    "loading": "Reading authors…",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "byAuthor": "Commits by {{name}}",
+    "byAuthorButton": "Filter by author",
+    "byText": "Search text",
+    "pick": "Pick one or more authors."
+  },
+  "bisect": {
+    "ambiguous": "Bisect ended without certainty: only skipped commits are left. The first bad commit is one of: {{list}}.",
+    "markBad": "Bisect: mark as bad",
+    "markGood": "Bisect: mark as good",
+    "markSkip": "Bisect: skip this commit",
+    "markHint": "Find the commit that introduced a problem: mark one commit bad and one good, GitGR checks out the ones to test in between.",
+    "skipHint": "This commit can't be tested: try another one.",
+    "stopHint": "Stop the bisect and go back to the starting branch",
+    "needGood": "Bisect: mark an (older) good commit to start.",
+    "needBad": "Bisect: mark a bad commit to start.",
+    "testing_one": "Bisect: test {{sha}} (checked out), about {{count}} step left.",
+    "testing_other": "Bisect: test {{sha}} (checked out), about {{count}} steps left.",
+    "foundBanner": "Bisect done: {{sha}} is the first bad commit.",
+    "found": "Bisect done: {{sha}} is the first bad commit.",
+    "good": "Good",
+    "bad": "Bad",
+    "skip": "Skip",
+    "stop": "Stop",
+    "finish": "Finish",
+    "show": "Show commit",
+    "mark": {
+      "current": "to test",
+      "good": "good",
+      "bad": "bad",
+      "skipped": "skipped",
+      "firstBad": "first bad"
+    }
+  },
   "graphFind": {
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",
@@ -1140,6 +1179,9 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "bisect_inconsistent": "Bisect impossible: a commit marked good is not older than the bad one (or their common ancestor is already bad).",
+    "bisect_not_started": "No bisect in progress: mark a commit bad or good first.",
+    "invalid_verdict": "Unknown bisect verdict.",
     "file_missing": "This file does not exist (or no longer exists) in the working copy.",
     "outside_repo": "This path is outside the repository.",
     "not_a_repo": "This folder is not a Git repository.",

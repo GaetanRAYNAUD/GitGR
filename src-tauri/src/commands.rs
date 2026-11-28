@@ -184,6 +184,18 @@ pub async fn range_diff(
     history::range_diff(Path::new(&path), &base, &tip, &file, old_file.as_deref(), ignore_ws.unwrap_or(false), full.unwrap_or(false)).map_err(classify)
 }
 
+/// Auteurs de l'historique, du plus actif au moins actif.
+#[tauri::command]
+pub async fn repo_authors(path: String) -> Result<Vec<history::Author>, String> {
+    history::authors(Path::new(&path)).map_err(classify)
+}
+
+/// SHA des commits de ces auteurs (e-mails), toutes branches.
+#[tauri::command]
+pub async fn author_commits(path: String, emails: Vec<String>) -> Result<Vec<String>, String> {
+    history::author_commits(Path::new(&path), &emails).map_err(classify)
+}
+
 #[tauri::command]
 pub async fn search_changes(path: String, text: String, regex: bool, file: Option<String>) -> Result<Vec<Commit>, String> {
     history::search_changes(Path::new(&path), &text, regex, file.as_deref()).map_err(classify)
@@ -400,6 +412,24 @@ pub async fn checkout(path: String, branch: String, auto_stash: bool) -> Result<
 #[tauri::command]
 pub async fn checkout_remote(path: String, branch: String, auto_stash: bool) -> Result<(OpResult, String), String> {
     branches::checkout_remote(Path::new(&path), &branch, auto_stash)
+}
+
+/// Bisect en cours (`None` : aucun).
+#[tauri::command]
+pub async fn bisect_state(path: String) -> Result<Option<crate::bisect::BisectState>, String> {
+    crate::bisect::state(Path::new(&path))
+}
+
+/// Marque un commit (HEAD si absent) : `good`, `bad` ou `skip` ; renvoie le nouvel état.
+#[tauri::command]
+pub async fn bisect_mark(path: String, verdict: String, sha: Option<String>, auto_stash: bool) -> Result<(OpResult, crate::bisect::BisectState), String> {
+    crate::bisect::mark(Path::new(&path), &verdict, sha.as_deref(), auto_stash)
+}
+
+/// Arrête le bisect (retour à la branche de départ).
+#[tauri::command]
+pub async fn bisect_reset(path: String, auto_stash: bool) -> Result<OpResult, String> {
+    crate::bisect::reset(Path::new(&path), auto_stash)
 }
 
 #[tauri::command]

@@ -6,8 +6,10 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Bisect visuel : au clic droit d'un commit, « Bisect : marquer comme mauvais » puis « … comme bon » sur un plus ancien. GitGR extrait le commit à tester (vos modifications suivent, auto-stash), un bandeau dit combien d'étapes il reste et propose Bon, Mauvais, Passer ou Arrêter ; le graphe estompe ce qui est hors de la plage et marque les commits jugés. À la fin, le premier mauvais commit est sélectionné, « Terminer » revient à la branche de départ.
 - Branches récentes : le chevron à côté du nom de la branche courante (aussi un clic droit dessus, ou Ctrl+Maj+O) liste les dernières branches extraites, pour y revenir d'un clic sans passer par la barre latérale.
 - Ctrl+Maj+O n'ouvre plus la fenêtre « Ouvrir un dépôt » (Ctrl+O seul le fait).
+- Filtrer le graphe par auteur : « Commits de … » au clic droit d'un commit, ou le bouton Auteur de la barre de recherche (Ctrl+F). On choisit un ou plusieurs auteurs (vous en tête) ; leurs commits sont mis en avant sur toutes les branches, même au-delà des commits chargés, les autres estompés ; les flèches de la barre passent de l'un à l'autre.
 - Diff d'une image (PNG, JPEG, GIF, WebP, BMP, ICO, AVIF) : l'avant et l'après s'affichent côte à côte sur un damier, avec leurs dimensions et leur poids, ou superposés en fondu avec un curseur. Pour les autres fichiers binaires, la taille avant → après. Dans les commits, les plages, les stashes, l'historique d'un fichier, la recherche et les modifications en cours.
 - Copier un diff au format patch : le bouton « Copier le diff » de l'en-tête (ou le clic droit sur un fichier d'un commit) copie le fichier entier, « Copier » sur un bloc copie ce bloc, et Ctrl+C dans le diff copie les lignes cochées ou, sinon, le bloc de la ligne active. Une sélection de texte à la souris se copie toujours comme avant.
 - Signature GPG : un commit qui échoue parce que gpg-agent démarre encore est réessayé tout seul (deux fois, une seconde d'écart) au lieu d'afficher l'erreur ; l'agent est lancé dès qu'un profil signe en GPG.

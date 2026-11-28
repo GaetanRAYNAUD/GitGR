@@ -183,7 +183,7 @@ fn top_stash(path: &Path) -> Option<String> {
 /// l'app est interrompue entre-temps (cf. le bandeau de récupération côté interface).
 /// Avec le stash : `op` est relancée, puis les modifications réappliquées ; si `op` échoue
 /// encore, elles sont réappliquées tout de suite (HEAD n'a pas bougé).
-fn with_autostash(
+pub(crate) fn with_autostash(
     path: &Path,
     auto_stash: bool,
     label: &str,

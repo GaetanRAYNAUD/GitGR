@@ -7836,3 +7836,56 @@ body.commit-dragging * {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* Filtre par auteurs dans la barre de recherche du graphe : libellé à gauche du champ. */
+.author-filter {
+  flex: 0 1 480px;
+  min-width: 200px;
+}
+
+.author-filter .mpick-field {
+  flex-direction: row;
+  align-items: center;
+}
+
+.graph-find .icon-btn.on {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Bisect : marque devant le message d'un commit marqué (bon, mauvais, à tester…). */
+.bisect-mark {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--text);
+  background: var(--hover);
+}
+
+.bisect-mark.good {
+  background: color-mix(in srgb, var(--add) 22%, transparent);
+}
+
+.bisect-mark.bad,
+.bisect-mark.firstBad {
+  background: color-mix(in srgb, var(--del) 24%, transparent);
+}
+
+.bisect-mark.current {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/* Bandeau du bisect : même forme que celui de l'auto-stash, teinte de l'accent. */
+.bisect-banner {
+  border-bottom-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.bisect-banner > span {
+  flex: 1;
+  min-width: 0;
+}

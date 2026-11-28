@@ -109,6 +109,66 @@ pub fn search_changes(path: &Path, text: &str, regex: bool, file: Option<&str>) 
     }
 }
 
+/// Un auteur de l'historique (toutes branches), pour filtrer le graphe.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Author {
+    pub name: String,
+    pub email: String,
+    /// Nombre de commits.
+    pub count: u32,
+}
+
+/// Auteurs de l'historique (toutes branches, `.mailmap` appliqué), du plus actif au moins actif ;
+/// regroupés par e-mail (sans casse), avec le nom le plus fréquent.
+pub fn authors(path: &Path) -> Result<Vec<Author>, String> {
+    check_dir(path)?;
+    let out = match run(Some(path), &["log", "--exclude=refs/stash", "--exclude=refs/notes/*", "--all", "--format=%aN%x1f%aE"]) {
+        Ok(out) => out,
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") => return Ok(vec![]),
+        Err(e) => return Err(e),
+    };
+    // e-mail → (nombre de commits, noms et leurs comptes).
+    let mut by_email: std::collections::HashMap<String, (u32, String, std::collections::HashMap<String, u32>)> = Default::default();
+    for line in out.lines() {
+        let Some((name, email)) = line.split_once('\x1f') else { continue };
+        let e = by_email.entry(email.to_lowercase()).or_insert_with(|| (0, email.to_string(), Default::default()));
+        e.0 += 1;
+        *e.2.entry(name.to_string()).or_default() += 1;
+    }
+    let mut list: Vec<Author> = by_email
+        .into_values()
+        .map(|(count, email, names)| {
+            let name = names.into_iter().max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0))).map(|(n, _)| n).unwrap_or_default();
+            Author { name, email, count }
+        })
+        .collect();
+    list.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    Ok(list)
+}
+
+/// Au plus, commits d'auteurs renvoyés pour le filtre du graphe.
+const AUTHOR_LIMIT: u32 = 50_000;
+
+/// SHA des commits (toutes branches) dont l'auteur a l'un de ces e-mails (sans casse).
+pub fn author_commits(path: &Path, emails: &[String]) -> Result<Vec<String>, String> {
+    check_dir(path)?;
+    let emails: Vec<&String> = emails.iter().filter(|e| !e.trim().is_empty()).collect();
+    if emails.is_empty() {
+        return Ok(vec![]);
+    }
+    let limit = format!("--max-count={AUTHOR_LIMIT}");
+    // `<e-mail>` en texte fixe : pas une partie d'une autre adresse.
+    let patterns: Vec<String> = emails.iter().map(|e| format!("--author=<{}>", e.trim())).collect();
+    let mut args: Vec<&str> = vec!["log", "--exclude=refs/stash", "--exclude=refs/notes/*", "--all", "-F", "-i", "--format=%H", &limit];
+    args.extend(patterns.iter().map(String::as_str));
+    match run(Some(path), &args) {
+        Ok(out) => Ok(out.lines().map(str::to_string).filter(|l| !l.is_empty()).collect()),
+        Err(e) if e.contains("does not have any commits") || e.contains("bad default revision") => Ok(vec![]),
+        Err(e) => Err(e),
+    }
+}
+
 /// Fichiers d'un commit où `text` apparaît ou disparaît (même règle que [`search_changes`],
 /// par rapport au premier parent), pour montrer le diff de la recherche à côté des résultats.
 pub fn search_files(path: &Path, sha: &str, text: &str, regex: bool, file: Option<&str>) -> Result<Vec<FileChange>, String> {
@@ -1107,6 +1167,34 @@ mod tests {
         let bin = blob_preview(p, None, "x.bin").unwrap().unwrap();
         assert_eq!((bin.size, bin.mime, bin.data), (3, None, None));
         assert!(blob_preview(p, None, "../x").is_err());
+    }
+
+    #[test]
+    fn authors_and_their_commits() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        let commit = |name: &str, email: &str, file: &str| {
+            std::fs::write(p.join(file), file).unwrap();
+            run(Some(p), &["add", file]).unwrap();
+            run(Some(p), &["-c", &format!("user.name={name}"), "-c", &format!("user.email={email}"), "commit", "-qm", file]).unwrap();
+            run(Some(p), &["rev-parse", "HEAD"]).unwrap()
+        };
+        let a1 = commit("Alice", "alice@x.fr", "1");
+        commit("Bob", "bob@x.fr", "2");
+        let a2 = commit("Alice D.", "Alice@x.fr", "3");
+        commit("Al", "al@x.fr", "4");
+        let list = authors(p).unwrap();
+        assert_eq!(list[0].count, 2);
+        assert_eq!(list[0].email.to_lowercase(), "alice@x.fr");
+        assert_eq!(list.len(), 3);
+        // `al@x.fr` ne prend pas les commits d'`alice@x.fr` (ni l'inverse) ; casse ignorée.
+        let mut got = author_commits(p, &["ALICE@x.fr".into()]).unwrap();
+        got.sort();
+        let mut want = vec![a1, a2];
+        want.sort();
+        assert_eq!(got, want);
+        assert_eq!(author_commits(p, &["al@x.fr".into()]).unwrap().len(), 1);
+        assert!(author_commits(p, &[]).unwrap().is_empty());
     }
 
     #[test]

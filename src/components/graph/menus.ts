@@ -13,6 +13,7 @@ import { useDialogs } from "../../store/dialogs";
 import { usePullList } from "../../store/pullList";
 import { useBlameView, useConflictView, useFileHistoryView } from "../../store/range";
 import { defaultRemote, useOps } from "../../store/ops";
+import { useBisect } from "../../store/bisect";
 import { useProfiles } from "../../store/profiles";
 import { usePublishDialog } from "../../store/publish";
 import { usePullDialog } from "../../store/pulls";
@@ -542,8 +543,22 @@ export function commitMenu(t: TFunction, path: string, sha: string, refs: RefsIn
       onClick: () => void ops.resetTo(path, sha),
     },
     "sep",
+    ...bisectItems(t, path, sha),
+    "sep",
     { label: t("menu.copySha"), onClick: () => copy(sha) },
   ];
+}
+
+/** Marques de bisect d'un commit (commencent le bisect au besoin). */
+function bisectItems(t: TFunction, path: string, sha: string): MenuItem[] {
+  const state = useBisect.getState().states[path];
+  const ops = useOps.getState();
+  const items: MenuItem[] = [
+    { label: t("bisect.markBad"), title: t("bisect.markHint"), onClick: () => void ops.bisect(path, "bad", sha) },
+    { label: t("bisect.markGood"), title: t("bisect.markHint"), onClick: () => void ops.bisect(path, "good", sha) },
+  ];
+  if (state) items.push({ label: t("bisect.markSkip"), title: t("bisect.skipHint"), onClick: () => void ops.bisect(path, "skip", sha) });
+  return items;
 }
 
 /** Chemin absolu d'un fichier du dépôt, avec le séparateur du chemin du dépôt. */

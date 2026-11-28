@@ -20,6 +20,7 @@
 pub mod askpass;
 pub mod credential;
 mod avatars;
+mod bisect;
 mod branches;
 mod clone;
 mod commands;
@@ -127,6 +128,11 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::bisect_state,
+            commands::bisect_mark,
+            commands::bisect_reset,
+            commands::repo_authors,
+            commands::author_commits,
             commands::blob_preview,
             commands::search_changes,
             commands::search_files,

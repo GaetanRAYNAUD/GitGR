@@ -380,6 +380,30 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Bisect en cours (src-tauri/src/bisect.rs). */
+export interface BisectState {
+  bad: string | null;
+  good: string[];
+  skipped: string[];
+  /** Commit extrait, à tester. */
+  current: string | null;
+  /** Commits qui restent à départager ; `null` tant qu'il manque un bon ou le mauvais. */
+  remaining: number | null;
+  steps: number | null;
+  firstBad: string | null;
+  /** Plus que des commits passés à tester : le premier mauvais est l'un de ceux-là. */
+  possible: string[];
+  /** Plage encore en jeu (mauvais compris), du plus récent au plus ancien. */
+  candidates: string[];
+}
+
+/** Un auteur de l'historique (filtre du graphe, src-tauri/src/history.rs). */
+export interface Author {
+  name: string;
+  email: string;
+  count: number;
+}
+
 /** Une version d'un fichier binaire (aperçu du diff, src-tauri/src/history.rs). */
 export interface BlobPreview {
   size: number;

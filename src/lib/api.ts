@@ -11,6 +11,9 @@ import {
   mockSetRemoteUrl,
   mockCheckout,
   mockCheckoutDetached,
+  mockBisectMark,
+  mockBisectReset,
+  mockBisectState,
   mockCheckoutRemote,
   mockCreateBranch,
   mockDeleteBranch,
@@ -43,7 +46,7 @@ import {
   mockStashPop,
   mockStashPush,
 } from "./mockBranches";
-import { mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
+import { mockAuthors, mockBlobPreview, mockCommit, mockDetails, mockDiff, mockHeadMessage, mockHistory, mockIgnoreWs } from "./mockHistory";
 import { mockMarkNotificationRead, mockPollNotifications, mockSeenNotifications, mockSystemNotifications } from "./mockNotifications";
 import { mockListPulls, mockPullAct, mockPullActions, mockPullDetail, mockPullFileDiff, mockPullFiles, mockPullsPath } from "./mockPulls";
 import { mockAddConflict, mockConflictVersions, mockResolveConflict,
@@ -114,9 +117,14 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  BisectState,
+  Author,
   BlobPreview,
   BlobSide,
 } from "./types";
+
+/** Verdict d'un bisect. */
+export type BisectVerdict = "good" | "bad" | "skip";
 
 export interface Api {
   gitInfo(): Promise<GitInfo>;
@@ -150,6 +158,10 @@ export interface Api {
   blame(path: string, file: string, rev: string | null): Promise<Blame>;
   /** Positions passées de HEAD (`"HEAD"`) ou d'une branche locale, la plus récente d'abord. */
   reflog(path: string, refname: string): Promise<ReflogEntry[]>;
+  /** Auteurs de l'historique (toutes branches), du plus actif au moins actif. */
+  repoAuthors(path: string): Promise<Author[]>;
+  /** SHA des commits (toutes branches) de ces auteurs (e-mails, sans casse). */
+  authorCommits(path: string, emails: string[]): Promise<string[]>;
   /** Une version d'un fichier binaire pour l'aperçu du diff ; `null` si absente de cette version. */
   blobPreview(path: string, side: BlobSide): Promise<BlobPreview | null>;
   /** Déplace la branche courante sur `sha` (soft / mixed / hard). */
@@ -199,6 +211,12 @@ export interface Api {
   /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** Bisect en cours (`null` : aucun). */
+  bisectState(path: string): Promise<BisectState | null>;
+  /** Marque `sha` (HEAD si `null`) bon, mauvais ou à passer ; commence le bisect au besoin. */
+  bisectMark(path: string, verdict: BisectVerdict, sha: string | null, autoStash: boolean): Promise<[OpResult, BisectState]>;
+  /** Arrête le bisect (retour à la branche de départ). */
+  bisectReset(path: string, autoStash: boolean): Promise<OpResult>;
   /** `start` : SHA ou nom de ref (`null` : HEAD). */
   createBranch(path: string, name: string, start: string | null, checkout: boolean, autoStash: boolean): Promise<OpResult>;
   renameBranch(path: string, oldName: string, newName: string): Promise<void>;
@@ -430,6 +448,8 @@ const tauriApi: Api = {
   rangeDiff: (path, base, tip, file, oldFile, opts) => invoke("range_diff", { path, base, tip, file, oldFile, ignoreWs: !!opts?.ignoreWs, full: !!opts?.full }),
   compareFiles: (path, base, tip) => invoke("compare_files", { path, base, tip }),
   reflog: (path, refname) => invoke("reflog", { path, refname }),
+  repoAuthors: (path) => invoke("repo_authors", { path }),
+  authorCommits: (path, emails) => invoke("author_commits", { path, emails }),
   blobPreview: (path, side) => invoke("blob_preview", { path, rev: side.rev, file: side.file }),
   searchChanges: (path, text, regex, file) => invoke("search_changes", { path, text, regex, file }),
   searchFiles: (path, sha, text, regex, file) => invoke("search_files", { path, sha, text, regex, file }),
@@ -462,6 +482,9 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  bisectState: (path) => invoke("bisect_state", { path }),
+  bisectMark: (path, verdict, sha, autoStash) => invoke("bisect_mark", { path, verdict, sha, autoStash }),
+  bisectReset: (path, autoStash) => invoke("bisect_reset", { path, autoStash }),
   createBranch: (path, name, start, checkout, autoStash) => invoke("create_branch", { path, name, start, checkout, autoStash }),
   renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
   deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
@@ -906,6 +929,15 @@ const mockApi: Api = {
     await mockDelay();
     return mockReflog(path, refname);
   },
+  async repoAuthors(path) {
+    await mockDelay();
+    return mockAuthors(path);
+  },
+  async authorCommits(path, emails) {
+    await mockDelay();
+    const want = new Set(emails.map((e) => e.toLowerCase()));
+    return mockHistory(path).commits.filter((c) => want.has(c.email.toLowerCase())).map((c) => c.sha);
+  },
   async blobPreview(_path, side) {
     await mockDelay();
     return mockBlobPreview(side);
@@ -989,6 +1021,9 @@ const mockApi: Api = {
   checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  bisectState: async (path) => mockBisectState(path),
+  bisectMark: async (path, verdict, sha, autoStash) => mockBisectMark(path, verdict, sha, autoStash),
+  bisectReset: async (path, autoStash) => mockBisectReset(path, autoStash),
   createBranch: async (path, name, start, checkout, autoStash) => mockCreateBranch(path, name, start, checkout, autoStash),
   renameBranch: async (path, oldName, newName) => mockRenameBranch(path, oldName, newName),
   deleteBranch: async (path, branch, force) => mockDeleteBranch(path, branch, force),

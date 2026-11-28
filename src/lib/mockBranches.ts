@@ -4,7 +4,7 @@
 import { mockHistory, mockNewCommit } from "./mockHistory";
 import { mockChangeCount, mockDiscardAll, mockRestore, mockSnapshot } from "./mockWorktree";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "./branchName";
-import type { AutoStash, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
+import type { AutoStash, BisectState, FileChange, GitRef, OpResult, PullStrategy, ReflogEntry, RemoteInfo, ResetMode, StashChanges, StashEntry } from "./types";
 
 const OK: OpResult = { stashed: false, stashKept: false, conflicts: false };
 
@@ -546,4 +546,66 @@ export function mockRemoveRemote(path: string, name: string) {
 export function resetMockBranches() {
   stashes.clear();
   reflogs.clear();
+}
+
+// --- Bisect simulé ------------------------------------------------------------
+
+interface MockBisect {
+  start: { head: string | null; branch: string | null };
+  bad: string | null;
+  good: string[];
+  skipped: string[];
+}
+const bisects = new Map<string, MockBisect>();
+
+function bisectView(path: string, b: MockBisect): BisectState {
+  const commits = mockHistory(path).commits;
+  const base: BisectState = { bad: b.bad, good: b.good, skipped: b.skipped, current: mockHistory(path).refs.head, remaining: null, steps: null, firstBad: null, possible: [], candidates: [] };
+  if (!b.bad || !b.good.length) return base;
+  const reach = ancestors(path, b.bad);
+  const out = new Set<string>();
+  for (const g of b.good) for (const s of ancestors(path, g)) out.add(s);
+  const candidates = commits.map((c) => c.sha).filter((s) => reach.has(s) && !out.has(s));
+  const open = candidates.filter((s) => !b.skipped.includes(s));
+  const left = Math.max(0, open.length - 1);
+  return { ...base, candidates, remaining: left, steps: left ? Math.max(1, Math.floor(Math.log2(left))) : 0, firstBad: open.length === 1 && open[0] === b.bad ? b.bad : null };
+}
+
+export function mockBisectState(path: string): BisectState | null {
+  const b = bisects.get(path);
+  return b ? bisectView(path, b) : null;
+}
+
+export function mockBisectMark(path: string, verdict: "good" | "bad" | "skip", sha: string | null, autoStash: boolean): [OpResult, BisectState] {
+  const h = mockHistory(path);
+  let b = bisects.get(path);
+  if (!b) {
+    if (verdict === "skip") throw "bisect_not_started";
+    b = { start: { head: h.refs.head, branch: h.refs.headBranch }, bad: null, good: [], skipped: [] };
+    bisects.set(path, b);
+  }
+  const target = sha ?? h.refs.head!;
+  if (verdict === "bad") b.bad = target;
+  else if (verdict === "good") b.good = [...b.good, target];
+  else b.skipped = [...b.skipped, target];
+  let res = OK;
+  const view = bisectView(path, b);
+  if (view.remaining !== null && !view.firstBad) {
+    const open = view.candidates.filter((s) => s !== b!.bad && !b!.skipped.includes(s));
+    const next = open[Math.floor(open.length / 2)];
+    if (next) {
+      res = stashResult(path, autoStash);
+      moveHead(path, null, next);
+    }
+  }
+  return [res, bisectView(path, b)];
+}
+
+export function mockBisectReset(path: string, autoStash: boolean): OpResult {
+  const b = bisects.get(path);
+  if (!b) return OK;
+  bisects.delete(path);
+  const res = stashResult(path, autoStash);
+  if (b.start.head) moveHead(path, b.start.branch, b.start.branch ? (local(path, b.start.branch)?.target ?? b.start.head) : b.start.head);
+  return res;
 }

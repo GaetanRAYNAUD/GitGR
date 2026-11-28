@@ -10,7 +10,8 @@
 
 import { create } from "zustand";
 import i18n from "../i18n";
-import { api, errorCode } from "../lib/api";
+import { api, type BisectVerdict, errorCode } from "../lib/api";
+import { useBisect } from "./bisect";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
 import { errorMessage } from "../lib/errors";
 import { remoteProfile } from "../lib/profiles";
@@ -46,6 +47,11 @@ interface OpsStore {
    *  comme le bouton Pull (même stratégie, auto-stash, arrêt sur les conflits). */
   checkoutRemote(path: string, branch: string): Promise<boolean>;
   checkoutDetached(path: string, sha: string): Promise<boolean>;
+  /** Bisect : marque `sha` (le commit extrait si `null`) bon, mauvais ou à passer ; extrait le
+   *  suivant à tester (auto-stash). Trouvé : le premier mauvais commit est sélectionné. */
+  bisect(path: string, verdict: BisectVerdict, sha: string | null): Promise<boolean>;
+  /** Arrête le bisect : retour à la branche de départ. */
+  bisectReset(path: string): Promise<boolean>;
   /** Déplace la branche courante sur `sha`, mode demandé (soft / mixed / hard). */
   resetTo(path: string, sha: string, mode?: ResetMode): Promise<boolean>;
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
@@ -277,6 +283,32 @@ export const useOps = create<OpsStore>((set, get) => {
     },
 
     checkoutDetached: (path, sha) => switchTo(path, (stash) => api.checkoutDetached(path, sha, stash)),
+
+    async bisect(path, verdict, sha) {
+      const out = await exec(path, "checkout", () => api.bisectMark(path, verdict, sha, autoStash(path)));
+      if (!out.ok) {
+        void useBisect.getState().load(path);
+        return fail(out.error);
+      }
+      const [res, state] = out.value;
+      useBisect.getState().set(path, state);
+      report(res, "bisect");
+      if (state.firstBad) {
+        notify(t("bisect.found", { sha: state.firstBad.slice(0, 7) }), true);
+        await useGraph.getState().reveal(path, state.firstBad);
+      } else if (state.possible.length) notify(t("bisect.ambiguous", { list: state.possible.map((x) => x.slice(0, 7)).join(", ") }), true);
+      else await selectHead(path);
+      return true;
+    },
+
+    async bisectReset(path) {
+      const out = await exec(path, "checkout", () => api.bisectReset(path, autoStash(path)));
+      void useBisect.getState().load(path);
+      if (!out.ok) return fail(out.error);
+      report(out.value, "bisect");
+      await selectHead(path);
+      return true;
+    },
 
     checkoutPull: (path, remote, kind, number, branch, fork) =>
       switchTo(path, async (stash) => (await api.checkoutPull(path, remote, kind, number, branch, fork, stash))[0]),

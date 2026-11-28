@@ -244,6 +244,8 @@ Compléments et retours d'utilisation, par thème.
 **Suite de la feuille de route (après l'étape 13)**
 - **Branches récentes** (étape 4) : chevron à côté de la pastille de branche, clic droit sur elle ou Ctrl+Maj+O ; lues dans le reflog de HEAD (`checkout: moving from a to b`, `lib/refs.ts` `recentBranches`), sans la courante ni les branches supprimées ; checkout avec auto-stash.
 - **Aperçu des images dans le diff** (étape 8) : `blob_preview` (taille, data URL d'une image ≤ 16 Mo ; version d'un commit, de l'index ou du disque), `BinaryPreview` (avant / après côte à côte sur damier, dimensions, poids et écart, ou fondu au curseur), branché dans le diff d'un commit, de la copie de travail, d'une plage, d'un stash, de l'historique d'un fichier et de la recherche.
+- **Filtre du graphe par auteur** (étape 8) : `repo_authors` (toutes branches, regroupés par e-mail sans casse, nom le plus fréquent) et `author_commits` (`git log --all -F -i --author=<e-mail>`, 50 000 au plus) ; dans la barre de recherche du graphe, bouton Auteur et `MultiPicker` des auteurs (identité du dépôt en tête), « Commits de … » au clic droit d'un commit ; même mise en avant, estompage, compte « hors des commits chargés » et flèches que la recherche.
+- **Bisect visuel** (étape 8) : `bisect.rs` (état lu dans `refs/bisect/*` et `BISECT_START`, plage `rev-list bad --not good…`, étapes ≈ log2, premier mauvais quand il ne reste que lui ; `mark` commence le bisect au besoin, checkout par `with_autostash` ; `reset`), store `bisect`, actions `ops.bisect` / `bisectReset`, bandeau (Bon / Mauvais / Passer / Arrêter, Voir / Terminer), marques dans le message et l'étiquette lue, plage estompée dans le graphe, entrées au clic droit d'un commit.
 
 ## Reste à faire
 
@@ -289,9 +291,9 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 ### Étape 8 — historique avancé
 
-- [ ] **Bisect visuel** : depuis le clic droit sur un commit, « Marquer comme mauvais » / « Marquer comme bon » (`git bisect start / good / bad`) ; le graphe met en évidence la plage restante et le commit à tester (checkout fait, auto-stash), bandeau « Bisect : environ N étapes » avec Bon / Mauvais / Passer / Arrêter ; à la fin, le premier mauvais commit est sélectionné. Option : lancer une commande de test (`git bisect run`) et suivre sa sortie.
+- [ ] **Bisect visuel** (fait, cf. « Fait ») ; reste : lancer une commande de test (`git bisect run`) et suivre sa sortie ; termes personnalisés (`--term-old/new`) ; marques de bisect sur les commits hors des pages chargées.
 - [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés : fait, cf. « Fait ») : par fichier, au-delà des commits chargés (côté git), filtre qui masque les autres lignes ; masquer / solo des branches.
-- [ ] **Filtrer le graphe par auteur du commit** : choisir un ou plusieurs auteurs (liste tirée de l'historique, moi en tête) ; les autres commits masqués ou estompés, au-delà des commits chargés (`git log --author`).
+- [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
 - [ ] **Glisser-déposer d'une branche** (sur une branche locale : fait, cf. « Fait ») : sur une branche distante (PR / MR vers elle), depuis une branche distante (merge).

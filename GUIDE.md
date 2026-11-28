@@ -22,6 +22,8 @@ GitGR est un client Git de bureau pour Windows et Linux : un graphe des commits 
 - Cliquez sur un commit pour voir ses détails et ses fichiers, puis sur un fichier pour voir son diff (en ligne ou côte à côte). Échap revient au graphe.
 - **Copier un diff** au format patch : « Copier le diff » dans l'en-tête du diff (ou au clic droit sur un fichier du commit), « Copier » sur un bloc, ou Ctrl+C dans le diff (les lignes cochées, sinon le bloc de la ligne active).
 - Navigation au clavier : ↑ ↓, Page préc. / Page suiv., Début / Fin ; Maj+↑ / Maj+↓ étendent la sélection. Maj+F10 (ou la touche Menu) ouvre le menu du commit, Entrée passe au panneau de détails, Ctrl+G revient au graphe. Ctrl+F cherche un commit parmi ceux chargés.
+- **Filtrer par auteur** : clic droit sur un commit, « Commits de … », ou le bouton Auteur de la barre de recherche : choisissez un ou plusieurs auteurs ; leurs commits restent en avant, les autres sont estompés.
+- **Bisect** (trouver le commit qui a introduit un problème) : clic droit sur un commit qui a le problème, « Bisect : marquer comme mauvais », puis sur un plus ancien qui ne l'a pas, « … comme bon ». GitGR extrait les commits à tester ; répondez Bon ou Mauvais dans le bandeau jusqu'au premier mauvais commit, puis « Terminer ».
 - Les colonnes s'affichent ou se masquent d'un clic droit sur l'en-tête, et se redimensionnent à la souris. Les branches principales (`main`, `develop`, `release/*`…) ont des couleurs fixes, modifiables dans les Réglages ou d'un clic droit sur une branche (« Couleur fixe pour ce nom… »).
 - Le graphe se rafraîchit tout seul quand le dépôt change ailleurs (terminal, éditeur). F5 force le rafraîchissement.
 
