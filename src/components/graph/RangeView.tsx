@@ -106,6 +106,10 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
 
   const shown = focus && details?.sha === focus ? details : null;
   const files = focus ? (shown?.data?.files ?? null) : (data?.files ?? null);
+  /** Diff d'un fichier dans la portée affichée (le commit centré, ou toute la plage), sans les
+   *  réglages d'affichage : celui qu'on copie. */
+  const fileDiffOf = (f: { path: string; oldPath: string | null }) =>
+    focus ? api.commitDiff(path, focus, f.path, f.oldPath) : api.rangeDiff(path, data!.base, data!.tip, f.path, f.oldPath);
   // Le diff suit le fichier et la portée : le commit centré, ou toute la plage.
   useEffect(() => {
     if (!file || !data || !files?.some((f) => f.path === file.path)) return;
@@ -240,7 +244,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
                 label={filesLabel}
                 isActive={(f) => file?.path === f.path}
                 onOpen={setFile}
-                onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+                onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { change: f, load: () => fileDiffOf(f) }))}
               />
             )}
           </div>
@@ -249,7 +253,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
               <>
                 <header className="diff-head">
                   <StatusBadge status={file.status} />
-                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
+                  <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, { change: file, load: () => fileDiffOf(file) }))} />
                   {diff?.data && <DiffStats diff={diff.data} />}
                   <DiffViewToggle />
                 </header>

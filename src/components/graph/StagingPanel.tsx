@@ -1,6 +1,7 @@
 // Panneau de droite quand la ligne « modifications en cours » est sélectionnée :
 // fichiers non indexés / indexés / en conflit, et zone de commit.
 
+import { api } from "../../lib/api";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openContextMenu, type MenuItem } from "../ContextMenu";
@@ -125,7 +126,9 @@ export function StagingPanel({ path }: { path: string }) {
     const sel = picked?.kind === kind ? files.filter((x) => picked.paths.has(x.path)) : [];
     if (sel.length > 1 && sel.includes(f)) return openContextMenu(e, bulkItems(kind, sel));
     setPicked({ kind, paths: new Set([f.path]) });
-    openContextMenu(e, [...stagingItems(kind, f), "sep", ...fileMenu(t, path, f.path)]);
+    // Conflit : pas de diff à copier (cf. la vue de résolution).
+    const copy = kind === "conflicted" ? undefined : { rev: null, change: f, load: () => api.workDiff(path, f.path, f.oldPath, areaOf(f, kind)) };
+    openContextMenu(e, [...stagingItems(kind, f), "sep", ...fileMenu(t, path, f.path, copy)]);
   };
 
   /** Clic droit sur un dossier (arborescence) : ses fichiers de cette liste. */

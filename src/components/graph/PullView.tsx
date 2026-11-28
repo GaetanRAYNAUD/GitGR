@@ -716,7 +716,7 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
             label={t("details.files", { count: files.length })}
             isActive={(f) => file?.path === f.path}
             onOpen={setFile}
-            onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path))}
+            onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, head ? { change: f, load: () => api.pullFileDiff(path, target, head, f.path, f.oldPath) } : undefined))}
             // Fils de discussion sur le fichier : toujours visibles (cf. .pull-file-list .file-actions).
             actions={(f) =>
               comments.get(f.path) ? (
@@ -733,7 +733,7 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
           <>
             <header className="diff-head">
               <StatusBadge status={file.status} />
-              <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path))} />
+              <DiffPath file={file} onContextMenu={(e) => openContextMenu(e, fileMenu(t, path, file.path, head ? { change: file, load: () => api.pullFileDiff(path, target, head, file.path, file.oldPath) } : undefined))} />
               {diff?.data && <DiffStats diff={diff.data} />}
               <DiffViewToggle />
             </header>

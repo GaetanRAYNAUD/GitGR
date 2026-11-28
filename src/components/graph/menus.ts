@@ -4,7 +4,7 @@ import { copyPatch, filePatch, type PatchFile } from "../../lib/patch";
 import type { TFunction } from "i18next";
 import { remoteProfile } from "../../lib/profiles";
 import { pullSource, pullTargetOf } from "../../lib/pulls";
-import type { GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
+import type { FileDiff, GitRef, RefsInfo, RemoteInfo } from "../../lib/types";
 import { api, errorCode } from "../../lib/api";
 import { useApp } from "../../store/app";
 import { useGraph } from "../../store/graph";
@@ -647,15 +647,31 @@ export function showBlame(repo: string, file: string, rev: string | null) {
 /** Clic droit sur un fichier (fichiers d'un commit, modifications en cours). `at` : le
  *  commit où le fichier est montré (blame à ce commit ; sinon sur la copie de travail),
  *  `deleted` s'il n'y existe plus (pas de blame). */
-export function fileMenu(t: TFunction, repo: string, file: string, at?: { rev: string; deleted?: boolean; change?: PatchFile }): MenuItem[] {
+export function fileMenu(
+  t: TFunction,
+  repo: string,
+  file: string,
+  at?: {
+    /** Version du fichier (blame, diff d'un commit) ; `null` : la copie de travail. */
+    rev?: string | null;
+    deleted?: boolean;
+    /** Le fichier dans le diff affiché : « Copier le diff du fichier ». */
+    change?: PatchFile;
+    /** Lit son diff (plage, stash, PR / MR, modifications en cours) ; par défaut : celui du
+     *  commit `rev`. */
+    load?: () => Promise<FileDiff>;
+  },
+): MenuItem[] {
   const change = at?.change;
-  const copyDiff: MenuItem[] = change
+  const load = at?.load ?? (change && at?.rev ? () => api.commitDiff(repo, at.rev!, change.path, change.oldPath) : null);
+  const copyDiff: MenuItem[] =
+    change && load
     ? [
         {
           label: t("patch.copyFile"),
           title: t("patch.copyFileHint"),
           onClick: () =>
-            void api.commitDiff(repo, at!.rev, change.path, change.oldPath).then(
+            void load().then(
               (d) =>
                 d.binary || !d.hunks.length
                   ? useApp.getState().notify(t("patch.nothing"))
