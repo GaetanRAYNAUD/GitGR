@@ -5,6 +5,7 @@ import { ContextMenuHost } from "./components/ContextMenu";
 import { BranchColorPopoverHost } from "./components/BranchColorPopover";
 import { DialogHost } from "./components/DialogHost";
 import { QuickOpenHost, useQuickOpen } from "./components/QuickOpen";
+import { CommandPaletteHost, usePalette } from "./components/CommandPalette";
 import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
@@ -61,7 +62,8 @@ const modalOpen = () => !!document.querySelector('[aria-modal="true"]');
  *  Ctrl+Maj+PageUp / PageDown pour déplacer l'onglet actif, Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z)
  *  pour annuler / rétablir la dernière opération git du dépôt actif, Ctrl+E pour le sélecteur
  *  rapide de dépôts, Ctrl+G pour revenir au graphe, Ctrl+Maj+N pour les notifications, F6
- *  pour aller au message affiché en bas (et à ses boutons), F1 pour la liste des raccourcis. */
+ *  pour aller au message affiché en bas (et à ses boutons), F1 pour la liste des raccourcis,
+ *  Ctrl+P pour la palette de commandes. */
 function useShortcuts() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -88,6 +90,15 @@ function useShortcuts() {
         const q = useQuickOpen.getState();
         if (q.open) q.hide();
         else q.show();
+      } else if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "p") {
+        // Palette de commandes (une seconde fois : la refermer).
+        if (modal && !usePalette.getState().open) return;
+        const p = usePalette.getState();
+        if (p.open) p.hide();
+        else {
+          useQuickOpen.getState().hide();
+          p.show();
+        }
       } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === "o") {
         if (modal) return;
         s.pickAndOpen(t("welcome.pickTitle"));
@@ -345,6 +356,7 @@ export default function App() {
       <PublishDialogHost />
       <DialogHost />
       <QuickOpenHost />
+      <CommandPaletteHost />
       <BranchColorPopoverHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}

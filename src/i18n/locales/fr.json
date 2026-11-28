@@ -418,6 +418,7 @@
       "End": "Fin"
     },
     "items": {
+      "palette": "Palette de commandes",
       "openRepo": "Ouvrir un dépôt",
       "quickOpen": "Sélecteur rapide de dépôts",
       "home": "Accueil (nouvel onglet)",
@@ -469,6 +470,28 @@
       "conflictSide": "Prendre le côté gauche / droit",
       "conflictMove": "Déplacer la ligne du résultat",
       "conflictSave": "Enregistrer le résultat"
+    }
+  },
+  "palette": {
+    "title": "Palette de commandes",
+    "placeholder": "Tapez une commande, une branche, un dépôt…",
+    "none": "Aucune commande ne correspond.",
+    "hint": "↑ ↓ pour choisir · Entrée pour lancer · Échap pour fermer",
+    "settings": "Réglages",
+    "profiles": "Profils et comptes",
+    "searchChanges": "Chercher dans les modifications",
+    "reflog": "Reflog (positions passées de HEAD)",
+    "createPull": "Créer une PR / MR…",
+    "bisectStop": "Arrêter le bisect",
+    "checkout": "Checkout : {{branch}}",
+    "goTab": "Aller à l’onglet {{name}}",
+    "noRemote": "Le dépôt n’a pas de remote.",
+    "noStash": "Aucun stash à réappliquer.",
+    "groups": {
+      "app": "GitGR",
+      "repo": "Dépôt",
+      "branches": "Branches",
+      "tabs": "Onglets"
     }
   },
   "graphFind": {

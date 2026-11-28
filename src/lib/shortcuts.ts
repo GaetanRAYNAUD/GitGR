@@ -17,6 +17,7 @@ export interface Shortcut {
 export const ZONES: ShortcutZone[] = ["global", "tabs", "toolbar", "graph", "sidebar", "changes", "diff", "conflicts"];
 
 export const SHORTCUTS: Shortcut[] = [
+  { id: "palette", zone: "global", keys: ["Ctrl+P"] },
   { id: "openRepo", zone: "global", keys: ["Ctrl+O"] },
   { id: "quickOpen", zone: "global", keys: ["Ctrl+E"] },
   { id: "home", zone: "global", keys: ["Ctrl+T"] },

@@ -7940,3 +7940,25 @@ kbd {
   font: 11px/16px "JetBrains Mono", ui-monospace, monospace;
   text-align: center;
 }
+
+/* Palette de commandes : la forme du sélecteur rapide ; groupe et raccourci à droite. */
+.palette .quick-item .quick-path {
+  margin-left: auto;
+  flex: none;
+}
+
+.palette .quick-item .kbd-combo {
+  flex: none;
+}
+
+.palette .quick-item.disabled .quick-name {
+  color: var(--faint);
+}
+
+.palette .quick-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

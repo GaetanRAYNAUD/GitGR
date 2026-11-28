@@ -418,6 +418,7 @@
       "End": "End"
     },
     "items": {
+      "palette": "Command palette",
       "openRepo": "Open a repository",
       "quickOpen": "Quick repository switcher",
       "home": "Home (new tab)",
@@ -469,6 +470,28 @@
       "conflictSide": "Take the left / right side",
       "conflictMove": "Move the result line",
       "conflictSave": "Save the result"
+    }
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Type a command, a branch, a repository…",
+    "none": "No command matches.",
+    "hint": "↑ ↓ to choose · Enter to run · Esc to close",
+    "settings": "Settings",
+    "profiles": "Profiles and accounts",
+    "searchChanges": "Search in changes",
+    "reflog": "Reflog (past positions of HEAD)",
+    "createPull": "Create a PR / MR…",
+    "bisectStop": "Stop the bisect",
+    "checkout": "Check out: {{branch}}",
+    "goTab": "Go to tab {{name}}",
+    "noRemote": "The repository has no remote.",
+    "noStash": "No stash to reapply.",
+    "groups": {
+      "app": "GitGR",
+      "repo": "Repository",
+      "branches": "Branches",
+      "tabs": "Tabs"
     }
   },
   "graphFind": {

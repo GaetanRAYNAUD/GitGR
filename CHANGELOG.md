@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Palette de commandes (Ctrl+P) : toutes les actions au même endroit, avec une recherche floue et leur raccourci : pull, push, stash, nouvelle branche, recherche, reflog, checkout d'une branche, aller à un autre onglet, réglages… Une action impossible dit pourquoi.
 - Raccourcis clavier : F1 ouvre leur liste (Réglages → Raccourcis clavier), groupée par zone (onglets, barre d'outils, graphe, diff, conflits…), avec une recherche par action ou par touche.
 - Worktrees : « Créer un worktree… » au clic droit d'une branche ou d'un commit ouvre une autre copie de travail du dépôt dans son propre dossier (proposé à côté du dépôt), puis dans un onglet. Une section Worktrees de la barre latérale les liste (ouvrir, ouvrir le dossier, copier le chemin, supprimer, nettoyer ceux dont le dossier a disparu). Un checkout d'une branche déjà extraite dans un autre worktree propose de l'ouvrir.
 - Bisect visuel : au clic droit d'un commit, « Bisect : marquer comme mauvais » puis « … comme bon » sur un plus ancien. GitGR extrait le commit à tester (vos modifications suivent, auto-stash), un bandeau dit combien d'étapes il reste et propose Bon, Mauvais, Passer ou Arrêter ; le graphe estompe ce qui est hors de la plage et marque les commits jugés. À la fin, le premier mauvais commit est sélectionné, « Terminer » revient à la branche de départ.
