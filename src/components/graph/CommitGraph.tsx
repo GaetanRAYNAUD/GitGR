@@ -34,7 +34,8 @@ import { Splitter } from "../Splitter";
 import { errorMessage } from "../../lib/errors";
 import { pullOfRef, usePullContexts, usePullList, type PullContext } from "../../store/pullList";
 import { pullRef } from "../../lib/pulls";
-import type { PullSummary } from "../../lib/types";
+import type { PullSummary, Worktree } from "../../lib/types";
+import { useWorktrees } from "../../store/worktrees";
 
 export const ROW_H = 28;
 const LANE_W = 14;
@@ -58,6 +59,7 @@ const RESIZABLE: readonly Column[] = ["refs", "author", "date", "sha"];
 const scrollMemory = new Map<string, number>();
 
 const NO_COLUMNS: GraphColumn[] = [];
+const NO_WORKTREES: Worktree[] = [];
 
 /** Ligne du graphe : un commit, la ligne « en cours » ou un stash (`side`). */
 type GraphLine = Commit & { side?: boolean };
@@ -326,8 +328,8 @@ const PULL_FONT = '500 10.5px "JetBrains Mono", ui-monospace, monospace';
 
 /** Largeurs d'une étiquette (cf. `.chip`) : entière, et raccourcie à deux lettres + « … »,
  *  icônes et numéro de PR / MR toujours entiers. */
-function chipSize(chip: RefChip, mark: boolean, pull: string | null, checks: boolean): ChipSize {
-  const icons = [mark && chip.kind !== "tag" ? 13 : 0, chip.current ? 12 : 0, chip.kind === "tag" || chip.kind === "remote" ? 12 : 0, chip.synced ? 12 : 0, pull ? textWidth(pull, PULL_FONT) + 10 + (checks ? 9 : 0) : 0].filter((w) => w > 0);
+function chipSize(chip: RefChip, mark: boolean, pull: string | null, checks: boolean, worktree = false): ChipSize {
+  const icons = [mark && chip.kind !== "tag" ? 13 : 0, chip.current ? 12 : 0, worktree ? 12 : 0, chip.kind === "tag" || chip.kind === "remote" ? 12 : 0, chip.synced ? 12 : 0, pull ? textWidth(pull, PULL_FONT) + 10 + (checks ? 9 : 0) : 0].filter((w) => w > 0);
   const base = 16 + icons.reduce((a, w) => a + w, 0) + 4 * icons.length + 1;
   const label = textWidth(chip.label, CHIP_FONT);
   const short = chip.label.length > 3 ? textWidth(`${chip.label.slice(0, 2)}…`, CHIP_FONT) : label;
@@ -376,6 +378,7 @@ function Chip({
   mark,
   pr,
   minWidth,
+  worktree,
 }: {
   chip: RefChip;
   color: number;
@@ -389,24 +392,27 @@ function Chip({
   pr?: { ctx: PullContext; pull: PullSummary } | null;
   /** Largeur sous laquelle l'étiquette ne se raccourcit pas (cf. `fitChips`). */
   minWidth?: number;
+  /** Branche extraite dans un autre worktree (double-clic : l'ouvrir dans un onglet). */
+  worktree?: Worktree;
 }) {
   const { t } = useTranslation();
   const r = chipRef(chip, refs);
   color = chipFixedColor(rules, chip.kind, chip.label) ?? color;
   const cls = chip.kind === "tag" ? "chip tag" : chip.kind === "remote" ? "chip remote" : "chip";
-  const title = [chip.title, chip.current && t("graph.current"), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
+  const title = [chip.title, chip.current && t("graph.current"), worktree && t("worktrees.chipTitle", { dir: worktree.path }), chip.synced && t("graph.synced")].filter(Boolean).join(" — ");
   return (
     <span
       className={cls}
       style={{ "--chip": laneCss(color, customColors(rules)), minWidth } as React.CSSProperties}
       title={title}
-      onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
+      onDoubleClick={worktree ? () => useWorktrees.getState().open(worktree) : r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
       onMouseDown={r && r.kind !== "tag" ? (e) => startBranchDrag(e, t, path, r) : undefined}
       data-drop-ref={r && r.kind !== "tag" ? r.name : undefined}
     >
       {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
       {chip.current && <Icon name="check" size={12} />}
+      {worktree && <Icon name="folder" size={12} className="chip-worktree" />}
       {chip.kind === "tag" && <Icon name="tag" size={12} />}
       {chip.kind === "remote" && <Icon name="cloud" size={12} />}
       <span className="chip-label">{chip.label}</span>
@@ -632,6 +638,10 @@ export function CommitGraph({ path, changes }: Props) {
   // Icônes des remotes (étiquettes de branches) : propriétaire du dépôt et provider.
   // Avec un seul remote, l'icône répétée sur chaque étiquette n'apprend rien (le nuage dit
   // déjà « distante ») et prend la place du nom : seulement à partir de deux remotes.
+  // Branches extraites dans un autre worktree : marquées sur leur étiquette.
+  const worktreeList = useWorktrees((s) => s.lists[path]?.list) ?? NO_WORKTREES;
+  useEffect(() => useWorktrees.getState().load(path, graph?.refs ?? null), [path, graph?.refs]);
+  const elsewhere = useMemo(() => new Map(worktreeList.filter((w) => !w.current && w.branch && !w.prunable).map((w) => [w.branch!, w])), [worktreeList]);
   const remoteMarks = useMemo(() => {
     const remotes = graph?.refs?.remotes ?? [];
     return new Map(remotes.length > 1 ? remotes.map((r) => [r.name, remoteMarkOf(profiles, binding, r)]) : []);
@@ -839,14 +849,15 @@ export function CommitGraph({ path, changes }: Props) {
     const items = list.map((chip) => {
       const mark = avatarsOn && chip.remote ? remoteMarks.get(chip.remote) : undefined;
       const pr = chipPull(chip);
-      const size = chipSize(chip, !!mark, pr ? pullRef(pr.ctx.kind, pr.pull.number) : null, !!pr?.pull.checks);
-      return { chip, mark, pr, size };
+      const worktree = chip.kind === "local" ? elsewhere.get(chip.label) : undefined;
+      const size = chipSize(chip, !!mark, pr ? pullRef(pr.ctx.kind, pr.pull.number) : null, !!pr?.pull.checks, !!worktree);
+      return { chip, mark, pr, size, worktree };
     });
     const shown = fitChips(items.map((x) => x.size), refsAvailable, MORE_W);
     const hidden = items.slice(shown);
     return (
       <>
-        {items.slice(0, shown).map(({ chip, mark, pr, size }, i) => (
+        {items.slice(0, shown).map(({ chip, mark, pr, size, worktree }, i) => (
           <Chip
             key={chip.kind + chip.label}
             chip={chip}
@@ -856,6 +867,7 @@ export function CommitGraph({ path, changes }: Props) {
             rules={rules}
             mark={mark}
             pr={pr}
+            worktree={worktree}
             // La première, seule à l'étroit : pas plus large que la colonne.
             minWidth={i === 0 ? Math.min(size.min, Math.max(0, refsAvailable)) : size.min}
           />

@@ -266,6 +266,7 @@ Compléments et retours d'utilisation, par thème.
 - **Modèles de PR / MR nommés** (étape 6) : `PullDraft.templates` (fichiers `.md` de `.github/PULL_REQUEST_TEMPLATE/`, `PULL_REQUEST_TEMPLATE/`, `docs/PULL_REQUEST_TEMPLATE/`, `.gitlab/merge_request_templates/`, lus sur la cible sinon la source), menu « Modèle » dans la fenêtre de création ; une description écrite à la main n'est remplacée qu'après confirmation.
 - **Équipes GitHub relectrices** (étape 6) : `fetch_options` ajoute les équipes du dépôt (`/repos/{o}/{r}/teams`, sans erreur sans droit) comme `@org/équipe` ; à la création, elles partent dans `team_reviewers` (nom court) et ne sont jamais proposées comme assignées.
 - **Palette : commit sélectionné et récentes** (étape 8) : les actions du clic droit du commit sélectionné dans le graphe (groupe « Commit abc1234 », grisées avec leur raison) ; sans recherche, les 5 dernières commandes lancées en tête (`localStorage`, `withRecentFirst`).
+- **Worktrees dans le graphe** (étape 9) : l'étiquette d'une branche extraite dans un autre worktree porte une icône de dossier, son infobulle dit où, et le double-clic ouvre ce worktree dans un onglet (au lieu d'un checkout que git refuserait).
 
 ## Reste à faire
 
@@ -332,7 +333,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Indicateur de travail en attente dans la barre d'onglets** (fait pour les onglets de dépôt, cf. « Fait » ; reste : l'indicateur agrégé d'un groupe ; le fetch en arrière-plan des onglets inactifs est fait) : savoir d'un coup d'œil qu'un onglet a des modifications non commitées ou des commits à tirer / pousser, **sans charger la barre** (à voir au rendu : un point ou un liseré sur la pastille de l'onglet plutôt que des compteurs, le détail en infobulle). Le même indicateur, agrégé, sur l'onglet d'un groupe.
 - [ ] **Refonte de l'accueil** (`Welcome`, sortie de l'étape 13 : la page sera de toute façon retravaillée pour les groupes) : la passer par `/impeccable shape` puis critique / polish en même temps que les groupes — actions, dépôts récents avec leur état, recherche, état vide, clavier (liste à une tabulation), clair / sombre.
 - [ ] **Groupes à l'accueil** : les dossiers (groupes de dépôts) prévus pour la barre d'onglets repris dans la liste de l'accueil, **repliables**, avec un **résumé** des indicateurs de leurs dépôts sur la ligne du groupe (ex. « 2 en retard · 1 avec du travail en attente »).
-- [ ] **Gérer les worktrees** (fait, cf. « Fait ») ; reste : signaler dans le graphe (étiquette de branche) les branches extraites dans un autre worktree ; verrouiller / déverrouiller ; sous-menu « Créer un worktree depuis » du menu de branche (aujourd'hui une entrée simple).
+- [ ] **Gérer les worktrees** (fait, cf. « Fait ») ; reste : verrouiller / déverrouiller ; sous-menu « Créer un worktree depuis » du menu de branche (aujourd'hui une entrée simple).
 - [ ] **Image / icône d'onglet** (fichier local, avatar du dépôt).
 
 ### Étape 10 — conflits et v2
@@ -383,7 +384,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Issues** (`IssuesSection`, `IssueView`).
 - [ ] **Palette de commandes** (`CommandPalette`, Ctrl+P) et **liste des raccourcis** (`ShortcutsList`, F1).
 - [ ] **Créer une release** (`ReleaseDialog`).
-- [ ] **Worktrees** (`WorktreesSection`) et **bandeau de bisect** (`BisectBanner`).
+- [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
 - [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs.
 
