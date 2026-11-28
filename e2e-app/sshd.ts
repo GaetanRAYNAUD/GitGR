@@ -5,7 +5,7 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, git, type Sandbox } from "./app";
+import { expect, git, workerIndex, type Sandbox } from "./app";
 
 const SSHD = "C:/Program Files/Git/usr/bin/sshd.exe";
 const KEYGEN = "C:/Program Files/Git/usr/bin/ssh-keygen.exe";
@@ -23,8 +23,9 @@ function keygen(...args: string[]) {
   execFileSync(KEYGEN, ["-q", ...args], { stdio: "ignore" });
 }
 
-/** Un port par serveur : tirés au hasard, deux serveurs d'un même test pouvaient tomber sur le même. */
-let nextPort = 23000 + Math.floor(Math.random() * 2000);
+/** Un port par serveur, suivis (deux serveurs d'un même test pouvaient tomber sur le même s'ils
+ *  étaient tirés au hasard), dans une plage de 200 par worker (tests en parallèle). */
+let nextPort = 23000 + workerIndex * 200 + Math.floor(Math.random() * 100);
 
 export interface Server {
   port: number;

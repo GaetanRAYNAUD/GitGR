@@ -5,8 +5,11 @@ import { defineConfig } from "@playwright/test";
 // qui compile d'abord le binaire de debug ; celui-ci charge l'interface depuis Vite (port 1420).
 export default defineConfig({
   testDir: ".",
-  // Une seule app à la fois : chaque test lance la sienne, sur son propre port CDP.
-  workers: 1,
+  // Chaque test lance sa propre app (config, profil WebView2 et dépôts isolés), sur un port CDP
+  // propre à son worker : plusieurs apps à la fois. 3 en CI (runner Windows à 4 cœurs, un job
+  // unique car son nom est un check requis). `GITGR_APP_WORKERS` pour forcer (1 : en série).
+  workers: Number(process.env.GITGR_APP_WORKERS) || (process.env.CI ? 3 : 4),
+  fullyParallel: true,
   timeout: process.env.CI ? 150_000 : 60_000,
   // Sur un runner chargé, un push suivi de la relecture du dépôt peut dépasser les 5 s par
   // défaut : le message « poussée » arrivait trop tard (échec intermittent sur main).
