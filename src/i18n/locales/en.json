@@ -684,6 +684,26 @@
       "conflicted": "{{count}} conflicted"
     }
   },
+  "binary": {
+    "bytes": "B",
+    "kb": "KB",
+    "mb": "MB",
+    "none": "none",
+    "before": "Before",
+    "after": "After",
+    "beforeAlt": "Image before the change",
+    "afterAlt": "Image after the change",
+    "added": "File added",
+    "deleted": "File deleted",
+    "tooBig": "Image too large to preview.",
+    "unreadable": "Unreadable image: no preview.",
+    "noPreview": "Binary file: no preview.",
+    "mode": "Image comparison",
+    "side": "Side by side",
+    "fadeLabel": "Fade between the image before and after",
+    "fade": "Fade",
+    "fadeValue": "{{value}}% of the new image"
+  },
   "diff": {
     "label": "Diff of {{file}}",
     "back": "Back to graph",

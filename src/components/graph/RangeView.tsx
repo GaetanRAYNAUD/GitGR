@@ -18,6 +18,7 @@ import { useOps } from "../../store/ops";
 import { useRangeView } from "../../store/range";
 import { type MenuItem, openContextMenu, useContextMenu } from "../ContextMenu";
 import { Icon } from "../Icon";
+import { commitSides } from "./BinaryPreview";
 import { DiffBody, DiffViewToggle, useEscape, useReturnFocus } from "./DiffBody";
 import { DiffStats } from "./DiffStats";
 import { BackButton, DiffPath } from "./DiffView";
@@ -258,6 +259,7 @@ export function RangeView({ path, direction }: { path: string; direction: RangeD
                     error={diff?.error ?? undefined}
                     onRetry={() => setDiffReload((n) => n + 1)}
                     resetKey={file.path}
+                    binarySides={commitSides(path, file, focus ?? data.tip, focus ? null : data.base)}
                     blame={file.status === "D" ? undefined : { path, file: file.path, rev: focus ?? data.tip }}
                   />
                 </div>
