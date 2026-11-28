@@ -6,9 +6,10 @@ import { openContextMenu } from "../ContextMenu";
 import { AuthorBadge, useAuthorContext } from "./CommitGraph";
 import { fileMenu } from "./menus";
 import { CommitText, jumpBack, jumpTo, panelNav } from "./CommitText";
+import { api } from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
 import { LAYOUT, useWidthStyle } from "../../lib/layout";
-import type { CommitDetails } from "../../lib/types";
+import type { CommitDetails, CommitSignature } from "../../lib/types";
 import { useApp } from "../../store/app";
 import { useAuthorAvatars } from "../../store/avatars";
 import { detailsKey, useGraph, WIP } from "../../store/graph";
@@ -53,6 +54,35 @@ function CopySha({ sha }: { sha: string }) {
         {state === "idle" ? "" : title}
       </span>
     </>
+  );
+}
+
+/** Signature du commit (lue à part : la vérification par gpg peut prendre un instant). Rien
+ *  pour un commit non signé. */
+function SignatureLine({ path, sha }: { path: string; sha: string }) {
+  const { t } = useTranslation();
+  const [sig, setSig] = useState<{ sha: string; value: CommitSignature } | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.commitSignature(path, sha).then(
+      (value) => live && setSig({ sha, value }),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, sha]);
+  const s = sig?.sha === sha ? sig.value : null;
+  if (!s || s.status === "none") return null;
+  const ok = s.status === "good" || s.status === "untrusted";
+  const kind = s.kind === "ssh" ? "SSH" : "GPG";
+  const detail = [s.signer, s.key].filter(Boolean).join(" · ");
+  return (
+    <div className={`signature-line sig-${s.status}`} title={[t(`signature.hint.${s.status}`), detail].filter(Boolean).join("\n")}>
+      <Icon name={ok ? "check" : s.status === "unknown" ? "lock" : "alert"} size={13} />
+      <span>{t(`signature.status.${s.status}`, { kind })}</span>
+      {s.signer && <span className="muted signature-signer">{s.signer}</span>}
+    </div>
   );
 }
 
@@ -110,6 +140,7 @@ function Details({ path, d }: { path: string; d: CommitDetails }) {
               )}
             </div>
           </div>
+          <SignatureLine path={path} sha={d.sha} />
           <div className="meta-line">
             <span className="sha-line">
               <span className="mono" title={d.sha}>

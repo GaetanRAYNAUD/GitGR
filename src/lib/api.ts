@@ -124,6 +124,7 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  CommitSignature,
   RebasePlan,
   RebaseStep,
   ReleaseDraft,
@@ -229,6 +230,8 @@ export interface Api {
   /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** Signature d'un commit, vérifiée par git. */
+  commitSignature(path: string, sha: string): Promise<CommitSignature>;
   /** Commits de la branche courante après `base` (`null` : depuis le premier commit). */
   rebasePlan(path: string, base: string | null, onto: boolean): Promise<RebasePlan>;
   /** Rebase interactif selon les étapes (dans leur ordre). */
@@ -521,6 +524,7 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  commitSignature: (path, sha) => invoke("commit_signature", { path, sha }),
   rebasePlan: (path, base, onto) => invoke("rebase_plan", { path, base, onto }),
   interactiveRebase: (path, base, onto, steps, autoStash) => invoke("interactive_rebase", { path, base, onto, steps, autoStash }),
   listWorktrees: (path) => invoke("list_worktrees", { path }),
@@ -1077,6 +1081,11 @@ const mockApi: Api = {
   checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  // Simulé : le commit le plus récent est signé et vérifié, les autres non signés.
+  commitSignature: async (path, sha) =>
+    mockHistory(path).commits[0]?.sha === sha
+      ? { status: "good", kind: "ssh", signer: "camille@exemple.fr", key: "SHA256:AbCd" }
+      : { status: "none", kind: null, signer: null, key: null },
   rebasePlan: async (path, base) => mockRebasePlan(path, base),
   interactiveRebase: async (path, base, _onto, steps, autoStash) => mockInteractiveRebase(path, base, steps, autoStash),
   listWorktrees: async (path) => mockListWorktrees(path),

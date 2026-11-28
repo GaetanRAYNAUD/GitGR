@@ -576,6 +576,24 @@
       "nothing": "Rien n’a changé."
     }
   },
+  "signature": {
+    "status": {
+      "good": "Signé ({{kind}}), vérifié",
+      "untrusted": "Signé ({{kind}}), clé sans confiance",
+      "bad": "Signature invalide ({{kind}})",
+      "expired": "Signé ({{kind}}), signature ou clé expirée",
+      "revoked": "Signé ({{kind}}), clé révoquée",
+      "unknown": "Signé ({{kind}}), non vérifiable"
+    },
+    "hint": {
+      "good": "La signature correspond à une clé connue.",
+      "untrusted": "La signature est valide, mais la clé n’a pas de niveau de confiance dans gpg.",
+      "bad": "Le commit a été modifié après sa signature, ou la signature est fausse.",
+      "expired": "La signature, ou la clé qui l’a faite, a expiré.",
+      "revoked": "La clé qui a signé a été révoquée.",
+      "unknown": "Clé publique absente (GPG) ou signataires autorisés non configurés (SSH : gpg.ssh.allowedSignersFile)."
+    }
+  },
   "graphFind": {
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",

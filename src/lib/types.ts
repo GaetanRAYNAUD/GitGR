@@ -380,6 +380,14 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Signature d'un commit, vérifiée par git (src-tauri/src/signing.rs). */
+export interface CommitSignature {
+  status: "good" | "untrusted" | "bad" | "expired" | "revoked" | "unknown" | "none";
+  kind: "gpg" | "ssh" | null;
+  signer: string | null;
+  key: string | null;
+}
+
 /** Commits d'un rebase interactif (src-tauri/src/rebase.rs). */
 export interface RebasePlan {
   commits: { sha: string; subject: string; message: string; author: string; time: number; pushed: boolean }[];

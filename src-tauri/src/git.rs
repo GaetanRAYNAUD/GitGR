@@ -62,9 +62,13 @@ impl Identity {
         }
         match &self.signing {
             Signing::Config => {}
-            Signing::Off => out.push(("commit.gpgsign", "false".into())),
+            Signing::Off => {
+                out.push(("commit.gpgsign", "false".into()));
+                out.push(("tag.gpgSign", "false".into()));
+            }
             Signing::Gpg(key) => {
                 out.push(("commit.gpgsign", "true".into()));
+                out.push(("tag.gpgSign", "true".into()));
                 out.push(("gpg.format", "openpgp".into()));
                 // Sans clé choisie : l'e-mail du profil (gpg prend la clé de cette identité), et
                 // surtout pas le `user.signingkey` de la config globale, qui peut viser une autre
@@ -76,6 +80,7 @@ impl Identity {
             }
             Signing::Ssh(key) => {
                 out.push(("commit.gpgsign", "true".into()));
+                out.push(("tag.gpgSign", "true".into()));
                 out.push(("gpg.format", "ssh".into()));
                 // Clé privée pour ssh-keygen (`-Y sign -f`) : `/`, `~` développé, sans `.pub`.
                 let k = expand_home(key.trim().trim_end_matches(".pub")).to_string_lossy().replace('\\', "/");
@@ -717,16 +722,16 @@ pub(crate) mod tests {
         let keys = |i: Identity| i.config().into_iter().skip(2).collect::<Vec<_>>();
         let s = |v: &str| v.to_string();
         assert_eq!(keys(id(Signing::Config)), []);
-        assert_eq!(keys(id(Signing::Off)), [("commit.gpgsign", s("false"))]);
+        assert_eq!(keys(id(Signing::Off)), [("commit.gpgsign", s("false")), ("tag.gpgSign", s("false"))]);
         // Clé GPG non choisie : celle de l'e-mail du profil, jamais celle de la config globale.
         assert_eq!(
             keys(id(Signing::Gpg(None))),
-            [("commit.gpgsign", s("true")), ("gpg.format", s("openpgp")), ("user.signingkey", s("n@exemple.fr"))]
+            [("commit.gpgsign", s("true")), ("tag.gpgSign", s("true")), ("gpg.format", s("openpgp")), ("user.signingkey", s("n@exemple.fr"))]
         );
-        assert_eq!(keys(id(Signing::Gpg(Some("ABCD".into()))))[2], ("user.signingkey", s("ABCD")));
+        assert_eq!(keys(id(Signing::Gpg(Some("ABCD".into()))))[3], ("user.signingkey", s("ABCD")));
         assert_eq!(
             keys(id(Signing::Ssh(r"C:\k\sign.pub".into()))),
-            [("commit.gpgsign", s("true")), ("gpg.format", s("ssh")), ("user.signingkey", s("C:/k/sign"))]
+            [("commit.gpgsign", s("true")), ("tag.gpgSign", s("true")), ("gpg.format", s("ssh")), ("user.signingkey", s("C:/k/sign"))]
         );
     }
 
@@ -804,7 +809,7 @@ pub(crate) mod tests {
         let id = |signing| Identity { name: "A".into(), email: "a@exemple.fr".into(), ssh_key: None, signing };
 
         let written = write_local_config(p, &id(Signing::Ssh("/k/sign".into())).config(), &[]).unwrap();
-        assert_eq!(written, ["user.name", "user.email", "commit.gpgsign", "gpg.format", "user.signingkey"]);
+        assert_eq!(written, ["user.name", "user.email", "commit.gpgsign", "tag.gpgSign", "gpg.format", "user.signingkey"]);
         assert_eq!(local("gpg.format").as_deref(), Some("ssh"));
 
         // Profil suivant, signature laissée à Git : celle de l'ancien profil disparaît.
