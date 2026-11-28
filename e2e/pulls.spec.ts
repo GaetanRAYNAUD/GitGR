@@ -116,6 +116,49 @@ test("sans compte connecté : la raison et un lien vers les comptes", async ({ p
   await expect(page.locator(".profiles-page")).toBeVisible();
 });
 
+test("un autre profil a un compte sur la forge : l'associer au remote d'un clic ; branche cible au clavier", async ({ page }) => {
+  await page.goto("/");
+  // « Boulot » (règle du remote) sans compte ; « Perso » a un compte sur gitlab.exemple.fr.
+  await page.evaluate(() => {
+    const p = (id: string, name: string, rules: string[], accounts: unknown[]) => ({ id, name, userName: "Demo", userEmail: `${id}@x.fr`, sshKey: null, rules, color: 1, accounts });
+    localStorage.setItem(
+      "gitgr.mock-state",
+      JSON.stringify({
+        repos: [],
+        session: { openTabs: [], active: null },
+        settings: { theme: "system", language: "system" },
+        profiles: [
+          p("p-boulot", "Boulot", ["gitlab.exemple.fr"], []),
+          p("p-perso", "Perso", [], [{ id: "gitlab|https://gitlab.exemple.fr|camille", kind: "gitlab", url: "https://gitlab.exemple.fr", login: "camille", name: null }]),
+        ],
+      }),
+    );
+  });
+  await page.reload();
+  await openNextRepo(page, "GitGR");
+  await branch(page, "main").click({ button: "right" });
+  await menu(page).getByRole("menuitem", { name: "Créer une merge request…" }).click();
+  const d = dialog(page);
+  await d.getByRole("button", { name: "Associer origin au profil Perso (camille)" }).click();
+  await expect(d.getByText(/Aucun compte GitLab/)).toHaveCount(0);
+  await expect(d).toContainText("Merge request créée par camille");
+
+  // Branche cible : liste maison, au clavier (↓, Entrée choisit sans envoyer).
+  const target = d.getByRole("combobox", { name: "Branche cible" });
+  await target.fill("ssh");
+  await target.press("ArrowDown");
+  await expect(d.getByRole("listbox", { name: "Branche cible" }).getByRole("option").first()).toContainText("fix/ssh-agent");
+  await target.press("Enter");
+  await expect(target).toHaveValue("fix/ssh-agent");
+  await expect(d).toBeVisible();
+  // Liste ouverte : Échap la ferme, pas la fenêtre.
+  await target.press("ArrowDown");
+  await expect(d.getByRole("listbox", { name: "Branche cible" })).toBeVisible();
+  await target.press("Escape");
+  await expect(d.getByRole("listbox", { name: "Branche cible" })).toHaveCount(0);
+  await expect(d).toBeVisible();
+});
+
 const fetches = (page: Page) => page.evaluate(() => (window as unknown as { __mockOptionFetches: { count: number } }).__mockOptionFetches.count);
 
 test("relecteurs, assignés et étiquettes : liste préchargée à l'ouverture du dépôt, puis reprise sur un autre dépôt de l'organisation", async ({ page }) => {

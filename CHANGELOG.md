@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Créer une PR / MR sans compte pour le remote : si un autre profil a un compte sur cette forge, un bouton propose de l'associer au remote (« Associer origin au profil Perso (camille) ») au lieu de passer par les profils.
+- Créer une PR / MR : le remote et la branche cible se choisissent dans des listes aux couleurs de l'app (clair et sombre), au clavier ; la liste des branches filtre ce qu'on tape.
 - Publier et Créer une PR / MR disent qui agit sur le serveur : « Poussé par le profil Perso avec la clé SSH … » ou « en HTTPS avec le jeton du compte … », « Merge request créée par camille sur GitLab, compte du profil Boulot ».
 - Cloner depuis un compte et Créer une PR / MR passent en deux colonnes : la liste des dépôts (ou le texte de la PR) à gauche, la destination (ou la cible et les relecteurs) à droite. Les colonnes s'empilent quand la fenêtre est étroite.
 - Supprimer une branche locale ou déplacer une branche ne demande plus confirmation : un message propose « Annuler (Ctrl+Z) ». Une branche non fusionnée le dit toujours avant d'être supprimée.
