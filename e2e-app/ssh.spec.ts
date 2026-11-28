@@ -81,6 +81,9 @@ test("clé protégée : phrase de passe saisie dans l'app, puis fetch et push pa
     git(mine, "merge", "-q", "--ff-only", "origin/main");
     sandbox.commit(mine, "c.txt", "local\n", "local: c");
     await page.keyboard.press("F5");
+    // Le dépôt relu (le commit dans l'historique) avant le push : sinon, sur une machine chargée
+    // (tests en parallèle), le push part avant que l'app voie le commit et n'envoie rien.
+    await expect(page.getByText("local: c").first()).toBeVisible();
     await tool(page, "Push").click();
     await expect.poll(() => git(sandbox.remote, "log", "-1", "--format=%s", "main"), { timeout: 20_000 }).toBe("local: c");
 

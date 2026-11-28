@@ -14,8 +14,10 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const EXE = join(ROOT, "src-tauri", "target", "debug", process.platform === "win32" ? "gitgr.exe" : "gitgr");
-/** Un port CDP par lancement : une app qui se termine encore ne peut pas répondre à la place. */
-let nextPort = 9333;
+/** Un port CDP par lancement : une app qui se termine encore ne peut pas répondre à la place.
+ *  Une plage de 100 ports par worker (les tests tournent en parallèle, chacun dans son processus). */
+export const workerIndex = Number(process.env.TEST_PARALLEL_INDEX ?? 0);
+let nextPort = 9333 + workerIndex * 100;
 
 /** `git` dans `cwd` ; renvoie stdout sans les blancs de fin. Le remote nu des tests est lu
  *  depuis son dossier : accepté même si l'utilisateur a réglé `safe.bareRepository = explicit`. */
