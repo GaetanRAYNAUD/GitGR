@@ -539,6 +539,8 @@ export function RepoView({ path }: { path: string }) {
     } catch {
       // Pas de reflog lisible : le menu le dit (aucune branche récente).
     }
+    // Onglet changé ou vue fermée pendant la lecture : plus de menu à ouvrir.
+    if (!el.isConnected || useApp.getState().active !== path) return;
     const refs = useGraph.getState().graphs[path]?.refs;
     const locals = (refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short);
     const names = recentBranches(log, locals, refs?.headBranch ?? null);
