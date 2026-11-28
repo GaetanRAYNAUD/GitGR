@@ -1893,6 +1893,11 @@
     "custom": "Custom color…"
   },
   "pr": {
+    "template": "Template",
+    "templateNone": "None",
+    "templateReplaceTitle": "Replace the description?",
+    "templateReplaceBody": "The description you typed will be replaced by the “{{name}}” template.",
+    "templateReplace": "Replace",
     "title_pr": "Create pull request",
     "title_mr": "Create merge request",
     "menuCreate_pr": "Create pull request…",

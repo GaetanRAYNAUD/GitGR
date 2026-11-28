@@ -52,6 +52,16 @@ test("clic droit sur une autre branche : MR de la branche courante vers celle-ci
   await expect(d.getByLabel("Titre")).toHaveValue("Feature/profils");
   await expect(d.getByLabel("Description")).toHaveValue("- Début de feature/profils\n- Fin de feature/profils");
   await expect(d.getByText("feature/profils sera d’abord poussée vers origin.")).toBeVisible();
+  // Un modèle nommé du dépôt : il remplace la description (proposée, donc sans confirmation).
+  await d.getByRole("button", { name: /^Modèle/ }).click();
+  await page.getByRole("menuitemradio", { name: "feature" }).click();
+  await expect(d.getByLabel("Description")).toHaveValue("## Nouveauté\n\n## Captures");
+  // Une description modifiée à la main : on demande avant de la remplacer.
+  await d.getByLabel("Description").fill("Mon texte");
+  await d.getByRole("button", { name: /^Modèle/ }).click();
+  await page.getByRole("menuitemradio", { name: "bug" }).click();
+  await page.getByRole("alertdialog", { name: "Remplacer la description ?" }).getByRole("button", { name: "Remplacer" }).click();
+  await expect(d.getByLabel("Description")).toHaveValue("## Bug corrigé\n\n## Comment le reproduire");
 
   await d.getByLabel("Titre").fill("Profils : règles par remote");
   await d.getByLabel("Brouillon").check();
@@ -71,7 +81,7 @@ test("clic droit sur une autre branche : MR de la branche courante vers celle-ci
       targetRepo: "demo/gitgr",
       targetBranch: "main",
       title: "Profils : règles par remote",
-      body: "- Début de feature/profils\n- Fin de feature/profils",
+      body: "## Bug corrigé\n\n## Comment le reproduire",
       draft: true,
       assignees: [],
       reviewers: [],

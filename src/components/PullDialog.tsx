@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDialogs } from "../store/dialogs";
 import { api, errorCode } from "../lib/api";
 import { errorMessage } from "../lib/errors";
 import { trapTab } from "../lib/focusTrap";
@@ -75,6 +76,25 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [textTouched, setTextTouched] = useState(false);
+  // Modèles nommés du dépôt : on peut en prendre un à la place de la description proposée.
+  const [templates, setTemplates] = useState<{ name: string; body: string }[]>([]);
+  const [templateName, setTemplateName] = useState<string | null>(null);
+  /** La description a été écrite à la main (pas seulement proposée ou tirée d'un modèle). */
+  const bodyEdited = useRef(false);
+  const useTemplate = async (tpl: { name: string; body: string }) => {
+    if (bodyEdited.current && body.trim()) {
+      const ok = await useDialogs.getState().choose({
+        title: t("pr.templateReplaceTitle"),
+        body: t("pr.templateReplaceBody", { name: tpl.name }),
+        choices: [{ id: "replace", label: t("pr.templateReplace"), danger: true }],
+      });
+      if (ok !== "replace") return;
+    }
+    setBody(tpl.body);
+    setTemplateName(tpl.name);
+    setTextTouched(true);
+    bodyEdited.current = false;
+  };
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState<"push" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +187,8 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
         const text = draftText(d.commits, sourceBranch, d.template);
         setTitle(text.title);
         setBody(text.body);
+        setTemplates(d.templates ?? []);
+        setTemplateName(null);
       },
       () => {},
     );
@@ -393,6 +415,19 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
                 autoComplete="off"
               />
             </label>
+            {templates.length > 0 && (
+              <div className="input-field">
+                <span>{t("pr.template")}</span>
+                <Picker
+                  label={t("pr.template")}
+                  disabled={!!busy}
+                  items={() => templates.map((tpl) => ({ label: tpl.name, checked: tpl.name === templateName, onClick: () => void useTemplate(tpl) }))}
+                >
+                  <Icon name="file" size={14} />
+                  <span className="picker-text">{templateName ?? t("pr.templateNone")}</span>
+                </Picker>
+              </div>
+            )}
             <label className="input-field">
               <span>{t("pr.body")}</span>
               <textarea
@@ -403,6 +438,7 @@ function PullDialog({ path, initial }: { path: string; initial?: PullTarget }) {
                 onChange={(e) => {
                   setBody(e.target.value);
                   setTextTouched(true);
+                  bodyEdited.current = true;
                 }}
               />
             </label>

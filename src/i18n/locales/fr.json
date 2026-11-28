@@ -1893,6 +1893,11 @@
     "custom": "Couleur personnalisée…"
   },
   "pr": {
+    "template": "Modèle",
+    "templateNone": "Aucun",
+    "templateReplaceTitle": "Remplacer la description ?",
+    "templateReplaceBody": "La description saisie sera remplacée par le modèle « {{name}} ».",
+    "templateReplace": "Remplacer",
     "title_pr": "Créer une pull request",
     "title_mr": "Créer une merge request",
     "menuCreate_pr": "Créer une pull request…",
