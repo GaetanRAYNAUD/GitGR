@@ -35,6 +35,26 @@ test.describe("dépôt propre", () => {
     await expect(branch(page, "profils")).toHaveClass(/current/);
   });
 
+  test("branches récentes : chevron de la pastille, Ctrl+Maj+O, checkout", async ({ page }) => {
+    const recent = page.getByRole("button", { name: "Branches récentes" });
+    await recent.click();
+    await expect(menu(page).getByRole("menuitem", { name: "Aucune autre branche extraite récemment" })).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Escape");
+    await branch(page, "profils").dblclick();
+    await expect(current(page)).toHaveText("feature/profils");
+    await branch(page, "ssh-agent").dblclick();
+    await expect(current(page)).toHaveText("fix/ssh-agent");
+    await page.keyboard.press("Control+Shift+O");
+    await expect(recent).toHaveAttribute("aria-expanded", "true");
+    const items = menu(page).getByRole("menuitem");
+    await expect(items).toHaveText(["feature/profils", "main"]);
+    await page.keyboard.press("Enter");
+    await expect(current(page)).toHaveText("feature/profils");
+    // Clic droit sur la pastille : le même menu.
+    await page.locator(".branch-chip").click({ button: "right" });
+    await expect(menu(page).getByRole("menuitem")).toHaveText(["fix/ssh-agent", "main"]);
+  });
+
   test("créer une branche depuis la barre d'outils, puis la supprimer", async ({ page }) => {
     await tool(page, "Branche").click();
     const dialog = page.getByRole("dialog", { name: "Nouvelle branche" });

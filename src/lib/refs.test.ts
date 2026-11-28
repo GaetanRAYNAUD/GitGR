@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipsByCommit, fitChips, refSections, refTree, sectionLabel } from "./refs";
+import { chipsByCommit, fitChips, recentBranches, refSections, refTree, sectionLabel } from "./refs";
 import type { GitRef, RefsInfo } from "./types";
 
 const ref = (kind: GitRef["kind"], short: string, target: string): GitRef => ({
@@ -141,5 +141,17 @@ describe("fitChips", () => {
 
   it("always keeps the first label (current branch)", () => {
     expect(fitChips([z(200, 100), z(80, 30)], 120, 34)).toBe(1);
+  });
+});
+
+describe("recentBranches", () => {
+  const co = (message: string, action = "checkout") => ({ sha: "a", action, message, time: 0, subject: "" });
+  it("lit les checkouts du reflog, les plus récents d'abord, sans doublon ni la courante", () => {
+    const log = [co("moving from feat to main"), co("x", "commit"), co("moving from fix to feat"), co("moving from main to fix"), co("moving from old to main")];
+    expect(recentBranches(log, ["main", "feat", "fix"], "main")).toEqual(["feat", "fix"]);
+  });
+  it("ignore les SHA (HEAD détachée) et respecte le maximum", () => {
+    const log = [co("moving from a to 1234567"), co("moving from b to a"), co("moving from c to b")];
+    expect(recentBranches(log, ["a", "b", "c"], null, 2)).toEqual(["a", "b"]);
   });
 });

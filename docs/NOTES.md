@@ -240,6 +240,9 @@ Compléments et retours d'utilisation, par thème.
 - Linux : icône de la fenêtre en 512 px et `.desktop` avec `StartupWMClass` ; macOS : double-clic sur la barre de titre (agrandir / restaurer), déplacement après 5 px. **À vérifier par des testeurs** (cf. « Reste à faire », étape 7).
 - Décidé **non** : vérifier les mises à jour pendant que l'app reste ouverte (démarrage + bouton des Réglages suffisent) ; canal de pré-versions (les testeurs suivent `releases/latest`).
 
+**Suite de la feuille de route (après l'étape 13)**
+- **Branches récentes** (étape 4) : chevron à côté de la pastille de branche, clic droit sur elle ou Ctrl+Maj+O ; lues dans le reflog de HEAD (`checkout: moving from a to b`, `lib/refs.ts` `recentBranches`), sans la courante ni les branches supprimées ; checkout avec auto-stash.
+
 ## Reste à faire
 
 Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont notées dans « Fait », à la fin de chaque partie.
@@ -250,7 +253,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord). La sélection de plusieurs commits glissée d'un coup est faite.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande).
-- [ ] **Menu de la branche courante** (nom de la branche en haut à droite) : un sélecteur des **branches récentes** (dernières extraites), pour changer de branche sans passer par la barre latérale.
 
 ### Étape 5 — profils
 
@@ -291,7 +293,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
 - [ ] **Glisser-déposer d'une branche** (sur une branche locale : fait, cf. « Fait ») : sur une branche distante (PR / MR vers elle), depuis une branche distante (merge).
-- [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P).
+- [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P). Attention : Ctrl+Maj+P est déjà Pop (barre d'outils).
 - [ ] **Aperçu des images dans le diff** : ancienne et nouvelle version côte à côte (ou en fondu / curseur), dimensions et poids avant / après ; aujourd'hui « Fichier binaire : pas d'aperçu ». Pour les autres binaires, au moins la taille et le type.
 - [ ] **Diff virtualisé** : un fichier de 20 000 lignes (`MAX_DIFF_LINES`) est rendu en entier ; virtualiser les lignes comme le graphe (en ligne et côte à côte, en gardant la grille au clavier, la sélection de lignes et les en-têtes de bloc figés), ou plafonner bien plus bas avec « Afficher quand même » / « Ouvrir dans l'éditeur ».
 - [x] **Blame en marge (annotate, comme IntelliJ)** — fait (`BlameMargin`, `diffFull` / `diffBlame` dans les réglages, `--unified=100000000` côté Rust). Cadrage validé (27/11/2026) : bascule « Annoter » (bouton dans l'en-tête du diff, clic droit sur les numéros, Ctrl+Alt+B), mémorisée dans les réglages. Dans le diff d'un commit (blame à ce commit), d'une plage, d'une PR, des modifications en cours (copie de travail) et dans la résolution de conflits (colonne « notre version »). Marge de 160 px sur la première ligne de chaque bloc : nom + date courte, initiales + date si ça ne tient pas ; marque d'âge grise. Survol : résumé, e-mail, date, SHA ; clic : détails ; double-clic : dans le graphe ; clic droit : « Blame avant ce commit » et actions du commit ; au clavier depuis la grille du diff. Avec une bascule « Fichier entier » dans le diff (contexte complet ; indexation par bloc / ligne suspendue, comme « Ignorer les espaces »). La vue Blame reste pour le fichier entier à un commit.
