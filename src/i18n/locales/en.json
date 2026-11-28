@@ -1014,6 +1014,9 @@
     "fadeValue": "{{value}}% of the new image"
   },
   "diff": {
+    "big_one": "Very long diff ({{count}} line): not shown right away.",
+    "big_other": "Very long diff ({{count}} lines): not shown right away, it could slow the window down.",
+    "showAnyway": "Show anyway",
     "label": "Diff of {{file}}",
     "back": "Back to graph",
     "loading": "Loading diff…",

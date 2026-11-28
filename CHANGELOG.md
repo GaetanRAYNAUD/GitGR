@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Diff très long (plus de 5 000 lignes) : il n'est plus affiché d'office, ce qui figeait la fenêtre ; « Afficher quand même » le montre.
 - « Mettre en avant ses commits dans le graphe » au clic droit d'un fichier ou d'un dossier : les commits de toutes les branches qui le modifient restent en avant, même au-delà des commits chargés, les autres sont estompés.
 - Fetch automatique : les onglets qui ne sont pas affichés sont aussi récupérés en arrière-plan (deux fois moins souvent, un à la fois), pour que leur retard sur la branche suivie reste à jour sans les ouvrir.
 - Glisser un ou plusieurs commits sur une autre branche fait le cherry-pick sans la checkout : la branche courante et les modifications en cours ne bougent pas. Seulement en cas de conflit (ou de merge à reprendre), GitGR passe d'abord sur la branche, comme avant.
