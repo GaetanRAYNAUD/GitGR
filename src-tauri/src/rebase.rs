@@ -4,7 +4,7 @@
 //! n'ouvre aucun éditeur.
 
 use crate::branches::{classify, git_dir, operation, with_autostash, OpResult};
-use crate::git::{run, run_env};
+use crate::git::run;
 use crate::history::{check_dir, check_sha};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -174,7 +174,7 @@ pub fn run_rebase(path: &Path, base: Option<&str>, onto: bool, steps: &[Step], a
             Some(b) => args.push(b),
             None => args.push("--root"),
         }
-        match run_env(Some(path), &args, &[("GIT_SEQUENCE_EDITOR", &editor), ("GIT_EDITOR", "true")]) {
+        match crate::branches::run_signing(path, &args, &[("GIT_SEQUENCE_EDITOR", &editor), ("GIT_EDITOR", "true")]) {
             Ok(_) => Ok(OpResult::default()),
             Err(_) if operation(path) == Some("rebase") && crate::branches::has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
             Err(e) if operation(path) == Some("rebase") => {

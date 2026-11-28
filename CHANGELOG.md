@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Signature GPG : merge, rebase, cherry-pick et revert ne s'arrêtent plus quand gpg-agent n'était pas encore prêt ; l'opération est poursuivie toute seule (comme le commit).
 - Graphe : une branche extraite dans un autre worktree est marquée d'un dossier sur son étiquette ; un double-clic ouvre ce worktree dans un onglet.
 - Palette de commandes (Ctrl+P) : les actions du commit sélectionné dans le graphe (cherry-pick, revert, reset, branche, tag…) y sont, et les dernières commandes lancées apparaissent en tête.
 - Créer une PR / MR sur GitHub : les équipes qui ont accès au dépôt sont proposées comme relecteurs.
