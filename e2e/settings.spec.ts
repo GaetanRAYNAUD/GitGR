@@ -83,6 +83,9 @@ test("une sous-page par section : un clic ou les flèches de la barre latérale,
 
   // Flèches : section suivante, avec le focus.
   await page.keyboard.press("ArrowDown");
+  await expect(settings.getByRole("heading", { name: "Raccourcis clavier" })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Raccourcis clavier" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
   await expect(settings.getByRole("heading", { name: "À propos" })).toBeVisible();
   await expect(nav.getByRole("button", { name: "À propos" })).toBeFocused();
 
