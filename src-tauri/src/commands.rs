@@ -493,6 +493,12 @@ pub async fn commit_signature(path: String, sha: String) -> Result<crate::signin
     crate::signing::commit_signature(Path::new(&path), &sha)
 }
 
+/// Cherry-pick sur une autre branche sans la checkout ; `needs_checkout` si ce n'est pas possible.
+#[tauri::command]
+pub async fn cherry_pick_to_branch(path: String, branch: String, shas: Vec<String>) -> Result<usize, String> {
+    branches::cherry_pick_to_branch(Path::new(&path), &branch, &shas)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

@@ -8,7 +8,7 @@
 //! Les erreurs connues sont renvoyées sous forme de codes (`branch_not_merged`,
 //! `push_rejected`, `auth_failed`…), traduits côté interface.
 
-use crate::git::{run, run_env, run_input};
+use crate::git::{run, run_env, run_input, run_raw};
 use crate::history::{check_dir, check_sha};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -1035,6 +1035,75 @@ pub fn squash(path: &Path, shas: &[String], message: &str, allow_pushed: bool, a
     })
 }
 
+/// Cherry-pick de `shas` (du plus ancien au plus récent) sur la branche locale `branch` **sans
+/// la checkout** : chaque arbre est calculé par `git merge-tree --write-tree` (git 2.38 et plus),
+/// le commit créé par `commit-tree` (auteur et message d'origine), puis la branche avancée d'un
+/// coup (`update-ref` avec l'ancienne valeur attendue). La copie de travail n'est pas touchée.
+/// `needs_checkout` quand ce n'est pas possible ainsi : conflit, merge, commit racine, branche
+/// courante ou extraite ailleurs, git trop ancien — l'interface passe alors par un checkout.
+/// Renvoie le nombre de commits ajoutés (ceux déjà présents sont sautés).
+pub fn cherry_pick_to_branch(path: &Path, branch: &str, shas: &[String]) -> Result<usize, String> {
+    check_dir(path)?;
+    if shas.is_empty() {
+        return Err("no_commits".into());
+    }
+    for s in shas {
+        check_sha(s)?;
+    }
+    if branch.starts_with('-') || !local_exists(path, branch) {
+        return Err("branch_not_found".into());
+    }
+    if current_branch(path).as_deref() == Some(branch) {
+        return Err("needs_checkout".into());
+    }
+    // Extraite dans un autre worktree : sa copie de travail ne suivrait pas.
+    let full = format!("refs/heads/{branch}");
+    let used = run(Some(path), &["worktree", "list", "--porcelain"]).unwrap_or_default();
+    if used.lines().any(|l| l == format!("branch {full}")) {
+        return Err("needs_checkout".into());
+    }
+    let old = run(Some(path), &["rev-parse", "--verify", &full])?;
+    let mut tip = old.clone();
+    let mut added = 0;
+    for sha in shas {
+        let parents = run(Some(path), &["rev-list", "--parents", "-n", "1", sha])?;
+        let parents: Vec<&str> = parents.split_whitespace().skip(1).collect();
+        if parents.len() != 1 {
+            return Err("needs_checkout".into());
+        }
+        let base = format!("--merge-base={}", parents[0]);
+        // Sortie : l'arbre (code 0), ou l'arbre et les conflits (code 1) ; option inconnue : git ancien.
+        let tree = match run(Some(path), &["merge-tree", "--write-tree", "--messages", &base, &tip, sha]) {
+            Ok(out) => out.lines().next().unwrap_or("").trim().to_string(),
+            Err(_) => return Err("needs_checkout".into()),
+        };
+        check_sha(&tree).map_err(|_| "needs_checkout".to_string())?;
+        // Rien de nouveau (déjà appliqué) : sauté, comme `cherry-pick` avec un commit vide.
+        if tree == run(Some(path), &["rev-parse", &format!("{tip}^{{tree}}")])? {
+            continue;
+        }
+        let who = run(Some(path), &["log", "-1", "--format=%an%x1f%ae%x1f%ad", "--date=raw", sha])?;
+        let mut who = who.splitn(3, '\x1f');
+        let (name, email, date) = (who.next().unwrap_or(""), who.next().unwrap_or(""), who.next().unwrap_or(""));
+        let message = run_raw(Some(path), &["log", "-1", "--format=%B", sha])?;
+        let new = crate::git::run_input_env(
+            Some(path),
+            &["commit-tree", &tree, "-p", &tip, "-F", "-"],
+            &message,
+            &[("GIT_AUTHOR_NAME", name), ("GIT_AUTHOR_EMAIL", email), ("GIT_AUTHOR_DATE", date)],
+        )
+        .map_err(|e| classify(&e))?;
+        check_sha(&new)?;
+        tip = new;
+        added += 1;
+    }
+    if added > 0 {
+        let reason = format!("cherry-pick: {added} commit(s) sur {branch}");
+        run(Some(path), &["update-ref", "-m", &reason, &full, &tip, &old]).map_err(|e| classify(&e))?;
+    }
+    Ok(added)
+}
+
 /// Suite de cherry-pick / revert gardée par git (`.git/sequencer`).
 fn sequencer(path: &Path) -> bool {
     git_dir(path).map(|d| d.join("sequencer").is_dir()).unwrap_or(false)
@@ -1180,6 +1249,35 @@ mod tests {
         commit_file(a.path(), "f.txt", "1\n");
         git(a.path(), &["push", "-q", "-u", "origin", "main"]);
         (remote, a)
+    }
+
+    #[test]
+    fn cherry_pick_to_another_branch_without_checkout() {
+        let repo = crate::git::tests::temp_repo();
+        let p = repo.path();
+        crate::git::tests::commit_file(p, "a.txt", "1\n");
+        run(Some(p), &["branch", "cible"]).unwrap();
+        crate::git::tests::commit_file(p, "b.txt", "b\n");
+        let b = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "c\n");
+        let c = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        std::fs::write(p.join("local.txt"), "pas touché").unwrap();
+        assert_eq!(cherry_pick_to_branch(p, "cible", &[b.clone(), c.clone()]).unwrap(), 2);
+        // La branche courante et la copie de travail n'ont pas bougé.
+        assert_eq!(current_branch(p).as_deref(), Some("main"));
+        assert_eq!(run(Some(p), &["rev-parse", "HEAD"]).unwrap(), c);
+        assert!(p.join("local.txt").exists());
+        let log = run(Some(p), &["log", "--format=%s", "-n", "3", "cible"]).unwrap();
+        assert_eq!(log.lines().count(), 3);
+        assert_eq!(run(Some(p), &["show", "cible:c.txt"]).unwrap(), "c");
+        // Déjà là : sautés.
+        assert_eq!(cherry_pick_to_branch(p, "cible", &[c.clone()]).unwrap(), 0);
+        // Branche courante, conflit : par un checkout.
+        assert_eq!(cherry_pick_to_branch(p, "main", &[b.clone()]).unwrap_err(), "needs_checkout");
+        run(Some(p), &["switch", "-q", "-c", "autre", "cible~2"]).unwrap();
+        crate::git::tests::commit_file(p, "c.txt", "autre\n");
+        run(Some(p), &["switch", "-q", "main"]).unwrap();
+        assert_eq!(cherry_pick_to_branch(p, "autre", &[c]).unwrap_err(), "needs_checkout");
     }
 
     #[test]
