@@ -442,7 +442,7 @@ export interface Api {
    *  montré dans l'explorateur (son dossier s'il n'existe plus). `file_missing` : rien à ouvrir. */
   openRepoFile(path: string, file: string, how: "open" | "reveal"): Promise<void>;
   /** Ouvre un fichier du dépôt avec l'éditeur des réglages (ligne de commande). */
-  openInEditor(path: string, file: string, editor: string): Promise<void>;
+  openInEditor(path: string, file: string, editor: string, line?: number): Promise<void>;
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;
@@ -701,7 +701,7 @@ const tauriApi: Api = {
     }
   },
   openRepoFile: (path, file, how) => invoke("open_repo_file", { path, file, how }),
-  openInEditor: (path, file, editor) => invoke("open_in_editor", { path, file, editor }),
+  openInEditor: (path, file, editor, line) => invoke("open_in_editor", { path, file, editor, line: line ?? null }),
   window: {
     minimize: async () => (await currentWindow()).minimize(),
     toggleMaximize: async () => (await currentWindow()).toggleMaximize(),
@@ -1663,10 +1663,10 @@ const mockApi: Api = {
     w.__mockInstalled = true;
     if (restart) w.__mockRelaunched = true;
   },
-  async openInEditor(path, file, editor) {
+  async openInEditor(path, file, editor, line) {
     if (editor.includes("introuvable")) throw "editor_not_found";
     (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];
-    (window as unknown as { __mockOpened: unknown[] }).__mockOpened.push({ path, file, how: `editor:${editor}` });
+    (window as unknown as { __mockOpened: unknown[] }).__mockOpened.push({ path, file, how: `editor:${editor}`, line });
   },
   async openRepoFile(path, file, how) {
     (window as unknown as { __mockOpened?: unknown[] }).__mockOpened ??= [];

@@ -44,7 +44,7 @@
   },
   "settings": {
     "editor": "Éditeur des fichiers",
-    "editorHint": "Commande qui ouvre un fichier du dépôt (« Ouvrir dans l’éditeur » au clic droit). {file} place le chemin, sinon il est ajouté à la fin. Vide : le programme associé du système.",
+    "editorHint": "Commande qui ouvre un fichier du dépôt (« Ouvrir dans l’éditeur » au clic droit). {file} place le chemin, sinon il est ajouté à la fin ; {line} la ligne (depuis le blame). Vide : le programme associé du système.",
     "editorPlaceholder": "code -r",
     "editorPick": "Choisir…",
     "version": "GitGR {{version}}",
@@ -1403,6 +1403,7 @@
     "deleted": "Branche {{branch}} supprimée."
   },
   "menu": {
+    "openInEditorLine": "Ouvrir dans l’éditeur à la ligne {{line}}",
     "openInEditor": "Ouvrir dans l’éditeur",
     "checkout": "Checkout",
     "checkoutBranch": "Checkout {{branch}}",

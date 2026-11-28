@@ -272,6 +272,7 @@ Compléments et retours d'utilisation, par thème.
 - **Copier le diff au clic droit, partout** (étape 8) : `fileMenu(…, { change, load })` — fichiers d'une plage (commit centré ou plage entière), d'un stash (non suivis compris), d'une PR / MR et des modifications en cours (non indexé / indexé, pas en conflit).
 - **Éditeur des fichiers** (étape 4) : réglage « Éditeur des fichiers » (page Git : ligne de commande, `{file}` pour placer le chemin, « Choisir… » un programme) ; « Ouvrir dans l'éditeur » en tête du clic droit d'un fichier (`editor.rs` : découpe avec guillemets, programme cherché avec `PATHEXT` sous Windows, sans console ; `editor_not_found`).
 - **Recherche dans les modifications : diff sur la ligne** (étape 8) : `DiffBody` avec `mark` rend active (et fait défiler jusqu'à) la première ligne ajoutée ou retirée qui contient le texte cherché.
+- **Éditeur à la ligne** (étape 4) : `{line}` dans la commande de l'éditeur ; « Ouvrir dans l'éditeur à la ligne N » au clic droit d'une ligne du blame de la copie de travail.
 
 ## Reste à faire
 
@@ -280,7 +281,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 4 — branches et réseau
 
 - [ ] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; reste : « Créer un worktree depuis » en sous-menu.
-- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (fait, cf. « Fait ») ; reste : ouvrir à la ligne (depuis le diff, le blame : `{line}` dans la commande).
+- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (fait, cf. « Fait ») ; `{line}` depuis le blame de la copie de travail : fait ; reste : depuis le diff des modifications en cours (clic droit sur un numéro de ligne).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
 
 ### Étape 5 — profils

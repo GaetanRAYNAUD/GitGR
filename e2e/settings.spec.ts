@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openNextRepo } from "./fixtures";
+import { openNextRepo, openRepos } from "./fixtures";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -233,4 +233,25 @@ test("éditeur des fichiers : commande enregistrée, « Ouvrir dans l'éditeur �
   await item.click();
   const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { how: string }[] }).__mockOpened);
   expect(opened.map((o) => o.how)).toEqual(["editor:code -r"]);
+});
+
+test("éditeur des fichiers : blame de la copie de travail, « à la ligne N » avec {line}", async ({ page }) => {
+  const settings = await openSettings(page, "Git");
+  const field = settings.getByLabel("Éditeur des fichiers");
+  await field.fill("subl {file}:{line}");
+  await field.press("Enter");
+  await page.getByRole("button", { name: /^Réglages$/ }).click();
+
+  await openRepos(page, 2);
+  const unstaged = page.getByRole("complementary", { name: "Modifications en cours" }).getByRole("listbox", { name: "Non indexés", exact: true });
+  await unstaged.getByText("render.ts").click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+  const view = page.getByRole("region", { name: "Blame" });
+  const row = view.locator("tr.start").nth(1);
+  await row.click({ button: "right" });
+  const item = page.getByRole("menu").getByRole("menuitem", { name: /^Ouvrir dans l’éditeur à la ligne \d+$/ });
+  const label = (await item.textContent())!;
+  await item.click();
+  const opened = await page.evaluate(() => (window as unknown as { __mockOpened: { how: string; line: number }[] }).__mockOpened);
+  expect(opened.map((o) => [o.how, String(o.line)])).toEqual([["editor:subl {file}:{line}", label.match(/\d+$/)![0]]]);
 });
