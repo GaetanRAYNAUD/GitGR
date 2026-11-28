@@ -175,18 +175,18 @@ export const useConflictView = create<ConflictViewState>((set) => ({
 }));
 
 /** Rebase interactif ouvert à la place du graphe : commits après `base` (`null` : depuis le
- *  premier commit), `label` pour le titre. */
+ *  premier commit), `label` pour le titre ; `onto` : rejoués sur une autre branche (la base). */
 interface RebaseViewState {
-  open: Record<string, { base: string | null; label: string } | undefined>;
-  show(path: string, base: string | null, label: string): void;
+  open: Record<string, { base: string | null; label: string; onto: boolean } | undefined>;
+  show(path: string, base: string | null, label: string, onto?: boolean): void;
   close(path: string): void;
 }
 
 export const useRebaseView = create<RebaseViewState>((set) => ({
   open: {},
-  show: (path, base, label) => {
+  show: (path, base, label, onto = false) => {
     closeCenterViews(path);
-    set((s) => ({ open: { ...s.open, [path]: { base, label } } }));
+    set((s) => ({ open: { ...s.open, [path]: { base, label, onto } } }));
   },
   close: (path) => set((s) => (s.open[path] === undefined ? s : { open: { ...s.open, [path]: undefined } })),
 }));

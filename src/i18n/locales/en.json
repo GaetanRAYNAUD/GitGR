@@ -531,6 +531,9 @@
     }
   },
   "rebase": {
+    "leaveTitle": "Discard this interactive rebase?",
+    "leaveBody": "The order and the choices made for each commit will be lost.",
+    "leave": "Discard",
     "label": "Interactive rebase",
     "title": "Interactive rebase of {{branch}} from {{base}}",
     "list": "Commits to replay, oldest first",
@@ -1414,6 +1417,7 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "rebase_not_ancestor": "This commit is not on the current branch: “from here” only applies to its commits.",
     "invalid_action": "Unknown rebase action.",
     "rebase_all_dropped": "Every commit is dropped.",
     "rebase_squash_first": "The first kept commit can't be squashed into a previous one.",

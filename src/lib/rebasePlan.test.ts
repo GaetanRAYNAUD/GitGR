@@ -16,12 +16,15 @@ describe("plan de rebase", () => {
     expect(planProblem([row("a", { action: "drop" }), row("b", { action: "fixup" }), row("c")], orig)).toBe("rebase.why.squashFirst");
     expect(planProblem([row("a", { action: "reword", message: " " }), row("b"), row("c")], orig)).toBe("rebase.why.emptyMessage");
     expect(planProblem([row("b"), row("a"), row("c")], orig)).toBeNull();
+    // Sur une autre branche : tout garder suffit.
+    expect(planProblem([row("a"), row("b"), row("c")], orig, true)).toBeNull();
   });
 
   it("commits poussés réécrits : seulement à partir du premier changement", () => {
     const rows = [row("a", { pushed: true }), row("b"), row("c", { action: "drop" })];
     expect(rewritesPushed(rows, orig)).toBe(false);
     expect(rewritesPushed([row("a", { pushed: true, action: "reword", message: "x" }), row("b"), row("c")], orig)).toBe(true);
+    expect(rewritesPushed([row("a", { pushed: true }), row("b"), row("c")], orig, true)).toBe(true);
   });
 
   it("résumé", () => {

@@ -477,14 +477,14 @@ pub async fn resolve_conflict_with(path: String, file: String, choice: String) -
 
 /// Commits de la branche courante après `base` (rebase interactif).
 #[tauri::command]
-pub async fn rebase_plan(path: String, base: Option<String>) -> Result<crate::rebase::RebasePlan, String> {
-    crate::rebase::plan(Path::new(&path), base.as_deref())
+pub async fn rebase_plan(path: String, base: Option<String>, onto: bool) -> Result<crate::rebase::RebasePlan, String> {
+    crate::rebase::plan(Path::new(&path), base.as_deref(), onto)
 }
 
 /// Rebase interactif : rejoue les commits après `base` selon les étapes.
 #[tauri::command]
-pub async fn interactive_rebase(path: String, base: Option<String>, steps: Vec<crate::rebase::Step>, auto_stash: bool) -> Result<OpResult, String> {
-    crate::rebase::run_rebase(Path::new(&path), base.as_deref(), &steps, auto_stash)
+pub async fn interactive_rebase(path: String, base: Option<String>, onto: bool, steps: Vec<crate::rebase::Step>, auto_stash: bool) -> Result<OpResult, String> {
+    crate::rebase::run_rebase(Path::new(&path), base.as_deref(), onto, &steps, auto_stash)
 }
 
 #[tauri::command]

@@ -30,13 +30,14 @@ export function moveRow<T>(rows: T[], from: number, to: number): T[] {
   return out;
 }
 
-/** Raison pour laquelle le plan ne peut pas être lancé (clé i18n), `null` s'il peut l'être. */
-export function planProblem(rows: PlanRow[], original: string[]): string | null {
+/** Raison pour laquelle le plan ne peut pas être lancé (clé i18n), `null` s'il peut l'être.
+ *  `onto` : rejoué sur une autre branche, ce qui change déjà quelque chose. */
+export function planProblem(rows: PlanRow[], original: string[], onto = false): string | null {
   if (!rows.some((r) => r.action !== "drop")) return "rebase.why.allDropped";
   const first = rows.findIndex((r) => r.action !== "drop");
   if (rows[first].action === "squash" || rows[first].action === "fixup") return "rebase.why.squashFirst";
   if (rows.some((r) => r.action === "reword" && !r.message.trim())) return "rebase.why.emptyMessage";
-  if (!changed(rows, original)) return "rebase.why.nothing";
+  if (!onto && !changed(rows, original)) return "rebase.why.nothing";
   return null;
 }
 
@@ -47,8 +48,9 @@ export function changed(rows: PlanRow[], original: string[]): boolean {
 
 /** Des commits déjà poussés seront-ils réécrits ? Tout commit après le premier changement
  *  (dans l'ordre d'origine) change de SHA. */
-export function rewritesPushed(rows: PlanRow[], original: string[]): boolean {
-  const firstChange = rows.findIndex((r, i) => r.sha !== original[i] || r.action !== "pick");
+export function rewritesPushed(rows: PlanRow[], original: string[], onto = false): boolean {
+  // Rejoués sur une autre branche : tous changent de SHA.
+  const firstChange = onto ? 0 : rows.findIndex((r, i) => r.sha !== original[i] || r.action !== "pick");
   if (firstChange < 0) return false;
   const touched = new Set(original.slice(firstChange));
   return rows.some((r) => r.pushed && touched.has(r.sha));

@@ -13,22 +13,36 @@ import { ACTION_KEYS, ACTIONS, moveRow, planProblem, type PlanRow, type RebaseAc
 import { useGraph } from "../../store/graph";
 import { useOps } from "../../store/ops";
 import { useRebaseView } from "../../store/range";
+import { useDialogs } from "../../store/dialogs";
 import { type MenuItem, openMenuBelow } from "../ContextMenu";
 import { useEscape, useReturnFocus } from "./DiffBody";
 import { BackButton } from "./DiffView";
 import { RetryNotice, scrollRow, useCommitWhen } from "./viewKit";
 
-export function RebaseView({ path, base, label }: { path: string; base: string | null; label: string }) {
+export function RebaseView({ path, base, label, onto = false }: { path: string; base: string | null; label: string; onto?: boolean }) {
   const { t } = useTranslation();
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const returnFocus = useReturnFocus(sectionRef);
   const close = useRebaseView((s) => s.close);
-  const back = useCallback(() => {
+  const leave = useCallback(() => {
     returnFocus();
     close(path);
   }, [close, path, returnFocus]);
-  useEscape(back);
+  // Plan modifié : on demande avant de le jeter (Échap, Retour, Annuler).
+  const dirty = useRef(false);
+  const back = useCallback(async () => {
+    if (dirty.current) {
+      const ok = await useDialogs.getState().choose({
+        title: t("rebase.leaveTitle"),
+        body: t("rebase.leaveBody"),
+        choices: [{ id: "leave", label: t("rebase.leave"), danger: true }],
+      });
+      if (ok !== "leave") return;
+    }
+    leave();
+  }, [leave, t]);
+  useEscape(() => void back());
   const branch = useGraph((s) => s.graphs[path]?.refs?.headBranch ?? "HEAD");
   const running = useOps((s) => !!s.running[path]);
   const [rows, setRows] = useState<PlanRow[] | null>(null);
@@ -41,7 +55,7 @@ export function RebaseView({ path, base, label }: { path: string; base: string |
 
   useEffect(() => {
     let live = true;
-    api.rebasePlan(path, base).then(
+    api.rebasePlan(path, base, onto).then(
       (p) => {
         if (!live) return;
         setRows(p.commits.map((c) => ({ sha: c.sha, subject: c.subject, original: c.message, action: "pick", message: c.message, pushed: c.pushed, time: c.time })));
@@ -54,13 +68,14 @@ export function RebaseView({ path, base, label }: { path: string; base: string |
     return () => {
       live = false;
     };
-  }, [path, base, reload]);
+  }, [path, base, onto, reload]);
 
   const list = rows ?? [];
   const cur = Math.min(at, Math.max(0, list.length - 1));
-  const problem = rows ? planProblem(rows, original) : null;
+  const problem = rows ? planProblem(rows, original, onto) : null;
+  dirty.current = !!rows && rows.some((r, i) => r.sha !== original[i] || r.action !== "pick");
   const sum = useMemo(() => summary(list, original), [list, original]);
-  const pushed = rows ? rewritesPushed(rows, original) : false;
+  const pushed = rows ? rewritesPushed(rows, original, onto) : false;
 
   const setAction = (i: number, action: RebaseAction) => setRows((rs) => rs && rs.map((r, k) => (k === i ? { ...r, action } : r)));
   const move = (from: number, to: number) => {
@@ -107,14 +122,14 @@ export function RebaseView({ path, base, label }: { path: string; base: string |
   const start = async () => {
     if (!rows || problem || running) return;
     const steps = rows.map((r) => ({ sha: r.sha, action: r.action, message: r.action === "reword" ? r.message : null }));
-    const ok = await useOps.getState().interactiveRebase(path, base, steps, pushed);
+    const ok = await useOps.getState().interactiveRebase(path, base, onto, steps, pushed);
     if (ok) close(path);
   };
 
   return (
     <section ref={sectionRef} className="pull-view rebase-view" aria-label={t("rebase.label")}>
       <header className="diff-head">
-        <BackButton onClick={back} />
+        <BackButton onClick={() => void back()} />
         <span className="pull-view-title">{t("rebase.title", { branch, base: label })}</span>
       </header>
       <p className="muted reflog-hint" title={t("rebase.keys")}>
@@ -226,7 +241,7 @@ export function RebaseView({ path, base, label }: { path: string; base: string |
                 {t(problem)}
               </span>
             )}
-            <button className="btn sm" onClick={back}>
+            <button className="btn sm" onClick={() => void back()}>
               {t("conflict.cancel")}
             </button>
             <button className="btn sm primary" disabled={!!problem || running} aria-describedby={problem ? "rebase-why" : undefined} onClick={() => void start()}>

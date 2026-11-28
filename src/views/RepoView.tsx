@@ -734,7 +734,7 @@ export function RepoView({ path }: { path: string }) {
           ) : openStash ? (
             <StashView key={openStash.sha} path={path} entry={openStash} />
           ) : openRebase ? (
-            <RebaseView key={`${openRebase.base}`} path={path} base={openRebase.base} label={openRebase.label} />
+            <RebaseView key={`${openRebase.base}|${openRebase.onto}`} path={path} base={openRebase.base} label={openRebase.label} onto={openRebase.onto} />
           ) : openRange ? (
             <RangeView key={openRange} path={path} direction={openRange} />
           ) : openPull ? (

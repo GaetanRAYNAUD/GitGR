@@ -103,7 +103,7 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
     ...(isHead || !refs?.headBranch ? [] : [{
       label: t("rebase.ontoMenu", { branch: head }),
       title: t("rebase.ontoHint", { branch: head, onto: r.short }),
-      onClick: () => useRebaseView.getState().show(path, r.name, r.short),
+      onClick: () => useRebaseView.getState().show(path, r.name, r.short, true),
     }]),
     ...(isHead ? [] : [{
       label: t("menu.short.cherryPick", { branch: head }),

@@ -45,8 +45,9 @@ pub struct Step {
 }
 
 /// Commits de la branche courante après `base` (une ref, un SHA ; `None` : tout l'historique).
-/// Refusé s'il y a des merges dans la plage (le rebase les aplatirait).
-pub fn plan(path: &Path, base: Option<&str>) -> Result<RebasePlan, String> {
+/// Refusé s'il y a des merges dans la plage (le rebase les aplatirait). Sans `onto` (« à partir
+/// d'ici »), la base doit être un ancêtre de HEAD : sinon le rebase déplacerait la branche.
+pub fn plan(path: &Path, base: Option<&str>, onto: bool) -> Result<RebasePlan, String> {
     check_dir(path)?;
     run(Some(path), &["symbolic-ref", "-q", "--short", "HEAD"]).map_err(|_| "detached_head".to_string())?;
     let base_sha = match base {
@@ -58,12 +59,22 @@ pub fn plan(path: &Path, base: Option<&str>) -> Result<RebasePlan, String> {
         }
         None => None,
     };
+    if let (Some(b), false) = (&base_sha, onto) {
+        if run(Some(path), &["merge-base", "--is-ancestor", b, "HEAD"]).is_err() {
+            return Err("rebase_not_ancestor".into());
+        }
+    }
     let range = match &base_sha {
         Some(b) => format!("{b}..HEAD"),
         None => "HEAD".to_string(),
     };
     if !run(Some(path), &["rev-list", "--merges", "-n", "1", &range])?.is_empty() {
         return Err("rebase_merges".into());
+    }
+    // Un de plus que la limite : assez pour savoir qu'elle est dépassée, sans tout lire.
+    let count = run(Some(path), &["rev-list", "--count", &format!("--max-count={}", PLAN_LIMIT + 1), &range])?;
+    if count.trim().parse::<usize>().unwrap_or(0) > PLAN_LIMIT {
+        return Err("rebase_too_many".into());
     }
     let out = run(Some(path), &["log", "--reverse", "-z", "--format=%H%x1f%s%x1f%an%x1f%at%x1f%B", &range, "--"])?;
     let mut commits: Vec<PlanCommit> = out
@@ -135,12 +146,12 @@ fn todo(steps: &[Step], dir: &Path) -> Result<String, String> {
 
 /// Rejoue les commits après `base` selon `steps` (dans leur ordre). S'arrête comme un rebase
 /// ordinaire sur des conflits (`conflicts`), à continuer depuis l'interface.
-pub fn run_rebase(path: &Path, base: Option<&str>, steps: &[Step], auto_stash: bool) -> Result<OpResult, String> {
+pub fn run_rebase(path: &Path, base: Option<&str>, onto: bool, steps: &[Step], auto_stash: bool) -> Result<OpResult, String> {
     check_dir(path)?;
     if operation(path).is_some() {
         return Err("operation_in_progress".into());
     }
-    let p = plan(path, base)?;
+    let p = plan(path, base, onto)?;
     // Les étapes reprennent exactement les commits de la plage (aucun en plus, aucun oublié).
     let mut want: Vec<&str> = p.commits.iter().map(|c| c.sha.as_str()).collect();
     let mut got: Vec<&str> = steps.iter().map(|s| s.sha.as_str()).collect();
@@ -206,10 +217,17 @@ mod tests {
     fn plans_the_commits_after_the_base() {
         let (repo, shas) = setup();
         let p = repo.path();
-        let plan = plan(p, Some(&format!("{}^", shas[0]))).unwrap();
+        let plan = plan(p, Some(&format!("{}^", shas[0])), false).unwrap();
         assert_eq!(plan.commits.iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), ["a", "b", "c", "d"]);
         assert!(plan.commits.iter().all(|c| !c.pushed));
-        assert_eq!(super::plan(p, Some("HEAD")).unwrap_err(), "rebase_nothing");
+        assert_eq!(super::plan(p, Some("HEAD"), false).unwrap_err(), "rebase_nothing");
+        // « À partir d'ici » sur un commit d'une autre branche : refusé ; « ici » (onto) : permis.
+        run(Some(p), &["switch", "-q", "-c", "autre", &shas[1]]).unwrap();
+        commit_file(p, "z.txt", "z");
+        let other = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        run(Some(p), &["switch", "-q", "main"]).unwrap();
+        assert_eq!(super::plan(p, Some(&other), false).unwrap_err(), "rebase_not_ancestor");
+        assert_eq!(super::plan(p, Some("autre"), true).unwrap().commits.len(), 2);
     }
 
     #[test]
@@ -219,7 +237,7 @@ mod tests {
         let base = format!("{}^", shas[0]);
         // d en premier, a renommé, b réuni dans a, c retiré.
         let steps = [step(&shas[3], "pick", None), step(&shas[0], "reword", Some("A renommé")), step(&shas[1], "fixup", None), step(&shas[2], "drop", None)];
-        let res = run_rebase(p, Some(&base), &steps, true).unwrap();
+        let res = run_rebase(p, Some(&base), false, &steps, true).unwrap();
         assert!(!res.conflicts);
         assert_eq!(subjects(p, 3), ["A renommé", "d", "test"]);
         assert!(p.join("b.txt").exists() && !p.join("c.txt").exists());
@@ -232,14 +250,14 @@ mod tests {
         let p = repo.path();
         let base = format!("{}^", shas[0]);
         let all = |a: &str| shas.iter().map(|s| step(s, a, None)).collect::<Vec<_>>();
-        assert_eq!(run_rebase(p, Some(&base), &all("drop"), true).unwrap_err(), "rebase_all_dropped");
+        assert_eq!(run_rebase(p, Some(&base), false, &all("drop"), true).unwrap_err(), "rebase_all_dropped");
         let mut s = all("pick");
         s[0].action = "squash".into();
-        assert_eq!(run_rebase(p, Some(&base), &s, true).unwrap_err(), "rebase_squash_first");
-        assert_eq!(run_rebase(p, Some(&base), &all("pick")[1..], true).unwrap_err(), "rebase_plan_changed");
+        assert_eq!(run_rebase(p, Some(&base), false, &s, true).unwrap_err(), "rebase_squash_first");
+        assert_eq!(run_rebase(p, Some(&base), false, &all("pick")[1..], true).unwrap_err(), "rebase_plan_changed");
         let mut s = all("pick");
         s[1].action = "reword".into();
-        assert_eq!(run_rebase(p, Some(&base), &s, true).unwrap_err(), "empty_message");
+        assert_eq!(run_rebase(p, Some(&base), false, &s, true).unwrap_err(), "empty_message");
         assert_eq!(operation(p), None);
     }
 
@@ -254,7 +272,7 @@ mod tests {
         commit_file(p, "f.txt", "2\n");
         let two = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
         // Inverser deux modifications de la même ligne : conflit.
-        let res = run_rebase(p, Some(&base), &[step(&two, "pick", None), step(&one, "pick", None)], true).unwrap();
+        let res = run_rebase(p, Some(&base), false, &[step(&two, "pick", None), step(&one, "pick", None)], true).unwrap();
         assert!(res.conflicts);
         assert_eq!(operation(p), Some("rebase"));
         run(Some(p), &["rebase", "--abort"]).unwrap();

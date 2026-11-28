@@ -531,6 +531,9 @@
     }
   },
   "rebase": {
+    "leaveTitle": "Abandonner ce rebase interactif ?",
+    "leaveBody": "L’ordre et les choix faits pour chaque commit seront perdus.",
+    "leave": "Abandonner",
     "label": "Rebase interactif",
     "title": "Rebase interactif de {{branch}} depuis {{base}}",
     "list": "Commits à rejouer, du plus ancien au plus récent",
@@ -1414,6 +1417,7 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "rebase_not_ancestor": "Ce commit n’est pas sur la branche courante : « à partir d’ici » ne s’applique qu’à ses commits.",
     "invalid_action": "Action de rebase inconnue.",
     "rebase_all_dropped": "Tous les commits sont retirés.",
     "rebase_squash_first": "Le premier commit gardé ne peut pas être réuni à un précédent.",

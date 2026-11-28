@@ -230,9 +230,9 @@ export interface Api {
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
   /** Commits de la branche courante après `base` (`null` : depuis le premier commit). */
-  rebasePlan(path: string, base: string | null): Promise<RebasePlan>;
+  rebasePlan(path: string, base: string | null, onto: boolean): Promise<RebasePlan>;
   /** Rebase interactif selon les étapes (dans leur ordre). */
-  interactiveRebase(path: string, base: string | null, steps: RebaseStep[], autoStash: boolean): Promise<OpResult>;
+  interactiveRebase(path: string, base: string | null, onto: boolean, steps: RebaseStep[], autoStash: boolean): Promise<OpResult>;
   /** Worktrees du dépôt (principal compris, en premier). */
   listWorktrees(path: string): Promise<Worktree[]>;
   /** Dossier proposé pour un worktree de `branch`, à côté du dépôt principal. */
@@ -521,8 +521,8 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
-  rebasePlan: (path, base) => invoke("rebase_plan", { path, base }),
-  interactiveRebase: (path, base, steps, autoStash) => invoke("interactive_rebase", { path, base, steps, autoStash }),
+  rebasePlan: (path, base, onto) => invoke("rebase_plan", { path, base, onto }),
+  interactiveRebase: (path, base, onto, steps, autoStash) => invoke("interactive_rebase", { path, base, onto, steps, autoStash }),
   listWorktrees: (path) => invoke("list_worktrees", { path }),
   suggestWorktreeDir: (path, branch) => invoke("suggest_worktree_dir", { path, branch }),
   addWorktree: (path, dir, o) => invoke("add_worktree", { path, dir, branch: o.branch ?? null, newBranch: o.newBranch ?? null, start: o.start ?? null }),
@@ -1078,7 +1078,7 @@ const mockApi: Api = {
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
   rebasePlan: async (path, base) => mockRebasePlan(path, base),
-  interactiveRebase: async (path, base, steps, autoStash) => mockInteractiveRebase(path, base, steps, autoStash),
+  interactiveRebase: async (path, base, _onto, steps, autoStash) => mockInteractiveRebase(path, base, steps, autoStash),
   listWorktrees: async (path) => mockListWorktrees(path),
   suggestWorktreeDir: async (path, branch) => mockSuggestWorktreeDir(path, branch),
   addWorktree: async (path, dir, o) => mockAddWorktree(path, dir, o),

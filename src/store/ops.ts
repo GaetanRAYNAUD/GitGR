@@ -51,7 +51,7 @@ interface OpsStore {
   checkoutDetached(path: string, sha: string): Promise<boolean>;
   /** Rebase interactif (`base` : commits après elle). `pushed` : des commits déjà poussés
    *  seront réécrits, à confirmer. */
-  interactiveRebase(path: string, base: string | null, steps: RebaseStep[], pushed: boolean): Promise<boolean>;
+  interactiveRebase(path: string, base: string | null, onto: boolean, steps: RebaseStep[], pushed: boolean): Promise<boolean>;
   /** Bisect : marque `sha` (le commit extrait si `null`) bon, mauvais ou à passer ; extrait le
    *  suivant à tester (auto-stash). Trouvé : le premier mauvais commit est sélectionné. */
   bisect(path: string, verdict: BisectVerdict, sha: string | null): Promise<boolean>;
@@ -568,7 +568,7 @@ export const useOps = create<OpsStore>((set, get) => {
       return true;
     },
 
-    async interactiveRebase(path, base, steps, pushed) {
+    async interactiveRebase(path, base, onto, steps, pushed) {
       const label = currentBranch(path);
       if (!label) return fail("detached_head");
       if (pushed) {
@@ -579,7 +579,7 @@ export const useOps = create<OpsStore>((set, get) => {
         });
         if (go !== "go") return false;
       }
-      const out = await exec(path, ["operation", "rebase"], () => api.interactiveRebase(path, base, steps, autoStash(path)));
+      const out = await exec(path, ["operation", "rebase"], () => api.interactiveRebase(path, base, onto, steps, autoStash(path)));
       if (!out.ok) return fail(out.error);
       report(out.value, label);
       if (!out.value.conflicts) {
