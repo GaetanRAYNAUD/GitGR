@@ -450,3 +450,27 @@ test("filtre par auteur : commits lus dans git, sur toutes les branches", async 
     await app.close();
   }
 });
+
+test("blame avant un commit : la même ligne, dans la version d'avant", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  sandbox.commit(mine, "f.txt", "L1\nL2\nL3\nL4\nL5\nL6\n", "version 1");
+  // Trois lignes ajoutées en tête, L5 modifiée (ligne 8 maintenant).
+  sandbox.commit(mine, "f.txt", "n1\nn2\nn3\nL1\nL2\nL3\nL4\nL5 modifiée\nL6\n", "version 2");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    await page.getByRole("listbox", { name: "Historique des commits" }).getByRole("option", { name: /^version 2/ }).click();
+    await page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row", { hasText: "f.txt" }).click({ button: "right" });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Blame", exact: true }).click();
+    const view = page.getByRole("region", { name: "Blame" });
+    const rows = view.locator("tbody tr");
+    await expect(rows).toHaveCount(9);
+    await rows.nth(7).locator(".blame-commit").click({ button: "right" });
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Blame avant ce commit" }).click();
+    await expect(rows).toHaveCount(6);
+    await expect(view.locator("tbody tr.active .blame-text")).toHaveText("L5");
+  } finally {
+    await app.close();
+  }
+});
