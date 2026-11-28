@@ -258,6 +258,7 @@ Compléments et retours d'utilisation, par thème.
 - **Fetch des onglets inactifs** (étape 9) : `useAutoFetch` récupère aussi les onglets non affichés, deux fois moins souvent que le dépôt affiché, un à la fois (`lib/autoFetch.ts`, `dueTab` : le plus anciennement récupéré), puis relit leur seul résumé (pas le graphe). Reste : les dépôts récents de l'accueil qui ne sont pas en onglet.
 - **Commits d'un fichier dans le graphe** (étape 8) : `file_commits` (`log --all -- <chemin>`, fichier ou dossier) et « Mettre en avant ses commits dans le graphe » au clic droit d'un fichier ou d'un dossier, par la liste de commits de la barre de recherche (`showSet`).
 - **Gros diff plafonné** (étape 8) : au-delà de `BIG_DIFF` (5 000 lignes), `DiffBody` attend « Afficher quand même » (par fichier, `resetKey`).
+- **Glisser-déposer des branches distantes** (étape 8) : les distantes se glissent et reçoivent un dépôt (barre latérale, étiquettes du graphe) ; distante sur locale : merge dedans, rebase de la locale dessus ; locale sur distante : rebase dessus, PR / MR (branche courante) ; deux distantes : rien.
 
 ## Reste à faire
 
@@ -306,7 +307,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 - [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Recherche dans les modifications** : diff ouvert sur la ligne en jeu (la mise en évidence dans le graphe est faite, cf. « Fait »).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
-- [ ] **Glisser-déposer d'une branche** (sur une branche locale : fait, cf. « Fait ») : sur une branche distante (PR / MR vers elle), depuis une branche distante (merge).
 - [ ] **Palette de commandes** (faite sur Ctrl+P, cf. « Fait ») ; **à décider** : Ctrl+Maj+P aussi (comme VS Code), ce qui demande de déplacer Pop sur un autre raccourci. Reste : commandes contextuelles (commit sélectionné : cherry-pick, revert, reset ; fichier ouvert : blame, historique), les dernières utilisées en tête.
 - [ ] **Aperçu des images dans le diff** : ancienne et nouvelle version côte à côte (ou en fondu / curseur), dimensions et poids avant / après ; aujourd'hui « Fichier binaire : pas d'aperçu ». Pour les autres binaires, au moins la taille et le type.
 - [ ] **Palette de commandes** (Ctrl+P / Ctrl+Shift+P).

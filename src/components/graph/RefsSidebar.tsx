@@ -172,8 +172,8 @@ export function RefsSidebar({ path }: { path: string }) {
           onClick={() => go(r)}
           onDoubleClick={() => checkoutRef(path, r, refs)}
           onContextMenu={(e) => openContextMenu(e, menu())}
-          onMouseDown={r.kind === "local" ? (e) => startBranchDrag(e, t, path, r) : undefined}
-          data-drop-ref={r.kind === "local" ? r.name : undefined}
+          onMouseDown={r.kind !== "tag" ? (e) => startBranchDrag(e, t, path, r) : undefined}
+          data-drop-ref={r.kind !== "tag" ? r.name : undefined}
           title={missing === r.name ? t("sidebar.notFound") : r.kind === "tag" ? r.short : `${r.short}\n${hint}`}
         >
           <span className="side-label">{label}</span>

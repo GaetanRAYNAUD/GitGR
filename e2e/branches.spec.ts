@@ -284,6 +284,17 @@ test.describe("dépôt propre", () => {
     await drag(branch(page, "ssh-agent"), branch(page, "main"));
     await menu(page).getByRole("menuitem", { name: "Rebase de fix/ssh-agent sur main" }).click();
     await expect(current(page)).toHaveText("fix/ssh-agent");
+
+    // Une distante glissée sur une locale : merge dans celle-ci, ou rebase de celle-ci dessus.
+    const remoteMain = sidebar(page).locator(".side-group").nth(1).getByRole("treeitem", { name: /^main( |$)/ });
+    await drag(remoteMain, branch(page, "ssh-agent"));
+    await expect(menu(page).getByRole("menuitem", { name: "Merge de origin/main dans fix/ssh-agent" })).toBeVisible();
+    await expect(menu(page).getByRole("menuitem", { name: "Rebase de fix/ssh-agent sur origin/main" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    // Une locale sur une distante : rebase dessus (pas de merge dans une distante).
+    await drag(branch(page, "ssh-agent"), remoteMain);
+    await expect(menu(page).getByRole("menuitem", { name: "Rebase de fix/ssh-agent sur origin/main" })).toBeVisible();
+    await expect(menu(page).getByRole("menuitem", { name: /^Merge/ })).toHaveCount(0);
   });
 
   test("clic droit sur un commit : nouvelle branche à cet endroit", async ({ page }) => {

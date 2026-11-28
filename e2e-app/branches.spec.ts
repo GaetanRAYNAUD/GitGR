@@ -325,3 +325,32 @@ test("branches récentes : lues dans le reflog de HEAD, checkout depuis le menu"
     await app.close();
   }
 });
+
+test("glisser une branche distante sur la locale : merge de la distante", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  const other = sandbox.clone("other");
+  sandbox.commit(other, "o.txt", "o\n", "venu d'ailleurs");
+  git(other, "push", "-q");
+  git(mine, "fetch", "-q");
+  sandbox.commit(mine, "m.txt", "m\n", "local");
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const sidebar = page.getByRole("navigation", { name: "Branches et tags" });
+    const source = sidebar.locator(".side-group").nth(1).getByRole("treeitem", { name: /^main( |$)/ });
+    const target = sidebar.locator(".side-group").first().getByRole("treeitem", { name: /^main( |$)/ });
+    const from = (await source.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + 20, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 40, from.y + from.height / 2, { steps: 3 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.getByRole("menu").first().getByRole("menuitem", { name: "Merge de origin/main dans main" }).click();
+    await expect.poll(() => git(mine, "log", "-1", "--format=%P").split(" ").length).toBe(2);
+    expect(git(mine, "log", "--format=%s", "-n", "3")).toContain("venu d'ailleurs");
+  } finally {
+    await app.close();
+  }
+});
