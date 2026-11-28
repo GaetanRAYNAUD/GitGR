@@ -14,7 +14,8 @@ test("worktree : créé depuis une branche et ouvert dans un onglet ; checkout r
     const sidebar = page.getByRole("navigation", { name: "Branches et tags" });
     const locals = sidebar.locator(".side-group").first();
     await locals.getByRole("treeitem", { name: /^sujet/ }).click({ button: "right" });
-    await page.getByRole("menuitem", { name: "Créer un worktree…" }).click();
+    await page.getByRole("menuitem", { name: "Créer un worktree", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Sur sujet…" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau worktree" });
     const dir = await dialog.getByLabel("Dossier").inputValue();
     expect(dir).toMatch(/mine-sujet$/);

@@ -14,7 +14,8 @@ test("worktree : créé depuis une branche, listé dans sa section, puis supprim
   await expect(sidebar(page).getByRole("treeitem", { name: /^Worktrees/ })).toHaveCount(0);
 
   await locals(page).getByRole("treeitem", { name: /^profils/ }).click({ button: "right" });
-  await menu(page).getByRole("menuitem", { name: "Créer un worktree…" }).click();
+  await menu(page).getByRole("menuitem", { name: "Créer un worktree", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sur feature/profils…" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouveau worktree" });
   await expect(dialog).toContainText("Sur la branche feature/profils");
   await expect(dialog.getByLabel("Dossier")).toHaveValue(/-feature-profils$/);
@@ -33,7 +34,10 @@ test("worktree : créé depuis une branche, listé dans sa section, puis supprim
   await expect(chip).toHaveAttribute("title", /extraite dans le worktree .*-feature-profils/);
   // La branche courante ne peut pas avoir de worktree : déjà extraite ici.
   await locals(page).getByRole("treeitem", { name: /^main/ }).click({ button: "right" });
-  await expect(menu(page).getByRole("menuitem", { name: "Créer un worktree…" })).toHaveAttribute("aria-disabled", "true");
+  await menu(page).getByRole("menuitem", { name: "Créer un worktree", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Sur main…" })).toHaveAttribute("aria-disabled", "true");
+  // Une nouvelle branche qui part de main, elle, est possible.
+  await expect(page.getByRole("menuitem", { name: "Nouvelle branche depuis main…" })).not.toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
 
   // Verrouillé (avec une raison) : plus supprimable ; déverrouillé ensuite.

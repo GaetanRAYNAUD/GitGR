@@ -97,13 +97,30 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
     ...(r.kind !== "tag" && refs?.remotes.length
       ? [{ label: t("ci.branchMenu"), title: t("ci.branchMenuHint"), onClick: () => useCiView.getState().show(path, r.kind === "remote" ? r.short.slice(r.short.indexOf("/") + 1) : r.short) }]
       : []),
-    {
-      label: t("worktrees.newMenu"),
-      title: isHead ? t("worktrees.headWhy") : t("worktrees.newHint"),
-      disabled: isHead,
-      onClick: () =>
-        void useWorktrees.getState().create(path, r.kind === "local" ? { branch: r.short } : { start: r.name, startLabel: r.short }),
-    },
+    // Branche locale : le worktree sur elle (sauf si elle est déjà extraite ici), ou sur une
+    // nouvelle branche qui en part. Distante : toujours une nouvelle branche.
+    r.kind === "local"
+      ? {
+          label: t("worktrees.newSub"),
+          items: [
+            {
+              label: t("worktrees.onThisBranch", { branch: r.short }),
+              title: isHead ? t("worktrees.headWhy") : t("worktrees.newHint"),
+              disabled: isHead,
+              onClick: () => void useWorktrees.getState().create(path, { branch: r.short }),
+            },
+            {
+              label: t("worktrees.fromThisBranch", { branch: r.short }),
+              title: t("worktrees.newHint"),
+              onClick: () => void useWorktrees.getState().create(path, { start: r.name, startLabel: r.short }),
+            },
+          ],
+        }
+      : {
+          label: t("worktrees.newMenu"),
+          title: t("worktrees.newHint"),
+          onClick: () => void useWorktrees.getState().create(path, { start: r.name, startLabel: r.short }),
+        },
     ...(isHead || !refs?.headBranch ? [] : [{
       label: t("rebase.ontoMenu", { branch: head }),
       title: t("rebase.ontoHint", { branch: head, onto: r.short }),
