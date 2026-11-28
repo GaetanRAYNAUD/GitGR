@@ -877,6 +877,16 @@
     "deletedRemote": "Tag {{tag}} retiré de {{remote}} (s’il y était)."
   },
   "conflict": {
+    "copy": {
+      "button": "Copier",
+      "hint": "Copier une version du fichier ou le résultat",
+      "result": "Résultat (en l'état)",
+      "resultHint": "La colonne du milieu telle qu'elle est maintenant, réglée ou non",
+      "base": "Version commune",
+      "noBase": "Pas de version commune (fichier ajouté des deux côtés)",
+      "done": "Copié dans le presse-papiers : {{what}}.",
+      "failed": "Copie impossible : presse-papiers indisponible."
+    },
     "whole": {
       "binary": "Fichier binaire en conflit : gardez l’une des deux versions.",
       "deletedOurs": "Supprimé de « {{ours}} », modifié dans « {{theirs}} » : gardez la version modifiée ou confirmez la suppression.",
