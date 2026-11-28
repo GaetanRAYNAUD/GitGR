@@ -318,6 +318,33 @@
     "byText": "Search text",
     "pick": "Pick one or more authors."
   },
+  "bisect": {
+    "markBad": "Bisect: mark as bad",
+    "markGood": "Bisect: mark as good",
+    "markSkip": "Bisect: skip this commit",
+    "markHint": "Find the commit that introduced a problem: mark one commit bad and one good, GitGR checks out the ones to test in between.",
+    "skipHint": "This commit can't be tested: try another one.",
+    "stopHint": "Stop the bisect and go back to the starting branch",
+    "needGood": "Bisect: mark an (older) good commit to start.",
+    "needBad": "Bisect: mark a bad commit to start.",
+    "testing_one": "Bisect: test {{sha}} (checked out), about {{count}} step left.",
+    "testing_other": "Bisect: test {{sha}} (checked out), about {{count}} steps left.",
+    "foundBanner": "Bisect done: {{sha}} is the first bad commit.",
+    "found": "Bisect done: {{sha}} is the first bad commit.",
+    "good": "Good",
+    "bad": "Bad",
+    "skip": "Skip",
+    "stop": "Stop",
+    "finish": "Finish",
+    "show": "Show commit",
+    "mark": {
+      "current": "to test",
+      "good": "good",
+      "bad": "bad",
+      "skipped": "skipped",
+      "firstBad": "first bad"
+    }
+  },
   "graphFind": {
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",

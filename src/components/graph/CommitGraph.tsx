@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { commitMatches, findQuery, nextMatch } from "../../lib/graphFind";
 import { useGraphFind } from "../../store/graphFind";
+import { useBisect } from "../../store/bisect";
 import { AuthorFilter } from "./AuthorFilter";
 import { api, errorCode } from "../../lib/api";
 import { useTranslation } from "react-i18next";
@@ -578,6 +579,18 @@ export function CommitGraph({ path, changes }: Props) {
     return out;
   }, [commits, query, findSet]);
   const matchSet = useMemo(() => new Set(matches), [matches]);
+  const bisect = useBisect((s) => s.states[path]);
+  const bisectSet = useMemo(() => (bisect?.candidates.length && !bisect.firstBad ? new Set(bisect.candidates) : null), [bisect]);
+  /** Marque de bisect d'un commit : à tester, bon, mauvais, passé, premier mauvais. */
+  const bisectMark = (sha: string): string | null => {
+    if (!bisect) return null;
+    if (sha === bisect.firstBad) return "firstBad";
+    if (sha === bisect.bad) return "bad";
+    if (bisect.good.includes(sha)) return "good";
+    if (bisect.skipped.includes(sha)) return "skipped";
+    if (sha === bisect.current && bisect.remaining !== null) return "current";
+    return null;
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f") return;
@@ -875,6 +888,7 @@ export function CommitGraph({ path, changes }: Props) {
                 {t("graph.wipMark")}{" "}
               </span>
             )}
+            {!isWip && !isStash && bisectMark(c.sha) && <span className={`bisect-mark ${bisectMark(c.sha)}`}>{t(`bisect.mark.${bisectMark(c.sha)}`)}</span>}
             {isWip ? t("graph.wip", { count: changes }) : c.subject}
           </span>
         );
@@ -988,6 +1002,7 @@ export function CommitGraph({ path, changes }: Props) {
     return [
       c.subject,
       c.sha === head && t("graph.rowHead"),
+      bisectMark(c.sha) && t(`bisect.mark.${bisectMark(c.sha)}`),
       c.parents.length > 1 && t("graph.rowMerge"),
       refs.length > 0 && refs.join(", "),
       c.author,
@@ -1071,7 +1086,8 @@ export function CommitGraph({ path, changes }: Props) {
             const isStash = !!stash;
             // Un stash s'ouvre à la place du graphe : jamais sélectionné ici.
             const sel = !isStash && (pickedSet.size > 0 ? pickedSet.has(c.sha) : c.sha === selected);
-            const found = finding ? (matchSet.has(i) ? "found" : "dim") : null;
+            // Bisect en cours (sans recherche) : hors de la plage restante, estompé.
+            const found = finding ? (matchSet.has(i) ? "found" : "dim") : bisectSet && !isWip && !isStash && !bisectSet.has(c.sha) ? "dim" : null;
             const cls = [
               "commit-row",
               isWip && "wip",

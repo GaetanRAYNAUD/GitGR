@@ -414,6 +414,24 @@ pub async fn checkout_remote(path: String, branch: String, auto_stash: bool) -> 
     branches::checkout_remote(Path::new(&path), &branch, auto_stash)
 }
 
+/// Bisect en cours (`None` : aucun).
+#[tauri::command]
+pub async fn bisect_state(path: String) -> Result<Option<crate::bisect::BisectState>, String> {
+    crate::bisect::state(Path::new(&path))
+}
+
+/// Marque un commit (HEAD si absent) : `good`, `bad` ou `skip` ; renvoie le nouvel état.
+#[tauri::command]
+pub async fn bisect_mark(path: String, verdict: String, sha: Option<String>, auto_stash: bool) -> Result<(OpResult, crate::bisect::BisectState), String> {
+    crate::bisect::mark(Path::new(&path), &verdict, sha.as_deref(), auto_stash)
+}
+
+/// Arrête le bisect (retour à la branche de départ).
+#[tauri::command]
+pub async fn bisect_reset(path: String, auto_stash: bool) -> Result<OpResult, String> {
+    crate::bisect::reset(Path::new(&path), auto_stash)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)

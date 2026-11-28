@@ -17,6 +17,7 @@ import { clamp, LAYOUT, LIMITS } from "../lib/layout";
 import { repoName, useApp } from "../store/app";
 import { useGraph, WIP } from "../store/graph";
 import { useOps, type OpName } from "../store/ops";
+import { useBisect } from "../store/bisect";
 import { changedCount, useWork } from "../store/worktree";
 import type { PullStrategy, ReflogEntry } from "../lib/types";
 import { recentBranches } from "../lib/refs";
@@ -37,6 +38,51 @@ import { ConflictView } from "../components/graph/ConflictView";
 import { PULLS_SECTION } from "../components/graph/PullsSection";
 
 const STRATEGIES: PullStrategy[] = ["ff-only", "merge", "rebase"];
+
+/** Bisect en cours : commit à tester, étapes restantes, et les verdicts ; trouvé : le premier
+ *  mauvais commit, et « Terminer ». */
+function BisectBanner({ path }: { path: string }) {
+  const { t } = useTranslation();
+  const state = useBisect((s) => s.states[path]);
+  const running = useOps((s) => !!s.running[path]);
+  if (!state) return null;
+  const ops = useOps.getState();
+  const busy = running ? t("repo.busy") : undefined;
+  const short = (sha: string | null) => sha?.slice(0, 7) ?? "";
+  const text = state.firstBad
+    ? t("bisect.foundBanner", { sha: short(state.firstBad) })
+    : state.remaining === null
+      ? t(state.bad ? "bisect.needGood" : "bisect.needBad")
+      : t("bisect.testing", { sha: short(state.current), count: state.steps ?? 0 });
+  return (
+    <div className="autostash-banner bisect-banner" role="status">
+      <Icon name="search" size={16} />
+      <span>{text}</span>
+      {state.firstBad ? (
+        <button className="mini" onClick={() => void useGraph.getState().reveal(path, state.firstBad!)}>
+          {t("bisect.show")}
+        </button>
+      ) : (
+        state.remaining !== null && (
+          <>
+            <button className="mini" disabled={running} title={busy} onClick={() => void ops.bisect(path, "good", null)}>
+              {t("bisect.good")}
+            </button>
+            <button className="mini" disabled={running} title={busy} onClick={() => void ops.bisect(path, "bad", null)}>
+              {t("bisect.bad")}
+            </button>
+            <button className="mini" disabled={running} title={busy ?? t("bisect.skipHint")} onClick={() => void ops.bisect(path, "skip", null)}>
+              {t("bisect.skip")}
+            </button>
+          </>
+        )
+      )}
+      <button className={state.firstBad ? "mini primary" : "mini"} disabled={running} title={busy ?? t("bisect.stopHint")} onClick={() => void ops.bisectReset(path)}>
+        {t(state.firstBad ? "bisect.finish" : "bisect.stop")}
+      </button>
+    </div>
+  );
+}
 
 /** Stash d'auto-stash « masqués pour l'instant », par SHA (le temps de la session). */
 const laterAutostash = new Set<string>();
@@ -436,6 +482,12 @@ export function RepoView({ path }: { path: string }) {
     loadWork(path);
   }, [loadGraph, loadWork, path]);
 
+  // Bisect : relu quand les refs changent (marque faite dans un terminal, reset…).
+  const bisectRefs = useGraph((s) => s.graphs[path]?.refs);
+  useEffect(() => {
+    void useBisect.getState().load(path);
+  }, [path, bisectRefs]);
+
   // Section PR / MR décochée dans la barre latérale : l'utilisateur ne s'en sert pas, rien n'est
   // lu d'office (ni la liste, ni le préchargement). Ce qui est déjà là reste utilisé (étiquettes
   // des branches) ; la fenêtre de création et la vue d'une PR / MR lisent ce qu'il leur faut.
@@ -639,6 +691,7 @@ export function RepoView({ path }: { path: string }) {
       </div>
 
       <AutostashBanner path={path} />
+      <BisectBanner path={path} />
       <div className="repo-body">
         <RefsSidebar path={path} />
         <Splitter

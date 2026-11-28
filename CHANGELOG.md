@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Bisect visuel : au clic droit d'un commit, « Bisect : marquer comme mauvais » puis « … comme bon » sur un plus ancien. GitGR extrait le commit à tester (vos modifications suivent, auto-stash), un bandeau dit combien d'étapes il reste et propose Bon, Mauvais, Passer ou Arrêter ; le graphe estompe ce qui est hors de la plage et marque les commits jugés. À la fin, le premier mauvais commit est sélectionné, « Terminer » revient à la branche de départ.
 - Branches récentes : le chevron à côté du nom de la branche courante (aussi un clic droit dessus, ou Ctrl+Maj+O) liste les dernières branches extraites, pour y revenir d'un clic sans passer par la barre latérale.
 - Ctrl+Maj+O n'ouvre plus la fenêtre « Ouvrir un dépôt » (Ctrl+O seul le fait).
 - Filtrer le graphe par auteur : « Commits de … » au clic droit d'un commit, ou le bouton Auteur de la barre de recherche (Ctrl+F). On choisit un ou plusieurs auteurs (vous en tête) ; leurs commits sont mis en avant sur toutes les branches, même au-delà des commits chargés, les autres estompés ; les flèches de la barre passent de l'un à l'autre.

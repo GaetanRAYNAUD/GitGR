@@ -11,6 +11,9 @@ import {
   mockSetRemoteUrl,
   mockCheckout,
   mockCheckoutDetached,
+  mockBisectMark,
+  mockBisectReset,
+  mockBisectState,
   mockCheckoutRemote,
   mockCreateBranch,
   mockDeleteBranch,
@@ -114,10 +117,14 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  BisectState,
   Author,
   BlobPreview,
   BlobSide,
 } from "./types";
+
+/** Verdict d'un bisect. */
+export type BisectVerdict = "good" | "bad" | "skip";
 
 export interface Api {
   gitInfo(): Promise<GitInfo>;
@@ -204,6 +211,12 @@ export interface Api {
   /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** Bisect en cours (`null` : aucun). */
+  bisectState(path: string): Promise<BisectState | null>;
+  /** Marque `sha` (HEAD si `null`) bon, mauvais ou à passer ; commence le bisect au besoin. */
+  bisectMark(path: string, verdict: BisectVerdict, sha: string | null, autoStash: boolean): Promise<[OpResult, BisectState]>;
+  /** Arrête le bisect (retour à la branche de départ). */
+  bisectReset(path: string, autoStash: boolean): Promise<OpResult>;
   /** `start` : SHA ou nom de ref (`null` : HEAD). */
   createBranch(path: string, name: string, start: string | null, checkout: boolean, autoStash: boolean): Promise<OpResult>;
   renameBranch(path: string, oldName: string, newName: string): Promise<void>;
@@ -469,6 +482,9 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  bisectState: (path) => invoke("bisect_state", { path }),
+  bisectMark: (path, verdict, sha, autoStash) => invoke("bisect_mark", { path, verdict, sha, autoStash }),
+  bisectReset: (path, autoStash) => invoke("bisect_reset", { path, autoStash }),
   createBranch: (path, name, start, checkout, autoStash) => invoke("create_branch", { path, name, start, checkout, autoStash }),
   renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
   deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
@@ -1005,6 +1021,9 @@ const mockApi: Api = {
   checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  bisectState: async (path) => mockBisectState(path),
+  bisectMark: async (path, verdict, sha, autoStash) => mockBisectMark(path, verdict, sha, autoStash),
+  bisectReset: async (path, autoStash) => mockBisectReset(path, autoStash),
   createBranch: async (path, name, start, checkout, autoStash) => mockCreateBranch(path, name, start, checkout, autoStash),
   renameBranch: async (path, oldName, newName) => mockRenameBranch(path, oldName, newName),
   deleteBranch: async (path, branch, force) => mockDeleteBranch(path, branch, force),

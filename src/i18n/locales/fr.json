@@ -318,6 +318,33 @@
     "byText": "Chercher un texte",
     "pick": "Choisissez un ou plusieurs auteurs."
   },
+  "bisect": {
+    "markBad": "Bisect : marquer comme mauvais",
+    "markGood": "Bisect : marquer comme bon",
+    "markSkip": "Bisect : passer ce commit",
+    "markHint": "Cherche le commit qui a introduit un problème : marquez un commit mauvais et un bon, GitGR extrait ceux à tester entre les deux.",
+    "skipHint": "Ce commit ne peut pas être testé : en essayer un autre.",
+    "stopHint": "Arrêter le bisect et revenir à la branche de départ",
+    "needGood": "Bisect : marquez un commit bon (plus ancien) pour commencer.",
+    "needBad": "Bisect : marquez un commit mauvais pour commencer.",
+    "testing_one": "Bisect : testez {{sha}} (extrait), environ {{count}} étape restante.",
+    "testing_other": "Bisect : testez {{sha}} (extrait), environ {{count}} étapes restantes.",
+    "foundBanner": "Bisect terminé : {{sha}} est le premier mauvais commit.",
+    "found": "Bisect terminé : {{sha}} est le premier mauvais commit.",
+    "good": "Bon",
+    "bad": "Mauvais",
+    "skip": "Passer",
+    "stop": "Arrêter",
+    "finish": "Terminer",
+    "show": "Voir le commit",
+    "mark": {
+      "current": "à tester",
+      "good": "bon",
+      "bad": "mauvais",
+      "skipped": "passé",
+      "firstBad": "premier mauvais"
+    }
+  },
   "graphFind": {
     "label": "Chercher dans le graphe",
     "placeholder": "Message, auteur, e-mail ou SHA",
