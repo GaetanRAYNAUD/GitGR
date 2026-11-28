@@ -12,6 +12,11 @@ import {
   mockCheckout,
   mockCheckoutDetached,
   mockBisectMark,
+  mockListWorktrees,
+  mockSuggestWorktreeDir,
+  mockAddWorktree,
+  mockRemoveWorktree,
+  mockPruneWorktrees,
   mockBisectReset,
   mockBisectState,
   mockCheckoutRemote,
@@ -118,6 +123,7 @@ import type {
   StashEntry,
   ConflictVersions,
   BisectState,
+  Worktree,
   Author,
   BlobPreview,
   BlobSide,
@@ -211,6 +217,14 @@ export interface Api {
   /** Passe sur la branche locale qui suit `branch` (`origin/x`), créée au besoin ; renvoie aussi son nom. */
   checkoutRemote(path: string, branch: string, autoStash: boolean): Promise<[OpResult, string]>;
   checkoutDetached(path: string, sha: string, autoStash: boolean): Promise<OpResult>;
+  /** Worktrees du dépôt (principal compris, en premier). */
+  listWorktrees(path: string): Promise<Worktree[]>;
+  /** Dossier proposé pour un worktree de `branch`, à côté du dépôt principal. */
+  suggestWorktreeDir(path: string, branch: string): Promise<string>;
+  /** Crée un worktree : branche existante, ou nouvelle branche (depuis `start`), ou détaché sur `start`. */
+  addWorktree(path: string, dir: string, opts: { branch?: string; newBranch?: string; start?: string }): Promise<void>;
+  removeWorktree(path: string, dir: string, force: boolean): Promise<void>;
+  pruneWorktrees(path: string): Promise<void>;
   /** Bisect en cours (`null` : aucun). */
   bisectState(path: string): Promise<BisectState | null>;
   /** Marque `sha` (HEAD si `null`) bon, mauvais ou à passer ; commence le bisect au besoin. */
@@ -482,6 +496,11 @@ const tauriApi: Api = {
   checkout: (path, branch, autoStash) => invoke("checkout", { path, branch, autoStash }),
   checkoutRemote: (path, branch, autoStash) => invoke("checkout_remote", { path, branch, autoStash }),
   checkoutDetached: (path, sha, autoStash) => invoke("checkout_detached", { path, sha, autoStash }),
+  listWorktrees: (path) => invoke("list_worktrees", { path }),
+  suggestWorktreeDir: (path, branch) => invoke("suggest_worktree_dir", { path, branch }),
+  addWorktree: (path, dir, o) => invoke("add_worktree", { path, dir, branch: o.branch ?? null, newBranch: o.newBranch ?? null, start: o.start ?? null }),
+  removeWorktree: (path, dir, force) => invoke("remove_worktree", { path, dir, force }),
+  pruneWorktrees: (path) => invoke("prune_worktrees", { path }),
   bisectState: (path) => invoke("bisect_state", { path }),
   bisectMark: (path, verdict, sha, autoStash) => invoke("bisect_mark", { path, verdict, sha, autoStash }),
   bisectReset: (path, autoStash) => invoke("bisect_reset", { path, autoStash }),
@@ -1021,6 +1040,11 @@ const mockApi: Api = {
   checkout: async (path, branch, autoStash) => mockCheckout(path, branch, autoStash),
   checkoutRemote: async (path, branch, autoStash) => mockCheckoutRemote(path, branch, autoStash),
   checkoutDetached: async (path, sha, autoStash) => mockCheckoutDetached(path, sha, autoStash),
+  listWorktrees: async (path) => mockListWorktrees(path),
+  suggestWorktreeDir: async (path, branch) => mockSuggestWorktreeDir(path, branch),
+  addWorktree: async (path, dir, o) => mockAddWorktree(path, dir, o),
+  removeWorktree: async (path, dir, force) => mockRemoveWorktree(path, dir, force),
+  pruneWorktrees: async (path) => mockPruneWorktrees(path),
   bisectState: async (path) => mockBisectState(path),
   bisectMark: async (path, verdict, sha, autoStash) => mockBisectMark(path, verdict, sha, autoStash),
   bisectReset: async (path, autoStash) => mockBisectReset(path, autoStash),

@@ -249,20 +249,27 @@ export const useOps = create<OpsStore>((set, get) => {
 
   /** Checkout générique : auto-stash, compte rendu, sélection du nouveau HEAD. Renvoie le
    *  résultat de la commande (`null` : échec, erreur affichée). */
-  const switchWith = async (path: string, call: (stash: boolean) => Promise<OpResult>) => {
+  const switchWith = async (path: string, call: (stash: boolean) => Promise<OpResult>, branch?: string) => {
     const label = currentBranch(path) ?? "HEAD";
     const out = await exec(path, ["checkout", "checkout"], () => call(autoStash(path)));
-    if (!out.ok) return fail(out.error) && null;
+    if (!out.ok) {
+      // Branche déjà extraite dans un autre worktree : git refuse ; on propose de l'ouvrir.
+      if (out.error === "branch_in_worktree" && branch) {
+        const w = (await api.listWorktrees(path).catch(() => [])).find((x) => x.branch === branch && !x.current);
+        if (w) return fail(out.error, [{ label: t("worktrees.openTab"), onClick: () => void useApp.getState().openPath(w.path) }]) && null;
+      }
+      return fail(out.error) && null;
+    }
     report(out.value, label);
     await selectHead(path);
     return out.value;
   };
-  const switchTo = async (path: string, call: (stash: boolean) => Promise<OpResult>) => !!(await switchWith(path, call));
+  const switchTo = async (path: string, call: (stash: boolean) => Promise<OpResult>, branch?: string) => !!(await switchWith(path, call, branch));
 
   return {
     running: {},
 
-    checkout: (path, branch) => switchTo(path, (stash) => api.checkout(path, branch, stash)),
+    checkout: (path, branch) => switchTo(path, (stash) => api.checkout(path, branch, stash), branch),
 
     async checkoutRemote(path, branch) {
       const before = useGraph.getState().graphs[path]?.refs;
