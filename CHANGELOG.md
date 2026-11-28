@@ -6,6 +6,7 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Menu d'une branche : « Créer un worktree » propose le worktree sur cette branche ou sur une nouvelle branche qui en part (possible aussi depuis la branche courante).
 - Worktrees : verrouiller (avec une raison) et déverrouiller au clic droit ; un worktree verrouillé ne peut pas être supprimé par erreur.
 - Éditeur des fichiers : `{line}` dans la commande place la ligne ; le blame d'un fichier (copie de travail) propose « Ouvrir dans l'éditeur à la ligne N ».
 - Recherche dans les modifications : le diff d'un fichier s'ouvre directement sur la première ligne où le texte apparaît ou disparaît.

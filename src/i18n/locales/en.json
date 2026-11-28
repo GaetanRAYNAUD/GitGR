@@ -358,6 +358,9 @@
     }
   },
   "worktrees": {
+    "newSub": "Create a worktree",
+    "onThisBranch": "On {{branch}}…",
+    "fromThisBranch": "New branch from {{branch}}…",
     "lockMenu": "Lock…",
     "unlockMenu": "Unlock",
     "lockHint": "Prevents removing or pruning it (folder on a removable drive, for example).",

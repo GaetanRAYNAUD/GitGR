@@ -358,6 +358,9 @@
     }
   },
   "worktrees": {
+    "newSub": "Créer un worktree",
+    "onThisBranch": "Sur {{branch}}…",
+    "fromThisBranch": "Nouvelle branche depuis {{branch}}…",
     "lockMenu": "Verrouiller…",
     "unlockMenu": "Déverrouiller",
     "lockHint": "Empêche de le supprimer ou de le nettoyer (dossier sur un disque amovible, par exemple).",
