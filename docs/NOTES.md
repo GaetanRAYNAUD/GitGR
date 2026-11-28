@@ -286,7 +286,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 4 — branches et réseau
 
 - [x] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; « Créer un worktree » en sous-menu : fait (cf. « Fait »).
-- [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (fait, cf. « Fait ») ; `{line}` depuis le blame de la copie de travail : fait ; reste : depuis le diff des modifications en cours (clic droit sur un numéro de ligne).
+- [x] **Clic droit sur un fichier** : éditeur choisi dans les réglages, `{line}` depuis le blame de la copie de travail et depuis le diff des modifications non indexées (clic droit sur un numéro de ligne, Maj+F10 / touche Menu sur la ligne active) : faits.
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande). Noté (28/11) : `run_streaming` (utilisé par le clone) n'injecte ni l'identité ni les clés / identifiants du profil ; il faudrait le faire passer par `injected()` avant de l'utiliser pour fetch / pull / push avec `--progress`.
 
 ### Étape 5 — profils
