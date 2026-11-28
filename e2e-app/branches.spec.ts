@@ -64,6 +64,9 @@ test("checkout qui exige un stash : réappliqué ; en conflit, gardé et signal�
     const locals = page.getByRole("navigation", { name: "Branches et tags" }).locator(".side-group").first();
     await locals.getByRole("treeitem", { name: /^feature/ }).dblclick();
     await expect(page.locator(".branch-chip-label")).toHaveText("feature");
+    // La pastille change dès le checkout ; le stash est réappliqué ensuite : attendre la fin
+    // de la commande (annonce vide) avant de lire le dépôt.
+    await expect(page.locator(".tools > [role=status]")).toHaveText("");
     // Modification gardée, combinée avec celle de la branche : pas de conflit, stash vidé.
     expect(git(mine, "diff")).toContain("+cinq");
     expect(git(mine, "stash", "list")).toBe("");
