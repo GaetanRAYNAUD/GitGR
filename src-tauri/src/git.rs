@@ -769,7 +769,7 @@ pub(crate) mod tests {
         let repo = tempfile::tempdir().unwrap();
         let p = repo.path().to_path_buf();
         run(Some(&p), &["init", "-q"]).unwrap();
-        run(Some(&p), &["remote", "add", "lent", "ext::sh -c 'sleep 30'"]).unwrap();
+        run(Some(&p), &["remote", "add", "lent", "ext::sleep 30"]).unwrap();
         run(Some(&p), &["config", "protocol.ext.allow", "always"]).unwrap();
         assert!(!cancel_network(&p));
         let dir = p.clone();

@@ -1230,6 +1230,8 @@ pub fn classify(stderr: &str) -> String {
         || has("Connection refused")
         || has("Failed to connect")
         || has("Network is unreachable")
+        // ssh sous macOS : « connect to host x port 22: Operation timed out ».
+        || (has("connect to host") && has("timed out"))
     {
         "network_unreachable"
     } else if has("not responding")
@@ -1408,6 +1410,7 @@ mod tests {
         assert_eq!(classify("Timeout, server gitlab.local not responding.\nfatal: the remote end hung up unexpectedly"), "network_stalled");
         assert_eq!(classify("error: RPC failed; curl 28 Operation too slow. Less than 1000 bytes/sec transferred the last 60 seconds"), "network_stalled");
         assert_eq!(classify("cancelled"), "cancelled");
+        assert_eq!(classify("ssh: connect to host gitlab.local port 22: Operation timed out"), "network_unreachable");
         assert_eq!(classify("Host key verification failed."), "host_key_unknown");
         assert_eq!(classify("fatal: couldn't find remote ref refs/heads/x"), "remote_ref_not_found");
         assert_eq!(classify("fatal: autre chose"), "fatal: autre chose");

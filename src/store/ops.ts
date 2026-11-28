@@ -808,6 +808,8 @@ export const useOps = create<OpsStore>((set, get) => {
           try {
             await api.push(path, false, remote);
           } catch (e) {
+            // Arrêté par l'utilisateur (Annuler) : pas les remotes suivants.
+            if (errorCode(e) === "cancelled") throw e;
             failed.push({ remote, error: errorCode(e) });
           }
         }

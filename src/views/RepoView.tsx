@@ -483,10 +483,11 @@ function NetworkPill({ path }: { path: string }) {
   const secs = since && since.op === net ? Math.floor((since.now - since.start) / 1000) : 0;
   if (!net || secs < 2) return null;
   const op = t(`repo.${net}`);
+  const elapsed = secs < 60 ? t("repo.netSecs", { secs }) : t("repo.netMins", { mins: Math.floor(secs / 60), secs: secs % 60 });
   return (
     <span className="net-pill">
       <span className="check-spinner" aria-hidden="true" />
-      <span className="pill-label">{t("repo.netRunning", { op, secs })}</span>
+      <span className="pill-label">{t("repo.netRunning", { op, elapsed })}</span>
       <button
         className="link net-pill-cancel"
         disabled={stopping}
@@ -494,7 +495,12 @@ function NetworkPill({ path }: { path: string }) {
         aria-label={t("repo.netCancelOp", { op })}
         onClick={() => {
           setStopping(true);
-          void api.cancelNetwork(path);
+          // Rien à arrêter à cet instant (entre deux étapes d'un pull, git pas encore lancé) :
+          // le bouton reste utilisable.
+          void api.cancelNetwork(path).then(
+            (stopped) => !stopped && setStopping(false),
+            () => setStopping(false),
+          );
         }}
       >
         {t("repo.netCancel")}
