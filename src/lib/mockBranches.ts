@@ -601,6 +601,24 @@ export function mockBisectMark(path: string, verdict: "good" | "bad" | "skip", s
   return [res, bisectView(path, b)];
 }
 
+/** Bisect automatique simulé : la commande « échoue » sur chaque commit testé (tous mauvais),
+ *  sauf si elle contient « introuvable » (git abandonne). */
+export function mockBisectRun(path: string, command: string, autoStash: boolean): [OpResult, BisectState, string] {
+  const b = bisects.get(path);
+  if (!b) throw "bisect_not_started";
+  if (bisectView(path, b).remaining === null) throw "bisect_needs_marks";
+  if (command.includes("introuvable")) throw `bisect_run_failed:${command}: command not found`;
+  let res = OK;
+  for (let i = 0; i < 50; i++) {
+    const view = bisectView(path, b);
+    if (view.firstBad || view.possible.length) break;
+    const [r] = mockBisectMark(path, "bad", null, autoStash);
+    if (r.stashed) res = r;
+  }
+  const view = bisectView(path, b);
+  return [res, view, `running '${command}'\n${view.firstBad} is the first bad commit`];
+}
+
 export function mockBisectReset(path: string, autoStash: boolean): OpResult {
   const b = bisects.get(path);
   if (!b) return OK;

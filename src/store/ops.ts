@@ -57,6 +57,8 @@ interface OpsStore {
   bisect(path: string, verdict: BisectVerdict, sha: string | null): Promise<boolean>;
   /** Arrête le bisect : retour à la branche de départ. */
   bisectReset(path: string): Promise<boolean>;
+  /** Bisect automatique : demande une commande de test, la lance sur chaque commit à tester. */
+  bisectRun(path: string): Promise<boolean>;
   /** Déplace la branche courante sur `sha`, mode demandé (soft / mixed / hard). */
   resetTo(path: string, sha: string, mode?: ResetMode): Promise<boolean>;
   /** Branche d'une PR / MR : la distante (même dépôt) ou `pr/<n>` / `mr/<n>` (fork). */
@@ -204,6 +206,9 @@ function moveRemoteUi(path: string, old: string, next: string | null) {
   if (ui.collapsed.some(mine) || ui.hidden.some(mine)) app.setRepoUi(path, { ...ui, collapsed: move(ui.collapsed), hidden: move(ui.hidden) });
 }
 
+/** Dernière commande de bisect automatique, par dépôt (le temps de la session). */
+const lastBisectCommand = new Map<string, string>();
+
 export const useOps = create<OpsStore>((set, get) => {
   /** Lance `fn` à son tour dans la file du dépôt, puis relit le dépôt. `[nom, libellé]` :
    *  opération notée pour l'annuler (libellé `undo.label.*`) si elle a déplacé des branches
@@ -320,6 +325,42 @@ export const useOps = create<OpsStore>((set, get) => {
         await useGraph.getState().reveal(path, state.firstBad);
       } else if (state.possible.length) notify(t("bisect.ambiguous", { list: state.possible.map((x) => x.slice(0, 7)).join(", ") }), true);
       else await selectHead(path);
+      return true;
+    },
+
+    async bisectRun(path) {
+      const answer = await useDialogs.getState().input({
+        title: t("bisect.runTitle"),
+        subtitle: t("bisect.runBody"),
+        label: t("bisect.runCommand"),
+        mono: true,
+        initial: lastBisectCommand.get(path) ?? "",
+        submit: t("bisect.runSubmit"),
+        validate: (v) => (v.trim() ? null : t("bisect.runEmpty")),
+      });
+      if (!answer) return false;
+      const command = answer.value.trim();
+      lastBisectCommand.set(path, command);
+      const out = await exec(path, "checkout", () => api.bisectRun(path, command, autoStash(path)));
+      void useBisect.getState().load(path);
+      if (!out.ok) {
+        const failed = /^bisect_run_failed:([\s\S]*)$/.exec(out.error);
+        if (!failed) return fail(out.error);
+        await useDialogs.getState().choose({
+          title: t("bisect.runFailedTitle"),
+          body: t("bisect.runFailedBody", { command }),
+          output: failed[1],
+          choices: [{ id: "ok", label: t("bisect.runClose") }],
+        });
+        return false;
+      }
+      const [res, state] = out.value;
+      useBisect.getState().set(path, state);
+      report(res, "bisect");
+      if (state.firstBad) {
+        notify(t("bisect.found", { sha: state.firstBad.slice(0, 7) }), true);
+        await useGraph.getState().reveal(path, state.firstBad);
+      } else if (state.possible.length) notify(t("bisect.ambiguous", { list: state.possible.map((x) => x.slice(0, 7)).join(", ") }), true);
       return true;
     },
 

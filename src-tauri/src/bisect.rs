@@ -141,6 +141,51 @@ pub fn mark(path: &Path, verdict: &str, sha: Option<&str>, auto_stash: bool) -> 
     Ok((res, st))
 }
 
+/// Lignes de la sortie gardées pour l'interface (la fin : verdicts et premier mauvais commit).
+const RUN_OUTPUT_LINES: usize = 60;
+
+/// Bisect automatique : `command` (lancée par `sh -c`, le shell de Git) est lancée sur chaque commit à
+/// tester — code 0 : bon, 125 : à passer, 1 à 127 : mauvais. Il faut déjà un bon et un mauvais
+/// (`bisect_needs_marks`). Renvoie l'état final et la fin de la sortie ; `bisect_run_failed`
+/// (avec la sortie) si git s'arrête en route (commande introuvable, code ≥ 128…).
+pub fn run_command(path: &Path, command: &str, auto_stash: bool) -> Result<(OpResult, BisectState, String), String> {
+    check_dir(path)?;
+    let command = command.trim();
+    if command.is_empty() {
+        return Err("bisect_command_empty".into());
+    }
+    let st = state(path)?.ok_or("bisect_not_started")?;
+    if st.remaining.is_none() {
+        return Err("bisect_needs_marks".into());
+    }
+    let output = std::cell::RefCell::new(String::new());
+    let res = with_autostash(path, auto_stash, "bisect", || match run(Some(path), &["bisect", "run", "sh", "-c", command]) {
+        Ok(out) => {
+            *output.borrow_mut() = out;
+            Ok(OpResult::default())
+        }
+        Err(e) => {
+            *output.borrow_mut() = e.clone();
+            // Seulement des commits passés à la fin : un arrêt normal, l'état le dit.
+            if e.contains("only 'skip'ped commits left") {
+                Ok(OpResult::default())
+            } else if e.contains("local changes") || e.contains("would be overwritten") {
+                Err(classify(&e))
+            } else {
+                Err("bisect_run_failed".into())
+            }
+        }
+    });
+    let out = output.into_inner();
+    let lines: Vec<&str> = out.lines().collect();
+    let tail = lines[lines.len().saturating_sub(RUN_OUTPUT_LINES)..].join("\n");
+    match res {
+        Ok(r) => Ok((r, state(path)?.unwrap_or_default(), tail)),
+        Err(e) if e == "bisect_run_failed" => Err(format!("bisect_run_failed:{tail}")),
+        Err(e) => Err(e),
+    }
+}
+
 /// Arrête le bisect et revient où on était avant (`git bisect reset`, auto-stash).
 pub fn reset(path: &Path, auto_stash: bool) -> Result<OpResult, String> {
     check_dir(path)?;
@@ -157,6 +202,44 @@ mod tests {
 
     fn head(p: &Path) -> String {
         run(Some(p), &["rev-parse", "HEAD"]).unwrap()
+    }
+
+    #[test]
+    fn a_test_command_finds_the_first_bad_commit() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let mut shas = vec![];
+        for i in 0..8 {
+            commit_file(p, "a.txt", &format!("{i}\n"));
+            shas.push(head(p));
+        }
+        assert_eq!(run_command(p, "true", true).err().as_deref(), Some("bisect_not_started"));
+        mark(p, "bad", Some(&shas[7]), true).unwrap();
+        assert_eq!(run_command(p, "true", true).err().as_deref(), Some("bisect_needs_marks"));
+        mark(p, "good", Some(&shas[0]), true).unwrap();
+        // Mauvais dès que a.txt vaut 5 ou plus.
+        let (_, st, out) = run_command(p, "test \"$(cat a.txt)\" -lt 5", true).unwrap();
+        assert_eq!(st.first_bad.as_deref(), Some(shas[5].as_str()));
+        // « first bad commit », ou « first 'bad' commit » selon la version de git.
+        assert!(out.contains("is the first"), "{out}");
+        reset(p, true).unwrap();
+    }
+
+    #[test]
+    fn a_failing_test_command_is_reported_with_its_output() {
+        let repo = temp_repo();
+        let p = repo.path();
+        let mut shas = vec![];
+        for i in 0..4 {
+            commit_file(p, "a.txt", &format!("{i}\n"));
+            shas.push(head(p));
+        }
+        mark(p, "bad", Some(&shas[3]), true).unwrap();
+        mark(p, "good", Some(&shas[0]), true).unwrap();
+        // Code 200 : git abandonne le bisect run.
+        let err = run_command(p, "exit 200", true).unwrap_err();
+        assert!(err.starts_with("bisect_run_failed:"), "{err}");
+        reset(p, true).unwrap();
     }
 
     #[test]

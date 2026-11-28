@@ -83,6 +83,9 @@ function BisectBanner({ path }: { path: string }) {
             <button className="mini" disabled={running} title={busy ?? t("bisect.skipHint")} onClick={() => void ops.bisect(path, "skip", null)}>
               {t("bisect.skip")}
             </button>
+            <button className="mini" disabled={running} title={busy ?? t("bisect.runHint")} onClick={() => void ops.bisectRun(path)}>
+              {t("bisect.run")}
+            </button>
           </>
         )
       )}

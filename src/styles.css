@@ -3651,6 +3651,20 @@ body.resizing-y * {
   border-color: var(--del);
 }
 
+/* Sortie d'une commande dans une fenêtre (bisect automatique) : bornée, défile. */
+.dialog-output {
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 12px/1.5 "JetBrains Mono", ui-monospace, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Valeurs proposées d'un clic sous le champ (version suivante d'un tag). */
 .input-dialog .input-suggest {
   display: flex;

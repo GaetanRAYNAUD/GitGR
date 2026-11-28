@@ -159,6 +159,7 @@ pub fn run() {
             commands::bisect_state,
             commands::bisect_mark,
             commands::bisect_reset,
+            commands::bisect_run,
             commands::repo_authors,
             commands::author_commits,
             commands::blob_preview,

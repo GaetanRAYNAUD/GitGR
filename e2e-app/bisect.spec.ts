@@ -41,3 +41,33 @@ test("bisect : mauvais puis bon au clic droit, verdicts dans le bandeau, premier
     await app.close();
   }
 });
+
+test("bisect automatique : une commande de test trouve le premier mauvais commit", async ({ sandbox }) => {
+  const mine = sandbox.clone("mine");
+  for (let i = 0; i < 8; i++) sandbox.commit(mine, "v.txt", i >= 5 ? `bug ${i}\n` : `ok ${i}\n`, `c${i}`);
+
+  const app = await launchApp(sandbox, [mine]);
+  try {
+    const { page } = app;
+    const graph = page.getByRole("listbox", { name: "Historique des commits" });
+    const banner = page.locator(".bisect-banner");
+    await graph.getByRole("option", { name: /^c7/ }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Bisect : marquer comme mauvais" }).click();
+    await graph.getByRole("option", { name: /^c0/ }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Bisect : marquer comme bon" }).click();
+    await expect(banner).toContainText(/testez [0-9a-f]{7} \(extrait\)/);
+
+    await banner.getByRole("button", { name: "Automatique…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Bisect automatique" });
+    await dialog.getByLabel("Commande de test").fill("! grep -q bug v.txt");
+    await dialog.getByRole("button", { name: "Lancer" }).click();
+    const c5 = git(mine, "rev-parse", "main~2");
+    await expect(banner).toContainText(`${c5.slice(0, 7)} est le premier mauvais commit`);
+
+    await banner.getByRole("button", { name: "Terminer" }).click();
+    await expect(banner).toHaveCount(0);
+    expect(git(mine, "branch", "--show-current")).toBe("main");
+  } finally {
+    await app.close();
+  }
+});

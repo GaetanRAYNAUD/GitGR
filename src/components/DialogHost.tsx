@@ -43,6 +43,7 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
         </div>
         <h2 id={`${id}-title`}>{request.title}</h2>
         <p id={`${id}-body`}>{request.body}</p>
+        {request.output && <pre className="dialog-output">{request.output}</pre>}
         {radio && (
           <fieldset className="dialog-radios">
             <legend className="visually-hidden">{radio.label}</legend>

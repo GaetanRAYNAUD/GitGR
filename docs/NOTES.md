@@ -276,6 +276,7 @@ Compléments et retours d'utilisation, par thème.
 - **Worktrees verrouillés** (étape 9) : « Verrouiller… » (raison facultative, `git worktree lock --reason`) / « Déverrouiller » au clic droit d'un worktree ; l'erreur « locked working tree » de git est reconnue (`worktree_locked`).
 - **Sous-menu « Créer un worktree »** (étapes 4 et 9) : d'une branche locale, « Sur <branche>… » (grisé si elle est extraite ici) ou « Nouvelle branche depuis <branche>… ».
 - **CI : filtre par workflow** (étape 6) : menu « Workflow » dans l'écran des exécutions dès que la liste en compte deux (GitHub ; GitLab n'a pas de nom de workflow).
+- **Bisect automatique** (étape 8) : « Automatique… » dans le bandeau, commande de test lancée par `git bisect run sh -c` (0 bon, 125 passer, 1–127 mauvais), commande reprise d'un essai à l'autre ; arrêt de git (commande introuvable, code ≥ 128) : fenêtre avec la fin de la sortie (`bisect_run_failed:`).
 
 ## Reste à faire
 
@@ -317,7 +318,7 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 ### Étape 8 — historique avancé
 
-- [ ] **Bisect visuel** (fait, cf. « Fait ») ; reste : lancer une commande de test (`git bisect run`) et suivre sa sortie ; termes personnalisés (`--term-old/new`) ; marques de bisect sur les commits hors des pages chargées.
+- [ ] **Bisect visuel** (fait, cf. « Fait ») ; commande de test (`git bisect run`) : faite, sortie montrée seulement à la fin ou en cas d'arrêt ; reste : suivre la sortie en direct et pouvoir arrêter une commande qui ne rend pas la main ; termes personnalisés (`--term-old/new`) ; marques de bisect sur les commits hors des pages chargées.
 - [ ] **Recherche dans le graphe** (message, auteur, SHA parmi les commits chargés, par auteur et par fichier au-delà des commits chargés : fait, cf. « Fait ») : filtre qui masque les autres lignes (recalcul des voies du graphe) ; masquer / solo des branches.
 - [ ] **Filtrer le graphe par auteur** (fait en « estompés », cf. « Fait ») ; reste : masquer les autres commits (il faudrait recalculer les lignes du graphe sur un historique filtré).
 - [ ] **Sélection de plusieurs commits** : une sélection au-delà de la première page (1 000 commits) est perdue au rechargement de l'historique (comme la sélection simple).
@@ -391,7 +392,7 @@ Nouveaux écrans, pas encore passés (faits pendant la nuit du 28/11, revus par 
 - [ ] **Issues** (`IssuesSection`, `IssueView`).
 - [ ] **Palette de commandes** (`CommandPalette`, Ctrl+P) et **liste des raccourcis** (`ShortcutsList`, F1).
 - [ ] **Créer une release** (`ReleaseDialog`).
-- [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`).
+- [ ] **Worktrees** (`WorktreesSection`, marque dossier sur l'étiquette du graphe) et **bandeau de bisect** (`BisectBanner`, fenêtre « Bisect automatique » et sortie `.dialog-output`).
 - [ ] **Aperçu binaire / image** (`BinaryPreview`), **filtre par auteur** (`AuthorFilter`), **conflit pris en entier** (`WholeConflict`).
 - [ ] Petits ajouts dans des écrans déjà passés : menu des branches récentes (`RepoView`, Ctrl+Maj+O), menu « Modèle » et équipes dans `PullDialog`, fils de relecture dans le diff (`DiffBody notes`), « Afficher quand même » des gros diffs, choix de la version suivante dans « Nouveau tag » (`input-suggest` de `DialogHost`), ligne « Éditeur des fichiers » des réglages (Git).
 

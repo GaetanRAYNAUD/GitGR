@@ -21,6 +21,7 @@ import {
   mockPruneWorktrees,
   mockLockWorktree,
   mockBisectReset,
+  mockBisectRun,
   mockBisectState,
   mockCheckoutRemote,
   mockCreateBranch,
@@ -263,6 +264,9 @@ export interface Api {
   bisectMark(path: string, verdict: BisectVerdict, sha: string | null, autoStash: boolean): Promise<[OpResult, BisectState]>;
   /** Arrête le bisect (retour à la branche de départ). */
   bisectReset(path: string, autoStash: boolean): Promise<OpResult>;
+  /** Bisect automatique : `command` sur chaque commit à tester ; l'état final et la fin de la
+   *  sortie. Erreur `bisect_run_failed:<sortie>` si git s'arrête en route. */
+  bisectRun(path: string, command: string, autoStash: boolean): Promise<[OpResult, BisectState, string]>;
   /** `start` : SHA ou nom de ref (`null` : HEAD). */
   createBranch(path: string, name: string, start: string | null, checkout: boolean, autoStash: boolean): Promise<OpResult>;
   renameBranch(path: string, oldName: string, newName: string): Promise<void>;
@@ -570,6 +574,7 @@ const tauriApi: Api = {
   bisectState: (path) => invoke("bisect_state", { path }),
   bisectMark: (path, verdict, sha, autoStash) => invoke("bisect_mark", { path, verdict, sha, autoStash }),
   bisectReset: (path, autoStash) => invoke("bisect_reset", { path, autoStash }),
+  bisectRun: (path, command, autoStash) => invoke("bisect_run", { path, command, autoStash }),
   createBranch: (path, name, start, checkout, autoStash) => invoke("create_branch", { path, name, start, checkout, autoStash }),
   renameBranch: (path, oldName, newName) => invoke("rename_branch", { path, old: oldName, new: newName }),
   deleteBranch: (path, branch, force) => invoke("delete_branch", { path, branch, force }),
@@ -1153,6 +1158,7 @@ const mockApi: Api = {
   bisectState: async (path) => mockBisectState(path),
   bisectMark: async (path, verdict, sha, autoStash) => mockBisectMark(path, verdict, sha, autoStash),
   bisectReset: async (path, autoStash) => mockBisectReset(path, autoStash),
+  bisectRun: async (path, command, autoStash) => mockBisectRun(path, command, autoStash),
   createBranch: async (path, name, start, checkout, autoStash) => mockCreateBranch(path, name, start, checkout, autoStash),
   renameBranch: async (path, oldName, newName) => mockRenameBranch(path, oldName, newName),
   deleteBranch: async (path, branch, force) => mockDeleteBranch(path, branch, force),

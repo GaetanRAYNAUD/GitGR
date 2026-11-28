@@ -36,3 +36,30 @@ test("bisect : un mauvais, un bon, des verdicts jusqu'au premier mauvais commit,
   await expect(page.locator(".branch-chip-label")).toHaveText("main");
   await expect(graph(page).locator(".bisect-mark")).toHaveCount(0);
 });
+
+test("bisect automatique : commande de test, arrêt avec la sortie, puis premier mauvais commit", async ({ page }) => {
+  await page.goto("/");
+  await openNextRepo(page, "GitGR");
+  await graph(page).getByRole("option").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Bisect : marquer comme mauvais" }).click();
+  await graph(page).getByRole("option").nth(12).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Bisect : marquer comme bon" }).click();
+  await expect(banner(page)).toContainText(/testez [0-9a-f]{7}/);
+
+  // Commande introuvable : git s'arrête, la sortie est montrée.
+  await banner(page).getByRole("button", { name: "Automatique…" }).click();
+  let dialog = page.getByRole("dialog", { name: "Bisect automatique" });
+  await dialog.getByLabel("Commande de test").fill("introuvable --test");
+  await dialog.getByRole("button", { name: "Lancer" }).click();
+  const stopped = page.getByRole("alertdialog", { name: "Bisect automatique arrêté" }).or(page.getByRole("dialog", { name: "Bisect automatique arrêté" }));
+  await expect(stopped.locator(".dialog-output")).toContainText("command not found");
+  await stopped.getByRole("button", { name: "Fermer" }).click();
+
+  // La commande précédente est reprise ; une qui marche va jusqu'au bout.
+  await banner(page).getByRole("button", { name: "Automatique…" }).click();
+  dialog = page.getByRole("dialog", { name: "Bisect automatique" });
+  await expect(dialog.getByLabel("Commande de test")).toHaveValue("introuvable --test");
+  await dialog.getByLabel("Commande de test").fill("npm test");
+  await dialog.getByRole("button", { name: "Lancer" }).click();
+  await expect(banner(page)).toContainText("est le premier mauvais commit");
+});

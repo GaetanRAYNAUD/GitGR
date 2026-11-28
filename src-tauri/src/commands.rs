@@ -436,6 +436,12 @@ pub async fn bisect_mark(path: String, verdict: String, sha: Option<String>, aut
     crate::bisect::mark(Path::new(&path), &verdict, sha.as_deref(), auto_stash)
 }
 
+/// Bisect automatique : une commande de test sur chaque commit (`git bisect run`).
+#[tauri::command]
+pub async fn bisect_run(path: String, command: String, auto_stash: bool) -> Result<(OpResult, crate::bisect::BisectState, String), String> {
+    crate::bisect::run_command(Path::new(&path), &command, auto_stash)
+}
+
 /// Arrête le bisect (retour à la branche de départ).
 #[tauri::command]
 pub async fn bisect_reset(path: String, auto_stash: bool) -> Result<OpResult, String> {
