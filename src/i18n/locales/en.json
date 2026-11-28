@@ -494,6 +494,42 @@
       "tabs": "Tabs"
     }
   },
+  "release": {
+    "menu": "Create release…",
+    "menuHint": "The GitHub / GitLab release of this tag, with its notes",
+    "title": "Release {{tag}}",
+    "since": "Commits since {{previous}}",
+    "first": "First tag: every commit up to it",
+    "loading": "Reading commits…",
+    "forge": "Forge",
+    "on": "On {{forge}}, {{repo}}",
+    "as": "as {{login}}",
+    "name": "Name",
+    "notesLabel": "Notes (Markdown)",
+    "notesEmpty": "Release notes",
+    "draft": "Draft (published later)",
+    "prerelease": "Pre-release",
+    "pushFirst": "Push tag {{tag}} to {{remote}} first",
+    "create": "Create release",
+    "creating": "Creating…",
+    "created": "Release {{tag}} created.",
+    "open": "Open release",
+    "noForge": "No GitHub or GitLab remote known for this repository.",
+    "noAccount": "No account for {{remote}}: connect one in the profiles.",
+    "discardTitle": "Discard the release?",
+    "discardBody": "The name and notes you typed will be lost.",
+    "discard": "Discard",
+    "notes": {
+      "feat": "New",
+      "fix": "Fixes",
+      "other": "Other changes",
+      "breaking": "Breaking changes"
+    },
+    "warnings": {
+      "release_draft_unsupported": "GitLab has no drafts: the release is published.",
+      "release_prerelease_unsupported": "GitLab has no pre-releases: the release is marked like the others."
+    }
+  },
   "graphFind": {
     "label": "Find in graph",
     "placeholder": "Message, author, email or SHA",
@@ -1335,6 +1371,8 @@
     "accountNone": "No {{provider}} account connected for this profile"
   },
   "errors": {
+    "release_tag_missing": "The tag is not on the remote repository: push it first.",
+    "release_exists": "A release already exists for this tag.",
     "not_conflicted": "This file is no longer in conflict.",
     "branch_in_worktree": "This branch is already checked out in another worktree: open it, or pick another branch.",
     "worktree_dir_exists": "This folder already exists and is not empty.",

@@ -6,6 +6,7 @@ import { BranchColorPopoverHost } from "./components/BranchColorPopover";
 import { DialogHost } from "./components/DialogHost";
 import { QuickOpenHost, useQuickOpen } from "./components/QuickOpen";
 import { CommandPaletteHost, usePalette } from "./components/CommandPalette";
+import { ReleaseDialogHost } from "./components/ReleaseDialog";
 import { GitMissing } from "./components/GitMissing";
 import { Icon } from "./components/Icon";
 import { TitleBar } from "./components/TitleBar";
@@ -357,6 +358,7 @@ export default function App() {
       <DialogHost />
       <QuickOpenHost />
       <CommandPaletteHost />
+      <ReleaseDialogHost />
       <BranchColorPopoverHost />
       <ContextMenuHost />
       {ready && git && !git.found && <GitMissing />}

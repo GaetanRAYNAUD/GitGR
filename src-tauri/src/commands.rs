@@ -1040,6 +1040,19 @@ pub async fn pull_draft(path: String, source: String, target: String, kind: Opti
     crate::pulls::draft(Path::new(&path), &source, &target, kind)
 }
 
+/// Commits d'une release (depuis le tag précédent), pour en écrire les notes.
+#[tauri::command]
+pub async fn release_draft(path: String, tag: String) -> Result<crate::releases::ReleaseDraft, String> {
+    crate::releases::draft(Path::new(&path), &tag)
+}
+
+/// Crée la release d'un tag (déjà poussé) sur le provider de l'instance `url`.
+#[tauri::command]
+pub async fn create_release(kind: String, url: String, account: Option<String>, request: crate::releases::NewRelease, store: StoreState<'_>) -> Result<crate::releases::CreatedRelease, String> {
+    let (k, api, token) = pull_access(&store, account, &kind, &url)?;
+    blocking(move || crate::releases::create(k, &api, &token, &request)).await
+}
+
 /// Branche par défaut du dépôt `repo` (`propriétaire/nom`) sur l'instance `url`.
 #[tauri::command]
 pub async fn remote_default_branch(kind: String, url: String, repo: String, account: Option<String>, store: StoreState<'_>) -> Result<String, String> {

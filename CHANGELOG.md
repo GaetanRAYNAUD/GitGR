@@ -6,6 +6,8 @@ notes de la release GitHub (et celles que l'app affiche à la mise à jour).
 
 ## Non publié
 
+- Releases : « Créer la release… » au clic droit d'un tag crée la release GitHub ou GitLab avec le compte du remote. Les notes sont préparées à partir des commits depuis le tag précédent (regroupées en nouveautés, corrections… si les messages suivent les conventional commits) et restent modifiables ; brouillon et pré-version sur GitHub ; le tag est poussé d'abord.
+- Nouveau tag : le nom proposé est la version suivante du dernier tag numéroté (v0.3.1 → v0.3.2).
 - Conflits : un fichier binaire en conflit (une image : les deux versions côte à côte) ou supprimé d'un côté se règle dans GitGR, en gardant une version ou en supprimant le fichier, puis le conflit suivant s'ouvre. Un merge, un rebase ou un cherry-pick qui s'arrête sur des conflits ouvre tout de suite la résolution du premier fichier.
 - Palette de commandes (Ctrl+P) : toutes les actions au même endroit, avec une recherche floue et leur raccourci : pull, push, stash, nouvelle branche, recherche, reflog, checkout d'une branche, aller à un autre onglet, réglages… Une action impossible dit pourquoi.
 - Raccourcis clavier : F1 ouvre leur liste (Réglages → Raccourcis clavier), groupée par zone (onglets, barre d'outils, graphe, diff, conflits…), avec une recherche par action ou par touche.

@@ -12,6 +12,7 @@ import { create } from "zustand";
 import i18n from "../i18n";
 import { api, type BisectVerdict, errorCode } from "../lib/api";
 import { useBisect } from "./bisect";
+import { nextTagName } from "../lib/releases";
 import { useConflictView } from "./range";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
 import { errorMessage } from "../lib/errors";
@@ -390,7 +391,8 @@ export const useOps = create<OpsStore>((set, get) => {
         subtitle: t("tag.newOn", { target: targetLabel }),
         label: t("tag.name"),
         mono: true,
-        initial: "",
+        // Version suivante (patch) du tag le plus récent en numéro, s'il y en a un.
+        initial: nextTagName([...existing]) ?? "",
         submit: t("tag.create"),
         second: { label: t("tag.message"), initial: "", placeholder: t("tag.messageHint"), optional: true },
         ...(remote ? { checkbox: { label: t("tag.pushTo", { remote }), checked: false } } : {}),

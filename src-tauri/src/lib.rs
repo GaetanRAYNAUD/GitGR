@@ -30,6 +30,7 @@ mod profiles;
 mod notifications;
 mod pull_view;
 mod pulls;
+mod releases;
 mod providers;
 mod remotes;
 mod secrets;
@@ -129,6 +130,8 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::release_draft,
+            commands::create_release,
             commands::conflict_sides,
             commands::resolve_conflict_with,
             commands::list_worktrees,
