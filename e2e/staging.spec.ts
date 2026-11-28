@@ -194,6 +194,14 @@ test("stash partiel de plusieurs fichiers : cochés dans la fenêtre, puis une l
   await row.click();
   await expect(row).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("complementary", { name: "Détails du commit" }).locator(".file-row")).toHaveCount(2);
+  // Palette : les actions du stash, pas celles d'un commit (reset, revert).
+  await page.keyboard.press("Control+p");
+  const palette = page.getByRole("dialog", { name: "Palette de commandes" });
+  await palette.getByRole("combobox").fill("pop");
+  await expect(palette.getByRole("option", { name: /Appliquer et retirer \(pop\)/ })).toBeVisible();
+  await palette.getByRole("combobox").fill("reset");
+  await expect(palette.getByRole("option", { name: /Reset/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toContainText("Appliquer et retirer (pop)");
 });
@@ -264,6 +272,8 @@ test("résoudre un conflit en 3 panneaux : baguette, » puis «, lignes une à u
   const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
   const status = view.locator(".conflict-status");
   await expect(status).toHaveText("2 conflits à résoudre");
+  // Légende des couleurs des modifications.
+  await expect(view.getByRole("list", { name: "Couleurs des modifications" }).getByRole("listitem")).toHaveText(["Un seul côté", "Pareil des deux côtés", "Conflit"]);
   // Numérotés par genre ; « — réglé » s'ajoute au nom une fois la modification réglée.
   const c1 = view.getByRole("group", { name: /^Conflit 1 \/ 2/ });
   const c2 = view.getByRole("group", { name: /^Conflit 2 \/ 2/ });

@@ -158,7 +158,7 @@ export function PickedPanel({ path }: { path: string }) {
               label={t("details.files", { count: list.length })}
               isActive={(f) => diff?.base === base && diff.sha === tip && diff.file.path === f.path}
               onOpen={(f) => void useGraph.getState().openDiff(path, tip, f, base)}
-              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { change: f, load: () => api.rangeDiff(path, base, tip, f.path, f.oldPath) }))}
+              onContextMenu={(e, f) => openContextMenu(e, fileMenu(t, path, f.path, { rev: tip, deleted: f.status === "D", change: f, load: () => api.rangeDiff(path, base, tip, f.path, f.oldPath) }))}
             />
           )}
         </>

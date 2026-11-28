@@ -296,11 +296,11 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   /** Menu Copier : chaque version du fichier, ou le résultat tel qu'il est maintenant. */
   const copyItems = (): MenuItem[] => {
     if (!data || !versions) return [];
-    const put = (text: string, what: string) =>
-      void navigator.clipboard?.writeText(text).then(
-        () => useApp.getState().notify(t("conflict.copy.done", { what })),
-        () => useApp.getState().notify(t("conflict.copy.failed")),
-      );
+    const put = (text: string, what: string) => {
+      const failed = () => useApp.getState().notify(t("conflict.copy.failed"));
+      if (!navigator.clipboard) return failed();
+      void navigator.clipboard.writeText(text).then(() => useApp.getState().notify(t("conflict.copy.done", { what })), failed);
+    };
     const ours = oursName;
     const theirs = theirsName;
     const result = t("conflict.copy.result");
@@ -662,6 +662,17 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           </button>
         )}
         <span className="conflict-head-gap" />
+        {/* Ce que disent les couleurs des modifications (bordure et fond de la rangée). */}
+        {data && changes.length > 0 && (
+          <span className="conflict-legend" role="list" aria-label={t("conflict.legend.label")}>
+            {(["one", "both", "conflict"] as const).map((k) => (
+              <span key={k} role="listitem" className={`conflict-legend-item legend-${k}`} title={t(`conflict.legend.${k}Hint`)}>
+                <span className="conflict-legend-swatch" aria-hidden="true" />
+                {t(`conflict.legend.${k}`)}
+              </span>
+            ))}
+          </span>
+        )}
       </header>
       {whole ? (
         <WholeConflict
