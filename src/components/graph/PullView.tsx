@@ -671,6 +671,32 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
     return m;
   }, [d.threads]);
 
+  // Fils de relecture du fichier ouvert, sous leur ligne (nouvelle version) dans le diff.
+  const notes = useMemo(() => {
+    const m = new Map<number, React.ReactNode>();
+    if (!file) return m;
+    const byLine = new Map<number, PullThread[]>();
+    for (const th of d.threads) if (th.path === file.path && th.line) byLine.set(th.line, [...(byLine.get(th.line) ?? []), th]);
+    for (const [line, threads] of byLine)
+      m.set(
+        line,
+        <div className="diff-threads">
+          {threads.map((th) => (
+            <div key={th.id} className={th.resolved ? "diff-thread resolved" : "diff-thread"}>
+              {th.resolved && <span className="muted diff-thread-state">{t("prv.resolved")}</span>}
+              {th.comments.map((c) => (
+                <div key={c.id} className="diff-thread-comment">
+                  <strong>{c.author?.name ?? c.author?.login ?? "?"}</strong>
+                  <Markdown text={c.body} className="pull-text" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>,
+      );
+    return m;
+  }, [d.threads, file, t]);
+
   if (error) return <p className="notice error">{errorMessage(t, error)}</p>;
   if (!files) return <p className="muted pull-pad">{t("prv.loading")}</p>;
   return (
@@ -717,6 +743,7 @@ function Files({ path, ctx, d, want }: { path: string; ctx: PullContext; d: Pull
                 error={diff?.error ?? undefined}
                 resetKey={file.path}
                 copyAs={file}
+                notes={notes}
                 blame={file.status === "D" || !head ? undefined : { path, file: file.path, rev: head, beforeReveal: () => usePullList.getState().close(path) }}
               />
             </div>
