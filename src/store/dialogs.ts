@@ -29,6 +29,8 @@ export interface InputRequest {
   submit: string;
   /** Champ masqué (phrase de passe) : ni valeur initiale affichée, ni correction. */
   secret?: boolean;
+  /** Nom Git (branche, tag, remote, URL) : champs en police à chasse fixe. */
+  mono?: boolean;
   /** Second champ facultatif, sous le premier (URL d'un remote…) ; obligatoire lui aussi,
    *  sauf `optional` (message d'un tag annoté…). */
   second?: { label: string; initial: string; placeholder?: string; optional?: boolean; validate?: (value: string) => string | null };

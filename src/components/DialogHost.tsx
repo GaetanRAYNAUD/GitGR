@@ -1,9 +1,12 @@
-// Affiche la fenêtre de dialogue demandée par une action (cf. store/dialogs.ts).
+// Affiche la fenêtre de dialogue demandée par une action (cf. store/dialogs.ts). Comme les
+// autres fenêtres : Tab y reste, le focus revient à la fermeture à ce qui l'avait.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDialogs, type ChoiceRequest, type InputRequest } from "../store/dialogs";
+import { trapTab } from "../lib/focusTrap";
 import { useDismiss } from "../lib/useDismiss";
+import { useRestoreFocus } from "../lib/useRestoreFocus";
 import { Icon } from "./Icon";
 
 function ChoiceDialog({ request }: { request: ChoiceRequest }) {
@@ -11,18 +14,28 @@ function ChoiceDialog({ request }: { request: ChoiceRequest }) {
   const answer = useDialogs((s) => s.answer);
   const ref = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const id = useId();
   useDismiss(ref, true, () => answer(null));
+  useRestoreFocus();
   // Focus sur « Retour » : Entrée par réflexe ne lance rien.
   useEffect(() => cancelRef.current?.focus(), []);
   const danger = request.choices.some((c) => c.danger);
   return (
     <div className="overlay">
-      <div className="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-body" ref={ref}>
+      <div
+        className="dialog confirm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-body`}
+        ref={ref}
+        onKeyDown={(e) => trapTab(e, ref.current)}
+      >
         <div className={danger ? "dialog-icon danger" : "dialog-icon"}>
           <Icon name="alert" />
         </div>
-        <h2 id="dlg-title">{request.title}</h2>
-        <p id="dlg-body">{request.body}</p>
+        <h2 id={`${id}-title`}>{request.title}</h2>
+        <p id={`${id}-body`}>{request.body}</p>
         <div className="dialog-actions">
           <button className="btn" ref={cancelRef} onClick={() => answer(null)}>
             {t("confirm.cancel")}
@@ -49,7 +62,16 @@ function InputDialog({ request }: { request: InputRequest }) {
   const [value, setValue] = useState(request.initial);
   const [checked, setChecked] = useState(request.checkbox?.checked ?? false);
   const [touched, setTouched] = useState(false);
-  useDismiss(ref, true, () => answer(null));
+  const id = useId();
+  // Un clic à côté ne jette pas une saisie commencée (Échap et « Retour » ferment toujours).
+  const [edited, setEdited] = useState(false);
+  useDismiss(
+    ref,
+    true,
+    () => answer(null),
+    () => !edited && answer(null),
+  );
+  useRestoreFocus();
   const [second, setSecond] = useState(request.second?.initial ?? "");
   const [picked, setPicked] = useState(() => new Set(request.picks?.checked ?? []));
   const pickItems = request.picks?.items ?? [];
@@ -58,6 +80,17 @@ function InputDialog({ request }: { request: InputRequest }) {
   const secondError = request.second?.validate?.(second.trim()) ?? null;
   const empty = value.trim() === "" || (!!request.second && !request.second.optional && second.trim() === "") || (!!request.picks && picked.size === 0);
   const invalid = !!error || !!secondError;
+  // Pourquoi « Créer » (…) est grisé : un champ vide, ou rien de coché.
+  const why = !empty
+    ? null
+    : value.trim() === ""
+      ? t("dialog.fill", { label: request.label })
+      : request.picks && picked.size === 0
+        ? t("dialog.pickOne")
+        : request.second
+          ? t("dialog.fill", { label: request.second.label })
+          : null;
+  const mono = request.mono ? "mono" : undefined;
 
   return (
     <div className="overlay">
@@ -65,8 +98,11 @@ function InputDialog({ request }: { request: InputRequest }) {
         className="dialog input-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dlg-title"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={request.subtitle ? `${id}-sub` : undefined}
         ref={ref}
+        onKeyDown={(e) => trapTab(e, ref.current)}
+        onChange={() => setEdited(true)}
         onSubmit={(e) => {
           e.preventDefault();
           setTouched(true);
@@ -79,13 +115,18 @@ function InputDialog({ request }: { request: InputRequest }) {
           });
         }}
       >
-        <h2 id="dlg-title">{request.title}</h2>
-        {request.subtitle && <p className="mono">{request.subtitle}</p>}
+        <h2 id={`${id}-title`}>{request.title}</h2>
+        {request.subtitle && (
+          <p id={`${id}-sub`} className="mono">
+            {request.subtitle}
+          </p>
+        )}
         <label className="input-field">
           <span>{request.label}</span>
           <input
             autoFocus
             type={request.secret ? "password" : "text"}
+            className={mono}
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
@@ -94,11 +135,11 @@ function InputDialog({ request }: { request: InputRequest }) {
             spellCheck={false}
             autoComplete="off"
             aria-invalid={touched && !!error}
-            aria-describedby={touched && error ? "dlg-error" : undefined}
+            aria-describedby={touched && error ? `${id}-error` : undefined}
           />
         </label>
         {touched && error && (
-          <p id="dlg-error" className="input-error" role="alert">
+          <p id={`${id}-error`} className="input-error" role="alert">
             {error}
           </p>
         )}
@@ -107,6 +148,7 @@ function InputDialog({ request }: { request: InputRequest }) {
             <span>{request.second.label}</span>
             <input
               type="text"
+              className={mono}
               value={second}
               placeholder={request.second.placeholder}
               onChange={(e) => {
@@ -116,11 +158,12 @@ function InputDialog({ request }: { request: InputRequest }) {
               spellCheck={false}
               autoComplete="off"
               aria-invalid={touched && !!secondError}
+              aria-describedby={touched && !error && secondError ? `${id}-error2` : undefined}
             />
           </label>
         )}
         {touched && !error && secondError && (
-          <p className="input-error" role="alert">
+          <p id={`${id}-error2`} className="input-error" role="alert">
             {secondError}
           </p>
         )}
@@ -154,7 +197,9 @@ function InputDialog({ request }: { request: InputRequest }) {
                         })
                       }
                     />
-                    <span className="mono pick-label">{i.label}</span>
+                    <span className="mono pick-label" title={i.label}>
+                      {i.label}
+                    </span>
                     {i.hint && <span className="muted pick-hint">{i.hint}</span>}
                   </label>
                 </li>
@@ -169,10 +214,15 @@ function InputDialog({ request }: { request: InputRequest }) {
           </label>
         )}
         <div className="dialog-actions">
+          {why && (
+            <span id={`${id}-why`} className="dialog-why">
+              {why}
+            </span>
+          )}
           <button type="button" className="btn" onClick={() => answer(null)}>
             {t("confirm.cancel")}
           </button>
-          <button type="submit" className="btn primary" disabled={empty || (touched && invalid)}>
+          <button type="submit" className="btn primary" disabled={empty || (touched && invalid)} aria-describedby={why ? `${id}-why` : undefined}>
             {request.submit}
           </button>
         </div>

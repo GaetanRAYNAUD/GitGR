@@ -94,8 +94,8 @@ export function StagingPanel({ path }: { path: string }) {
         { label: t("staging.resolved"), disabled: busy, onClick: () => w.stage(path, [f]) },
       ];
     const items: MenuItem[] = [
-      { label: t("staging.stage"), disabled: busy, onClick: () => w.stage(path, [f]) },
-      { label: t("staging.discard"), danger: true, disabled: busy, onClick: () => void askDiscard([f]) },
+      { label: t("staging.stage"), disabled: busy, keys: { label: t("keys.space"), aria: "Space" }, onClick: () => w.stage(path, [f]) },
+      { label: t("staging.discard"), danger: true, disabled: busy, keys: { label: t("keys.delete"), aria: "Delete" }, onClick: () => void askDiscard([f]) },
       stashItem(f),
     ];
     if (f.status === "?") {
@@ -112,10 +112,10 @@ export function StagingPanel({ path }: { path: string }) {
     const count = files.length;
     if (kind === "conflicted") return [{ label: t("staging.resolvedFiles", { count }), disabled: busy, onClick: () => w.stage(path, files) }];
     const stash: MenuItem = { label: t("staging.stashFiles"), disabled: busy, onClick: () => void askStash(files) };
-    if (kind === "staged") return [{ label: t("staging.unstageFiles", { count }), disabled: busy, onClick: () => w.unstage(path, files) }, stash];
+    if (kind === "staged") return [{ label: t("staging.unstageFiles", { count }), disabled: busy, keys: { label: t("keys.space"), aria: "Space" }, onClick: () => w.unstage(path, files) }, stash];
     return [
-      { label: t("staging.stageFiles", { count }), disabled: busy, onClick: () => w.stage(path, files) },
-      { label: t("staging.discardFilesMenu", { count }), danger: true, disabled: busy, onClick: () => void askDiscard(files) },
+      { label: t("staging.stageFiles", { count }), disabled: busy, keys: { label: t("keys.space"), aria: "Space" }, onClick: () => w.stage(path, files) },
+      { label: t("staging.discardFilesMenu", { count }), danger: true, disabled: busy, keys: { label: t("keys.delete"), aria: "Delete" }, onClick: () => void askDiscard(files) },
       stash,
     ];
   };
