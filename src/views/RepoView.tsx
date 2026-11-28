@@ -590,15 +590,14 @@ export function RepoView({ path }: { path: string }) {
   const recentMenu = async () => {
     const el = recentRef.current;
     if (!el) return;
-    let log: ReflogEntry[] = [];
-    try {
-      log = await api.reflog(path, "HEAD");
-    } catch {
+    // Reflog et refs lus ensemble : le menu peut s'ouvrir avant que le graphe ait ses refs.
+    const [log, refs] = await Promise.all([
       // Pas de reflog lisible : le menu le dit (aucune branche récente).
-    }
+      api.reflog(path, "HEAD").catch((): ReflogEntry[] => []),
+      useGraph.getState().graphs[path]?.refs ?? api.repoRefs(path).catch(() => null),
+    ]);
     // Onglet changé ou vue fermée pendant la lecture : plus de menu à ouvrir.
     if (!el.isConnected || useApp.getState().active !== path) return;
-    const refs = useGraph.getState().graphs[path]?.refs;
     const locals = (refs?.refs ?? []).filter((r) => r.kind === "local").map((r) => r.short);
     const names = recentBranches(log, locals, refs?.headBranch ?? null);
     const why = useOps.getState().running[path] ? t("repo.busy") : operation ? t("repo.blockedBy", { op: t(`op.${operation}`) }) : undefined;
