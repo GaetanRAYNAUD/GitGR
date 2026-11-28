@@ -247,8 +247,10 @@ test.describe("dépôt propre", () => {
     await expect(page.locator(".commit-drag-ghost")).toHaveText("2 commits");
     await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
     await page.mouse.up();
-    await menu(page).getByRole("menuitem", { name: "Cherry-pick des 2 commits sur fix/ssh-agent (checkout de fix/ssh-agent d’abord)" }).click();
-    await expect(current(page)).toHaveText("fix/ssh-agent");
+    await menu(page).getByRole("menuitem", { name: "Cherry-pick des 2 commits sur fix/ssh-agent" }).click();
+    // Sans changer de branche : la copie de travail ne bouge pas.
+    await expect(page.getByRole("status").filter({ hasText: "2 commits cherry-pickés sur fix/ssh-agent, sans quitter la branche courante." })).toBeVisible();
+    await expect(current(page)).toHaveText("main");
 
     // Un simple clic sur un commit de la sélection ne garde que lui.
     await rows.nth(4).click();

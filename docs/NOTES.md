@@ -254,6 +254,7 @@ Compléments et retours d'utilisation, par thème.
 - **Rebase interactif visuel** (étape 10) : `rebase.rs` (`plan` : commits après la base, du plus ancien au plus récent, refus des merges, marque « poussé » ; `run_rebase` : liste écrite par GitGR et copiée par `GIT_SEQUENCE_EDITOR=cp '<liste>'`, reword par `exec git commit --amend -F` — l'identité injectée passe par `GIT_CONFIG_PARAMETERS` —, refus nommés : tout retiré, réunir le premier, plan changé, message vide ; conflits comme un rebase ordinaire), `lib/rebasePlan.ts`, `RebaseView` (au centre ; P / R / S / F / D, Suppr, Alt+↑ / ↓, glisser-déposer, message saisi sur place, résumé, avertissement et confirmation pour les commits poussés), entrées au clic droit d'un commit et d'une branche.
 - **Signatures** (étape 5) : `tag.gpgSign` injecté avec la signature du profil (tag léger créé avec `tag.gpgSign=false`, sinon git en ferait un tag annoté et ouvrirait un éditeur) ; `commit_signature` (GPG / SSH lu dans l'objet, état par `%G?`, signataire, clé) affiché dans les détails d'un commit.
 - **Blame : la ligne gardée** (étape 10) : `BlameTarget.line`, « Blame avant ce commit » ramène le numéro de la ligne à la version d'avant par le diff du commit (`lib/lineMap.ts`, `lineBefore`), « Blame à ce commit » garde le numéro donné par git ; ligne active et centrée à l'ouverture.
+- **Cherry-pick sans checkout** (étape 4) : `cherry_pick_to_branch` (arbre par `git merge-tree --write-tree --merge-base=<parent>`, commit par `commit-tree` avec l'auteur et le message d'origine, branche avancée d'un coup par `update-ref` avec l'ancienne valeur ; commits déjà présents sautés) ; `needs_checkout` pour un conflit, un merge, un commit racine, la branche courante ou extraite dans un autre worktree, et l'interface repasse alors par le checkout. Annulable par Ctrl+Z (refs notées par `exec`).
 
 ## Reste à faire
 
@@ -262,7 +263,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 ### Étape 4 — branches et réseau
 
 - [ ] **Menu contextuel d'une branche** (rebase interactif sur cette branche, créer un worktree : faits, cf. « Fait ») ; reste : « Créer un worktree depuis » en sous-menu.
-- [ ] **Glisser-déposer un commit sur une branche** (fait, cf. « Fait ») : cherry-pick sur une autre branche **sans** checkout quand c'est possible (aujourd'hui : checkout d'abord). La sélection de plusieurs commits glissée d'un coup est faite.
 - [ ] **Clic droit sur un fichier** : éditeur choisi dans les réglages (l'historique du fichier est fait, cf. « Fait »).
 - [ ] Progression des commandes réseau et délai maximal (une invite SSH dans un terminal bloquerait la commande).
 
