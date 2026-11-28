@@ -451,3 +451,34 @@ test("copier le diff d'une modification en cours au clic droit (non indexé, ind
   await page.getByRole("menuitem", { name: "Copier le diff" }).click();
   await expect.poll(clip).toMatch(/^diff --git a\/\S+ b\/\S+\n/);
 });
+
+test("résolution de conflit : copier un côté, la version commune ou le résultat en l'état", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const clip = async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n");
+  await addConflict(page, "conflit.txt");
+  await page.keyboard.press("F5");
+  const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+  await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "conflit.txt" }).click();
+  const view = page.getByRole("region", { name: "Résolution du conflit de conflit.txt" });
+  const copyBtn = view.getByRole("button", { name: "Copier", exact: true });
+  const menu = page.getByRole("menu", { name: "Copier" });
+
+  // Au clavier : le menu s'ouvre sous le bouton (une fois le focus mis d'office dans le premier
+  // conflit).
+  await expect(view.getByRole("group", { name: /^Conflit 1 \/ 2/ }).getByRole("textbox")).toBeFocused();
+  await copyBtn.focus();
+  await page.keyboard.press("Enter");
+  await menu.getByRole("menuitem", { name: "Notre branche" }).click();
+  await expect(page.getByText("Copié dans le presse-papiers : Notre branche.")).toBeVisible();
+  expect(await clip()).toBe(VERSIONS.ours);
+
+  await copyBtn.click();
+  await menu.getByRole("menuitem", { name: "Version commune" }).click();
+  expect(await clip()).toBe(VERSIONS.base);
+
+  // Le résultat tel qu'il est : la modification de l'autre côté seule appliquée d'office, les
+  // conflits sur la version commune.
+  await copyBtn.click();
+  await menu.getByRole("menuitem", { name: /^Résultat/ }).click();
+  expect(await clip()).toBe(VERSIONS.base + "// ajout\n");
+});
