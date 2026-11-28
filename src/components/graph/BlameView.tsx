@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
+import { lineBefore } from "../../lib/lineMap";
 import { errorMessage } from "../../lib/errors";
 import { commitDate } from "../../lib/format";
 import type { Blame, BlameCommit } from "../../lib/types";
@@ -75,8 +76,14 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
     if (blame && blame.lines.length > 0 && !focused.current) {
       focused.current = true;
       gridRef.current?.focus({ preventScroll: true });
+      // Arrivé depuis une ligne (« Blame avant ») : la même ligne, dans cette version.
+      if (target.line) {
+        const n = Math.max(0, Math.min(target.line - 1, blame.lines.length - 1));
+        setActive(n);
+        requestAnimationFrame(() => document.getElementById(`blame-l-${n}`)?.scrollIntoView({ block: "center" }));
+      }
     }
-  }, [blame]);
+  }, [blame, target.line]);
 
   const commits = useMemo(() => new Map((blame?.commits ?? []).map((c) => [c.sha, c])), [blame]);
   // Âge relatif de chaque commit (0 : le plus ancien du fichier, 1 : le plus récent), pour la
@@ -104,27 +111,47 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
     setMissing(null);
     if (!uncommitted(c.sha)) useGraph.getState().select(path, c.sha);
   };
-  const items = (c: BlameCommit): MenuItem[] => [
+  /** Blame au commit d'avant celui de la ligne `row`, sur la même ligne : son numéro dans ce
+   *  commit, ramené à la version d'avant par le diff du commit. */
+  const blameBefore = async (c: BlameCommit, row: number) => {
+    if (!c.previous) return;
+    const prev = c.previous;
+    const at = lines[row]?.orig;
+    const cur = c.filename || file;
+    let line = at;
+    if (at) {
+      try {
+        const d = await api.commitDiff(path, c.sha, cur, prev.filename !== cur ? prev.filename : null);
+        line = lineBefore(d, at);
+      } catch {
+        // Diff illisible : le même numéro, à peu près.
+      }
+    }
+    useBlameView.getState().show(path, { file: prev.filename, rev: prev.sha, historyFile, line }, here);
+  };
+  /** `row` : ligne d'où vient le menu ; « Blame à ce commit / avant » y amène (son numéro dans
+   *  ce commit-là, celui que git donne pour la ligne). */
+  const items = (c: BlameCommit, row: number): MenuItem[] => [
     { label: t("reflog.showInGraph"), onClick: () => reveal(c.sha) },
     {
       label: t("blame.atCommit"),
       disabled: rev === c.sha,
       title: rev === c.sha ? t("blame.atCommitSame") : undefined,
-      onClick: () => useBlameView.getState().show(path, { file: c.filename || file, rev: c.sha, historyFile }, here),
+      onClick: () => useBlameView.getState().show(path, { file: c.filename || file, rev: c.sha, historyFile, line: lines[row]?.orig }, here),
     },
     {
       label: t("blame.before"),
       disabled: !c.previous,
       title: c.previous ? t("blame.beforeHint", { sha: c.previous.sha.slice(0, 7) }) : t("blame.beforeNone"),
-      onClick: () => c.previous && useBlameView.getState().show(path, { file: c.previous.filename, rev: c.previous.sha, historyFile }, here),
+      onClick: () => void blameBefore(c, row),
     },
     "sep",
     ...commitMenu(t, path, c.sha, refs),
   ];
-  const menu = (ev: React.MouseEvent, c: BlameCommit) => {
+  const menu = (ev: React.MouseEvent, c: BlameCommit, row: number) => {
     if (uncommitted(c.sha)) return;
     useGraph.getState().select(path, c.sha);
-    openContextMenu(ev, items(c));
+    openContextMenu(ev, items(c, row));
   };
 
   /** Ligne `i` active, et visible. */
@@ -161,7 +188,7 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
     } else if ((e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) && c && !uncommitted(c.sha)) {
       useGraph.getState().select(path, c.sha);
       const box = document.getElementById(`blame-l-${at}`)?.querySelector(".blame-commit")?.getBoundingClientRect();
-      if (box) useContextMenu.getState().open(box.left + 12, box.bottom, items(c));
+      if (box) useContextMenu.getState().open(box.left + 12, box.bottom, items(c, at));
     } else handled = false;
     if (handled) e.preventDefault();
   };
@@ -237,7 +264,7 @@ export function BlameView({ path, target }: { path: string; target: BlameTarget 
                       onDoubleClick={() => c && !mine && reveal(c.sha)}
                       onContextMenu={(ev) => {
                         setActive(i);
-                        if (c) menu(ev, c);
+                        if (c) menu(ev, c, i);
                       }}
                     >
                       {start && c && (

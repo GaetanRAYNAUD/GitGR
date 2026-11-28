@@ -138,6 +138,8 @@ export interface BlameTarget {
   rev: string | null;
   /** Chemin dont montrer l'historique (le chemin actuel, quand `file` est un ancien nom). */
   historyFile?: string;
+  /** Ligne à montrer à l'ouverture (1 = la première) : celle qu'on regardait avant. */
+  line?: number;
 }
 
 /** Blame ouvert à la place du graphe, un par dépôt. */
