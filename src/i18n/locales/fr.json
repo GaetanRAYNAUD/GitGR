@@ -594,6 +594,55 @@
       "unknown": "Clé publique absente (GPG) ou signataires autorisés non configurés (SSH : gpg.ssh.allowedSignersFile)."
     }
   },
+  "ci": {
+    "label": "Exécutions de CI",
+    "title": "Exécutions de CI (Actions, pipelines)",
+    "forge": "Forge",
+    "branch": "Branche",
+    "allBranches": "Toutes les branches",
+    "stateFilter": "État",
+    "filter": {
+      "all": "Toutes",
+      "failure": "En échec",
+      "running": "En cours"
+    },
+    "refresh": "Relire",
+    "keys": "↑ ↓ choisir · Entrée : ouvrir sur la forge · Maj+Entrée : le commit dans le graphe · Maj+F10 : actions",
+    "noForge": "Aucun remote GitHub ou GitLab connu pour ce dépôt.",
+    "noAccount": "Pas de compte pour {{remote}} : connectez-en un dans les profils.",
+    "empty": "Aucune exécution.",
+    "emptyFilter": "Aucune exécution dans cet état.",
+    "list": "Exécutions, la plus récente d’abord",
+    "pipeline": "Pipeline #{{id}}",
+    "open": "Ouvrir sur la forge",
+    "showCommit": "Montrer le commit dans le graphe",
+    "retry": "Relancer les jobs en échec",
+    "retryWhy": "Rien à relancer : l’exécution n’a pas échoué.",
+    "retried": "{{name}} : jobs en échec relancés.",
+    "notInGraph": "Ce commit n’est pas dans l’historique des branches locales.",
+    "branchMenu": "Voir ses exécutions de CI",
+    "branchMenuHint": "GitHub Actions ou pipelines GitLab de cette branche",
+    "state": {
+      "success": "Réussie",
+      "failure": "En échec",
+      "running": "En cours",
+      "pending": "En attente",
+      "canceled": "Annulée",
+      "skipped": "Sautée",
+      "manual": "Manuelle",
+      "neutral": "Neutre"
+    },
+    "events": {
+      "push": "push",
+      "pull_request": "PR",
+      "merge_request_event": "MR",
+      "schedule": "planifiée",
+      "workflow_dispatch": "à la main",
+      "web": "à la main",
+      "api": "API",
+      "trigger": "déclencheur"
+    }
+  },
   "graphFind": {
     "fileMenu": "Mettre en avant ses commits dans le graphe",
     "fileMenuHint": "Les commits de toutes les branches qui le modifient ; les autres sont estompés",

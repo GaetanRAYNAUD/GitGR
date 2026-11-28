@@ -21,6 +21,7 @@ pub mod askpass;
 pub mod credential;
 mod avatars;
 mod bisect;
+mod ci;
 mod branches;
 mod clone;
 mod commands;
@@ -131,6 +132,8 @@ pub fn run() {
             commands::range_diff,
             commands::compare_files,
             commands::reflog,
+            commands::ci_runs,
+            commands::ci_retry,
             commands::file_commits,
             commands::cherry_pick_to_branch,
             commands::commit_signature,

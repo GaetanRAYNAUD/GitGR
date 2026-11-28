@@ -124,6 +124,7 @@ import type {
   StashChanges,
   StashEntry,
   ConflictVersions,
+  CiRun,
   CommitSignature,
   RebasePlan,
   RebaseStep,
@@ -365,6 +366,10 @@ export interface Api {
   remoteDefaultBranch(kind: ProviderKind, url: string, repo: string, account: string | null): Promise<string>;
   /** Crée la PR / MR, ou renvoie celle qui existe déjà pour ces branches (`existing`). */
   createPull(kind: ProviderKind, url: string, account: string | null, request: NewPull): Promise<Pull>;
+  /** Dernières exécutions de CI du dépôt (`branch` : seulement celle-là). */
+  ciRuns(kind: ProviderKind, url: string, account: string | null, repo: string, branch: string | null): Promise<CiRun[]>;
+  /** Relance les jobs en échec d'une exécution. */
+  ciRetry(kind: ProviderKind, url: string, account: string | null, repo: string, id: number): Promise<void>;
   /** Commits de la release d'un tag (depuis le tag précédent). */
   releaseDraft(path: string, tag: string): Promise<ReleaseDraft>;
   /** Crée la release d'un tag déjà poussé, avec le compte donné. */
@@ -601,6 +606,8 @@ const tauriApi: Api = {
   pullDraft: (path, source, target, kind) => invoke("pull_draft", { path, source, target, kind }),
   remoteDefaultBranch: (kind, url, repo, account) => invoke("remote_default_branch", { kind, url, repo, account }),
   createPull: (kind, url, account, request) => invoke("create_pull", { kind, url, account, request }),
+  ciRuns: (kind, url, account, repo, branch) => invoke("ci_runs", { kind, url, account, repo, branch }),
+  ciRetry: (kind, url, account, repo, id) => invoke("ci_retry", { kind, url, account, repo, id }),
   releaseDraft: (path, tag) => invoke("release_draft", { path, tag }),
   createRelease: (kind, url, account, request) => invoke("create_release", { kind, url, account, request }),
   cachedPullOptions: (kind, url, repo) => invoke("cached_pull_options", { kind, url, repo }),
@@ -1420,6 +1427,20 @@ const mockApi: Api = {
     mockReleases.push({ kind, ...request });
     const url = kind === "github" ? `https://github.com/${request.repo}/releases/tag/${request.tag}` : `https://gitlab.com/${request.repo}/-/releases/${request.tag}`;
     return { url, warnings: kind === "gitlab" && request.draft ? ["release_draft_unsupported"] : [] };
+  },
+  async ciRuns(_kind, _url, account, _repo, branch) {
+    await mockDelay();
+    if (!account) throw "account_missing";
+    const now = Math.floor(Date.now() / 1000);
+    const all: CiRun[] = [
+      { id: 301, name: "CI", title: "fix: correctif local pas encore poussé", state: "running", branch: "main", sha: "8a3c45c0000000000000000000000000000000aa", event: "push", url: "https://ci.exemple/301", created: now - 120, updated: now - 30 },
+      { id: 300, name: "CI", title: "feat(graph): rendu canvas virtualisé", state: "failure", branch: "feature/graph-rendering", sha: "238d75b0000000000000000000000000000000bb", event: "pull_request", url: "https://ci.exemple/300", created: now - 3600, updated: now - 3500 },
+      { id: 299, name: "Nuit", title: null, state: "success", branch: "main", sha: "0e79b4f0000000000000000000000000000000cc", event: "schedule", url: "https://ci.exemple/299", created: now - 86400, updated: now - 86000 },
+    ];
+    return branch ? all.filter((r) => r.branch === branch) : all;
+  },
+  async ciRetry() {
+    await mockDelay();
   },
   async createPull(kind, url, account, request) {
     if (!account) throw "account_missing";

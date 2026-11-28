@@ -11,7 +11,7 @@ import { useGraph } from "../../store/graph";
 import { changedCount, useWork } from "../../store/worktree";
 import { useDialogs } from "../../store/dialogs";
 import { usePullList } from "../../store/pullList";
-import { closeCenterViews, useBlameView, useConflictView, useFileHistoryView, useRebaseView } from "../../store/range";
+import { closeCenterViews, useCiView, useBlameView, useConflictView, useFileHistoryView, useRebaseView } from "../../store/range";
 import { useGraphFind } from "../../store/graphFind";
 import { defaultRemote, useOps } from "../../store/ops";
 import { useBisect } from "../../store/bisect";
@@ -94,6 +94,9 @@ function tipItems(t: TFunction, path: string, r: GitRef, refs: RefsInfo | null):
   const isHead = r.kind === "local" && r.short === refs?.headBranch;
   return [
     { label: t("menu.newBranch"), onClick: () => ops.newBranch(path, r.name, r.short) },
+    ...(r.kind !== "tag" && refs?.remotes.length
+      ? [{ label: t("ci.branchMenu"), title: t("ci.branchMenuHint"), onClick: () => useCiView.getState().show(path, r.kind === "remote" ? r.short.slice(r.short.indexOf("/") + 1) : r.short) }]
+      : []),
     {
       label: t("worktrees.newMenu"),
       title: isHead ? t("worktrees.headWhy") : t("worktrees.newHint"),

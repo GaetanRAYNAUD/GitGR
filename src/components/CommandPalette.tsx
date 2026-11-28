@@ -20,7 +20,7 @@ import { useOps } from "../store/ops";
 import { useProfiles } from "../store/profiles";
 import { usePublishDialog } from "../store/publish";
 import { usePullDialog } from "../store/pulls";
-import { useReflogView, useSearchView } from "../store/range";
+import { useCiView, useReflogView, useSearchView } from "../store/range";
 import { useWork } from "../store/worktree";
 import { Icon } from "./Icon";
 import { useQuickOpen } from "./QuickOpen";
@@ -99,6 +99,7 @@ export function buildCommands(t: TFunction): Command[] {
       cmd("authorFilter", t("authorFilter.byAuthorButton"), r, () => useGraphFind.getState().showAuthors(path, [])),
       cmd("searchChanges", t("palette.searchChanges"), r, () => useSearchView.getState().show(path)),
       cmd("reflog", t("palette.reflog"), r, () => useReflogView.getState().show(path, "HEAD")),
+      cmd("ci", t("ci.title"), r, () => useCiView.getState().show(path, null), noRemote ? t("palette.noRemote") : null),
       cmd("createPull", t("palette.createPull"), r, () => usePullDialog.getState().show(path), noRemote ? t("palette.noRemote") : null),
     );
     if (useBisect.getState().states[path]) list.push(cmd("bisectStop", t("palette.bisectStop"), r, () => void ops.bisectReset(path), busy));
