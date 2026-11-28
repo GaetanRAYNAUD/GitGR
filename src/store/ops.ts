@@ -12,6 +12,7 @@ import { create } from "zustand";
 import i18n from "../i18n";
 import { api, type BisectVerdict, errorCode } from "../lib/api";
 import { useBisect } from "./bisect";
+import { useConflictView } from "./range";
 import { AUTOSTASH_PREFIX, validBranchName, validRemoteName } from "../lib/branchName";
 import { errorMessage } from "../lib/errors";
 import { remoteProfile } from "../lib/profiles";
@@ -208,6 +209,7 @@ export const useOps = create<OpsStore>((set, get) => {
       set((s) => ({ running: { ...s.running, [path]: name } }));
       // État avant, relu à l'instant (pas celui de l'interface, qui peut dater).
       const before = label ? await api.repoRefs(path).then(snapshot, () => null) : null;
+      const opBefore = useWork.getState().repos[path]?.status?.operation ?? null;
       let out: Outcome<T>;
       try {
         out = { ok: true, value: await fn() };
@@ -218,7 +220,15 @@ export const useOps = create<OpsStore>((set, get) => {
         await useApp.getState().refreshRepo(path);
         const refs = useGraph.getState().graphs[path]?.refs;
         // Arrêtée sur des conflits (rebase en cours…) : rien de stable à annuler.
-        const pending = !!useWork.getState().repos[path]?.status?.operation;
+        const status = useWork.getState().repos[path]?.status;
+        const pending = !!status?.operation;
+        // Vient de s'arrêter sur des conflits (merge, rebase, cherry-pick…) : la résolution du
+        // premier fichier s'ouvre d'office.
+        if (!opBefore && pending && status?.conflicted.length && !useConflictView.getState().open[path]) {
+          useGraph.getState().closeDiff(path);
+          useWork.getState().closeDiff(path);
+          useConflictView.getState().show(path, status.conflicted[0].path);
+        }
         if (label && before && refs && !pending) {
           const after = snapshot(refs);
           if (!unchanged(before, after)) useUndo.getState().record(path, { label, before, after, soft: false });

@@ -649,6 +649,14 @@
     "deletedRemote": "Tag {{tag}} retiré de {{remote}} (s’il y était)."
   },
   "conflict": {
+    "whole": {
+      "binary": "Fichier binaire en conflit : gardez l’une des deux versions.",
+      "deletedOurs": "Supprimé de « {{ours}} », modifié dans « {{theirs}} » : gardez la version modifiée ou confirmez la suppression.",
+      "deletedTheirs": "Modifié dans « {{ours}} », supprimé de « {{theirs}} » : gardez la version modifiée ou confirmez la suppression.",
+      "keep": "Garder : {{side}}",
+      "takeDeletion": "Supprimer (comme {{side}})",
+      "delete": "Supprimer le fichier"
+    },
     "label": "Résolution du conflit de {{file}}",
     "title": "Résoudre {{file}}",
     "open": "Résoudre",
@@ -1327,6 +1335,7 @@
     "accountNone": "Aucun compte {{provider}} connecté pour ce profil"
   },
   "errors": {
+    "not_conflicted": "Ce fichier n’est plus en conflit.",
     "branch_in_worktree": "Cette branche est déjà extraite dans un autre worktree : ouvrez-le, ou choisissez une autre branche.",
     "worktree_dir_exists": "Ce dossier existe déjà et n’est pas vide.",
     "worktree_dirty": "Le worktree a des modifications.",

@@ -417,3 +417,25 @@ test("zone de commit : identité réelle, bouton grisé focalisable avec sa rais
   await expect(commit).not.toHaveAttribute("aria-disabled", "true");
   await expect(commit).toHaveAccessibleDescription("Ctrl+Entrée pour commiter.");
 });
+
+test("conflit binaire puis fichier supprimé d'un côté : réglés en gardant une version", async ({ page }) => {
+  for (const f of ["logo.png", "supprime.txt"])
+    await page.evaluate(([repo, file]) => (window as unknown as { __mockConflict: MockConflict }).__mockConflict(repo, file, ""), [REPO, f] as const);
+  await page.keyboard.press("F5");
+  const panel = page.getByRole("complementary", { name: "Modifications en cours" });
+  await panel.getByRole("listbox", { name: "Conflits" }).getByRole("option").filter({ hasText: "logo.png" }).click();
+
+  const view = page.getByRole("region", { name: "Résolution du conflit de logo.png" });
+  await expect(view).toContainText("Fichier binaire en conflit : gardez l’une des deux versions.");
+  await expect(view.getByRole("img", { name: "Notre branche" })).toBeVisible();
+  await expect(view.locator(".bin-label").first()).toHaveText("Notre branche");
+  await view.getByRole("button", { name: "Garder : Branche fusionnée" }).click();
+
+  // Fichier suivant : supprimé de l'autre côté.
+  const next = page.getByRole("region", { name: "Résolution du conflit de supprime.txt" });
+  await expect(next).toContainText("supprimé de « Branche fusionnée »");
+  await expect(next.getByRole("button", { name: "Supprimer le fichier" })).toHaveCount(0);
+  await next.getByRole("button", { name: "Supprimer (comme Branche fusionnée)" }).click();
+  await expect(next).toHaveCount(0);
+  await expect(panel.getByRole("listbox", { name: "Conflits" })).toHaveCount(0);
+});

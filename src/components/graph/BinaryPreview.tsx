@@ -27,7 +27,7 @@ export function formatSize(bytes: number, lang: string, units: [string, string, 
 
 type Loaded = { old: BlobPreview | null; new: BlobPreview | null };
 
-export function BinaryPreview({ sides }: { sides: BinarySides }) {
+export function BinaryPreview({ sides, labels }: { sides: BinarySides; labels?: [string, string] }) {
   const { t, i18n } = useTranslation();
   const [state, setState] = useState<{ key: string; data?: Loaded; error?: string } | null>(null);
   const [mode, setMode] = useState<"side" | "fade">("side");
@@ -97,7 +97,7 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
     return (
       <figure className="bin-side">
         <figcaption>
-          <span className="bin-label">{t(which === "old" ? "binary.before" : "binary.after")}</span>
+          <span className="bin-label">{labels ? labels[which === "old" ? 0 : 1] : t(which === "old" ? "binary.before" : "binary.after")}</span>
           {b && (
             <span className="muted">
               {d ? `${d[0]} × ${d[1]} px · ` : ""}
@@ -115,7 +115,7 @@ export function BinaryPreview({ sides }: { sides: BinarySides }) {
           ) : (
             <img
               src={b.data!}
-              alt={t(which === "old" ? "binary.beforeAlt" : "binary.afterAlt")}
+              alt={labels ? labels[which === "old" ? 0 : 1] : t(which === "old" ? "binary.beforeAlt" : "binary.afterAlt")}
               onLoad={(e) => {
                 const img = e.currentTarget;
                 setDims((x) => ({ ...x, [which]: [img.naturalWidth, img.naturalHeight] }));

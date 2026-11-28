@@ -18,6 +18,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as KeyEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorCode } from "../../lib/api";
+import type { ConflictSides } from "../../lib/types";
+import { BinaryPreview } from "./BinaryPreview";
 import { moveLines, parseConflicts, sideDiff } from "../../lib/conflicts";
 import { errorMessage } from "../../lib/errors";
 import {
@@ -247,6 +249,34 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
   const fileIndex = files.indexOf(file);
   const otherFile = (dir: 1 | -1) => files[(fileIndex + dir + files.length) % files.length];
 
+  /** Fichier réglé : le suivant dans l'ordre de la liste (annoncé en haut de sa vue), sinon
+   *  retour au graphe. */
+  const afterResolved = async () => {
+    await useApp.getState().refreshRepo(path);
+    await useWork.getState().refresh(path);
+    const left = (useWork.getState().repos[path]?.status?.conflicted ?? []).map((f) => f.path).filter((p) => p !== file);
+    const next = left.find((p) => files.indexOf(p) > fileIndex) ?? left[0];
+    if (next) {
+      justSaved = file;
+      show(path, next);
+    } else {
+      useApp.getState().notify(t("conflict.saved", { file }));
+      back();
+    }
+  };
+  /** Conflit binaire ou fichier supprimé d'un côté : réglé en entier (une version, ou supprimer). */
+  const resolveWhole = async (choice: "ours" | "theirs" | "delete") => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.resolveConflictWith(path, file, choice);
+      await afterResolved();
+    } catch (e) {
+      setSaveError(errorCode(e));
+      setSaving(false);
+    }
+  };
+  const whole = error === "conflict_binary" || error === "conflict_deleted";
   const ready = !!data && conflictsLeft + changesLeft === 0 && !saving;
   const save = async () => {
     if (!data || conflictsLeft + changesLeft > 0 || saving) return;
@@ -254,18 +284,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
     setSaveError(null);
     try {
       await api.resolveConflict(path, file, composeMerged(data.chunks, states, data.eol, data.finalEol));
-      await useApp.getState().refreshRepo(path);
-      await useWork.getState().refresh(path);
-      const left = (useWork.getState().repos[path]?.status?.conflicted ?? []).map((f) => f.path).filter((p) => p !== file);
-      // Fichier suivant dans l'ordre de la liste (annoncé en haut de sa vue), sinon retour au graphe.
-      const next = left.find((p) => files.indexOf(p) > fileIndex) ?? left[0];
-      if (next) {
-        justSaved = file;
-        show(path, next);
-      } else {
-        useApp.getState().notify(t("conflict.saved", { file }));
-        back();
-      }
+      await afterResolved();
     } catch (e) {
       setSaveError(errorCode(e));
       setSaving(false);
@@ -610,7 +629,17 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
         )}
         <span className="conflict-head-gap" />
       </header>
-      {error ? (
+      {whole ? (
+        <WholeConflict
+          path={path}
+          file={file}
+          binary={error === "conflict_binary"}
+          names={[oursName, theirsName]}
+          busy={saving}
+          saveError={saveError}
+          onChoose={(c) => void resolveWhole(c)}
+        />
+      ) : error ? (
         <p className="details-note" role="alert">
           {errorMessage(t, error)}
         </p>
@@ -651,7 +680,7 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
           </div>
         </>
       )}
-      <footer className="conflict-foot">
+      {!whole && <footer className="conflict-foot">
         <button className="btn sm" disabled={!data} onClick={() => void acceptSide("ours")} title={t("conflict.acceptHint", { side: oursLabel })}>
           {t(`conflict.sides.${sk}.acceptOurs`)}
         </button>
@@ -668,8 +697,85 @@ export function ConflictView({ path, file }: { path: string; file: string }) {
         <button className="btn sm primary" disabled={!ready} onClick={() => void save()} title={ready ? `${t("conflict.save")} (Ctrl+S)` : status}>
           {t("conflict.save")}
         </button>
-      </footer>
+      </footer>}
 
     </section>
+  );
+}
+
+/** Conflit qu'on ne règle pas ligne à ligne : fichier binaire (aperçu des deux images, ou leur
+ *  taille) ou supprimé d'un côté. On garde une version, ou on supprime le fichier. */
+function WholeConflict({
+  path,
+  file,
+  binary,
+  names,
+  busy,
+  saveError,
+  onChoose,
+}: {
+  path: string;
+  file: string;
+  binary: boolean;
+  names: [string, string];
+  busy: boolean;
+  saveError: string | null;
+  onChoose: (choice: "ours" | "theirs" | "delete") => void;
+}) {
+  const { t } = useTranslation();
+  const [sides, setSides] = useState<ConflictSides | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.conflictSides(path, file).then(
+      (s) => live && setSides(s),
+      (e) => live && setError(errorCode(e)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [path, file]);
+  if (error) return <p className="details-note" role="alert">{errorMessage(t, error)}</p>;
+  if (!sides) return <p className="muted pull-pad" role="status">{t("details.loading")}</p>;
+  const [ours, theirs] = names;
+  const what =
+    sides.ours === null && sides.theirs !== null
+      ? t("conflict.whole.deletedOurs", { ours, theirs })
+      : sides.theirs === null && sides.ours !== null
+        ? t("conflict.whole.deletedTheirs", { ours, theirs })
+        : t("conflict.whole.binary");
+  const keepLabel = (side: "ours" | "theirs") => {
+    const name = side === "ours" ? ours : theirs;
+    return (side === "ours" ? sides.ours : sides.theirs) === null ? t("conflict.whole.takeDeletion", { side: name }) : t("conflict.whole.keep", { side: name });
+  };
+  return (
+    <div className="whole-conflict">
+      <p className="details-note">{what}</p>
+      {saveError && (
+        <p className="notice error conflict-error" role="alert">
+          <Icon name="alert" size={14} />
+          <span>{errorMessage(t, saveError)}</span>
+        </p>
+      )}
+      {binary && (
+        <BinaryPreview
+          sides={{ path, old: sides.ours === null ? null : { rev: ":2", file }, new: sides.theirs === null ? null : { rev: ":3", file } }}
+          labels={[ours, theirs]}
+        />
+      )}
+      <div className="whole-conflict-actions">
+        <button className="btn sm" disabled={busy} onClick={() => onChoose("ours")}>
+          {keepLabel("ours")}
+        </button>
+        <button className="btn sm" disabled={busy} onClick={() => onChoose("theirs")}>
+          {keepLabel("theirs")}
+        </button>
+        {sides.ours !== null && sides.theirs !== null && (
+          <button className="btn sm" disabled={busy} onClick={() => onChoose("delete")}>
+            {t("conflict.whole.delete")}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

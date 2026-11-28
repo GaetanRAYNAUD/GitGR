@@ -164,7 +164,7 @@ export function mockDetails(path: string, sha: string): CommitDetails {
  *  de la version (`rev` : commit, `""` index, `null` copie de travail). */
 export function mockBlobPreview(side: BlobSide): BlobPreview | null {
   if (!side.file.endsWith(".png")) return side.file.endsWith(".bin") ? { size: 2048, mime: null, data: null } : null;
-  const parent = side.rev?.endsWith("^") ?? false;
+  const parent = (side.rev?.endsWith("^") ?? false) || side.rev === ":2";
   const w = parent ? 64 : 96;
   const fill = parent ? "#3b82f6" : "#f97316";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="64"><rect x="8" y="8" width="${w - 16}" height="48" rx="8" fill="${fill}"/></svg>`;

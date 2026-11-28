@@ -380,6 +380,13 @@ export interface FileDiff {
   fingerprint: string;
 }
 
+/** Versions d'un fichier en conflit présentes dans l'index (tailles ; `null` : absente). */
+export interface ConflictSides {
+  base: number | null;
+  ours: number | null;
+  theirs: number | null;
+}
+
 /** Un worktree du dépôt (src-tauri/src/worktrees.rs). */
 export interface Worktree {
   path: string;

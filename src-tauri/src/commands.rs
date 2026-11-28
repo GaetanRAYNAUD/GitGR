@@ -462,6 +462,19 @@ pub async fn prune_worktrees(path: String) -> Result<(), String> {
     crate::worktrees::prune(Path::new(&path))
 }
 
+/// Versions d'un fichier en conflit présentes dans l'index (tailles), pour un conflit binaire
+/// ou un fichier supprimé d'un côté.
+#[tauri::command]
+pub async fn conflict_sides(path: String, file: String) -> Result<worktree::ConflictSides, String> {
+    worktree::conflict_sides(Path::new(&path), &file)
+}
+
+/// Résout un conflit en entier : `ours`, `theirs` ou `delete`.
+#[tauri::command]
+pub async fn resolve_conflict_with(path: String, file: String, choice: String) -> Result<(), String> {
+    worktree::resolve_conflict_with(Path::new(&path), &file, &choice)
+}
+
 #[tauri::command]
 pub async fn checkout_detached(path: String, sha: String, auto_stash: bool) -> Result<OpResult, String> {
     branches::checkout_detached(Path::new(&path), &sha, auto_stash)
