@@ -368,22 +368,35 @@ export function branchDropMenu(t: TFunction, path: string, source: GitRef, targe
     if (source.short !== head && !(await ops.checkout(path, source.short))) return;
     await ops.rebaseOnto(path, target);
   };
-  const pulls = source.short === head ? pullItems(t, path, target, refs) : [];
-  return [
-    { label: t("menu.mergeInto", { source: source.short, branch: target.short }), disabled: !!why, title: why ?? first(target.short), onClick: () => void merge() },
-    { label: t("menu.rebaseOnto", { branch: source.short, onto: target.short }), disabled: !!why, title: why ?? first(source.short), onClick: () => void rebase() },
-    ...(pulls.length ? (["sep", ...pulls] as MenuItem[]) : []),
-  ];
+  // Une branche distante ne se modifie pas ici : on fusionne une distante dans une locale, on
+  // rebase une locale sur une distante (dans les deux sens du glisser).
+  const rebaseLocal = async () => {
+    if (target.short !== head && !(await ops.checkout(path, target.short))) return;
+    await ops.rebaseOnto(path, source);
+  };
+  const pulls = source.kind === "local" && source.short === head ? pullItems(t, path, target, refs) : [];
+  const items: MenuItem[] = [];
+  if (target.kind === "local")
+    items.push({ label: t("menu.mergeInto", { source: source.short, branch: target.short }), disabled: !!why, title: why ?? first(target.short), onClick: () => void merge() });
+  if (source.kind === "local")
+    items.push({ label: t("menu.rebaseOnto", { branch: source.short, onto: target.short }), disabled: !!why, title: why ?? first(source.short), onClick: () => void rebase() });
+  else if (target.kind === "local")
+    items.push({ label: t("menu.rebaseOnto", { branch: target.short, onto: source.short }), disabled: !!why, title: why ?? first(target.short), onClick: () => void rebaseLocal() });
+  if (pulls.length) items.push(...(items.length ? (["sep"] as MenuItem[]) : []), ...pulls);
+  return items;
 }
 
-/** Glisser une branche locale (étiquette du graphe, barre latérale) sur une autre : menu
- *  merge / rebase / PR au dépôt (cf. `branchDropMenu`). */
+/** Glisser une branche (locale ou distante : étiquette du graphe, barre latérale) sur une autre :
+ *  menu merge / rebase / PR au dépôt (cf. `branchDropMenu`). */
 export function startBranchDrag(e: React.MouseEvent, t: TFunction, path: string, source: GitRef) {
   startCommitDrag(e, source.short, (drop) => {
     if (drop.ref === source.name) return;
     const refs = useGraph.getState().graphs[path]?.refs ?? null;
-    const target = refs?.refs.find((x) => x.name === drop.ref && x.kind === "local");
-    if (target) useContextMenu.getState().open(drop.x, drop.y, branchDropMenu(t, path, source, target, refs));
+    const target = refs?.refs.find((x) => x.name === drop.ref && x.kind !== "tag");
+    // Deux distantes : rien à faire ici.
+    if (!target || (target.kind === "remote" && source.kind === "remote")) return;
+    const items = branchDropMenu(t, path, source, target, refs);
+    if (items.length) useContextMenu.getState().open(drop.x, drop.y, items);
   });
 }
 

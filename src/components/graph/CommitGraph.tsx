@@ -402,8 +402,8 @@ function Chip({
       title={title}
       onDoubleClick={r ? () => checkoutRef(path, r, refs) : undefined}
       onContextMenu={r ? (e) => openContextMenu(e, refMenu(t, path, r, refs)) : undefined}
-      onMouseDown={r?.kind === "local" ? (e) => startBranchDrag(e, t, path, r) : undefined}
-      data-drop-ref={r?.kind === "local" ? r.name : undefined}
+      onMouseDown={r && r.kind !== "tag" ? (e) => startBranchDrag(e, t, path, r) : undefined}
+      data-drop-ref={r && r.kind !== "tag" ? r.name : undefined}
     >
       {mark && chip.kind !== "tag" && <RemoteMark mark={mark} size={13} className="chip-mark" />}
       {chip.current && <Icon name="check" size={12} />}
