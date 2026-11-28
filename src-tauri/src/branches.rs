@@ -115,6 +115,27 @@ pub fn merge_message(path: &Path) -> Option<String> {
     (!msg.is_empty()).then_some(msg)
 }
 
+/// Lance une commande qui peut créer des commits (merge, rebase, cherry-pick, revert,
+/// `--continue`). Si git s'arrête parce que gpg-agent n'était pas prêt (cf.
+/// `is_transient_gpg_error`), l'opération reste en cours, sans conflit : elle est poursuivie
+/// (`--continue`) deux fois au plus, une seconde d'écart, avant de rendre l'erreur.
+pub(crate) fn run_signing(path: &Path, args: &[&str], env: &[(&str, &str)]) -> Result<String, String> {
+    let mut res = run_env(Some(path), args, env);
+    for _ in 0..2 {
+        match &res {
+            Err(e) if crate::signing::is_transient_gpg_error(e) => {}
+            _ => break,
+        }
+        let Some(op) = operation(path) else { break };
+        if has_conflicts(path) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        res = run_env(Some(path), &[op, "--continue"], &[("GIT_EDITOR", "true")]);
+    }
+    res
+}
+
 /// Annule l'opération en cours (retour à l'état d'avant).
 pub fn abort_operation(path: &Path) -> Result<(), String> {
     check_dir(path)?;
@@ -134,7 +155,7 @@ pub fn continue_operation(path: &Path) -> Result<OpResult, String> {
         return Err("unresolved_conflicts".into());
     }
     // Pas d'éditeur : le message d'origine est repris tel quel.
-    let res = run_env(Some(path), &[op, "--continue"], &[("GIT_EDITOR", "true")]);
+    let res = run_signing(path, &[op, "--continue"], &[("GIT_EDITOR", "true")]);
     match res {
         Ok(_) => Ok(OpResult::default()),
         // Le commit suivant du rebase est lui aussi en conflit.
@@ -667,7 +688,7 @@ fn check_branch_ref(path: &Path, full: &str) -> Result<(), String> {
 /// reste en cours. Arrêt sans conflit (signature refusée, hook…) : annulée, erreur de git rendue
 /// (comme pour le pull).
 fn run_stoppable(path: &Path, args: &[&str]) -> Result<OpResult, String> {
-    match run_env(Some(path), args, &[("GIT_EDITOR", "true")]) {
+    match run_signing(path, args, &[("GIT_EDITOR", "true")]) {
         Ok(_) => Ok(OpResult::default()),
         Err(_) if operation(path).is_some() && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
         Err(e) if operation(path).is_some() => match abort_operation(path) {
@@ -1028,7 +1049,7 @@ pub fn squash(path: &Path, shas: &[String], message: &str, allow_pushed: bool, a
             .map(|_| OpResult::default())
             .map_err(|e| classify(&e));
     }
-    with_autostash(path, auto_stash, &label, || match run_env(Some(path), &["rebase", "-q", "--onto", &new, tip], &[("GIT_EDITOR", "true")]) {
+    with_autostash(path, auto_stash, &label, || match run_signing(path, &["rebase", "-q", "--onto", &new, tip], &[("GIT_EDITOR", "true")]) {
         Ok(_) => Ok(OpResult::default()),
         Err(_) if operation(path) == Some("rebase") && has_conflicts(path) => Ok(OpResult { conflicts: true, ..Default::default() }),
         Err(e) => Err(classify(&e)),
@@ -1132,7 +1153,7 @@ fn apply_commits(path: &Path, verb: &'static str, shas: &[String], auto_stash: b
     with_autostash(path, auto_stash, &label, || {
         let mut args = vec![verb, "--no-edit"];
         args.extend(shas.iter().map(String::as_str));
-        let mut res = run_env(Some(path), &args, &editor);
+        let mut res = run_signing(path, &args, &editor);
         // Au plus un « skip » par commit : jamais de boucle sans fin.
         for _ in 0..=shas.len() {
             match res {
@@ -1143,7 +1164,7 @@ fn apply_commits(path: &Path, verb: &'static str, shas: &[String], auto_stash: b
                 // Le commit est déjà sur la branche (ou déjà annulé) : vide, sauté. Tout autre
                 // arrêt (signature, hook…) reste en cours, à finir ou annuler par l'utilisateur.
                 Err(e) if operation(path) == Some(verb) && (e.contains("is now empty") || e.contains("nothing to commit")) => {
-                    res = run_env(Some(path), &[verb, "--skip"], &editor)
+                    res = run_signing(path, &[verb, "--skip"], &editor)
                 }
                 // Un seul commit, déjà là : git s'arrête sans rien laisser en cours.
                 Err(e) if operation(path).is_none() && !sequencer(path) && (e.contains("is now empty") || e.contains("nothing to commit")) => {
@@ -1249,6 +1270,45 @@ mod tests {
         commit_file(a.path(), "f.txt", "1\n");
         git(a.path(), &["push", "-q", "-u", "origin", "main"]);
         (remote, a)
+    }
+
+    /// gpg factice qui échoue au premier appel (agent pas prêt), puis signe.
+    fn flaky_gpg(dir: &Path) -> PathBuf {
+        let script = dir.join("gpg.sh");
+        let count = dir.join("count");
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\nif [ ! -f '{c}' ]; then : > '{c}'; echo 'gpg: signing failed: Inappropriate ioctl for device' >&2; exit 2; fi\ncat > /dev/null\necho '[GNUPG:] SIG_CREATED D 1 8 00 0 X' >&2\necho '-----BEGIN PGP SIGNATURE-----'\necho 'x'\necho '-----END PGP SIGNATURE-----'\n",
+                c = count.display()
+            ),
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        script
+    }
+
+    #[test]
+    fn cherry_pick_goes_on_when_gpg_agent_was_not_ready() {
+        let repo = temp_repo();
+        let p = repo.path();
+        commit_file(p, "a.txt", "1\n");
+        run(Some(p), &["switch", "-q", "-c", "autre"]).unwrap();
+        commit_file(p, "b.txt", "b\n");
+        let b = run(Some(p), &["rev-parse", "HEAD"]).unwrap();
+        run(Some(p), &["switch", "-q", "main"]).unwrap();
+        let tools = tempfile::tempdir().unwrap();
+        let gpg = flaky_gpg(tools.path());
+        for (k, v) in [("commit.gpgSign", "true"), ("user.signingKey", "X"), ("gpg.program", gpg.to_str().unwrap())] {
+            run(Some(p), &["config", k, v]).unwrap();
+        }
+        assert_eq!(cherry_pick(p, &[b], false).unwrap(), OpResult::default());
+        assert_eq!(operation(p), None);
+        assert_eq!(run(Some(p), &["show", "HEAD:b.txt"]).unwrap(), "b");
     }
 
     #[test]

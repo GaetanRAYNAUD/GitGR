@@ -267,6 +267,7 @@ Compléments et retours d'utilisation, par thème.
 - **Équipes GitHub relectrices** (étape 6) : `fetch_options` ajoute les équipes du dépôt (`/repos/{o}/{r}/teams`, sans erreur sans droit) comme `@org/équipe` ; à la création, elles partent dans `team_reviewers` (nom court) et ne sont jamais proposées comme assignées.
 - **Palette : commit sélectionné et récentes** (étape 8) : les actions du clic droit du commit sélectionné dans le graphe (groupe « Commit abc1234 », grisées avec leur raison) ; sans recherche, les 5 dernières commandes lancées en tête (`localStorage`, `withRecentFirst`).
 - **Worktrees dans le graphe** (étape 9) : l'étiquette d'une branche extraite dans un autre worktree porte une icône de dossier, son infobulle dit où, et le double-clic ouvre ce worktree dans un onglet (au lieu d'un checkout que git refuserait).
+- **Signature GPG qui échoue au premier essai, opérations** (étape 5) : `run_signing` — merge, rebase (simple, interactif, squash), cherry-pick, revert et « Continuer » : si git s'arrête parce que gpg-agent n'était pas prêt, l'opération (restée en cours, sans conflit) est poursuivie par `--continue` deux fois au plus, une seconde d'écart.
 
 ## Reste à faire
 
@@ -282,7 +283,6 @@ Par étape (cf. §7 du cadrage). Les limites connues de ce qui est fait sont not
 
 - [ ] **Où garder les secrets (phrases de passe des clés, tokens, autres mots de passe)** : au choix, le **trousseau du système** (comme aujourd'hui, retrouvé au redémarrage) ou **la mémoire de l'application seulement** (jamais écrit sur le disque, oublié à la fermeture : redemandé à chaque lancement, au premier usage). Réglage global, avec éventuellement une exception par secret. Tant qu'il n'est pas configuré, l'app **demande le choix au premier usage** (première phrase de passe ou premier token saisi), avec une explication courte des deux options. À prévoir : l'askpass (`askpass.rs`) lit aujourd'hui le trousseau — en mémoire, il faudra que le processus principal lui donne la phrase (canal local, jamais une variable d'environnement ni un fichier) ; un trousseau indisponible (Linux sans Secret Service) propose d'office la mémoire.
 - [ ] Signature des tags et vérification dans les détails d'un commit (faits, cf. « Fait ») ; reste : vérification dans le graphe (marque par ligne : coûteux, `%G?` lance gpg pour chaque commit — à faire en arrière-plan, sur les lignes visibles), signataires autorisés SSH (`gpg.ssh.allowedSignersFile`) proposés depuis les profils.
-- [ ] **Signature GPG qui échoue au premier essai** (fait pour le commit : réessai deux fois après 1 s si l'erreur n'est ni une clé introuvable, ni une saisie annulée, et `gpgconf --launch gpg-agent` dès qu'une identité signe en GPG) ; reste : le même réessai pour les commits faits par cherry-pick / revert / merge / rebase (l'opération reste en cours : relancer `--continue`).
 
 ### Étape 6 — providers
 
