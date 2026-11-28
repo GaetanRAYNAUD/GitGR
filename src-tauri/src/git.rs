@@ -117,6 +117,9 @@ pub fn repo_key(path: &Path) -> String {
 
 /// Remplace toutes les identités (clés : [`repo_key`]).
 pub fn set_identities(map: HashMap<String, Identity>) {
+    if map.values().any(|id| matches!(id.signing, Signing::Gpg(_))) {
+        crate::signing::launch_agent_once();
+    }
     *IDENTITIES.write().unwrap() = map;
 }
 
